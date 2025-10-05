@@ -4,8 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { apiGet, apiLogin, apiMe } from '@/lib/api';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-const DASHBOARD_URL =
-  process.env.NEXT_PUBLIC_CLIENT_DASHBOARD_URL || '/client-dashboard';
+
 
 // ------------ Types & helpers ------------
 type Values = Record<string, string | number | boolean | null | undefined>;
@@ -141,7 +140,7 @@ function shiftMonthISO(iso: string, delta: number): string {
 // ------------ Component ------------
 
 export default function BookingFlow({ businessId }: { businessId: string }) {
-  const router = useRouter();
+  const _router = useRouter();
 
   // Modals
   const [showConfirm, setShowConfirm] = useState(false);

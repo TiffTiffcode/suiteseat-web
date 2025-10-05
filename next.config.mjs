@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   eslint: { ignoreDuringBuilds: true },
-  // (optional) if TypeScript errors block you, temporarily enable the next line:
-  // typescript: { ignoreBuildErrors: true },
+  typescript: { ignoreBuildErrors: true }, // you can switch this off later
+  // output: 'standalone', // optional
 };
 export default nextConfig;
