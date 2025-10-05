@@ -1,0 +1,717 @@
+:root{
+  --g1:#ffbf4d;   /* gold   */
+  --g2:#ff6a6a;   /* coral  */
+  --g3:#ff4d9d;   /* pink   */
+  --btn-bg:#ecedf1; /* inner bg (dark). Change for light themes */
+  --ring: rgba(255, 109, 109, .35);
+}
+
+/* pill container with gradient border using double backgrounds */
+.pill-outline{
+  --radius: 9999px;
+  --pad-y: .55rem;
+  --pad-x: 1.05rem;
+
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  padding: var(--pad-y) var(--pad-x);
+  border-radius: var(--radius);
+  border: 2px solid transparent;
+  background:
+    linear-gradient(var(--btn-bg), var(--btn-bg)) padding-box,
+    linear-gradient(135deg, var(--g1), var(--g2) 55%, var(--g3)) border-box;
+  cursor: pointer;
+  user-select: none;
+color:rgb(15, 15, 15);
+  /* type */
+  font-weight: 800;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+
+  /* motion/shine */
+  transition: transform .06s ease, box-shadow .25s ease, filter .25s ease;
+  box-shadow: 0 1px 0 rgba(0,0,0,.05), 0 8px 18px rgba(0,0,0,.14);
+}
+
+/* gradient text */
+.pill-label{
+  background: linear-gradient(135deg, var(--g1), var(--g2) 55%, var(--g3));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  line-height: 1;
+}
+
+/* icon inherits gradient via currentColor trick */
+.pill-icon{
+  width: 1.1em; height: 1.1em;
+  color: transparent;
+  background: linear-gradient(135deg, var(--g1), var(--g2) 55%, var(--g3));
+  -webkit-background-clip: text;
+  background-clip: text;
+  flex: 0 0 auto;
+}
+
+/* hover/focus/active */
+.pill-outline:hover{
+  transform: translateY(-1px);
+  box-shadow:
+    0 0 12px rgba(255,191,77,.25),
+    0 0 22px rgba(255,77,157,.25),
+    0 10px 20px rgba(0,0,0,.18);
+  filter: saturate(1.1);
+}
+.pill-outline:active{ transform: translateY(0); }
+
+.pill-outline:focus-visible{
+  outline: none;
+  box-shadow:
+    0 0 0 4px var(--ring),
+    0 8px 18px rgba(0,0,0,.14);
+}
+
+/* disabled state */
+.pill-outline[disabled]{
+  opacity:.55; cursor:not-allowed; filter:grayscale(.2);
+}
+
+/* size tweaks */
+.pill-outline.pill-sm{ --pad-y:.4rem; --pad-x:.85rem; font-size: .9rem; }
+.pill-outline.pill-lg{ --pad-y:.75rem; --pad-x:1.25rem; font-size: 1.05rem; }
+
+
+.simple-btn
+{
+    background-color: white;
+  border: 2px solid #EFB37C;
+  color: rgb(17, 17, 17);
+  padding: 4px 14px;
+  text-align: center;
+  text-decoration: none;
+  display: inline-block;
+  font-size: 12px;
+  border-radius:4px;
+  margin:5px;
+   box-shadow: 0 8px 16px 0 rgba(0,0,0,0.2), 0 6px 20px 0 rgba(0,0,0,0.19);
+}
+
+.blk-btn:hover{
+  transform: translateY(-1px);
+  box-shadow:
+    0 0 12px rgba(255,191,77,.25),
+    0 0 22px rgba(255,77,157,.25),
+    0 10px 20px rgba(0,0,0,.18);
+  filter: saturate(1.1);
+}
+.blk-btn{
+    background-color: #0c0c0c;
+ 
+  color: #f1f0ee;
+  padding: 4px 14px;
+  text-align: center;
+  text-decoration: none;
+  display: inline-block;
+  font-size: 12px;
+  border-radius:4px;
+  margin:5px;
+}
+
+
+html, body {
+  height: 100%;
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden; /* optional: hides sideways scroll */
+}
+
+body {
+  overflow-y: auto;
+}
+.bottom-tab-bar {
+  margin-bottom: 20px;
+}
+
+main {
+  padding-bottom: 100px; /* adjust to make room for fixed footer */
+}
+
+/* Business-holder */
+.business-holder  {
+  padding: 10px; 
+}
+
+
+
+/* Header Styling */
+.header {
+    background: linear-gradient(90deg, #EFB37C 0%, #C5F2DA 100%);
+    padding: 20px;
+    text-align: left;
+    font-size: 24px;
+    color: black;
+    box-shadow: 0px 4px 11.2px 0px rgba(0, 0, 0, 0.25);
+  }
+  
+  .business-header
+  {margin-bottom:20px;
+     svg {
+    transform: translateY(5px) translateX(5px); /* Move the SVG down by 10px */
+     
+  }
+  
+  }
+
+  /* popup */
+
+.popup-add-business {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: white;
+  padding: 30px;
+  border-radius: 12px;
+  z-index: 1001;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  width: 90%;
+  max-width: 400px;
+  max-height: 80vh; /* NEW */
+  overflow-y: auto;  /* NEW */
+}
+
+
+#popup-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  display: none;
+}
+
+.popup-add-business .form-group {
+  margin-bottom: 15px;
+}
+
+.popup-add-business label {
+  font-weight: bold;
+  display: block;
+  margin-bottom: 5px;
+}
+
+.popup-add-business input,
+.popup-add-business select {
+  width: 100%;
+  padding: 8px;
+  border-radius: 5px;
+  border: 1px solid #ccc;
+}
+
+.spacer {
+  width: 100px; /* Adjust to match button width */
+}
+
+.business-section-header {
+  display: flex;
+  justify-content: flex-end; /* aligns close button to the right */
+  align-items: center;
+  padding: 20px 15px;
+  background-color: #EFB37C;
+  border-bottom: 1px solid #ddd;
+  position: relative;
+}
+
+.section-title {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  font-size: 20px;
+  font-weight: bold;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #000;
+}
+
+
+.button-center-wrapper {
+  text-align: center;
+}
+
+.orange-sign-up {
+  background-color: #efb37c;
+  color: black;
+  padding: 10px 20px;
+  border: none;
+  cursor: pointer;
+  border-radius: 10px;
+}
+.red-button {
+  background-color: #cf0303;
+  color: black;
+  padding: 10px 20px;
+  border: none;
+  cursor: pointer;
+  border-radius: 10px;
+}
+/* Prevent body from scrolling when popup is open */
+body.popup-open {
+  overflow: hidden;
+}
+
+                                            /* Date Header */
+.date-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 20px;
+
+  border-bottom: 1px solid #ddd;
+  background-color: #f9f9f9;
+}
+
+.date-header .left-section,
+.date-header .right-section {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  
+}
+
+.date-header .middle-section {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column; /* ⬅️ Stack vertically */
+  align-items: center;
+  text-align: center;
+  gap: 2px; /* optional space between the month and label */
+}
+
+#month-year {
+  font-size: 20px;
+  font-weight: bold;
+  margin: 0;
+}
+
+.date-header h6 {
+  margin: 0;
+  font-size: 14px;
+  color: #666;
+}
+#month-year {
+  font-size: 20px;
+  font-weight: bold;
+  color: black;
+  margin: 0;
+}
+
+/* ---------- date header: responsive ---------- */
+
+/* slightly tighten things on tablets */
+@media (max-width: 900px) {
+  .date-header { gap: 8px 12px; }
+  .date-header button { padding: 6px 10px; }
+  #month-year { font-size: 18px; }
+}
+
+/* phones: stack the layout */
+@media (max-width: 600px) {
+  .date-header {
+    flex-wrap: wrap;              /* allow wrapping */
+    padding: 8px 12px;
+    gap: 8px 12px;
+  }
+
+  /* month/year sits on its own full-width row */
+  .date-header .middle-section {
+    order: 0;
+    flex: 0 0 100%;
+    align-items: center;
+    text-align: center;
+  }
+
+  /* nav buttons on the left, action buttons on the right */
+  .date-header .left-section {
+    order: 1;
+    flex: 1 1 50%;
+    justify-content: flex-start;
+  }
+  .date-header .right-section {
+    order: 2;
+    flex: 1 1 50%;
+    justify-content: flex-end;
+  }
+
+  /* keep button text on one line and make them compact */
+  .date-header .right-section button,
+  .date-header .left-section  button {
+    white-space: nowrap;
+    padding: 6px 10px;
+  }
+}
+
+/* extra small screens: put the right section on its own row centered */
+@media (max-width: 380px) {
+  .date-header .right-section {
+    flex-basis: 100%;
+    justify-content: center;
+  }
+}
+/* center the month and put arrows on the same line */
+.date-header .middle-section{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  text-align:center;
+  gap:4px; /* space between month row and the sub-label */
+}
+
+.date-header .month-row{
+  display:flex;
+  align-items:center;
+  gap:12px;            /* space between ‹, month, › */
+}
+
+#month-year{
+  margin:0;
+  font-size:20px;
+  font-weight:700;
+}
+
+/* small round arrow buttons */
+.nav-btn{
+  width:34px;
+  height:34px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border:1px solid #ddd;
+  border-radius:50%;
+  background:#fff;
+  cursor:pointer;
+  line-height:1;
+  font-size:20px;
+}
+
+/* optional: responsive tweak */
+@media (max-width:600px){
+  #month-year{ font-size:18px; }
+  .nav-btn{ width:30px; height:30px; font-size:18px; }
+}
+
+ /* Calendar Grids  */
+ .time-slots-container {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr); /* 7 days */
+  flex: 1;
+  position: relative;
+  width: 100%; 
+  border-left: 1px solid #ccc;
+}
+
+.time-column {
+  position: relative;
+  height: 1440px; /* 24 hours * 60px */
+}
+
+
+.time-slot {
+  height: 15px;
+  position: relative;
+  box-sizing: border-box;
+}
+/* Default 15, 30, 45 minute marks: dotted light line */
+/* Light dotted lines for 15, 30, 45 minutes */
+.slot-15,
+.slot-30,
+.slot-45 {
+  border-top: 1px dotted #ddd;
+}
+/* Hour starts: thick solid line */
+.hour-start {
+  border-top: 2px solid #fff;  /* Darker line inside calendar */
+  background-color: #fafafa;   /* Optional: subtle striping */
+}
+.time-slot:hover {
+  background-color: #f0f0f0;
+}
+/* Thicker line on every hour (every 4th slot) */
+/* Every hour (0, 60, 120...) */
+.time-slot.hour-start {
+  border-top: 2px solid #D3D3D3;    /* darker and thicker line */
+  background-color: #fafafa;     /* optional: light shade for hour blocks */
+}
+.calendar-grid {
+  display: flex;
+  height: 1440px; /* Match 24 hours x 60px/hour */
+  margin-top: 10px;
+}
+
+
+.hour-column {
+  width: 60px;
+  font-size: 12px;
+  text-align: right;
+  padding-right: 8px;
+  border-right: 1px solid #ccc;
+  display: flex;
+  flex-direction: column;
+}
+
+
+.time-column {
+  border-right: 1px solid #ddd;
+  position: relative;
+}
+
+.hour-label {
+  height: 60px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  padding-top: 0px;
+  padding-right: 8px;
+  font-size: 12px;
+  
+  margin: 0;
+  box-sizing: border-box;
+}
+
+
+
+
+.week-days {
+  display: grid;
+  grid-template-columns: 60px repeat(7, 1fr); /* 60px for the hour labels column */
+  width: 100%;
+  box-sizing: border-box;
+  border-bottom: 1px solid #ccc;
+  background: #f9f9f9;
+}
+.day-column.empty {
+  background: transparent;
+  border-right: 1px solid #ccc;
+}
+
+
+.day-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  min-height: 40px;
+    padding: 0; /* Make sure there's no extra space */
+  margin: 0;
+  border-right: 1px solid #eee;
+}
+
+.day-date {
+  font-size: 12px;
+  color: #777;
+  margin-top: 4px;
+}
+.day-column {
+  border-right: 1px solid #eee;
+}
+.calendar-wrapper{
+  width: 100%;
+  max-height: none;     /* was 600px */
+  overflow: visible;    /* was overflow-y: scroll; overflow-x: auto */
+  padding-bottom: 100px;/* keep space for your fixed bottom tab bar */
+}
+
+
+/* Appointment*/
+.appointment-card {
+  position: absolute;
+   transition: transform .06s ease, box-shadow .2s ease, border-color .2s ease;
+  background: #efb47c30;
+  border: 1px solid #ccc;
+  font-size: 12px;
+  padding: 4px 6px;
+  box-sizing: border-box;
+  z-index: 5;
+    margin: 0;
+     overflow: hidden;
+}
+.appointment-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(0,0,0,.12);
+  border-color: #EFB37C;
+  background: #FFF6EC;
+}
+
+.clickable-client {
+  cursor: pointer;
+  padding: 8px;
+  border-bottom: 1px solid #eee;
+}
+.clickable-client:hover {
+  background-color: #f9f9f9;
+}
+
+#toggle-add-client-btn.no-background {
+  background: none;
+  border: none;
+  box-shadow: none;
+  color: #ff6600;
+  font-weight: bold;
+}
+
+
+.bottom-tab-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 65px;
+  background-color: white;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  border-top: 1px solid #ccc;
+  z-index: 999;
+}
+
+.tab-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-decoration: none;
+  color: black;
+  font-size: 12px;
+}
+
+.tab-item img {
+  width: 24px;
+  height: 24px;
+  display: block;
+  margin: 0 auto 3px;
+}
+
+.tab-item span {
+  display: block;
+  font-weight: 500;
+}
+
+.tab-item svg {
+  width: 35px;
+  height: 35px;
+  margin-bottom: 4px;
+}
+
+.tab-item.active {
+  color: orange; /* or whatever color you want */
+}
+
+.tab-item.active svg {
+  fill: orange; /* optional: makes the icon orange too */
+}
+
+.client-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.client-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.client-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.client-actions input[type="checkbox"] {
+  margin: 0;
+}
+
+.client-actions label.show-label {
+  font-weight: normal;
+  font-size: 14px;
+}
+
+#btn-new-client {
+  background-color: #EFB37C;
+  color: white;
+  font-size: 18px;
+  border: none;
+  padding: 2px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.client-actions button#btn-new-client {
+  background-color: #EFB37C;
+  color: white;
+  font-size: 18px;
+  border: none;
+  padding: 2px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+#new-client-fields,
+#appointment-client {
+  transition: all 0.3s ease;
+}
+
+.appt-card { padding: 10px; border: 1px solid #eee; border-radius: 10px; margin: 8px 0; background: #fff; }
+.appt-time { font-weight: 600; }
+.appt-client { margin-top: 2px; }
+.appt-services { margin: 6px 0 0; padding-left: 18px; }
+.appt-services li { margin: 2px 0; }
+.appointment-card .appt-time { white-space: nowrap; }      
+
+/* FIT-TO-WIDTH — no horizontal scrolling */
+.week-days{
+  /* hour column + 7 flexible day columns */
+  grid-template-columns: 60px repeat(7, minmax(0, 1fr));
+  min-width: 0;          /* allow shrink */
+}
+
+.calendar-grid{
+  width: 100%;
+  min-width: 0;          /* allow the flex child to shrink */
+}
+
+.time-slots-container{
+  /* 7 flexible day columns that can compress */
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  min-width: 0;
+}
+
+.hour-column{
+  width: 60px;           /* keep hour labels fixed */
+  flex: 0 0 60px;
+}
+
+/* If you added these earlier, neutralize them */
+.week-scroller{ overflow-x: visible; }
+.week-days, .calendar-grid{ min-width: 0 !important; }
+@media (max-width: 700px){
+  .day-column { font-size: 13px; }
+  .day-date   { font-size: 11px; }
+  .appointment-card{ font-size: 11px; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
+}
+
+
+
+
+/* or hide Delete globally */
+ #delete-appointment-btn { display: none !important; } 

@@ -1,0 +1,362 @@
+
+/* Home Page */
+/* Header Styling */
+.header {
+  background: linear-gradient(90deg, #EFB37C 0%, #C5F2DA 100%);
+  padding: 20px;
+  text-align: left;
+  font-size: 24px;
+  color: black;}
+
+
+.header-group-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: left; /* Fixed typo: changed 'aligh-items' to 'align-items' */
+}
+
+.group.left-group {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.header-right-group {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.pro-header {
+  font-size: 35px;
+  font-weight: bold;
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.client-header {
+  font-size: 35px;
+  font-weight: bold;
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+
+
+/* Client/Pro Toggles */
+.toggle-bar {
+  display: flex;
+  width: 100%;
+  max-width: 600px;
+  margin: 30px auto;
+  border: 2px solid #0088cc;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+ .popup-add-business {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: white;
+  border-radius: 10px;
+  padding: 20px;
+  width: 400px;
+  z-index: 1001;
+  max-height: 90vh; /* Limits height to 90% of the screen */
+  overflow-y: auto; /* Enables vertical scrolling if needed */
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+.popup-open .popup-overlay {
+  display: block;
+  position: fixed;
+  top: 0; left: 0;
+  width: 100vw; height: 100vh;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+}
+
+
+
+
+.business-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 15px;
+  background-color: #EFB37C;
+  border-bottom: 1px solid #ddd;
+  position: relative;
+}
+
+.spacer {
+  width: 100px; /* Adjust to match button width */
+}
+
+.form-group
+{text-align:left;
+padding:10px;}
+
+
+.section-title {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  font-size: 20px;
+  font-weight: bold;
+}
+
+/* prevent background from scrolling*/
+body.popup-open {
+  overflow: hidden;
+}
+
+
+.toggle-option {
+  flex: 1;
+  text-align: center;
+  padding: 15px 0;
+  font-weight: bold;
+  cursor: pointer;
+  background-color: #f2e8d7;
+  transition: background-color 0.3s, color 0.3s;
+}
+
+/* Selected/Active Style */
+.toggle-option.active {
+  background-color: #efb37c;
+  color: black;
+}
+
+/* Sections */
+.container {
+  max-width: 500px;
+  margin: 30px auto;
+  padding: 20px;
+}
+
+.auth-card {
+  background: #fff;
+  border-radius: 10px;
+  padding: 25px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.auth-card h2 {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.input-group {
+  margin-bottom: 15px;
+}
+
+.input-group label {
+  display: block;
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+.input-group input {
+  width: 100%;
+  padding: 10px;
+  border-radius: 5px;
+  border: 1px solid #ccc;
+}
+
+button[type="submit"] {
+  width: 100%;
+  padding: 12px;
+  background-color: #efb37c;
+  color: black;
+  border: none;
+  border-radius: 5px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+button[type="submit"]:hover {
+  background-color: #e1a369;
+}
+
+
+/* style "Already have an account text  */
+.switch-link {
+  margin-top: 1rem;
+  text-align: center;
+  font-size: 0.9rem;
+}
+
+.switch-link a {
+  color: #007bff;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+
+
+/* Client/Pro Toggles */
+
+
+/* Client/Pro Toggles */
+
+
+/* Client/Pro Toggles */
+
+/* Client/Pro Toggles */
+
+.input-group {
+  position: relative;
+  margin-top: 24px;
+    margin-bottom: 16px;
+    padding: 20px;
+}
+
+.input-group input {
+  width: 100%;
+  padding: 14px 12px;
+  font-size: 16px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  outline: none;
+  transition: border-color 0.3s;
+  background-color: white;
+}
+
+.input-group input:focus {
+  border-color: #EFB37C;
+}
+
+.input-group label {
+  position: absolute;
+  top: 14px;
+  left: 12px;
+  background-color: white;
+  padding: 0 4px;
+  color: #999;
+  font-size: 16px;
+  pointer-events: none;
+  transition: 0.2s ease all;
+}
+
+.input-group input:focus + label,
+.input-group input:not(:placeholder-shown) + label,
+.input-group input:valid + label {
+  top: -10px;
+  left: 10px;
+  font-size: 13px;
+  color: #EFB37C;
+}
+
+.password-note {
+  margin-top: 5px;
+  font-size: 12px;
+  color: #666;
+}
+
+/* Eye Icon Style */
+.eye-icon {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  cursor: pointer;
+  font-size: 18px;
+  color: #999;
+}
+
+
+
+#group-pro-log-in-form .input-group {
+  margin-bottom: 16px;
+}
+
+#group-pro-log-in-form button.auth-button {
+  margin-top: 20px;
+}
+
+#group-pro-log-in-form h5 {
+  margin-top: 16px;
+  font-size: 14px;
+}
+
+
+.client-button,
+.pro-button {
+padding: 10px 20px;
+border: none;
+background-color: #e0e0e0;
+color: #333;
+cursor: pointer;
+transition: background-color 0.3s;
+}
+
+.client-button.active,
+.pro-button.active {
+background-color: #4CAF50; /* change this to match your brand (e.g. pink or green) */
+color: white;
+font-weight: bold;
+}
+
+
+.site-details-right {
+  flex: 1; /* Makes sure the right section takes up equal space */
+  background: url('images/your-image.jpg') lightgray 50% / cover no-repeat; /* Add the correct path to your image */
+  height: 400px; /* Set a height for the background image */
+}
+
+
+/* Pricing buttons container */
+.pricing-details {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px; /* Adds space between the buttons */
+  padding: 20px;
+}
+
+button.freemium, button.dynamic, button.elite {
+  flex: 1;
+  padding: 20px;
+  color: white;
+  border: none;
+  cursor: pointer;
+}
+
+button.freemium h3, button.dynamic h3, button.elite h3 {
+  margin-bottom: 10px;
+}
+
+button.freemium h2, button.dynamic h2, button.elite h2 {
+  font-size: 18px;
+}
+.subheader {
+  margin-bottom: 20px;
+}
+
+/* Show and hide sections */
+.hidden-section {
+display: none;
+}
+
+.visible-section {
+display: block;
+}
+
+h5 {
+  text-align: center;
+  margin-top: 16px;
+  font-size: 14px;
+  color: #333;
+  cursor: pointer;
+}
+
+#showClientLogIn,
+#showClientSignUp,
+#showProLogIn,
+#showProSignUp {
+  cursor: pointer;
+  color: #007bff;
+  text-decoration: underline;
+}

@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Menu</title>
+  <link rel="stylesheet" href="/qassets/css/menu.css">
+</head>
+<body>
+  <header class="header">
+    <section class="header-group-container">
+      <div class="group left-group">Suite Seat</div>
+   <div class="group right-group" id="login-container">
+  <button id="open-login-popup-btn">Login</button>
+  <span id="login-status-text">Not logged in</span>
+  <button id="logout-btn" style="display: none;">Logout</button>
+</div>
+
+    </section>
+  </header>
+
+<div class="full-page">
+<!-- Desktop Menu -->
+<div id="desktop-menu" class="menu-grid">
+
+  <div class="menu-card" id="open-profile-settings" >
+     <span class="icons">
+    <svg version="1.0" xmlns="http://www.w3.org/2000/svg"  width="225.000000pt" height="225.000000pt" viewBox="0 0 225.000000 225.000000"  preserveAspectRatio="xMidYMid meet">  <g transform="translate(0.000000,225.000000) scale(0.100000,-0.100000)" fill="#000000" stroke="none"> <path d="M145 1896 c-39 -17 -70 -52 -90 -98 -13 -32 -15 -111 -15 -565 0 -491 2 -531 19 -568 22 -48 44 -69 94 -90 32 -13 153 -15 974 -15 900 0 940 1 980 19 26 12 52 35 70 62 l28 43 3 530 c2 359 0 543 -8 568 -13 44 -52 93 -91 113 -40 21 -1917 22 -1964 1z m1908 -107 c12 -7 25 -17 29 -23 4 -6 8 -244 8 -528 0 -505 -1 -519 -20 -538 -20 -20 -33 -20 -945 -20 -912 0 -925 0 -945 20 -19 19 -20 33 -20 539 l0 520 26 20 c27 21 31 21 936 21 666 0 915 -3 931 -11z"/> <path d="M615 1516 c-42 -19 -74 -52 -96 -100 -21 -47 -23 -67 -8 -119 23 -85 117 -146 201 -133 123 20 191 148 139 261 -22 48 -44 69 -94 90 -44 18 -102 19 -142 1z"/> <path d="M1250 1430 l0 -60 330 0 330 0 0 60 0 60 -330 0 -330 0 0 -60z"/> <path d="M1250 1170 l0 -60 330 0 330 0 0 60 0 60 -330 0 -330 0 0 -60z"/> <path d="M379 1077 c-61 -32 -89 -83 -89 -164 l0 -63 400 0 400 0 0 54 c0 30 -5 67 -11 83 -15 42 -68 92 -109 103 -19 5 -150 10 -291 10 -249 0 -257 -1 -300 -23z"/> <path d="M1250 905 l0 -65 330 0 330 0 0 65 0 65 -330 0 -330 0 0 -65z"/> </g> </svg> 
+    </span>
+    <h3>Profile</h3>
+    <p>Adjust your profile and service menu.</p>
+  </div>
+  <!-- repeat for Calendar, Marketing, etc. -->
+  <div class="menu-card"style="display: none">
+   <span class="icons calendar-icon">
+      <svg version="1.0" xmlns="http://www.w3.org/2000/svg"  width="300.000000pt" height="169.000000pt" viewBox="0 0 300.000000 169.000000"  preserveAspectRatio="xMidYMid meet">  <g transform="translate(0.000000,169.000000) scale(0.100000,-0.100000)" fill="#000000" stroke="none"> <path d="M1042 1558 c-7 -7 -12 -31 -12 -54 l0 -41 -82 -5 c-76 -5 -83 -7 -110 -37 l-28 -31 0 -581 0 -581 29 -29 29 -29 637 0 c417 0 643 4 656 10 49 27 49 30 49 632 0 430 -3 569 -13 588 -19 39 -72 60 -149 60 l-68 0 0 49 c0 52 -8 65 -34 55 -12 -4 -16 -20 -16 -55 l0 -49 -420 0 -420 0 0 43 c0 38 -13 67 -30 67 -3 0 -11 -5 -18 -12z m-12 -200 c0 -52 11 -71 36 -66 15 2 20 14 22 56 l3 52 419 0 419 0 3 -52 c3 -45 6 -53 23 -53 17 0 20 8 23 53 l3 52 73 0 c43 0 77 -5 84 -12 8 -8 12 -47 12 -110 l0 -98 -640 0 -640 0 0 98 c0 63 4 102 12 110 7 7 40 12 80 12 l68 0 0 -42z m1120 -678 c0 -424 -1 -440 -19 -450 -27 -14 -1215 -14 -1242 0 -18 10 -19 26 -19 450 l0 440 640 0 640 0 0 -440z"/> <path d="M1283 872 c-60 -24 -63 -27 -63 -60 0 -34 1 -34 33 -29 17 4 42 9 55 13 l22 6 0 -141 0 -141 -55 0 -55 0 0 -35 0 -35 145 0 145 0 0 34 c0 34 -1 35 -47 38 l-48 3 -3 188 -2 187 -33 -1 c-17 -1 -60 -13 -94 -27z"/> <path d="M1520 860 l0 -39 99 -3 98 -3 -73 -175 c-41 -96 -74 -178 -74 -182 0 -5 19 -8 43 -8 l43 0 77 188 c50 120 77 200 77 225 l0 37 -145 0 -145 0 0 -40z"/> </g> </svg> 
+    </span>
+    <h3>Calendar</h3>
+    <p>Adjust your profile and service menu.</p>
+  </div>
+<!-- repeat for Calendar, Marketing, etc. -->
+    <div class="menu-card"style="display: none">
+      <span class="icons">
+   <svg version="1.0" xmlns="http://www.w3.org/2000/svg"  width="225.000000pt" height="225.000000pt" viewBox="0 0 225.000000 225.000000"  preserveAspectRatio="xMidYMid meet">  <g transform="translate(0.000000,225.000000) scale(0.100000,-0.100000)" fill="#000000" stroke="none"> <path d="M935 2110 c-33 -13 -42 -29 -75 -146 -29 -101 -35 -113 -63 -126 -29 -14 -36 -12 -136 30 -98 41 -147 52 -170 38 -14 -9 -236 -288 -250 -314 -17 -32 -8 -54 70 -164 90 -129 89 -133 -53 -213 -59 -33 -112 -70 -119 -83 -15 -26 -9 -63 41 -282 20 -87 38 -142 50 -154 16 -16 41 -21 145 -28 114 -7 128 -10 145 -30 24 -29 24 -22 0 -156 -17 -92 -18 -116 -8 -138 10 -22 48 -44 187 -111 109 -52 186 -83 206 -83 30 0 43 11 117 95 112 128 116 128 233 0 76 -83 92 -95 120 -95 33 0 341 145 378 177 22 20 21 60 -2 185 -17 97 -17 98 3 123 20 24 28 26 150 34 111 6 131 10 145 28 9 11 36 106 61 212 53 233 56 223 -75 296 -50 28 -97 55 -106 60 -9 6 -19 24 -23 40 -5 26 4 44 64 129 51 72 70 107 70 130 0 24 -25 62 -116 176 -63 80 -123 151 -132 158 -28 21 -74 13 -175 -29 -83 -35 -103 -40 -130 -33 -29 9 -34 16 -55 84 -48 154 -56 174 -82 187 -29 15 -381 17 -415 3z m348 -255 c16 -55 33 -105 38 -112 17 -20 160 -83 188 -83 14 1 67 18 116 40 l90 40 33 -38 c18 -20 52 -61 74 -90 l41 -53 -49 -69 c-92 -132 -88 -120 -68 -202 29 -124 26 -120 132 -178 53 -29 98 -54 100 -55 1 -1 -9 -51 -24 -112 l-25 -110 -46 -7 c-25 -3 -75 -6 -111 -6 -65 0 -66 -1 -107 -45 -23 -24 -54 -63 -70 -85 l-28 -40 18 -104 c10 -57 15 -110 13 -118 -3 -8 -50 -34 -103 -58 l-97 -44 -81 87 -82 87 -97 0 -96 0 -50 -52 c-27 -29 -62 -68 -77 -85 -15 -18 -32 -33 -39 -33 -10 0 -195 85 -203 94 -2 1 6 51 17 109 10 59 16 115 13 124 -13 35 -114 151 -136 157 -12 3 -53 6 -92 7 -129 2 -125 -1 -151 114 -13 55 -24 105 -24 110 0 6 42 33 93 62 52 29 98 58 104 65 12 15 43 148 43 183 0 12 -29 63 -64 113 l-64 91 70 88 c38 48 71 89 72 90 2 2 45 -15 96 -37 52 -22 106 -40 122 -40 16 0 64 18 108 40 l79 40 21 72 c12 40 26 90 32 111 l11 38 116 -3 115 -3 29 -100z"/> <path d="M1023 1472 c-119 -43 -212 -145 -238 -262 -13 -57 -6 -157 16 -216 25 -66 100 -150 166 -186 179 -97 405 -24 495 160 30 61 33 74 33 162 0 76 -4 104 -22 143 -31 67 -115 152 -181 183 -76 36 -194 43 -269 16z m205 -161 c79 -41 116 -106 110 -197 -16 -246 -357 -257 -403 -13 -14 76 36 168 114 209 48 25 130 26 179 1z"/> </g> </svg> 
+    </span>
+    <h3>Account</h3>
+    <p>Adjust your profile and service menu.</p>
+  </div>
+
+
+</div>
+
+
+<div class="update-profile" style="display: none">
+  <button id="back-to-menu" class="back-button">← Back to Menu</button>
+
+
+  <form id="update-profile-form" enctype="multipart/form-data" class="profile-form">
+    
+   <div class="profile-image-wrapper">
+  <label for="user-profile-image" class="profile-photo-container">
+    <img id="current-profile-image" src="/uploads/default-avatar.png" alt="Profile Image" class="profile-photo" />
+    <span class="edit-icon">&#9998;</span> <!-- Pencil icon -->
+  </label>
+
+  <input type="file" id="user-profile-image" name="profilePhoto" accept="image/*" style="display: none;" />
+  <p id="no-profile-image-text" style="display: none;">No image uploaded yet.</p>
+</div>
+
+    <div class="input-group">
+      <label for="pro-first-name" class="form-label">First Name</label>
+      <input type="text" id="pro-first-name" name="firstName" class="form-input" required />
+    </div>
+
+    <div class="input-group">
+      <label for="pro-last-name" class="form-label">Last Name</label>
+      <input type="text" id="pro-last-name" name="lastName" class="form-input" required />
+    </div>
+
+    <div class="input-group">
+      <label for="pro-signup-email" class="form-label">Email</label>
+      <input type="email" id="pro-signup-email" name="email" class="form-input" required />
+    </div>
+
+    <div class="input-group">
+      <label for="update-phone-number" class="form-label">Phone Number</label>
+      <input type="text" id="update-phone-number" name="phone" class="form-input" required />
+    </div>
+
+    <button type="submit" class="auth-button update-button">Update</button>
+  </form>
+</div>
+
+
+</div>
+</div>
+
+
+
+<!-- Bottom Tab Bar -->
+<!-- Bottom Tab Bar -->
+<nav class="bottom-tab-bar">
+  <a href="business-settings.html" class="tab-item">
+   <svg version="1.0" xmlns="http://www.w3.org/2000/svg"  width="300.000000pt" height="169.000000pt" viewBox="0 0 300.000000 169.000000"  preserveAspectRatio="xMidYMid meet">  <g transform="translate(0.000000,169.000000) scale(0.100000,-0.100000)" fill="#000000" stroke="none"> <path d="M1118 1204 c-194 -163 -363 -304 -376 -314 -25 -20 -29 -48 -8 -56 9 -3 155 113 376 298 199 167 364 304 368 306 4 1 171 -135 371 -303 201 -168 369 -304 375 -302 40 13 -2 55 -361 355 -205 172 -377 312 -382 312 -5 0 -168 -133 -363 -296z"/> <path d="M1687 1473 c-4 -3 -7 -15 -7 -25 0 -16 10 -18 105 -18 l105 0 0 -97 c0 -103 8 -130 34 -120 24 9 24 252 0 261 -21 8 -229 8 -237 -1z"/> <path d="M915 880 c-3 -5 -6 -155 -5 -332 0 -242 4 -324 13 -330 6 -4 251 -8 543 -8 438 0 534 2 543 14 8 9 11 107 9 337 -3 316 -3 324 -23 324 -20 0 -20 -8 -23 -312 l-2 -313 -160 0 -160 0 0 164 c0 127 -3 166 -14 175 -9 8 -66 11 -182 9 l-169 -3 -3 -172 -2 -173 -163 0 -162 0 3 301 c2 220 0 304 -9 315 -13 16 -25 18 -34 4z m685 -470 l0 -150 -135 0 -135 0 0 150 0 150 135 0 135 0 0 -150z"/> </g> </svg> 
+
+    <span>Home</span>
+  </a>
+  <a href="calendar.html" class="tab-item">
+    <svg version="1.0" xmlns="http://www.w3.org/2000/svg"  width="300.000000pt" height="169.000000pt" viewBox="0 0 300.000000 169.000000"  preserveAspectRatio="xMidYMid meet">  <g transform="translate(0.000000,169.000000) scale(0.100000,-0.100000)" fill="#000000" stroke="none"> <path d="M1040 1556 c-6 -8 -10 -34 -9 -57 l3 -42 -83 -1 c-80 -1 -83 -2 -112 -34 l-29 -32 0 -581 0 -581 29 -29 29 -29 637 0 c417 0 643 4 656 10 49 27 49 30 49 632 0 430 -3 569 -13 588 -21 43 -72 62 -149 56 l-67 -5 -3 57 c-3 49 -6 57 -23 57 -17 0 -20 -8 -23 -55 l-3 -55 -419 0 -420 0 0 51 c0 38 -4 53 -16 58 -21 8 -20 8 -34 -8z m-5 -208 c0 -50 2 -53 25 -53 23 0 25 4 28 53 l3 52 419 0 419 0 3 -52 c3 -46 6 -53 26 -56 21 -3 22 0 22 52 l0 56 73 0 c43 0 78 -5 85 -12 8 -8 12 -48 12 -112 l0 -101 -642 2 -642 2 2 102 c1 71 5 105 14 111 7 4 45 8 83 8 l70 0 0 -52z m1115 -668 c0 -424 -1 -440 -19 -450 -13 -6 -228 -10 -629 -10 -506 0 -611 2 -621 14 -8 10 -12 140 -14 450 l-2 436 643 0 642 0 0 -440z"/> <path d="M1300 880 c-25 -10 -53 -21 -62 -24 -13 -4 -18 -16 -18 -45 l0 -40 48 14 c26 8 50 15 55 15 4 0 7 -63 7 -140 l0 -140 -55 0 -55 0 0 -37 0 -38 145 0 145 0 0 38 0 37 -51 0 -50 0 3 190 3 190 -35 -1 c-19 -1 -55 -9 -80 -19z m70 -57 c0 -25 -1 -26 -20 -8 -21 19 -18 35 6 35 9 0 14 -10 14 -27z"/> <path d="M1515 863 l3 -38 101 0 c56 0 101 -2 101 -5 0 -3 -36 -88 -80 -190 -43 -101 -78 -185 -77 -185 1 -1 23 0 48 3 l45 4 77 186 c50 121 77 200 77 225 l0 37 -148 0 -149 0 2 -37z"/> </g> </svg> 
+    <span>Calendar</span>
+  </a>
+  <a href="clients.html" class="tab-item">
+     <svg version="1.0" xmlns="http://www.w3.org/2000/svg"  width="300.000000pt" height="169.000000pt" viewBox="0 0 300.000000 169.000000"  preserveAspectRatio="xMidYMid meet">  <g transform="translate(0.000000,169.000000) scale(0.100000,-0.100000)" fill="#000000" stroke="none"> <path d="M1339 1493 c-102 -34 -194 -132 -225 -241 -33 -113 2 -261 81 -342 l34 -35 -67 -35 c-96 -49 -208 -163 -255 -260 -48 -98 -67 -176 -67 -273 0 -76 1 -80 34 -113 l34 -34 549 0 c481 0 551 2 571 16 98 68 53 335 -88 512 -46 59 -142 135 -208 164 l-43 19 37 41 c115 127 122 325 16 463 -39 52 -121 108 -182 125 -52 15 -168 11 -221 -7z m252 -86 c211 -109 206 -411 -8 -512 -141 -67 -308 -11 -381 129 -22 43 -27 64 -27 131 0 70 4 87 30 134 33 60 93 114 151 135 21 8 69 15 106 15 56 1 76 -4 129 -32z m-208 -604 c59 -14 78 -14 130 -4 34 7 75 15 90 18 20 4 50 -5 102 -31 140 -69 253 -213 290 -367 18 -77 19 -161 3 -177 -17 -17 -1059 -17 -1076 0 -7 7 -12 39 -12 72 0 188 124 382 299 469 85 43 84 42 174 20z"/> </g> </svg> 
+    <span>Clients</span>
+  </a>
+  <a href="accept-appointments.html" class="tab-item">
+    <svg version="1.0" xmlns="http://www.w3.org/2000/svg"  width="300.000000pt" height="169.000000pt" viewBox="0 0 300.000000 169.000000"  preserveAspectRatio="xMidYMid meet">  <g transform="translate(0.000000,169.000000) scale(0.100000,-0.100000)" fill="#000000" stroke="none"> <path d="M1497 1543 c-4 -3 -7 -155 -7 -337 l0 -331 -322 3 c-181 1 -329 -2 -337 -7 -8 -5 -11 -16 -8 -25 6 -14 43 -16 337 -16 l330 0 2 -333 c3 -324 3 -332 23 -332 20 0 20 7 20 333 l0 332 332 0 c220 0 334 4 338 10 4 6 1 18 -6 26 -10 13 -60 15 -336 14 l-324 -2 1 322 c0 229 -3 326 -11 336 -13 15 -22 18 -32 7z"/> </g> </svg> 
+    <span>Booking</span>
+  </a>
+  <a href="menu.html" class="tab-item" >
+    <svg version="1.0" xmlns="http://www.w3.org/2000/svg"  width="300.000000pt" height="169.000000pt" viewBox="0 0 300.000000 169.000000"  preserveAspectRatio="xMidYMid meet">  <g transform="translate(0.000000,169.000000) scale(0.100000,-0.100000)" fill="#000000" stroke="none"> <path d="M513 1375 l0 -45 1029 0 1028 0 0 45 0 45 -1028 0 -1029 0 0 -45z"/> <path d="M514 888 l2 -43 1027 -3 1027 -2 0 45 0 45 -1029 0 -1029 0 2 -42z"/> <path d="M513 405 l0 -45 1029 0 1028 0 0 45 0 45 -1028 0 -1029 0 0 -45z"/> </g> </svg> 
+    <span>Menu</span>
+  </a>
+</nav>
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const path = window.location.pathname.split("/").pop(); // get current page like 'calendar.html'
+    const tabLinks = document.querySelectorAll(".tab-item");
+
+    tabLinks.forEach(link => {
+      const href = link.getAttribute("href");
+      if (href === path) {
+        link.classList.add("active");
+      }
+    });
+  });
+</script>
+
+
+ <!--Log-in Popup  -->
+<section id="popup-login" class="popup-add-business" style="display: none;">
+    <div class="business-section-header">
+      <div class="spacer"></div>
+      <h2 class="section-title">Login</h2>
+      <button type="button" onclick="closeLoginPopup()" style="float:right; border:none; background:none; font-size:18px;">&times;</button>
+    </div>
+
+    <form id="login-form">
+      <div class="form-group">
+        <label for="login-email">Email</label><br>
+        <input type="email" id="login-email" required placeholder="Enter your email" />
+      </div>
+
+      <div class="form-group">
+        <label for="login-password">Password</label><br>
+        <input type="password" id="login-password" required placeholder="Enter your password" />
+      </div>
+
+
+      <div class="button-center-wrapper">
+        <button type="submit" class="add-business-button">Log In</button>
+      </div>
+    </form>
+  </section>
+
+  <div id="popup-overlay" class="popup-overlay" style="display: none;"></div>
+
+<div id="popup-overlay" style="
+  display: none;
+  position: fixed;
+  top: 0; left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0,0,0,0.5);
+  z-index: 999;
+  backdrop-filter: blur(4px);
+"></div>
+
+
+  <script src="/qassets/js/menu.js" defer></script>
+</body>
+</html>

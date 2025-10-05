@@ -1,0 +1,645 @@
+.empty {
+  padding-bottom: 20px;
+}
+html, body {
+  height: 100%;
+  min-height: 100vh;
+  margin: 0;
+  padding: 20;
+  overflow-x: hidden; /* optional: hides sideways scroll */
+  
+}
+
+body {
+  overflow-y: auto;
+  
+}
+
+.bottom-tab-bar {
+  margin-bottom: 20px;
+}
+
+main {
+  padding-bottom: 100px; /* adjust to make room for fixed footer */
+}
+
+
+/* Header Styling */
+.header {
+    background: linear-gradient(90deg, #EFB37C 0%, #C5F2DA 100%);
+    padding: 20px;
+    text-align: left;
+    font-size: 24px;
+    color: black;
+    box-shadow: 0px 4px 11.2px 0px rgba(0, 0, 0, 0.25);
+  }
+  
+  .business-header
+  {margin-bottom:20px;
+     svg {
+    transform: translateY(5px) translateX(5px); /* Move the SVG down by 10px */
+     
+  }
+  
+  }
+
+ .options-bar {
+  display: flex;
+  justify-content: flex-end; /* Align items to the right */
+  gap: 20px; /* Add space between Clients and Availability */
+  padding: 10px 20px;
+   flex:1
+}
+
+
+
+  .options-bar h3 {
+  font-weight: normal;
+  font-size: 16px;
+ margin: 0; /* Avoid extra spacing */}
+
+
+ 
+  .option {
+    padding: 10px 20px;
+    cursor: pointer;
+  font-weight: bold;
+  border-radius: 4px;
+  color: black;
+  transition: background-color 0.2s, color 0.2s;
+  }
+  
+  .row-orange {
+  display: flex;
+  background-color: white;
+  padding: 10px;
+  justify-content: space-around; /* or use space-between or center */
+  align-items: center;
+  border-radius: 6px;
+  color: white;
+}
+  .option:hover {
+    background-color: #ddd;
+    border-radius: 5px;
+  }
+  .option.active {
+  background-color: #EFB37C;
+  font-weight: bold;
+  border: 2px solid grey;
+}
+
+  .content-section {
+    margin-top: 20px;
+    padding: 20px;
+    background-color: grey;
+    border: 1px solid #ccc;
+  }
+  
+
+
+
+
+
+
+
+.business-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 15px;
+  background-color: #EFB37C;
+  border-bottom: 1px solid #ddd;
+  position: relative;
+}
+
+.spacer {
+  width: 100px; /* Adjust to match button width */
+}
+
+.section-title {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  font-size: 20px;
+  font-weight: bold;
+}
+
+.add-business-button {
+  background-color:#EFB37C ;
+  color: #000000;
+  border:1px solid #FFFFFF;
+  padding:7px 14px;
+  border-radius:4px;
+  cursor:pointer;
+  
+}
+
+.button-center-wrapper {
+  display: flex;
+  justify-content: center;
+  margin-top: 15px; /* optional for spacing */
+}
+
+
+  
+
+
+
+.border-border
+{border:1px solid black;
+  display: block; 
+}
+
+.border-start
+{display: flex;
+  width: 100%;
+  }
+
+.border
+{
+  flex: 1;                /* Makes each box take up equal width */
+  
+  text-align: center;
+  padding: 15px 0;
+  box-sizing: border-box; /* Ensures padding/border don’t overflow */
+  white-space: nowrap;    /* Prevents long text from wrapping */
+ }
+
+
+.business-option-bar {
+    display: flex;
+    justify-content: space-around;
+    padding: 10px;
+    font-weight: bold;
+    cursor: pointer;
+ text-align:center; }
+  
+  
+  
+  .content-section {
+    margin-top: 20px;
+    display:none;
+    padding: 20px;
+    background-color: #fafafa;
+    border: 1px solid #ccc;
+  }
+  
+
+
+.business-results
+{
+    display: flex;
+    justify-content: space-around;
+    padding: 10px;
+    font-weight: bold;
+    cursor: pointer;
+  border: 1px solid black;
+  }
+
+.business-name-results:hover {
+    background-color: #ddd;
+    border-radius: 5px;
+  }
+
+
+
+.business-option-bar {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 20px;
+  gap: 20px;
+  border-bottom: 1px solid #ccc;
+}
+
+.business-column {
+  flex:1;
+  max-width: 220px; /* optional to prevent overlap */
+  
+}
+
+.business-option {
+  font-weight: bold;
+  padding-bottom: 10px;
+ 
+}
+
+.business-result {
+  padding: 8px 0;
+  white-space: nowrap;
+}
+
+.goto-column {
+  text-align: center;
+}
+
+.goto-arrow {
+  cursor: pointer;
+  font-size: 1.2rem;
+  padding: 5px;
+  transition: transform 0.2s ease;
+}
+
+.goto-arrow:hover {
+  transform: scale(1.2) rotate(15deg);
+}
+
+/* ALIGNMENTS */
+
+.center-align {
+  text-align: center;
+}
+
+.form-group
+{text-align:left;
+padding:10px;}
+
+
+
+.business-section-header,
+.business-option-bar {
+  display: flex;
+  align-items: center;
+}
+
+.business-column, .client-column {
+  flex: 1;
+  padding: 8px;
+  text-align: center;
+}
+
+.goto-column {
+  flex: 0.3; /* smaller width for the arrow */
+  padding: 8px;
+  text-align: center;
+}
+
+.goto-arrow {
+  cursor: pointer;
+  font-size: 16px;      /* smaller size */
+  color: black;         /* plain black */
+  text-align: center;
+  line-height: 1;
+  padding: 2px;
+}
+
+
+
+
+            
+/* prevent background from scrolling*/
+body.popup-open {
+  overflow: hidden;
+}
+
+/* Calendar Section */
+.calendars-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 15px;
+  background-color: #EFB37C;
+  border-bottom: 1px solid #ddd;
+  position: relative;
+}
+
+.calendar-option-bar {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 20px;
+  gap: 20px;
+  border-bottom: 1px solid #ccc;
+}
+
+.calendar-column {
+  flex: 1;
+  max-width: 220px;
+}
+
+.calendar-result {
+  padding: 8px 0;
+  white-space: nowrap;
+  text-align: center;
+}
+
+.calendar-option-bar {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+}
+
+.calendar-column {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center; /* center the radio button */
+  padding: 10px;
+}
+
+.header-column {
+  flex: 1;
+  text-align: center;
+  font-weight: bold;
+}
+
+
+/* Category Section */
+.category-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 15px;
+  background-color: #EFB37C;
+  border-bottom: 1px solid #ddd;
+  position: relative;
+}
+
+.category-option-bar {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 20px;
+  gap: 20px;
+  border-bottom: 1px solid #ccc;
+}
+
+.category-column {
+  flex: 1;
+  max-width: 220px;
+}
+
+.categoryr-result {
+  padding: 8px 0;
+  white-space: nowrap;
+  text-align: center;
+}
+
+.holder {
+  text-align:left;
+}
+
+
+/* Services Section */
+.service-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 15px;
+  background-color: #EFB37C;
+  border-bottom: 1px solid #ddd;
+  position: relative;
+}
+
+.service-option-bar {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 20px;
+  gap: 20px;
+  border-bottom: 1px solid #ccc;
+}
+
+.service-column {
+  flex: 1;
+  max-width: 220px;
+  padding: 0.5rem;
+}
+
+
+.service-result {
+  padding: 8px 0;
+  white-space: nowrap;
+  text-align: center;
+}
+
+
+/* Add on */
+.addon-block {
+  border: 1px solid #ccc;
+  padding: 10px;
+  margin-top: 10px;
+  border-radius: 6px;
+  background: #f9f9f9;
+}
+
+.addon-block input {
+  width: 100%;
+  margin-bottom: 6px;
+}
+
+.remove-addon-button {
+  background: none;
+  border: none;
+  color: red;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+/* Booking Page Section */
+.booking-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 15px;
+  background-color: #EFB37C;
+  border-bottom: 1px solid #ddd;
+  position: relative;
+}
+
+.booking-option-bar {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 20px;
+  gap: 20px;
+  border-bottom: 1px solid #ccc;
+}
+
+.booking-column {
+  flex: 1;
+  max-width: 220px;
+}
+
+.booking-result {
+  padding: 8px 0;
+  white-space: nowrap;
+  text-align: center;
+}
+
+.greeting {
+    margin-right: 1rem;
+    font-weight: bold;
+  }
+ 
+ .popup-add-business {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: white;
+  border-radius: 10px;
+  padding: 20px;
+  width: 400px;
+  z-index: 1001;
+  max-height: 90vh; /* Limits height to 90% of the screen */
+  overflow-y: auto; /* Enables vertical scrolling if needed */
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
+.popup-open .popup-overlay {
+  display: block;
+  position: fixed;
+  top: 0; left: 0;
+  width: 100vw; height: 100vh;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+}
+
+
+
+.progress-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 16px 0;
+}
+
+.progress-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid #eee;
+  font-size: 16px;
+}
+
+.status-icon {
+  font-size: 18px;
+  margin-left: 10px;
+}
+
+.status-icon.green {
+  color: green;
+}
+
+.status-icon.red {
+  color: red;
+}
+
+.calendar-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.next-button {
+  background-color: #007bff;
+  color: white;
+  padding: 4px 10px;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.check-icon {
+  font-size: 18px;
+  color: green;
+  visibility: visible; /* or hidden to toggle dynamically */
+}
+.border-start, .border-border {
+  min-height: 20px;
+  background: #FFFFFF; /* light red to test */
+
+}
+
+.clickable-category-item {
+    cursor: pointer;
+    /* Optional: Add hover effect */
+    transition: background-color 0.2s ease;
+}
+
+.clickable-category-item:hover {
+    background-color: #f0f0f0; /* Light gray background on hover */
+}
+/* In your CSS file */
+.clickable-item {
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.clickable-item:hover {
+    background-color: #f0f0f0; /* Or a color that fits your theme */
+}
+.service-item {
+  cursor: pointer;
+}
+
+#popup-add-business.fullscreen {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1000;
+  width: 90%;
+  max-width: 600px;
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 0 30px rgba(0, 0, 0, 0.2);
+}
+#popup-overlay {
+  display: none;
+  position: fixed;
+  top: 0; left: 0;
+  width: 100vw; height: 100vh;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 999;
+  backdrop-filter: blur(4px);
+}
+
+
+.bottom-tab-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 65px;
+  background-color: white;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  border-top: 1px solid #ccc;
+  z-index: 999;
+}
+
+.tab-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-decoration: none;
+  color: black;
+  font-size: 12px;
+}
+
+.tab-item img {
+  width: 24px;
+  height: 24px;
+  display: block;
+  margin: 0 auto 3px;
+}
+
+.tab-item span {
+  display: block;
+  font-weight: 500;
+}
+
+.tab-item svg {
+  width: 35px;
+  height: 35px;
+  margin-bottom: 4px;
+}
+
+.tab-item.active {
+  color: orange; /* or whatever color you want */
+}
+
+.tab-item.active svg {
+  fill: orange; /* optional: makes the icon orange too */
+}

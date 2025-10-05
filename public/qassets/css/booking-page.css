@@ -1,0 +1,737 @@
+/* ====== Variables ====== */
+:root{
+  --brand-peach:#131314;   /* your peach */
+  --brand-orange:#131314;  /* accent you use */
+  --bg:#ececf1;            /* near-black app bg */
+  --surface:#f4f4f7;       /* card bg */
+  --text:#161617;          /* primary text */
+  --muted:#131314;         /* secondary text */
+  --line:#0f1013;          /* subtle borders */
+  --ok:#2ecc71;
+  --warn:#f39c12;
+  --error:#e74c3c;
+  --radius:16px;
+  --shadow:0 10px 25px rgba(0,0,0,.25);
+}
+
+/* ====== Global ====== */
+*{box-sizing:border-box}
+html,body{
+  margin:0;
+  padding:0;
+  background:var(--bg);
+  color:var(--text);
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Apple Color Emoji","Segoe UI Emoji";
+  line-height:1.5;
+}
+a{color:var(--brand-peach);text-decoration:none}
+a:hover{text-decoration:underline}
+
+.container{
+ width: min(1400px, 92vw);
+  margin:32px auto 96px;
+}
+
+/* ====== Hero / Header ====== */
+.hero{
+  position:relative;
+  border-radius:calc(var(--radius) + 4px);
+  overflow:hidden;
+  background:linear-gradient(135deg, rgba(239,179,124,.18), rgba(255,102,0,.15));
+  border:1px solid var(--line);
+
+  display:flex;
+  gap:24px;
+  align-items:center;
+}
+.hero__img{
+  width:96px;
+  height:96px;
+  border-radius:14px;
+  border:1px solid var(--line)
+}
+.hero__meta{
+  display:flex;flex-direction:column;gap:6px
+}
+.hero__title{font-size:1.6rem;font-weight:700}
+.hero__sub{color:var(--muted);font-size:.95rem}
+/* Use the <img> as a full-width banner, let it decide the height */
+.hero.hero--img{
+  padding: 0;
+  border: 0;
+  background: transparent;
+  border-radius: 12px;     /* optional */
+  overflow: hidden;        /* optional */
+}
+
+.hero.hero--img .hero__img{
+  display: block;          /* show the image */
+  width: 100%;
+  height: auto;            /* keeps full image visible, no crop */
+  object-fit: contain;     /* defensively avoid crop if max-height used */
+  border: 0;               /* remove small thumb border */
+}
+
+/* hide the text in hero mode */
+.hero.hero--img .hero__meta{ display: none; }
+
+
+
+/* Make the hero be a banner image only */
+#hero {
+  position: relative;
+
+  padding: 0;            /* remove inner padding */
+  border: 0;             /* remove border */
+  background: none;      /* kill the gradient */
+  border-radius: 0;      /* optional */
+  overflow: hidden;      /* clip image edges */
+}
+
+ .hero.hero--bg{
+    border: 0;
+    border-radius: 0;
+    padding: 0;
+    min-height: 320px;       /* adjust height to taste */
+    background-repeat: no-repeat;
+    background-size: cover;
+    background-position: center;
+  }
+
+  /* let the image define the height (no crop) */
+.hero.hero--img{
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.hero.hero--img .hero__img{
+  display: block;
+  width: 100%;
+  height: auto;          /* keeps full image visible */
+  object-fit: contain;   /* just in case a max-height is set later */
+  border-radius: 12px;
+}
+
+
+/* Full-bleed hero that sits inside a centered .container */
+.hero.hero--img {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  border-radius: 0;
+  overflow: hidden;
+}
+
+/* Make the hero span the entire viewport width */
+#hero.hero--bleed {
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
+}
+
+/* Use the <img> and let it size the height without cropping */
+.hero.hero--img .hero__img {
+  display: block;
+  width: 100%;
+  height: auto;        /* keeps full image visible, no crop */
+  object-fit: contain; /* safe if a max-height is added later */
+  border: 0;
+}
+
+/* Hide the text block in image mode */
+.hero.hero--img .hero__meta { display: none; }
+/* Center the fallback (text) hero */
+#hero:not(.hero--img) {
+  display: flex;
+  align-items: center;      /* vertical center */
+  justify-content: center;  /* horizontal center */
+  min-height: 60px;        /* give it some height to center within */
+}
+#hero:not(.hero--img) .hero__meta {
+  text-align: center;
+  align-items: center;
+  margin: 0 auto;
+}
+
+/* Center the image visually when in image mode */
+#hero.hero--img .hero__img {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: contain;      /* shows full image without cropping */
+  object-position: center;  /* make sure it’s centered */
+  margin: 0 auto;           /* center the element itself */
+}
+
+/* If you ever switch to a cropped banner look, use this instead: */
+/*
+#hero.hero--img .hero__img {
+  width: 100%;
+  height: 360px;        // pick a banner height
+  object-fit: cover;    // fills the banner, may crop
+  object-position: center;
+}
+*/
+
+
+/* Optional: prevent accidental horizontal scroll due to 100vw rounding */
+html, body { overflow-x: hidden; }
+
+/* ====== Sections ====== */
+.section{
+  margin-top:22px;
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  padding:18px;
+  box-shadow:var(--shadow);
+}
+.section__title{
+  margin:0 0 14px 0;
+  font-size:1.05rem;
+  color:var(--muted);
+  letter-spacing:.2px;
+}
+
+/* Let this section escape the .container width */
+.section--bleed{
+  position: relative;
+  left: 50%;
+  right: 50%;
+  width: 100vw;
+  margin-left: -50vw;      /* stretch to viewport edges */
+  margin-right: -50vw;
+  border-radius: 0;        /* optional: flush edges */
+}
+
+/* (Optional) add some side padding so the buttons don’t hug the edges */
+.section--bleed { padding-left: 24px; padding-right: 24px; }
+
+/* Times grid: fill the full row */
+#timeslots { width: 100%; }
+.times-grid{
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+}
+.timeslot{ width: 100%; }
+
+/* ====== Rows / Grids ====== */
+.row{display:flex;gap:12px;flex-wrap:wrap}
+.grid{
+  display:grid;
+  gap:12px;
+}
+.grid--3{grid-template-columns:repeat(3, minmax(0,1fr))}
+.grid--2{grid-template-columns:repeat(2, minmax(0,1fr))}
+@media (max-width:900px){.grid--3{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:620px){.grid--3,.grid--2{grid-template-columns:1fr}}
+
+/* ====== Cards bubble section ====== */
+.card{
+  background:#dedee9;
+  border:1px solid var(--line);
+  border-radius:14px;
+  padding:14px;
+  transition:transform .08s ease, border-color .2s ease;
+  cursor:pointer;
+}
+.card:hover{transform:translateY(-1px);border-color:#333842}
+.card__title{font-weight:600}
+.card__desc{color:var(--muted);font-size:.92rem;margin-top:6px}
+.card--selected{
+  border-color:var(--brand-peach);
+  box-shadow:0 0 0 2px rgba(239,179,124,.25) inset;
+}
+
+/* ====== Buttons ====== */
+.btn{
+  appearance:none;border:none;cursor:pointer;
+  border-radius:12px;padding:11px 14px;
+  background:#1a1b20;color:var(--text);
+  border:1px solid var(--line);
+  font-weight:600;
+}
+.btn:hover{border-color:#353842}
+.btn--primary{
+  background:linear-gradient(135deg, var(--brand-peach), var(--brand-orange));
+  color:#111;border:none;
+}
+.btn--primary1{
+  background:linear-gradient(135deg, var(--brand-peach), var(--brand-orange));
+  color:#ede0e0;border:none;
+}
+.btn--ghost{background:transparent;border:1px solid var(--line)}
+.btn--pill{border-radius:999px;padding:8px 12px}
+.btn--full{width:100%}
+
+/* Toggle (multi-service) */
+.toggle{
+  display:inline-flex;align-items:center;gap:10px;
+  padding:8px 10px;border-radius:999px;border:1px solid var(--line);
+  background:#111216;color:var(--muted)
+}
+.toggle input{accent-color:var(--brand-orange)}
+
+/* ====== Badges / Chips ====== */
+.badge{
+  display:inline-flex;align-items:center;gap:6px;
+  background:#0f1115;border:1px solid var(--line);
+  color:var(--muted);
+  padding:6px 10px;border-radius:999px;font-size:.85rem
+}
+
+/* ====== Services ====== */
+.service{
+  display:flex;gap:12px;align-items:flex-start;
+}
+.service__img{
+  width:60px;height:60px;border-radius:10px;object-fit:cover;border:1px solid var(--line)
+}
+.service__meta{flex:1}
+.service__name{font-weight:600}
+.service__sub{color:var(--muted);font-size:.9rem;margin-top:4px}
+
+/* ====== Availability ====== */
+.calendar{
+ 
+  grid-template-columns: repeat(7, minmax(0,1fr));
+  gap:8px;
+}
+.calendar__cell{
+  padding:10px;border:1px solid var(--line);border-radius:12px;background:#c6cad9;
+  min-height:72px;display:flex;flex-direction:column;justify-content:space-between;
+}
+.calendar__date{font-size:.9rem;color:var(--muted)}
+.calendar__dot{
+  width:8px;height:8px;border-radius:50%;
+  background:var(--brand-peach);display:inline-block;margin-top:6px
+}
+.calendar__cell--active{outline:2px solid rgba(239,179,124,.3)}
+
+.timeslots{
+  display:flex;flex-wrap:wrap;gap:8px;margin-top:10px
+}
+.timeslot{
+  padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:#0f1014;
+  font-size:.95rem;cursor:pointer
+}
+.timeslot:hover{border-color:#babecc}
+.timeslot--unavailable{opacity:.45;pointer-events:none}
+.timeslot--selected{
+  border-color:var(--brand-orange);
+  box-shadow:0 0 0 2px rgba(255,102,0,.25) inset;
+}
+/* Make the times area span the full section width */
+#timeslots { width: 100%; }
+
+/* Group container spacing */
+#timeslots.is-grouped .times-group + .times-group { margin-top: 20px; }
+#timeslots.is-grouped .times-group { max-width: none; }
+
+/* Headings */
+.times-group__title { font-weight: 700; margin: 6px 0 10px; opacity: .9; }
+
+/* Fill the whole row with as many columns as fit */
+.times-grid{
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); /* 👈 auto-fit + fills width */
+  gap: 12px;
+}
+
+/* Make each button fill its grid cell */
+.timeslot{ width: 100%; }
+
+/* ===== Calendar look & feel ===== */
+#datePicker .cal {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+#datePicker .cal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 8px 0 12px;
+}
+
+#datePicker .cal-title {
+  font-weight: 700;
+  font-size: 1.1rem;
+  letter-spacing: .2px;
+  opacity: .9;
+}
+
+#datePicker .cal-nav {
+  display: flex;
+  gap: 8px;
+}
+
+#datePicker .cal-btn {
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.06);
+  cursor: pointer;
+  transition: transform .12s ease, background .12s ease, border-color .12s ease;
+}
+#datePicker .cal-btn:hover {
+  transform: translateY(-1px);
+  background: rgba(255,255,255,.1);
+  border-color: rgba(255,255,255,.2);
+}
+
+#datePicker .cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 10px;
+}
+
+#datePicker .cal-dow {
+  text-align: center;
+  font-weight: 700;
+  opacity: .8;
+}
+
+#datePicker .cal-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 52px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,.10);
+  background: rgba(255,255,255,.06);
+  box-shadow: 0 1px 0 rgba(0,0,0,.35), inset 0 0 0 1px rgba(255,255,255,.03);
+  transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease, background .12s ease;
+  cursor: default;
+  user-select: none;
+}
+#datePicker .cal-cell .num {
+  font-weight: 700;
+  opacity: .9;
+}
+
+/* Available day gets a bright ring + dot */
+#datePicker .cal-cell--available {
+  cursor: pointer;
+  border-color: var(--accent, #7dd3fc);
+  box-shadow: 0 4px 12px rgba(0,0,0,.25), inset 0 0 0 1px rgba(125,211,252,.35);
+}
+#datePicker .cal-cell--available:hover {
+  transform: translateY(-1px);
+  background: rgba(125,211,252,.10);
+}
+
+/* Selected day fills with accent */
+#datePicker .cal-cell--selected {
+  background: var(--accent, #7dd3fc);
+  color: #0b0e12;
+  border-color: transparent;
+  box-shadow: 0 6px 16px rgba(125,211,252,.45);
+}
+
+/* Today gets a subtle ring */
+#datePicker .cal-cell--today {
+  outline: 2px solid rgba(255,255,255,.25);
+  outline-offset: 2px;
+}
+
+/* Disabled days */
+#datePicker .cal-cell--disabled {
+  opacity: .35;
+}
+
+/* The little availability dot */
+#datePicker .cal-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: .95;
+}
+/* group headings + grid */
+#timeslots.is-grouped .times-group + .times-group { margin-top: 20px; }
+.times-group__title { font-weight: 700; margin: 6px 0 10px; opacity: .9; }
+.times-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 12px;
+}
+
+/* nice on wide screens */
+@media (min-width: 640px){
+  .times-grid { grid-template-columns: repeat(4, 1fr); }
+}
+@media (min-width: 960px){
+  .times-grid { grid-template-columns: repeat(6, 1fr); }
+}
+
+
+/* Optional: set an accent color for your theme once */
+:root { --accent: #7dd3fc; } /* sky-300; pick any brand color */
+
+
+/* ====== Popups / Modals ====== */
+.modal{
+  position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:1000
+}
+.modal.is-open{display:flex}
+.modal__scrim{position:absolute;inset:0;background:rgba(0,0,0,.6);backdrop-filter:saturate(120%) blur(3px)}
+.modal__panel{
+  position:relative;z-index:1;background:var(--surface);border:1px solid var(--line);
+  border-radius:18px;padding:18px;width:min(560px, 92vw);box-shadow:var(--shadow)
+}
+.modal__title{margin:0 0 8px 0;font-size:1.1rem}
+.modal__close{position:absolute;right:10px;top:8px;background:transparent;border:none;color:var(--muted);font-size:20px;cursor:pointer}
+
+/* ====== Forms ====== */
+.form{display:grid;gap:10px}
+.label{font-size:.92rem;color:var(--muted)}
+.input, .select, .textarea{
+  width:100%;padding:10px 12px;border-radius:10px;background:#0f1014;border:1px solid var(--line);color:var(--text)
+}
+.input:focus, .select:focus, .textarea:focus{outline:2px solid rgba(239,179,124,.35)}
+
+/* ====== Helpers ====== */
+.muted{color:var(--muted)}
+.divider{height:1px;background:var(--line);margin:12px 0}
+.sticky-footer{
+  position:sticky;bottom:-18px;margin-top:16px;background:linear-gradient(180deg, transparent, rgba(15,15,17,.75) 30%, rgba(15,15,17,1) 100%);
+  padding-top:10px
+}
+
+/* ---------- Availability text contrast ---------- */
+/* Calendars section: force text color on the button "cards" */
+#calendars button.card {
+  color: var(--text);            /* set to your dark text */
+}
+
+#calendars button.card .card__title { color: inherit; }
+#calendars button.card .card__sub   { color: #6b7280; } /* or var(--muted) */
+
+#section-availability .cal-title,
+#section-availability .cal-dow {
+  color: #070708;                     /* month title + weekday labels */
+}
+
+/* Categories */
+#categories button.card,
+#categories .card {               /* covers button or div cards */
+  color: var(--text);
+}
+#categories .card .card__title { color: inherit; }
+#categories .card .card__desc,
+#categories .card .card__sub { color: var(--muted); }
+
+/* Services */
+#services .card { color: var(--text); }
+#services .service__name { color: inherit; }
+#services .service__sub  { color: var(--muted); }
+
+
+/* Confirm modal text color */
+#section-confirm #confirm-summary {
+  color: #111 !important;          /* body text */
+}
+#section-confirm #confirm-summary strong {
+  color: #111 !important;          /* the labels "Date", "Time", etc. */
+}
+
+/* (optional) if any .card rule elsewhere is setting a color */
+#section-confirm .card { color: #111 !important; }
+
+
+/* Make the "Book Now" button white only inside the confirm modal */
+#section-confirm #btn-confirm.btn--primary {
+  background: #fff !important;
+  background-image: none !important;   /* kill the gradient */
+  color: #111 !important;              /* dark text */
+  border: 1px solid var(--line) !important;
+  box-shadow: none;
+}
+
+#section-confirm #btn-confirm.btn--primary:hover {
+  background: #f6f7f9 !important;      /* subtle hover */
+}
+
+
+
+#section-availability .cal-cell .num {
+  color:  rgba(79, 55, 55, 0.3);                        /* day numbers */
+}
+
+#section-availability .cal-cell--disabled .num {
+  color: rgba(79, 55, 55, 0.3);        /* past days */
+}
+
+#section-availability .cal-cell--available .num,
+#section-availability .cal-cell--selected .num,
+#section-availability .cal-cell--today .num {
+  color: #141814;                      /* todays date available/today/selected */
+}
+
+/* Timeslot buttons */
+#section-availability #timeslots .timeslot {
+  color: #f6f8ff;                      /* lighter text */
+}
+
+#section-availability #timeslots .timeslot:hover {
+  color: #ffffff;
+}
+
+#section-availability #timeslots .timeslot.timeslot--selected {
+  color: #070807;
+}
+
+/* Center the month calendar block */
+#section-availability #datePicker > .cal {
+  width: max-content;           /* shrink to its intrinsic width */
+  margin-left: auto;
+  margin-right: auto;           /* center horizontally */
+ 
+}
+
+/* Make sure the grid doesn’t stretch full width */
+#section-availability #datePicker .cal-grid {
+  width: max-content;
+}
+
+/* (optional) center the timeslots under the calendar */
+#section-availability #timeslots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+}
+
+/* Make the Availability section full-bleed (you already added this) */
+.section--bleed{
+  position:relative; left:50%; right:50%;
+  width:100vw; margin-left:-50vw; margin-right:-50vw;
+  border-radius:0; padding-left:24px; padding-right:24px;
+}
+
+/* ⬇️ STOP centering the groups; let them stretch */
+#section-availability #timeslots{
+  display:block;          /* not flex */
+  justify-content:unset;  /* safety */
+}
+
+/* Each group fills the row */
+#section-availability #timeslots .times-group{
+  width:100%;
+  max-width:none;
+}
+
+/* Grid that actually spans the full width */
+#section-availability .times-grid{
+  display:grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap:12px;
+}
+
+/* Buttons fill their grid cell */
+#section-availability .timeslot{ width:100%; }
+
+/* ===== Timeslots: 3 rows, horizontal scroll per section ===== */
+
+/* The group (Morning / Afternoon / Evening) becomes a horizontal scroller */
+#section-availability #timeslots .times-group{
+  width: 100%;
+  overflow-x: auto;           /* scroll sideways when it overflows */
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 8px;        /* room for scrollbar */
+  scroll-snap-type: x proximity; /* optional: nicer scrolling */
+}
+
+/* Grid inside the group:
+   - Fill DOWN first (3 rows), then add NEW COLUMNS to the right.
+   - Make the grid as wide as its content so it can overflow & scroll. */
+#section-availability #timeslots .times-group .times-grid{
+  display: grid;
+  grid-auto-flow: column;                /* fill rows first, then new column */
+  grid-template-rows: repeat(3, auto);   /* exactly 3 rows */
+  grid-auto-columns: 140px;              /* column width (adjust to taste) */
+  gap: 12px;
+  width: max-content;                    /* let content decide width */
+}
+
+/* Buttons fill each grid cell and stay on one line */
+#section-availability #timeslots .timeslot{
+  width: 100%;
+  white-space: nowrap;
+  scroll-snap-align: start;              /* optional: snap to cells */
+}
+
+/* Tweak column width at larger breakpoints if you want */
+@media (min-width: 640px){
+  #section-availability #timeslots .times-group .times-grid{
+    grid-auto-columns: 160px;
+  }
+}
+@media (min-width: 960px){
+  #section-availability #timeslots .times-group .times-grid{
+    grid-auto-columns: 180px;
+  }
+}
+
+/* Make #section-confirm behave like a modal (same id, no rename) */
+#section-confirm.as-modal{
+  position: fixed;
+  inset: 0;
+  display: none;                /* JS will set to flex when opening */
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 1000;
+
+  /* kill the normal .section look */
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  border-radius: 0;
+}
+
+#section-confirm.as-modal .modal__scrim{
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,.6);
+}
+
+#section-confirm.as-modal .modal__panel{
+  position: relative;
+  z-index: 1;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  width: min(560px, 92vw);
+  max-height: min(80vh, 900px);
+  overflow: auto;
+  padding: 18px;
+  box-shadow: var(--shadow);
+}
+
+#section-confirm .modal__close{
+  position: absolute; right: 10px; top: 8px;
+  background: transparent; border: 0; color: var(--muted);
+  font-size: 22px; cursor: pointer;
+}
+
+body.modal-open{ overflow: hidden; }   /* lock page scroll while open */
+
+  /* Back Button */
+  .back-btn{
+  background: none;
+  border: 0;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: .95rem;
+  padding: 4px 8px;
+  margin-right: 8px;
+}
+.back-btn:hover{ text-decoration: underline; }
+.section__title { display: flex; align-items: center; gap: 8px; justify-content: center; }

@@ -1,0 +1,1480 @@
+html, body {
+  height: 100%;
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden; /* optional: hides sideways scroll */
+}
+
+body {
+  overflow-y: auto;
+}
+
+main {
+  padding-bottom: 100px; /* adjust to make room for fixed footer */
+}
+
+
+
+/* Header Styling */
+.header {
+    background: linear-gradient(90deg, #EFB37C 0%, #C5F2DA 100%);
+    padding: 20px;
+    text-align: left;
+    font-size: 24px;
+    color: black;
+    box-shadow: 0px 4px 11.2px 0px rgba(0, 0, 0, 0.25);
+  }
+  
+  
+.container {
+  display: flex;
+  gap: 30px;
+  padding: 20px;
+    width: 100%;
+}
+
+.sidebar {
+  width: 250px;
+  transition: transform all 0.3s ease;
+  position: relative;
+  background: #fff;
+  z-index: 10;
+}
+
+.sidebar.hidden {
+  display: none; /* or visibility: hidden if you want animation */
+    width: 0;
+  overflow: hidden;
+}
+
+.active-tab {
+  background-color: #f2f2f2;
+  font-weight: bold;
+}
+
+/* Theme tokens for the sidebar */
+#calendar-sidebar{
+  --bg: #ffffff;
+  --border: #e9edf2;
+  --text: #1f2937;
+  --muted: #6b7280;
+  --accent: #EFB37C;
+}
+
+/* Sidebar container (desktop look) */
+#calendar-sidebar{
+  background: var(--bg);
+  border-right: 1px solid var(--border);
+}
+#calendar-sidebar .sidebar-inner{
+  padding: 16px;
+  display: grid;
+  gap: 18px;
+}
+
+/* tighter vertical rhythm in the sidebar */
+#calendar-sidebar .sidebar-inner{ gap:12px; }
+#calendar-sidebar .chooseBusiness{ gap:12px; margin-bottom:8px; }
+
+/* form spacing */
+#calendar-sidebar .form-group{
+  margin: 8px 0 0;
+}
+/* Label + selects */
+#calendar-sidebar .calendar-label h3{
+  margin: 0 0 8px;
+  font-size: 16px;
+  letter-spacing: .2px;
+}
+#calendar-sidebar .form-group label{
+  display: block;
+  font-size: 12px;
+color: #6b7280;
+  margin: 0 0 4px;
+}
+#calendar-sidebar .form-group select{
+  width: 100%;
+   padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fff;
+  font-size: 14px;
+  outline: none;
+  transition: box-shadow .15s ease, border-color .15s ease;
+  appearance: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, #999 50%),
+    linear-gradient(135deg, #999 50%, transparent 50%),
+    linear-gradient(to right, transparent, transparent);
+  background-position:
+    calc(100% - 16px) calc(50% - 3px),
+    calc(100% - 11px) calc(50% - 3px),
+    100% 0;
+  background-size: 6px 6px, 6px 6px, 2.5em 100%;
+  background-repeat: no-repeat;
+}
+#calendar-sidebar .form-group select:focus{
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(239,179,124,.25);
+}
+
+/* Side nav layout */
+/* menu spacing under the selects */
+#calendar-sidebar .side-nav{
+  margin-top: 8px;
+  gap: 8px;
+}
+
+/* === Pretty menu tiles === */
+#calendar-sidebar .calendarOptions{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--text);
+  box-shadow: 0 1px 2px rgba(0,0,0,.04);
+  transition: background .15s ease, box-shadow .15s ease, transform .05s ease;
+  user-select: none;
+}
+#calendar-sidebar .calendarOptions h5{
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+#calendar-sidebar .calendarOptions::before{
+  content: attr(data-icon);
+  font-size: 18px;
+  opacity: .9;
+}
+#calendar-sidebar .calendarOptions::after{
+  content: "›";
+  font-weight: 700;
+  opacity: .4;
+}
+
+/* hover/active/focus */
+#calendar-sidebar .calendarOptions:hover{
+  background: #fff9f2;
+  box-shadow: 0 6px 16px rgba(0,0,0,.08);
+  transform: translateY(-1px);
+}
+#calendar-sidebar .calendarOptions:active{
+  transform: translateY(0);
+}
+#calendar-sidebar .calendarOptions.active{
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #111;
+}
+#calendar-sidebar .calendarOptions.active::after{
+  opacity: .8;
+}
+
+/* style for the tiny arrow button */
+.icon-btn{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: 1px solid #E5E7EB;
+  background: #fff;
+  box-shadow: 0 2px 6px rgba(0,0,0,.06);
+  cursor: pointer;
+}
+
+/* Arrow visible only when viewport > 500px */
+#collapse-sidebar-btn{ display: none; }
+@media (min-width: 701px){
+  #collapse-sidebar-btn{ display: inline-flex; }
+}
+
+/* When the sidebar is collapsed on desktop, hide the arrow and show the reopen button */
+body.sidebar-collapsed #collapse-sidebar-btn{ display: none; }
+
+/* Optional: show the same "open-sidebar-btn" as a small fixed tab when collapsed on desktop */
+@media (min-width: 701px){
+  body.sidebar-collapsed #open-sidebar-btn{
+    display: inline-flex;
+    position: fixed;
+    left: 10px;
+    top: calc(var(--header-h, 60px) + 10px);
+    z-index: 1100;
+  }
+}
+
+/* Hidden by default */
+#close-sidebar-btn { display:none; }
+
+/* Drawer + arrow only on small screens */
+@media (max-width:500px){
+  /* your drawer baseline (keep yours if already set) */
+  #calendar-sidebar{
+    position:fixed; top:0; left:0; height:100vh;
+    width:min(92vw,360px); max-width:92vw;
+    background:#fff; box-shadow:0 10px 30px rgba(0,0,0,.2);
+    transform:translateX(-100%); transition:transform 200ms ease;
+    z-index:1000;
+  }
+  #calendar-sidebar.is-open{ transform:translateX(0); }
+
+  /* show + position the close arrow when open */
+  #calendar-sidebar.is-open #close-sidebar-btn{
+    display:block;
+    position:absolute;
+    top:10px;
+    right:-40px;            /* outside the edge; use 10px if you want it inside */
+    width:36px; height:36px;
+    line-height:36px; text-align:center;
+    border-radius:18px;
+    background:#fff;
+    border:1px solid rgba(0,0,0,.12);
+    box-shadow:0 2px 8px rgba(0,0,0,.25);
+    cursor:pointer;
+    z-index:1001;           /* above overlay */
+  }
+}
+
+/* Overlay should sit under arrow */
+#sidebar-overlay{ z-index:999; }
+/* Hidden by default on desktop */
+#close-sidebar-btn { display:none; }
+
+/* Sidebar header row */
+#calendar-sidebar .sidebar-header{
+  display:flex;
+  align-items:center;
+  gap:.5rem;
+  padding:12px 12px;
+  border-bottom:1px solid #eee;
+  background:#fff;
+}
+
+/* Title style (optional) */
+#calendar-sidebar .sidebar-title{
+  font-size:1.25rem;
+  margin:0;
+}
+
+/* Small screens: drawer + sticky header + show arrow */
+@media (max-width:500px){
+  #calendar-sidebar{
+    position:fixed; top:0; left:0; height:100vh;
+    width:min(92vw,360px); max-width:92vw;
+    background:#fff; box-shadow:0 10px 30px rgba(0,0,0,.2);
+    transform:translateX(-100%); transition:transform 200ms ease;
+    z-index:1000;
+    overflow:auto;
+  }
+  #calendar-sidebar.is-open{ transform:translateX(0); }
+
+  /* sticky header so the arrow stays visible when sidebar scrolls */
+  #calendar-sidebar .sidebar-header{
+    position:sticky; top:0; z-index:1;
+  }
+
+  /* show the arrow and keep it INSIDE the header (no overlap on calendar) */
+  #calendar-sidebar.is-open #close-sidebar-btn{
+    display:inline-flex;
+    align-items:center; justify-content:center;
+    width:36px; height:36px;
+    border-radius:18px;
+    border:1px solid rgba(0,0,0,.12);
+    box-shadow:0 2px 8px rgba(0,0,0,.12);
+    background:#fff; cursor:pointer;
+    /* IMPORTANT: do NOT absolutely position it outside */
+    position:static;
+  }
+}
+/* Desktop-only floating burger (hidden by default) */
+.floating-burger{
+  
+  /* place it below your header — tweak as needed */
+  top: 84px;         /* or: calc(var(--header-h, 64px) + 20px) */
+  left: 16px;
+  width: 36px;
+  height: 28px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  z-index: 1100;
+  display: none;
+}
+.floating-burger span{
+  display: block;
+  height: 3px;
+  margin: 5px 0;
+  background: #333;
+  border-radius: 2px;
+}
+
+/* Show this burger only on desktop AND only when the sidebar is collapsed */
+@media (min-width: 701px){
+  body.sidebar-collapsed #open-sidebar-btn-desktop{
+    display: block;
+  }
+}
+/* Desktop rail lives under the header, never overlays it */
+#desktop-rail{
+  display: none;                 /* default hidden */
+  position: sticky;              /* sticks under header as you scroll */
+  top: 0;                        /* just below normal flow (header not fixed) */
+  z-index: 5;
+  padding: 12px 0 0 18px;        /* space from left/top */
+}
+
+/* Show only on desktop when the sidebar is collapsed */
+@media (min-width: 701px){
+  body.sidebar-collapsed #desktop-rail{ display: flex; align-items: center; }
+}
+
+/* Desktop burger look */
+#desktop-open-sidebar{
+  width: 36px; height: 28px;
+  border: 0; background: transparent; cursor: pointer;
+}
+#desktop-open-sidebar span{
+  display:block; height:3px; margin:5px 0; background:#333; border-radius:2px;
+}
+
+/* Never show the desktop rail on small screens */
+@media (max-width: 500px){ #desktop-rail{ display:none !important; } }
+
+/* Overlay just below the drawer */
+#sidebar-overlay{ z-index:999; }
+
+@media (min-width: 701px){
+  body.sidebar-collapsed #calendar-sidebar { display: none; }
+  body.sidebar-collapsed .content-area { width: 100%; }
+}
+
+/* Keep your mobile overlay rules as-is; these only affect look */
+
+
+/* Desktop (default): sidebar can live inline */
+#calendar-sidebar {
+  /* keep whatever you already have for desktop */
+  /* e.g., width: 280px; */
+}
+
+/* Overlay mode on small screens */
+@media (max-width: 700px) {
+  #calendar-sidebar {
+    position: fixed;        /* float over content */
+    top: 0;
+    left: 0;
+    height: 100vh;
+    width: min(92vw, 360px);
+    max-width: 92vw;
+    background: #fff;       /* or var(--panel-bg) */
+    box-shadow: 0 10px 30px rgba(0,0,0,.2);
+    z-index: 1000;
+
+    /* slide-in animation */
+    transform: translateX(-100%);
+    transition: transform 200ms ease, box-shadow 200ms ease;
+  }
+  #calendar-sidebar.is-open {
+    transform: translateX(0);
+  }
+
+  /* The main content should NOT shrink on mobile */
+  .calendar-container { width: 100%; }
+  .calendar-container.full-width { width: 100%; }  /* neutralize any desktop rule */
+}
+
+/* Dim background behind the floating sidebar */
+#sidebar-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.35);
+  backdrop-filter: blur(1px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 200ms ease;
+  z-index: 999;  /* just below the sidebar */
+}
+#sidebar-overlay.show {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Prevent body scroll when the sidebar is open on mobile */
+body.no-scroll { overflow: hidden; }
+/* we'll compute this dynamically so the rail sits under the header */
+:root{
+  --header-h: 0px;      /* set by JS */
+  --rail-h: 48px;       /* height of the rail */
+}
+
+/* The fixed rail */
+#mobile-rail{
+
+  left: 0;
+  right: 0;
+  top: var(--header-h, 0px);
+  height: var(--rail-h);
+  display: none;              /* only show on mobile */
+  align-items: center;
+  z-index: 1100;              /* above content; below drawer (1000) is fine */
+  pointer-events: none;       /* let clicks pass EXCEPT the button */
+  /* optional styling:
+  background: linear-gradient(90deg, #fff0, #fff0); 
+  */
+}
+
+/* Show rail on small screens */
+@media (max-width: 700px){
+  #mobile-rail{ display: flex; }
+}
+
+/* The hamburger inside the rail */
+#mobile-rail .hamburger{
+  pointer-events: auto;       /* clickable */
+  width: 36px;
+  height: 20px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  margin-left: 10px;
+}
+#mobile-rail .hamburger span{
+  display: block;
+  height: 3px;
+  margin: 5px 0;
+  background: #333;
+  border-radius: 2px;
+}
+
+/* Make space so content isn't hidden under the rail on mobile */
+@media (max-width: 700px){
+  /* keep just a tiny offset so text doesn't touch the rail */
+  .content-area{ padding-top: -20px; }   /* use 0 if you want it flush */
+}
+
+/* reduce heading–button gap */
+#upcomingHours-section h3{
+  margin-top: 8px;       /* was default ~1em */
+  margin-bottom: 8px;
+}
+
+#save-upcoming-hours-btn.long-save-btn{
+  margin-top: 8px;       /* lower if your theme set it to 20–24px */
+}
+
+/* safety: prevent an extra top margin from the first child collapsing */
+.content-area > *:first-child{ margin-top: 0; }
+
+.content-area {
+
+    flex-grow: 1;
+  transition: all 0.3s ease;
+  padding-left: 10px; /* or use margin-left if needed */
+}
+
+
+.popup-overlay {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 999;
+}
+
+/* Actual popup styling */
+.popup-add-business {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: white;
+  padding: 30px;
+  border-radius: 12px;
+  z-index: 1000;
+  box-shadow: 0px 10px 25px rgba(0, 0, 0, 0.2);
+  width: 90%;
+  max-width: 400px;
+}
+
+
+.business-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 15px;
+  background-color: #EFB37C;
+  border-bottom: 1px solid #ddd;
+  position: relative;
+}
+.spacer {
+  width: 100px; /* Adjust to match button width */
+}
+
+.section-title {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  font-size: 20px;
+  font-weight: bold;
+}
+
+
+.popup-date-label{
+  align-items: center;
+}
+.add-business-button {
+  background-color:#EFB37C ;
+  color: #000000;
+  border:1px solid #FFFFFF;
+  padding:7px 14px;
+  border-radius:4px;
+  cursor:pointer;
+ width: 120px;
+margin-top: 20px;
+   position: relative;
+   
+}
+ /* center the date text */
+#popup-date-label {
+  text-align: center;
+  margin: 8px 0 16px;
+  width: 100%;
+}
+
+/* keep the time pickers centered in the popup */
+.current-day-times {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  width: 100%;
+}
+
+/* center the Save button (it's outside .popup-content in your HTML) */
+#save-upcoming-day-availability {
+  display: block;
+  margin: 16px auto 0;   /* centers it */
+}
+/* center everything inside the popup body */
+.popup-add-business .popup-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+#popup-date-label { margin: 6px 0 8px; }
+
+/* lay out the time controls nicely and keep them centered */
+.current-day-times {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  width: 100%;
+}
+/* Backdrop behind the popup */
+.popup-overlay{
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.45);
+  backdrop-filter: blur(1px);
+  opacity: 0;
+  pointer-events: none;      /* don't block clicks until shown */
+  transition: opacity 160ms ease;
+  z-index: 998;              /* just under the popup */
+}
+.popup-overlay.show{
+  opacity: 1;
+  pointer-events: auto;      /* block all background clicks */
+}
+
+/* Prevent page scroll while modal is open */
+body.popup-open { overflow: hidden; }
+
+/* the Save button will auto-center because of align-items:center */
+
+.main-content {
+  flex: 1;
+  padding: 10px;
+}
+
+/* .chooseBusiness*/
+.chooseBusiness {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.calendarOptions
+{
+    font-size: 12px;
+  text-align: center;
+  border-bottom: 2px solid black;
+  margin-bottom: 4px;
+  padding-bottom: 4px;
+}
+
+
+.calendarOptions:hover {
+  background-color: #f2f2f2;
+  cursor: pointer;
+}
+
+#viewCalendarBtn:first-of-type {
+  margin-top: 20px solid;
+}
+.calendarOptions.active {
+  background-color: #EFB37C; /* your brand color */
+  font-weight: bold;
+  border-left: 4px solid black; /* highlight strip */
+  padding-left: 10px;
+}
+
+.side
+{display:flex;
+justify-content:space-between;
+border:solid 1px;
+padding:10px;}
+/* save button */
+ .orange-sign-up {
+    background-color: #efb37c;
+    color: black;
+    padding: 10px 20px;
+    border: none;
+    cursor: pointer;
+    border-radius:10px;
+  }
+
+/* availability*/
+.availability-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+
+.day-block {
+  border: 1px solid #ccc;
+  padding: 15px;
+  margin-bottom: 20px;
+  border-radius: 8px;
+  background-color: #fff;
+}
+
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 45px;
+  height: 24px;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0; left: 0;
+  right: 0; bottom: 0;
+  background-color: #ccc;
+  transition: 0.4s;
+  border-radius: 24px;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: 0.4s;
+  border-radius: 50%;
+}
+
+.toggle-switch input:checked + .slider {
+  background-color: #efb37c;
+}
+
+.toggle-switch input:checked + .slider:before {
+  transform: translateX(20px);
+}
+
+
+/* time*/
+.day-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+
+.time-row {
+  display: flex;
+  gap: 20px;
+  margin-top: 10px;
+}
+
+.time-row[style*="display: none"] {
+  display: none !important;
+}
+
+.time-group {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.time-group label {
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+.time-group select {
+  padding: 8px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+}
+
+
+.upcoming-hours {
+  margin-top: 30px;
+  padding: 10px;
+  border-top: 1px solid #ccc;
+}
+
+.week-label {
+  font-size: 12px;
+  color: #888;
+  margin-bottom: 8px;
+  text-align: center;
+}
+
+.week-nav {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  font-weight: bold;
+  font-size: 16px;
+}
+
+.nav-arrow {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  color: #333;
+  padding: 4px 10px;
+  border-radius: 6px;
+  transition: background 0.2s;
+}
+
+.nav-arrow:hover {
+  background-color: #f0f0f0;
+}
+
+
+.day-date {
+  font-size: 12px;
+  color: #777;
+  margin-top: 2px;
+}
+
+#adjust-hours-section {
+  margin-left: 20px;
+  padding: 10px;
+}
+
+.availability-summary-box {
+  margin-top: 20px;
+  padding: 15px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background-color: #f9f9f9;
+}
+
+.availability-summary-box h4 {
+  margin-bottom: 10px;
+}
+
+#availability-summary-list {
+  list-style: none;
+  padding: 0;
+}
+
+#availability-summary-list li {
+  padding: 4px 0;
+}
+
+
+.long-save-btn {
+  width: 100%;
+  background-color: #efb37c;
+  color: black;
+  padding: 14px 20px;
+  border: none;
+  border-radius: 10px;
+  font-size: 16px;
+  font-weight: bold;
+  margin-bottom: 20px;
+  cursor: pointer;
+}
+
+.long-save-btn:hover {
+  background-color: #e09d5d;
+}
+
+
+
+/* Calendar */
+/* Outer calendar wrapper */
+.calendar-wrapper {
+  width: 100%;
+  margin: 0 auto;
+  padding: 1rem;
+  box-sizing: border-box;
+  overflow-x: auto;
+}
+   
+        .calendar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #333;
+        }
+/* Use ONE version of .calendar-container */
+.calendar-container{
+  width: 100%;
+  margin: 0 auto;
+  padding-inline:8px; 
+  box-sizing: border-box;
+}
+/* If you need 75% when a sidebar is visible, gate it behind a class */
+.content-area.with-sidebar .calendar-container{ width: 75%; }
+
+/* Wrap that can scroll horizontally on small screens */
+.calendar-wrapper{
+  width:100%;
+  margin:0 auto;        /* centers the whole calendar block */
+  padding:1rem;
+  overflow-x:auto;      /* allows sideways scroll if ever needed */
+}
+
+
+/* Weekday row and month grid use identical columns */
+.weekdays-grid,
+.days-grid{
+  display:grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));  /* ← allows real shrink */
+  gap: clamp(4px, 1.2vw, 10px);                      /* gap shrinks too */
+}
+@media (max-width:480px){
+  .calendar-availability-time,
+  .day-availability-label{ display:none; }
+  .day-cell{ font-size:.9rem; }
+}
+
+
+/* On very narrow phones: keep a reasonable minimum width and let the wrapper scroll */
+
+/* Day cells stay square and scale with the grid */
+.day-cell{
+  width:100%;
+  aspect-ratio: 1 / 1;          /* square */
+  display:grid;
+  place-items:center;
+  padding:0;
+  border-radius:12px;
+  background:#fff;
+  box-shadow:0 0 0 1px #eee inset;
+  font-size: clamp(12px, 2.4vw, 16px);  /* text scales down gracefully */
+}
+
+/* If you want a little inner spacing, put it on a child */
+.day-cell > .day-inner{
+  display: grid;
+  place-items: center;
+  gap: .25rem;
+}
+
+/* Availability label behaves on mobile */
+.day-availability-label,
+.calendar-availability-time{ font-size: .75rem; }
+
+@media (max-width: 480px){
+  .calendar-availability-time,
+  .day-availability-label{ display: none; }   /* hide long text */
+  .available-dot{ display: block; }           /* show a dot instead */
+}
+
+/* Optional: smaller chrome on narrow viewports */
+@media (max-width: 640px){
+  .calendar-header{ font-size: 1.1rem; }
+  .nav-button{ padding: .45rem .7rem; font-size: .9rem; }
+}
+.calendar-header{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:12px;
+  max-width:900px;
+  margin:0 auto;
+}
+
+
+        .nav-button {
+            background-color: #efb37c; /* Indigo 500 */
+            color: white;
+            padding: 0.6rem 1rem;
+            border-radius: 0.75rem; /* Rounded button corners */
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s ease-in-out, transform 0.1s ease-in-out;
+            border: none;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .nav-button:hover {
+            background-color: #efb37c; /* Indigo 600 */
+            transform: translateY(-1px);
+        }
+
+        .nav-button:active {
+            background-color: #efb37c; /* Indigo 700 */
+            transform: translateY(0);
+        }
+
+  
+        .day-cell {
+            padding: 0.75rem 0.5rem;
+            border-radius: 0.5rem; /* Slightly rounded day cells */
+            font-weight: 500;
+            color: #374151; /* Gray 700 */
+            cursor: pointer;
+            transition: background-color 0.2s ease-in-out, transform 0.1s ease-in-out;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            aspect-ratio: 1 / 1; /* Make cells square */
+        }
+/* Show dot on narrow screens instead of full times */
+/* Optional: tiny phones, nudge text a bit smaller */
+@media (max-width: 360px){
+  .day-cell{ font-size: 11px; border-radius: 8px; }
+
+  /* Hide full availability and show just the dot */
+  .day-availability-label {
+    display: none;
+  }
+
+  .available-dot {
+    display: block;
+  }
+}
+/* Dot when available */
+.day-dot {
+  width: 8px;
+  height: 8px;
+  background-color: green;
+  border-radius: 50%;
+  margin: 0 auto;
+  margin-top: 5px;
+}
+        .day-cell:hover:not(.empty):not(.current-day) {
+            background-color: #e0e7ff; /* Indigo 100 on hover */
+            transform: translateY(-1px);
+        }
+
+        .day-cell.empty {
+            background-color: transparent;
+            cursor: default;
+            color: #d1d5db; /* Light gray for empty cells */
+        }
+
+        .day-cell.current-day {
+            background-color: #efb37c; /* Indigo 500 */
+            color: white;
+            font-weight: 700;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            transform: scale(1.05);
+        }
+
+        .day-cell.current-day:hover {
+            background-color: #efb37c; /* Darker indigo on hover for current day */
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 640px) {
+            .calendar-container {
+                padding: 1rem;
+                gap: 1rem;
+            }
+            .calendar-header {
+                font-size: 1.25rem;
+            }
+            .nav-button {
+                padding: 0.5rem 0.8rem;
+                font-size: 0.9rem;
+            }
+            .day-cell {
+                padding: 0.5rem 0.3rem;
+                font-size: 0.9rem;
+            }
+          }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+.day-availability-label {
+  font-size: 0.7rem;
+  color: green;
+  margin-top: 4px;
+}
+
+
+
+
+
+#upcoming-availability-list-section {
+  margin: 20px 0;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 10px;
+}
+
+.availability-entry {
+  padding: 8px 12px;
+  margin-bottom: 10px;
+  background: #f9f9f9;
+  border-left: 4px solid #5c9;
+  border-radius: 6px;
+}
+
+.availability-entry h4 {
+  margin: 0 0 4px;
+  font-size: 1rem;
+}
+
+.availability-entry p {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.day-availability-label {
+  font-size: 0.7em;
+  color: #444;
+  margin-top: 4px;
+}
+
+.has-availability {
+  background-color: #fff7e6;
+  border: 1px solid #ffa94d;
+  font-weight: bold;
+}
+/* Two-line wrap with clipping */
+.availability-time {
+  max-width: 100%;
+  text-align: center;
+  line-height: 1.1;
+  font-size: clamp(10px, 2.4vw, 12px);
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;       /* show up to 2 lines */
+  -webkit-box-orient: vertical;
+  white-space: normal;
+  word-break: keep-all;
+  text-wrap: balance;
+   font-weight: 700;  
+}
+
+
+.availability-dot {
+  width: 8px;
+  height: 8px;
+  background-color: orange;
+  border-radius: 50%;
+  margin-top: 4px;
+  margin-left: auto;
+  margin-right: auto;
+}
+/* public/css/availability.css */
+
+.day-cell {
+    /* Your existing day cell styles */
+    display: flex;
+    flex-direction: column; /* To stack day number and hours */
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 5px;
+    min-height: 60px; /* Adjust as needed */
+    position: relative; /* For potential future absolute positioning */
+    border: 1px solid #eee; /* Example */
+}
+
+.day-cell.has-availability {
+    /* Example: subtle border or background change */
+    border: 1px solid #ffaa50;
+    box-shadow: 0 0 5px rgba(255, 140, 0, 0.3);
+}
+
+.day-cell .availability-hours {
+    font-size: 0.75em; /* Smaller font size for hours */
+    color: #333;
+    margin-top: 5px; /* Space between day number and hours */
+    font-weight: bold;
+}
+.availability-hours {
+    display: block; /* Make it take its own line */
+    font-size: 0.8em; /* Smaller font size */
+    color: #ff8c00; /* Orange color, similar to your image */
+    margin-top: 5px; /* A little space from the day number */
+    text-align: center; /* Center the text */
+    white-space: nowrap; /* Prevent wrapping if times are long */
+    overflow: hidden; /* Hide overflow if text is too long */
+    text-overflow: ellipsis; /* Add ellipsis for overflow */
+}
+/* Optional: Style for today's date */
+.day-cell.current-day {
+    background-color: #ffcc99; /* Orange background for today */
+    border-color: #ff9933;
+}
+
+.availability-details-popup {
+    position: fixed; /* Or 'absolute' if within a container */
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: white;
+    border: 1px solid #ccc;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    padding: 20px;
+    z-index: 1000; /* Ensure it's on top of other content */
+    border-radius: 8px;
+    text-align: center;
+    min-width: 300px;
+}
+
+.availability-details-popup h3 {
+    margin-top: 0;
+    color: #333;
+}
+
+.availability-details-popup p {
+    color: #555;
+    font-size: 1.1em;
+}
+
+.availability-details-popup button {
+    margin-top: 15px;
+    padding: 8px 15px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.availability-details-popup button:hover {
+    background-color: #0056b3;
+}
+
+.calendar-availability-time {
+  font-size: 12px;
+  margin-top: 4px;
+  color: #444;
+  white-space: nowrap;
+}
+
+
+.bottom-tab-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 65px;
+  background-color: white;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  border-top: 1px solid #ccc;
+  z-index: 999;
+}
+
+.tab-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-decoration: none;
+  color: black;
+  font-size: 12px;
+}
+
+.tab-item img {
+  width: 24px;
+  height: 24px;
+  display: block;
+  margin: 0 auto 3px;
+}
+
+.tab-item span {
+  display: block;
+  font-weight: 500;
+}
+
+.tab-item svg {
+  width: 35px;
+  height: 35px;
+  margin-bottom: 4px;
+}
+
+.tab-item.active {
+  color: orange; /* or whatever color you want */
+}
+
+.tab-item.active svg {
+  fill: orange; /* optional: makes the icon orange too */
+}
+/* ---- Calendar (final) ------------------------------------------ */
+.calendar-container{
+  width:100%;
+  margin-inline:auto;   /* center */
+  padding-inline:16px;
+  box-sizing:border-box;
+}
+
+
+/* 7 columns always, each column can shrink a lot on phones */
+.weekdays-grid,
+.days-grid{
+  display:grid;
+  grid-template-columns: repeat(7, 1fr); /* 7 equal columns that fill the space */
+  gap: 8px; /* A fixed gap for consistency */
+}
+/* square cells, no extra padding */
+.day-cell{
+  aspect-ratio: 1 / 1;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border-radius: .5rem;
+  font-weight: 500;
+  color:#374151;
+  transition: background-color .2s, transform .1s;
+  font-size: clamp(12px, 2.6vw, 16px);  /* text scales down too */
+}
+
+/* optional inner wrapper if you show extra lines */
+.day-cell > .day-inner{
+  display:grid;
+  place-items:center;
+  gap:.25rem;
+}
+
+/* hover/current styles – keep as you like */
+.day-cell:hover:not(.empty):not(.current-day){ background:#e0e7ff; transform:translateY(-1px); }
+.day-cell.empty{ background:transparent; color:#d1d5db; }
+.day-cell:hover{ background:#f7f7ff; box-shadow:0 0 0 2px #e0e7ff inset; }
+.day-cell.current-day{ background:#efb37c; color:#fff; box-shadow:0 0 0 2px #efb37c inset; }
+
+/* hide long availability text on tiny screens, use dot instead if you want */
+.available-dot{ display:none; width:8px; height:8px; background:orange; border-radius:50%; }
+@media (max-width:480px){
+  .calendar-availability-time, .day-availability-label{ display:none; }
+  .available-dot{ display:block; }
+}
+
+
+
+/*////////////////////////////////////////////////////////////////*/
+
+/* === Calendar (scoped, collision-free) ========================== */
+:root { --brand:#efb37c; --ink:#374151; --line:#eee; }
+.cal, .cal * { box-sizing: border-box; }
+
+.cal{
+  width:100%;
+  max-width:900px;         /* wide on desktop */
+  margin-inline:auto;      /* centered */
+  padding:0;               /* no side padding -> no mobile gutters */
+  color:var(--ink);
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+}
+
+.cal-header{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:12px;
+  margin-block:8px 12px;
+}
+.cal-title{
+  margin:0;
+  font-size:clamp(1.1rem, 2.5vw, 1.6rem);
+  font-weight:800;
+}
+.cal-nav{
+  border:0;
+  background:var(--brand);
+  color:#fff;
+  padding:.5rem .8rem;
+  border-radius:12px;
+  font-weight:700;
+  cursor:pointer;
+}
+
+.cal-weekdays,
+.cal-grid{
+  display:grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr)); /* exact match */
+  gap:clamp(4px, 1.2vw, 10px);
+}
+
+/* weekday row */
+.cal-weekdays > div{
+  text-align:center;
+  font-weight:700;
+  font-size:clamp(.8rem, 1.8vw, 1rem);
+  color:#6b7280;
+  padding-block:4px;
+}
+
+/* day cells */
+.cal-cell{
+  aspect-ratio:1 / 1;               /* squares */
+  display:grid;
+  place-items:center;
+  border-radius:12px;
+  background:#fff;
+  box-shadow: inset 0 0 0 1px var(--line); /* subtle outline (no joined borders) */
+  position:relative;
+  overflow:hidden;
+  font-size:clamp(.9rem, 2.6vw, 1.05rem);
+}
+.cal-cell.empty{ background:transparent; box-shadow:none; }
+
+.cal-cell .day-no{ font-weight:700; }
+.cal-cell.has .avail{
+  margin-top:4px;
+  font-size:clamp(.62rem, 1.6vw, .75rem);
+  color:#111;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.cal-cell.has .dot{
+  width:8px; height:8px; background:var(--brand); border-radius:50%;
+  display:none;
+}
+
+/* today + selected */
+.cal-cell.today{
+  background:var(--brand);
+  color:#fff;
+  box-shadow:none;
+}
+.cal-cell.selected{ outline:2px solid var(--brand); }
+
+/* Tiny phones: hide the long text, show a dot */
+@media (max-width:480px){
+  .cal-cell.has .avail{ display:none; }
+  .cal-cell.has .dot{ display:block; }
+}
+
+/* already close to what you had */
+.sidebar { width: 250px; background:#fff; }
+.sidebar.hidden { display: none; }
+
+.content-area { flex: 1; }
+.content-area.full-width { width: 100%; } /* optional, safe */
+
+.day-cell.selected { box-shadow: 0 0 0 2px #efb37c inset; }
+/* Upcoming Hours calendar: remove left gutter */
+#upcomingHours-section .calendar-wrapper { 
+  padding-left: 0 !important; 
+}
+
+#upcomingHours-section .calendar-container { 
+  padding-left: 0 !important; 
+  margin-left: 0; 
+}
+
+/* Make the header + grids align flush with the container */
+#upcomingHours-section .calendar-header,
+#upcomingHours-section .weekdays-grid,
+#upcomingHours-section .days-grid{
+  margin-left: 0;
+  padding-left: 0;
+}
+
+/* If your page layout adds a small left pad on the main content, drop it here */
+#upcomingHours-section { padding-left: 0 !important; }
+.content-area { padding-left: 10px; }
+#upcomingHours-section ~ .anything,  /* no-op, just a marker */
+.content-area { padding-left: 0; }   /* or wrap the section in a class and target that */
+
+/* Upcoming Hours calendar: keep 7 columns on one line without clipping */
+#upcomingHours-section .calendar-container{
+  box-sizing: border-box;
+  padding-inline: clamp(6px, 3vw, 12px);   /* tighter side padding on small screens */
+}
+
+/* CRITICAL: allow tracks to shrink; prevents the last 1–2 columns from being cut off */
+#upcomingHours-section .weekdays-grid,
+#upcomingHours-section .days-grid{
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));  /* <-- minmax(0,1fr) */
+  gap: clamp(4px, 1.2vw, 8px);
+}
+
+/* Make sure grid items themselves can shrink */
+#upcomingHours-section .day-cell{ min-width: 0; }
+
+/* Safety net for very narrow phones: scroll instead of clipping */
+@media (max-width: 360px){
+  #upcomingHours-section .calendar-wrapper{ overflow-x: auto; }
+  #upcomingHours-section .calendar-container{ min-width: 520px; } /* ~7 cols + gaps */
+}
+/* Upcoming Hours calendar date boxes */
+#upcomingHours-section .day-cell{
+  border: 0;                         /* avoid double borders */
+  box-shadow: 0 0 0 1px #eaeaea inset; /* the outline */
+  border-radius: 12px;
+  background: #fff;
+}
+
+/* states you can target too */
+#upcomingHours-section .day-cell.current-day{ background:#efb37c; color:#fff; }
+#upcomingHours-section .day-cell.empty{ background:transparent; box-shadow:none; }
+#upcomingHours-section .day-cell.has-availability{ box-shadow:0 0 0 2px #ffa94d inset; }

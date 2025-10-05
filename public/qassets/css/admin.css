@@ -1,0 +1,271 @@
+body {
+  font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+  background-color: #f4f4f4;
+}
+
+.tab-container {
+  display: flex;
+  border-bottom: 2px solid #e0e0e0;
+  background-color: #f9f9f9;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.tab {
+  padding: 12px 24px;
+ cursor: pointer; user-select: none; 
+  transition: background-color 0.3s ease;
+  border: none;
+  background-color: transparent;
+  font-size: 16px;
+  color: #555;
+}
+
+.tab.active {
+  border-bottom: 3px solid #007BFF;
+  color: #007BFF;
+  font-weight: bold;
+  background-color: #ffffff;
+}
+
+.tab-content {
+  display: flex;
+  padding: 20px;
+  background: white;
+}
+#field-list { margin: 8px 0 12px; }
+.right-group {
+  width: 75%;
+  padding-left: 20px;
+}
+
+form {
+  margin-bottom: 20px;
+}
+
+input[type="text"],
+select {
+  width: 100%;
+  padding: 8px;
+  margin-top: 4px;
+  margin-bottom: 12px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+}
+
+button {
+  padding: 8px 12px;
+  border: none;
+  background-color: #4CAF50;
+  color: white;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+button:hover {
+  background-color: #45a049;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+}
+
+th, td {
+  padding: 10px;
+  border: 1px solid #ddd;
+  text-align: left;
+}
+
+tr:hover {
+  background-color: #e0e0e0;
+}
+
+select optgroup[label="Reference Types"] {
+  color: rgb(0, 139, 116);
+  font-weight: bold;
+}
+
+select option[value^="Reference:"] {
+  color: rgb(100, 58, 0);
+}
+/* Content areas */
+.content {
+  display: none;
+  padding: 20px;
+  background-color: #ffffff;
+  border: 1px solid #e0e0e0;
+  border-top: none;
+}
+
+/* Display active content */
+.content.active {
+  display: block;
+}
+
+.full-width {
+  width: 100%;
+  padding: 20px;
+  background: #ffffff;
+}
+#dataTypeList li {
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
+}
+
+#dataTypeList li:hover {
+  background-color: #e0f0ff; /* light blue on hover */
+}
+#dataTypeList li.active {
+  background-color: #007BFF;
+  color: white;
+  font-weight: bold;
+}
+#dataTypeList li:hover {
+  background-color: #EFB37C !important;
+  cursor: pointer !important;
+}
+/* Users Tab Table */
+#userTable {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 20px;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: #fff;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+#userTable th {
+  background-color: #EFB37C;
+  color: white;
+  text-align: left;
+  padding: 12px 15px;
+  font-size: 14px;
+}
+
+#userTable td {
+  padding: 12px 15px;
+  font-size: 14px;
+  color: #333;
+}
+
+#userTable tr:nth-child(even) {
+  background-color: #f9f9f9;
+}
+
+#userTable tr:hover {
+  background-color: #e0f0ff;
+  cursor: pointer;
+}
+button.delete-user-btn {
+  background: red;
+  color: white;
+  border: none;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.datatype-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  align-items: center;
+}
+
+.edit-datatype-btn {
+  background-color: #333;
+  color: white;
+  border: none;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+#datatype-section {
+  padding: 20px;
+  background: #f9f9f9;
+  margin: 20px;
+  border-radius: 8px;
+}
+
+h2 {
+  color: #333;
+}
+
+ul {
+  list-style-type: none;
+  padding: 0;
+}
+
+li {
+  padding: 10px;
+  background-color: #fff;
+  margin: 5px 0;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+li:hover {
+  background-color: #e0e0e0;
+}
+#field-context {
+  font-size: 0.95rem;
+  color: #555;
+}
+#field-context strong {
+  color: #111;
+}
+#fields-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 10px 0 6px;
+}
+#fields-table th, #fields-table td {
+  padding: 8px 10px;
+  border: 1px solid #e5e5e5;
+}
+#fields-table input[type="text"] {
+  padding: 6px 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+#fields-table button {
+  padding: 6px 10px;
+}
+
+
+#optionset-list li { 
+  display:flex; 
+  justify-content:space-between; 
+  align-items:center; 
+
+}
+
+#optionvalues-table th, #optionvalues-table td { 
+  border:1px solid #e5e5e5; 
+  padding:8px 10px; }
+
+#optionvalues-table input[type="text"], #optionvalues-table input[type="number"] { 
+  padding:6px 8px; 
+  border:1px solid #ccc; 
+  border-radius:4px; 
+}
+.optionsets-grid { display: flex; gap: 16px; }
+.os-left  { flex: 1; min-width: 260px; }
+.os-right { flex: 2; padding-left: 16px; border-left: 1px solid #e0e0e0; }
+
+#optionset-list li.selected { background-color:#e0f0ff; }
+
+@media (max-width: 800px) {
+  .optionsets-grid { flex-direction: column; }
+  .os-right { border-left: none; padding-left: 0; }
+}
+/* e.g., in admin.css */
+#datatype-list li.active { font-weight: 600; text-decoration: underline; }

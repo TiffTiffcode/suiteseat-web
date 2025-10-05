@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Suite Seat — Admin</title>
+
+  <!-- Your stylesheet -->
+ <link rel="stylesheet" href="/qassets/css/admin.css">
+  <!-- Minimal fallback styles so tabs work even if admin.css is empty -->
+  <style>
+    .tab-container { display:flex; gap:12px; margin:12px 0; }
+    .tab { cursor:pointer; user-select:none; padding:6px 10px; border-radius:6px; }
+    .tab.active { font-weight:600; outline:1px solid #ccc; }
+    .tab-content { margin-top:10px; }
+    .content { display:none; }
+    .content.active { display:block; }
+    ul { padding-left:18px; }
+    form label { display:block; margin-top:10px; }
+    button { margin-top:8px; }
+  </style>
+</head>
+<body>
+
+  <!-- Tabs -->
+  <div class="tab-container">
+    <div class="tab active" data-tab="1" id="tab1">Data Types</div>
+    <div class="tab" data-tab="2" id="tab2">Fields</div>
+    <div class="tab" data-tab="4" id="tab4">Option Sets</div>
+    <div class="tab" data-tab="3" id="tab3">Users</div>
+
+  </div>
+
+  <!-- Panels -->
+  <div class="tab-content">
+
+    <!-- Tab 1: Data Types -->
+    <div class="content active" data-content="1" id="content1">
+      <section class="full-width">
+        <h2>Data Types</h2>
+
+        <!-- List of Data Types -->
+        <ul id="datatype-list"></ul>
+
+        <!-- Stores the selected DataType _id for the Fields tab -->
+        <input type="hidden" id="selected-datatype-id" />
+
+        <!-- Create Data Type -->
+        <form id="new-data-type-form">
+          <label for="new-data-type">New Type</label>
+          <input type="text" id="new-data-type" required />
+          <button type="submit" class="create-new-type">Create New Type</button>
+        </form>
+      </section>
+    </div>
+
+    <!-- Tab 2: Fields -->
+    <div class="content" data-content="2" id="content2">
+      <h2>Fields for <span id="type-name">Nothing selected</span></h2>
+
+<div id="field-context" style="margin:6px 0 10px; display:none;">
+  Editing/Adding fields for: <strong id="field-context-name"></strong>
+</div>
+
+      <!-- Fields list -->
+     <table id="fields-table">
+  <thead>
+    <tr>
+      <th style="width:60%;">Field name</th>
+      <th style="width:30%;">Type</th>
+      <th style="width:10%; text-align:right;">&nbsp;</th>
+    </tr>
+  </thead>
+  <tbody id="fields-tbody"></tbody>
+</table>
+
+<div id="option-set-picker" style="display:none; margin-top:8px;">
+  <label for="option-set-select">Option Set</label>
+  <select id="option-set-select">
+    <option value="">Select an option set</option>
+  </select>
+</div>
+
+
+      <!-- Add Field -->
+      <button id="btn-show-field-form" disabled>Add Field</button>
+
+      <!-- Hidden Create Field form -->
+      <form id="field-form" style="display:none; margin-top:12px;">
+        <label for="new-field">New Field</label>
+        <input type="text" id="new-field" placeholder="Enter field name" required />
+
+        <label for="field-type">Type</label>
+        <select id="field-type" required>
+          <optgroup label="Basic Types">
+            <option value="">Select Type</option>
+            <option value="Text">Text</option>
+            <option value="Number">Number</option>
+            <option value="Number Range">Number Range</option>
+            <option value="Date">Date</option>
+            <option value="Date Range">Date Range</option>
+            <option value="Time">Time</option>
+            <option value="Geographic Address">Geographic Address</option>
+            <option value="Yes/No">Yes/No</option>
+            <option value="Image">Image</option>
+            <option value="Boolean">Boolean</option>
+            <option value="File">File</option>
+            <option value="Dropdown">Dropdown</option>
+              <option value="Date/Time">Date/Time</option>
+                <option value="Text/Multi-line">Text/Multi-line</option>
+
+          </optgroup>
+          <optgroup label="Reference Types" id="reference-options">
+            
+          </optgroup>
+     <optgroup label="Option Sets" id="option-sets-options">
+  <option disabled>Loading…</option>
+</optgroup>
+
+        </select>
+
+        <label style="margin-top:8px;">
+          <input type="checkbox" id="allow-multiple" />
+          Allow multiple values (e.g. list of items)
+        </label>
+
+        <div style="margin-top:10px;">
+          <button type="submit">Save Field</button>
+          <button type="button" id="btn-cancel-field">Cancel</button>
+        </div>
+      </form>
+    </div>
+
+
+    <!-- Tab 3: Users (placeholder for now) -->
+    <div class="content" data-content="3" id="content3">
+      <h2>Users</h2>
+      <table id="userTable">
+        <thead>
+          <tr>
+            <th>First Name</th>
+            <th>Last Name</th>
+            <th>Email</th>
+            <th>Role</th>
+            <th>Action</th>
+            <th>Businesses</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+
+  </div>
+
+
+
+<!-- Tab 4: Option Sets -->
+<div class="content" data-content="4" id="content4">
+  <h2>Option Sets</h2>
+
+  <div class="optionsets-grid">
+    <!-- LEFT: list + create -->
+    <div class="os-left">
+      <form id="optionset-form" style="margin-bottom:12px;">
+        <label for="new-optionset">New Option Set</label>
+        <input type="text" id="new-optionset" placeholder="e.g., UserRoles" required />
+
+        <label for="optionset-kind-create">Kind</label>
+        <select id="optionset-kind-create" required>
+          <optgroup label="Basic Kinds">
+            <option value="text" selected>Text</option>
+            <option value="number">Number</option>
+            <option value="boolean">Yes/No</option>
+            <option value="image">Image</option>
+            <option value="color">Color</option>
+          </optgroup>
+        </select>
+
+        <button type="submit">Create Set</button>
+      </form>
+
+      <ul id="optionset-list"></ul>
+    </div>
+
+    <!-- RIGHT: details of selected set -->
+    <div class="os-right" id="optionset-detail" style="display:none;">
+      <h3>Editing Set</h3>
+
+      <!-- name + actions -->
+      <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:8px;">
+        <input type="text" id="optionset-name-input" style="width:260px;" />
+        <button id="optionset-rename-btn">Rename</button>
+        <button id="optionset-delete-btn" style="background:#d9534f;">Delete Set</button>
+      </div>
+
+      <!-- kind picker for this set -->
+      <div style="margin:8px 0;">
+        <label for="optionset-kind">Kind</label>
+        <select id="optionset-kind">
+          <optgroup label="Basic Kinds">
+            <option value="text">Text</option>
+            <option value="number">Number</option>
+            <option value="boolean">Yes/No</option>
+            <option value="image">Image</option>
+            <option value="color">Color</option>
+          </optgroup>
+        </select>
+        <button id="optionset-kind-save">Save Kind</button>
+      </div>
+
+      <input type="hidden" id="selected-optionset-id" />
+
+      <table id="optionvalues-table" style="width:100%; border-collapse:collapse; margin-top:10px;">
+        <thead>
+          <tr>
+            <th style="width:40%;">Label</th>
+            <th style="width:30%;">Meta</th> <!-- changes based on Kind -->
+            <th style="width:10%;" style="display:none">Order</th>
+            <th style="width:20%; text-align:right;">&nbsp;</th>
+          </tr>
+        </thead>
+        <tbody id="optionvalues-tbody"></tbody>
+      </table>
+
+      <!-- Add value (single form; no slug input) -->
+      <form id="optionvalue-form" style="margin-top:10px;">
+        <label>Label</label>
+        <input type="text" id="ov-label" required />
+
+        <!-- kind-specific fields -->
+        <div id="ov-meta-image"   style="display:none;">
+          <label>Image URL</label>
+          <input type="text" id="ov-imageUrl" />
+        </div>
+
+        <div id="ov-meta-number"  style="display:none;">
+          <label>Number</label>
+          <input type="number" id="ov-numberValue" />
+        </div>
+
+        <div id="ov-meta-boolean" style="display:none;">
+          <label>Boolean</label>
+          <input type="checkbox" id="ov-boolValue" />
+        </div>
+
+        <div id="ov-meta-color"   style="display:none;">
+          <label>Color</label>
+          <input type="color" id="ov-colorHex" value="#000000" />
+        </div>
+
+        <label style="display:none">Order</label>
+        <input type="number" id="ov-order" value="0" style="display:none" />
+
+        <button type="submit">Add Value</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+
+
+      <script src="/qassets/js/admin.js"></script>
+</body>
+</html>

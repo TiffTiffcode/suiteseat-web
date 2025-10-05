@@ -1,0 +1,385 @@
+html, body {
+  height: 100%;
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden; /* optional: hides sideways scroll */
+}
+
+body {
+  overflow-y: auto;
+}
+.bottom-tab-bar {
+  margin-bottom: 20px;
+}
+
+main {
+  padding-bottom: 100px; /* adjust to make room for fixed footer */
+}
+.full-page {
+  padding-bottom: 100px;
+  
+}
+
+
+
+/* Header Styling */
+.header {
+    background: linear-gradient(90deg, #EFB37C 0%, #C5F2DA 100%);
+    padding: 20px;
+    text-align: left;
+    font-size: 24px;
+    color: black;
+    box-shadow: 0px 4px 11.2px 0px rgba(0, 0, 0, 0.25);
+  }
+  
+  .business-header
+  {margin-bottom:20px;
+     svg {
+    transform: translateY(5px) translateX(5px); /* Move the SVG down by 10px */
+     
+  }
+  
+  }
+
+ .options-bar {
+  display: flex;
+  justify-content: flex-end; /* Align items to the right */
+  gap: 20px; /* Add space between Clients and Availability */
+  padding: 10px 20px;
+   flex:1
+}
+
+
+
+  .options-bar h3 {
+  font-weight: normal;
+  font-size: 16px;
+ margin: 0; /* Avoid extra spacing */}
+
+
+ 
+  .option {
+    padding: 10px 20px;
+    cursor: pointer;
+  font-weight: bold;
+  border-radius: 4px;
+  color: black;
+  transition: background-color 0.2s, color 0.2s;
+  }
+  
+  .row-orange {
+  display: flex;
+  background-color: white;
+  padding: 10px;
+  justify-content: space-around; /* or use space-between or center */
+  align-items: center;
+  border-radius: 6px;
+  color: white;
+}
+  .option:hover {
+    background-color: #ddd;
+    border-radius: 5px;
+  }
+  .option.active {
+  background-color: #EFB37C;
+  font-weight: bold;
+  border: 2px solid grey;
+}
+
+  .content-section {
+    margin-top: 20px;
+    padding: 20px;
+    background-color: grey;
+    border: 1px solid #ccc;
+  }
+  
+
+
+
+
+
+
+
+.business-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 15px;
+  background-color: #EFB37C;
+  border-bottom: 1px solid #ddd;
+  position: relative;
+}
+
+.spacer {
+  width: 100px; /* Adjust to match button width */
+}
+
+.section-title {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  font-size: 20px;
+  font-weight: bold;
+}
+
+.add-business-button {
+  background-color:#EFB37C ;
+  color: #000000;
+  border:1px solid #FFFFFF;
+  padding:7px 14px;
+  border-radius:4px;
+  cursor:pointer;
+  
+}
+
+.button-center-wrapper {
+  display: flex;
+  justify-content: center;
+  margin-top: 15px; /* optional for spacing */
+}
+
+
+
+
+
+/* Base styles (Mobile first) */
+#desktop-menu {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);  /* Lock to 3 columns */
+  gap: 20px;
+  padding: 20px;
+  max-width: 1200px; /* optional: prevents grid from stretching too far */
+  margin: 0 auto; /* centers the grid */
+}
+
+
+.menu-list {
+  display: block;
+  padding: 1rem;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid #eee;
+}
+
+.icons {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 10px; /* space between icon and title */
+}
+
+.icons svg {
+  width: 40px;
+  height: 40px;
+  display: block;
+}
+
+.calendar-icon svg {
+ transform: scale(2); /* Make icon 1.5x bigger */
+  display: inline-block;
+}
+
+
+.menu-card {
+  text-align: center;
+}
+
+.bottom-tab-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 65px;
+  background-color: white;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  border-top: 1px solid #ccc;
+  z-index: 999;
+}
+
+.tab-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-decoration: none;
+  color: black;
+  font-size: 12px;
+}
+
+.tab-item img {
+  width: 24px;
+  height: 24px;
+  display: block;
+  margin: 0 auto 3px;
+}
+
+.tab-item span {
+  display: block;
+  font-weight: 500;
+}
+
+.tab-item svg {
+  width: 35px;
+  height: 35px;
+  margin-bottom: 4px;
+}
+
+.tab-item.active {
+  color: orange; /* or whatever color you want */
+}
+
+.tab-item.active svg {
+  fill: orange; /* optional: makes the icon orange too */
+}
+
+/*Profile Section */
+.update-profile {
+  display: none;
+  padding: 30px 20px;
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto;
+  box-sizing: border-box;
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+.update-profile h2 {
+  font-size: 24px;
+  font-weight: bold;
+  margin-bottom: 10px;
+}
+
+.update-profile p {
+  font-size: 16px;
+  color: #444;
+  line-height: 1.5;
+}
+
+
+.profile-photo-container {
+  position: relative;
+  display: inline-block;
+  cursor: pointer;
+}
+.profile-photo {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #ccc;
+}
+.profile-photo:hover {
+  opacity: 0.8;
+}
+
+.profile-image-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.profile-image-wrapper label {
+  font-weight: bold;
+  margin-bottom: 8px;
+}
+
+.profile-preview {
+  width: 120px;
+  height: 120px;
+  object-fit: cover;
+  border-radius: 50%;
+  margin-top: 10px;
+  border: 2px solid #ccc;
+}
+.edit-icon {
+  position: absolute;
+  top: 6px; /* ⬅️ Move to top */
+  right: 6px; /* ⬅️ And to the right */
+  background-color: white;
+  color: #333;
+  border-radius: 50%;
+  padding: 4px 6px;
+  font-size: 14px;
+  border: 1px solid #ccc;
+  pointer-events: none; /* Keeps label click working */
+  z-index: 1;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.back-button {
+  margin-bottom: 20px;
+  background-color: transparent;
+  border: none;
+  color: #333;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.profile-form {
+  background-color: #fff;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.input-group {
+  margin-bottom: 20px;
+}
+
+.form-label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: 600;
+  color: #333;
+}
+
+.form-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-size: 16px;
+  box-sizing: border-box;
+  transition: border-color 0.2s;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: #efb37c;
+  box-shadow: 0 0 0 3px rgba(239, 179, 124, 0.2);
+}
+
+.file-input {
+  margin-bottom: 20px;
+}
+
+.update-button {
+  background-color: #efb37c;
+  color: white;
+  font-weight: bold;
+  border: none;
+  padding: 12px 20px;
+  font-size: 16px;
+  border-radius: 8px;
+  width: 100%;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.update-button:hover {
+  background-color: #ff6600;
+}

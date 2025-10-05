@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Business Settings</title>
+  <link rel="stylesheet" href="/qassets/css/client-dashboard.css">
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+    <section class="header-group-container">
+      <div class="group left-group">Suite Seat</div>
+      <div class="group right-group"> 
+        <button id="open-login-popup-btn">Login</button>
+        </div>
+    </section>
+  </header>
+
+
+                      <!-- Subheader-->
+<section class="subheader">
+    <div class="subheader-left">
+      <h3></h3>
+    </div>
+  </section>
+
+  
+  <section class="options-bar">
+    
+<!-- Your settings button -->
+<button id="open-settings-popup-btn" >⚙️</button>
+ 
+
+  </section>
+
+  <section class="profile-photo" style="display: block;">
+ <div class="profile-photo-wrapper">
+  <img id="client-profile-photo" src="/uploads/default-avatar.png" alt="Profile Photo" />
+  <button class="edit-photo-btn" onclick="openSettingsPopup()">
+    ✏️
+  </button>
+</div>
+
+  </section>
+
+<!-- Tab Navigation -->
+  <div class="tab-nav">
+    <button class="tab-button active" data-tab="appointments-tab">Appointments</button>
+    <button class="tab-button" data-tab="orders-tab" style="display: none;">Orders</button>
+  </div>
+
+  <!-- Tab Content -->
+ <!-- Appointments Tab with Sub-Tabs -->
+  <div id="my-appointments"></div>
+
+<div class="tab-content" id="appointments-tab" style="display: block;">
+  <h2>Your Appointments</h2>
+
+  <!-- Sub-Tabs -->
+  <div class="sub-tab-buttons">
+    <button class="sub-tab-btn active" data-tab="all">All</button>
+    <button class="sub-tab-btn active" data-tab="upcoming">Upcoming</button> <!-- Make this active -->
+    <button class="sub-tab-btn" data-tab="past">Past</button>
+  </div>
+
+  <!-- Sub-Tab Content -->
+
+<div class="sub-tab-content" id="all-appointments" style="display: none;"></div>
+<div class="sub-tab-content" id="upcoming-appointments" style="display: block;"></div> <!-- Show this -->
+<div class="sub-tab-content" id="past-appointments" style="display: none;"></div>
+
+</div>
+
+
+
+
+
+<!-- Orders-Tab Content -->
+  <div class="tab-content" id="orders-tab" style="display: none;">
+    <h2>Your Orders</h2>
+    <p>This section will show your product orders in the future.</p>
+  </div>
+  
+
+  <!-- Overlay background for popups -->
+<div id="popup-overlay"
+     style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:999;"></div>
+
+
+                         <!-- Popups  -->
+  <!-- Reschedule Popup -->
+<div id="popup-reschedule" class="popup" style="display: none;">
+  <div class="popup-content">
+    <h3>Reschedule Appointment</h3>
+
+    <form id="reschedule-form">
+      <input type="hidden" id="reschedule-appointment-id" />
+      <input type="hidden" id="reschedule-calendar-id" name="calendarId" />
+      <input type="hidden" id="reschedule-date" name="date" />
+      <input type="hidden" id="reschedule-time" name="time" />
+
+      <div class="form-group">
+        <label for="reschedule-category">Category</label>
+        <select id="reschedule-category">
+          <option value="">-- Select Category --</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="reschedule-service">Service</label>
+        <select id="reschedule-service">
+          <option value="">-- Select Service --</option>
+        </select>
+      </div>
+
+
+      <div class="popup-actions" style="margin-top: 20px;">
+        <button type="submit" class="btn-confirm" id="reschedule-submit-btn">Confirm Reschedule</button>
+        <button type="button" class="btn-cancel" onclick="closeReschedulePopup()">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+
+
+
+<!--Settings Popup-->
+ 
+  <section id="popup-settings" class="popup-add-business" style="display: none;">
+    <div class="business-section-header">
+      <div class="spacer"></div>
+      <h2 id="popup-title" class="section-title">Settings</h2>
+      
+      <button type="button" onclick="closeSettingsPopup()" style="float:right; border:none; background:none; font-size:18px;">&times;</button>
+  
+  </div>
+  <button id="open-reset-password-popup-btn" style="display: none;">Reset Password</button>
+    <form id="popup-add-business-form">
+      <div class="form-group">
+        <label for="popup-First-name-input">First Name*</label><br>
+        <input id="popup-First-name-input" name="businessName" type="text" placeholder="Enter business name" required>
+      </div>
+      <div class="form-group">
+        <label for="popup-Last-name-input">Last Name*</label><br>
+        <input id="popup-Last-name-input" name="yourName" type="text" placeholder="Enter your name" required>
+      </div>
+      <div class="form-group">
+        <label for="popup-phone-number-input">Phone Number*</label><br>
+        <input id="popup-phone-number-input" name="phoneNumber" type="text" placeholder="Enter phone number">
+      </div>
+      
+      <div class="form-group">
+        <label for="popup-address-input"> Address</label>
+
+        <input id="popup-address-input" name="businessAddress" type="text" placeholder="Enter business address" required>
+      </div>
+      <div class="form-group">
+        <label for="popup--email-input">Email</label><br>
+        <input id="popup--email-input" name="businessEmail" type="text" placeholder="Enter business email">
+      </div>
+      <div class="form-group">
+        <label for="image-upload">Profile Photo</label><br>
+       <input type="file" id="image-upload" name="profilePhoto" accept="image/*">
+
+ <div id="current-profile-photo-container" style="margin-top: 10px;">
+  <img id="client-profile-photo-preview" alt="Profile" style="display:none;">
+  <p id="no-image-text" style="display: none;">No image uploaded yet.</p>
+</div>
+
+      </div>
+      <div class="button-center-wrapper">
+        <button type="submit" id="save-button" class="save-settings">Save </button>
+         </div>
+    </form>
+  </section>
+
+  
+     <!-- Reset Password Popup -->
+        <!-- Login Popup -->
+<section id="popup-reset-password" class="popup-add-business" style="display: none;">
+ <button type="button" id="close-reset-password-popup-btn" style="float:right;">&times;</button>
+
+
+<form id="change-password-form">
+  <input type="password" id="current-password" placeholder="Current Password" required />
+  <input type="password" id="new-password" placeholder="New Password" required />
+  <input type="password" id="confirm-password" placeholder="Confirm New Password" required />
+  <button type="submit">Change Password</button>
+</form>
+</section>
+
+      <!-- Login Popup -->
+<section id="popup-login" class="popup-add-business" style="display: none;">
+  <div class="business-section-header">
+    <div class="spacer"></div>
+    <h2 class="section-title">Login</h2>
+    <button type="button" onclick="closeLoginPopup()" style="float:right; border:none; background:none; font-size:18px;">&times;</button>
+
+  </div>
+
+  <form id="login-form">
+    <div class="form-group">
+      <label for="login-email">Email</label><br>
+      <input type="email" id="login-email" required placeholder="Enter your email" />
+    </div>
+
+    <div class="form-group">
+      <label for="login-password">Password</label><br>
+      <input type="password" id="login-password" required placeholder="Enter your password" />
+    </div>
+
+    <div class="button-center-wrapper">
+      <button type="submit" class="add-business-button">Log In</button>
+    </div>
+  </form>
+</section>
+ 
+
+
+<script src="/qassets/js/client-dashboard.js" defer></script>
+</body>
+</html>

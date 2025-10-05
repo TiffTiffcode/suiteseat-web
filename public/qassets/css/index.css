@@ -1,0 +1,429 @@
+html, body {
+  height: 100%;
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden; /* optional: hides sideways scroll */
+}
+
+body {
+  overflow-y: auto;
+}
+
+main {
+  padding-bottom: 100px; /* adjust to make room for fixed footer */
+}
+
+
+/* Home Page */
+/* Header Styling */
+.header {
+    background: linear-gradient(90deg, #EFB37C 0%, #C5F2DA 100%);
+    padding: 20px;
+    text-align: center;
+    font-size: 24px;
+    color: #fff;}
+  
+  
+  .header-group-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center; /* Fixed typo: changed 'aligh-items' to 'align-items' */
+  }
+  
+  .group.left-group {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .header-right-group {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+  }
+
+  .header-group-container .left-group {
+  flex: 1;
+  justify-content: center;
+  text-align: center;
+}
+
+  
+             /* Sub Header Styling */
+  .subheader {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px;
+      background-color: #FFF;
+  box-shadow:0px 4px 11.2px 0px rgba(0, 0, 0, 0.25);
+  }
+  
+  .subheader .left-group {
+    padding: 10px;
+    margin-right: 20px;
+  }
+  
+  .subheader h4 {
+    border-bottom: 2px solid #EFB37C; /* Same orange as header gradient */
+    padding-bottom: 5px;
+  }
+  
+  .subheader svg {
+    margin-left: 10px;
+    width: 10px; /* Resize triangle */
+    height: 16px; /* Resize triangle */
+    margin-top: 25px; /* Adjust vertical alignment of triangle */
+    vertical-align: middle; /* Ensures triangle aligns with text */
+  }
+  
+  /* Button Styling */
+  button.orange {
+    background-color: #EFB37C;
+    color: white;
+    padding: 10px 20px;
+    border: none;
+    cursor: pointer;
+  }
+  
+  button.orange.sign {
+    margin-right: 10px;
+  }
+  
+  /* Left Group Specific */
+  .subheader .left-group h2 {
+    margin-right: 20px; /* Space between Suite Seat and Pricing */
+  }
+  
+  /* Styling for your social media logos can be done in header-right-group */
+  
+  
+  /* Ensure that the parent container uses Flexbox to align items side by side */
+  /* Site details section */
+  /* Site details section */
+  .site-details {
+    display: flex;
+    justify-content: space-between; /* Makes sure the left and right sections are side by side */
+    align-items: flex-start;
+   padding: 40px 20px;
+    padding-left: 20 px;
+    padding-right: 20 px;
+    flex-wrap: wrap;
+     gap: 40px;
+  }
+ 
+  .site-details-left {
+    flex: 1; /* Makes sure the left section takes up equal space */
+    padding-right: 30px; /* Adds space between the two sections */
+  }
+  
+.site-details-right {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: auto;
+  background: none; /* ❌ Remove background image + gray */
+}
+
+ .landing-image {
+  width: 100%;
+  max-width: 400px;
+  height: auto;
+  object-fit: cover;
+  border-radius: 10px;
+  box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+@media (max-width: 500px) {
+  .site-details {
+    flex-direction: column;
+    text-align: left;
+  }
+  }
+.subhead {
+  margin-top: -10px;
+  margin-bottom: 30px;
+  font-weight: 500;
+  font-size: 18px;
+}
+    .right-padding {
+    padding-left: 20px;
+    padding-right: 20px;
+    padding-bottom: 30px;
+  }
+
+
+  
+  /* Pricing buttons container */
+ .pricing-details {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  padding: 40px 20px;
+  flex-wrap: wrap;
+}
+ /* Core card layout (already shared above) */
+.pricing-card {
+  position: relative;
+  flex: 1 1 280px;
+  background: #fff;
+  border: 1.5px solid #ccc;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 0 0 rgba(0, 0, 0, 0);
+  transition: all 0.3s ease;
+  cursor: default;
+}
+
+.pricing-card.clickable {
+  cursor: pointer;
+}
+
+.pricing-card.clickable:hover {
+  box-shadow: 0px 8px 24px rgba(0, 0, 0, 0.08);
+  transform: translateY(-4px);
+}
+
+/* Overlay for locked plans */
+.pricing-card.locked {
+  pointer-events: none; /* disables clicks */
+  opacity: 0.5;
+}
+
+/* Optional: Add a gray tint overlay for better effect */
+.pricing-card.locked .overlay {
+  content: "";
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(2px);
+  border-radius: 16px;
+  z-index: 1;
+}
+
+/* Ensure content appears underneath overlay */
+.pricing-card.locked > *:not(.overlay) {
+  position: relative;
+  z-index: 0;
+}
+
+.pricing-card:hover {
+  box-shadow: 0px 8px 24px rgba(0, 0, 0, 0.08);
+  transform: translateY(-4px);
+}
+
+.pricing-card h3 {
+  font-size: 20px;
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+
+.pricing-card .price {
+  font-size: 26px;
+  font-weight: 700;
+  color: #000;
+  margin-bottom: 16px;
+}
+
+.pricing-card .price span {
+  font-size: 14px;
+  font-weight: 400;
+  color: #666;
+}
+
+.pricing-card ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.pricing-card li {
+  margin-bottom: 10px;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+li.included {
+  color: #333;
+}
+
+li.excluded {
+  color: #ccc;
+  text-decoration: line-through;
+}
+
+@media (max-width: 768px) {
+  .pricing-details {
+    flex-direction: column;
+    align-items: center;
+  }
+}
+
+
+
+  /* new css */
+  h1 {
+  font-size: 36px;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+h2 {
+  font-size: 28px;
+  font-weight: 600;
+   margin-bottom: 5px;
+}
+
+h3 {
+  font-size: 18px;
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+.site-details-left h3 {
+  font-weight: 500;
+  color: #555;
+}
+
+@media (max-width: 768px) {
+  .subheader {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .header-group-container {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .site-details {
+    flex-direction: column;
+  }
+
+  .site-details-right {
+    height: 250px;
+      margin-top: 20px;
+  }
+}
+
+/* 🔲 Base black button */
+button.black, 
+button.black-sign-up, 
+button.black.start.free.button {
+  background-color: #000;
+  color: #fff;
+  padding: 12px 24px;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: 'Helvetica Neue', sans-serif;
+}
+
+/* 🖱️ On hover */
+button.black:hover {
+  background-color: #333;
+}
+
+/* 🟨 Smaller version (e.g. 'Start free') */
+button.black.start.free.button {
+  font-size: 14px;
+  padding: 10px 20px;
+}
+
+/* 🟫 Full-width version for bottom of page */
+.bottom-page-button button.black-sign-up {
+  width: 100%;
+  padding: 16px;
+  font-size: 18px;
+  margin-top: 40px;
+}
+
+.icon-arrow {
+  width: 20px;
+  height: 20px;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+button.black.start.free.button .icon-arrow {
+  width: 16px;
+  height: 16px;
+  margin-left: 6px;
+}
+
+.pricing-top {
+  padding-left: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items:  stretch;
+  padding: 60px 40px;
+  background-color: #fff;
+  gap: 40px;
+  flex-wrap: wrap;
+  position: relative;
+}
+
+.pricing-left {
+  flex: 1;
+  max-width: 50%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.pricing-right {
+  flex: 1;
+  max-width: 50%;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.pricing-image {
+  width: 100%;
+  max-width: 420px;
+  border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  object-fit: cover;
+ padding-bottom: 10px;
+}
+
+@media (max-width: 768px) {
+  .pricing-top {
+    flex-direction: column;
+  }
+
+  .pricing-left,
+  .pricing-right {
+    max-width: 100%;
+    text-align: center;
+  }
+
+
+}
+
+.coming-soon-label {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background-color: #EFB37C;
+  color: white;
+  font-size: 12px;
+  font-weight: bold;
+  padding: 6px 12px;
+  border-radius: 20px;
+  z-index: 2;
+  text-transform: uppercase;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
