@@ -1,4 +1,3 @@
-# keep Vercel from picking backend files
 server.js
 server.ts
 Live/
