@@ -1,7 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  eslint: { ignoreDuringBuilds: true },
-  typescript: { ignoreBuildErrors: true }, // you can switch this off later
-  // output: 'standalone', // optional
+  async redirects() {
+    // Send "/" to your static landing page in /public
+    return [{ source: '/', destination: '/index.html', permanent: false }];
+  },
 };
+
 export default nextConfig;

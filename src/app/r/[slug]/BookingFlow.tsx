@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { apiGet, apiLogin, apiMe } from '@/lib/api';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+
 
 
 // ------------ Types & helpers ------------
@@ -140,8 +140,7 @@ function shiftMonthISO(iso: string, delta: number): string {
 // ------------ Component ------------
 
 export default function BookingFlow({ businessId }: { businessId: string }) {
-  const _router = useRouter();
-
+ 
   // Modals
   const [showConfirm, setShowConfirm] = useState(false);
   const [showLogin,   setShowLogin]   = useState(false);
