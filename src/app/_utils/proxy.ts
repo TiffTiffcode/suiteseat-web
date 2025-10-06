@@ -13,18 +13,24 @@ function rewriteCookie(v: string, isHttps: boolean) {
 type ProxyInit = {
   methodOverride?: string;
   headers?: HeadersInit;
-  body?: BodyInit | null;
+  body?: BodyInit | ReadableStream<Uint8Array> | null;
 };
 
-/** Proxies the incoming request to your upstream API and returns a streamed response. */
-async function proxy(req: NextRequest, path: string, init?: ProxyInit) {
+type UpstreamBody = BodyInit | ReadableStream<Uint8Array> | null | undefined;
+
+// Narrowing type for node-fetch/undici headers that expose getSetCookie()
+type HeadersWithGetSetCookie = Headers & {
+  getSetCookie?: () => string[];
+};
+
+export async function proxy(req: NextRequest, path: string, init?: ProxyInit) {
   if (!API_BASE) {
     return NextResponse.json({ error: "API base URL missing" }, { status: 500 });
   }
 
   const url = `${API_BASE}${path}`;
 
-  // Build headers safely (no undefined values)
+  // Build headers safely
   const headers = new Headers();
   if (init?.headers) {
     new Headers(init.headers).forEach((v, k) => headers.set(k, v));
@@ -36,10 +42,12 @@ async function proxy(req: NextRequest, path: string, init?: ProxyInit) {
   }
 
   const method = init?.methodOverride ?? req.method;
-const body =
-  init?.body ??
-  (method === "GET" || method === "HEAD" ? undefined : (req.body ?? undefined));
 
+  // Prefer provided body; otherwise reuse the incoming request stream for non-GET/HEAD
+  let body: UpstreamBody = init?.body;
+  if (body === undefined && method !== "GET" && method !== "HEAD") {
+    body = req.body as ReadableStream<Uint8Array> | null;
+  }
 
   const upstream = await fetch(url, {
     method,
@@ -48,21 +56,35 @@ const body =
     redirect: "manual",
   });
 
+  // Stream the response back
   const res = new NextResponse(upstream.body, { status: upstream.status });
 
+  // Content-Type passthrough
   const ct = upstream.headers.get("content-type");
   if (ct) res.headers.set("content-type", ct);
 
-  upstream.headers.forEach((val, key) => {
-    if (key.toLowerCase() === "set-cookie") {
+  // Cookies passthrough (typed, no `any`)
+  const hdrs = upstream.headers as unknown as HeadersWithGetSetCookie;
+  if (typeof hdrs.getSetCookie === "function") {
+    for (const val of hdrs.getSetCookie()) {
       res.headers.append(
         "set-cookie",
         rewriteCookie(val, req.nextUrl.protocol === "https:")
       );
     }
-  });
+  } else {
+    // Fallback: collect any repeated Set-Cookie values
+    const cookies: string[] = [];
+    upstream.headers.forEach((val, key) => {
+      if (key.toLowerCase() === "set-cookie") cookies.push(val);
+    });
+    for (const val of cookies) {
+      res.headers.append(
+        "set-cookie",
+        rewriteCookie(val, req.nextUrl.protocol === "https:")
+      );
+    }
+  }
 
   return res;
 }
-
-export { proxy }; // 👈 explicit export
