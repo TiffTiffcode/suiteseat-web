@@ -1,9 +1,11 @@
+/* src/app/globals.css */
 @import "tailwindcss";
 
-/* Global base styles; keep minimal */
 :root {
   --background: #ffffff;
   --foreground: #111111;
+  --font-geist-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial;
+  --font-geist-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New";
 }
 
 html, body { height: 100%; }
