@@ -1,12 +1,16 @@
 // src/app/by-id/[id]/page.tsx
 import { redirect } from "next/navigation";
 
-type Props = { params: { id: string } };
+type Props = {
+  params: Promise<{ id: string }>;
+};
 
 export default async function ById({ params }: Props) {
+  const { id } = await params; // 👈 await the promised params
+
   const base = process.env.NEXT_PUBLIC_API_BASE_URL as string;
   const res = await fetch(
-    `${base}/api/public/booking-slug/by-business/${params.id}`,
+    `${base}/api/public/booking-slug/by-business/${id}`,
     { cache: "no-store" }
   );
 
@@ -31,6 +35,5 @@ export default async function ById({ params }: Props) {
     );
   }
 
-  // Redirect to /[slug]
   redirect(`/${slug}`);
 }

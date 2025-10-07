@@ -1,10 +1,18 @@
-import { NextRequest } from "next/server";
-import { proxy } from "@/app/_utils/proxy";
+// src/app/api/records/[type]/route.ts
+import { NextResponse } from 'next/server';
 
-export async function GET(req: NextRequest, { params }: { params: { type: string } }) {
-  const qs = req.nextUrl.search || "";
-  return proxy(req, `/records/${encodeURIComponent(params.type)}${qs}`);
+type Ctx = { params: Promise<{ type: string }> };
+
+export async function GET(_req: Request, ctx: Ctx) {
+  const { type } = await ctx.params; // 👈 await params
+  // ...your logic...
+  return NextResponse.json({ ok: true });
 }
-export async function POST(req: NextRequest, { params }: { params: { type: string } }) {
-  return proxy(req, `/records/${encodeURIComponent(params.type)}`);
+
+export async function POST(_req: Request, ctx: Ctx) {
+  const { type } = await ctx.params; // 👈 await params
+  // ...your logic...
+  return NextResponse.json({ ok: true });
 }
+
+// Do the same for PUT/PATCH/DELETE here if they exist.
