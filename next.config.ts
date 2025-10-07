@@ -1,8 +1,10 @@
-import type { NextConfig } from 'next';
-
-const nextConfig: NextConfig = {
-  eslint: { ignoreDuringBuilds: true },
+// next.config.ts
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  async redirects() {
+    return [
+      { source: '/index.html', destination: '/', permanent: true },
+    ];
+  },
 };
-
-export default nextConfig;
-
+module.exports = nextConfig;

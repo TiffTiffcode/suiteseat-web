@@ -1,22 +1,195 @@
-'use client';
-
-import Link from 'next/link';
-
-export default function SignUpPage() {
+// app/signup/page.tsx
+export default function SignUp() {
   return (
-    <main className="p-6 max-w-xl mx-auto">
-      <h1 className="text-2xl font-semibold mb-4">Create your account</h1>
+    <main
+      dangerouslySetInnerHTML={{
+        __html: `
+<body>
 
-      {/* TODO: replace with your real form */}
-      <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); alert('submit'); }}>
-        <input className="border p-2 w-full" placeholder="Email" />
-        <input className="border p-2 w-full" placeholder="Password" type="password" />
-        <button className="rounded bg-black text-white px-4 py-2">Sign up</button>
+    <!-- Header -->
+    <header class="header">
+      <section class="header-group-container">
+        <div class="group left-group">Suite Seat</div>
+        <div class="header-right-group"></div>
+      </section>
+    </header>
+
+ <!-- Client/Pro Toggle -->
+<section class="toggle-bar">
+  <div class="toggle-option active" id="clientToggle">Client</div>
+  <div class="toggle-option" id="proToggle">Pro</div>
+</section>
+
+
+                        <!-- Pro Section -->
+<section id="proSection">
+<h2 class="pro-header">Start Automating your Business</h2>
+  <div class="container">
+    
+        <!-- Pro Sign Up -->
+    <div class="auth-card" id="proSignUpCard">
+      <h2>Pro Sign Up</h2>
+      <form id="proSignUpForm">
+       
+         <div class="input-group">
+          <input type="text" id="pro-first-name" name="firstName" required>
+          <label for="pro-first-name">First Name</label>
+        </div>
+
+        <div class="input-group">
+          <input type="text" id="pro-last-name" name="lastName" required>
+          <label for="pro-last-name">Last Name</label>
+        </div>
+
+        <div class="input-group">
+          <input type="email" id="pro-signup-email" name="email" required>
+          <label for="pro-signup-email">Email</label>
+        </div>
+
+        <div class="input-group" style="position: relative;">
+          <input type="password" id="pro-signup-password" name="password" required>
+          <label for="pro-signup-password">Password</label>
+          <span id="toggleProSignupPassword" class="eye-icon">👁️</span>
+        </div>
+
+        <small class="password-note">Must be 8–12 characters.</small>
+
+        <div class="input-group">
+          <input type="password" id="signup-reenter-pro-password" name="signup-reenter-pro-password" required>
+          <label for="signup-reenter-pro-password">Re-enter Password</label>
+        </div>
+
+        <div class="input-group">
+          <input type="text" id="signup-phone-number" name="phone" required>
+          <label for="signup-phone-number">Phone Number</label>
+        </div>
+
+        <button type="submit" class="auth-button">Sign Up</button>
+        <p class="switch-link">Already have an account? <a href="#" id="showProLogin">Log In</a></p>
+
       </form>
+    </div>
 
-      <p className="mt-4 text-sm">
-        Already have an account? <Link className="underline" href="/login">Log in</Link>
-      </p>
-    </main>
+    <!-- Pro Log in -->
+    <div class="auth-card" id="proLoginCard" style="display: none;">
+      <h2>Pro Log In</h2>
+      <form id="proLoginForm">
+       <div class="input-group">
+    <input type="email" id="pro-log-in-email" name="email" required>
+    <label for="pro-log-in-email">Email</label>
+  </div>
+
+  <div class="input-group" style="position: relative;">
+    <input type="password" id="pro-log-in-password" name="password" required>
+    <label for="pro-log-in-password">Password</label>
+    <span id="toggleProPassword" class="eye-icon">👁️</span>
+  </div>
+
+        <button type="submit" class="auth-button">Log In</button>
+        <p class="switch-link">Don’t have an account? <a href="#" id="showProSignup">Sign Up</a></p>
+<p class="forgot-password">
+ <a href="forgot-password.html" id="forgot-client-password">Forgot your password?</a>
+
+</p>
+
+
+      </form>
+    </div>
+  </div>
+</section>
+
+
+<!-- Client Section -->
+<section id="clientSection" style="display: none;">
+    <h2 class="client-header">Get Access to your Pro</h2>
+  <div class="container">
+
+    <!-- Client Sign Up -->
+  <div class="auth-card" id="clientSignUpCard">
+      <h2>Client Sign Up</h2>
+      <form id="clientSignUpForm">
+        <div class="input-group">
+          <input type="text" id="client-first-name" name="firstName" required>
+          <label for="client-first-name">First Name</label>
+        </div>
+
+        <div class="input-group">
+          <input type="text" id="client-last-name" name="lastName" required>
+          <label for="client-last-name">Last Name</label>
+        </div>
+
+        <div class="input-group">
+          <input type="email" id="client-signup-email" name="email" required>
+          <label for="client-signup-email">Email</label>
+        </div>
+
+        <div class="input-group" style="position: relative;">
+          <input type="password" id="client-signup-password" name="password" required>
+          <label for="client-signup-password">Password</label>
+          <span id="toggleClientSignupPassword" class="eye-icon">👁️</span>
+        </div>
+
+        <small class="password-note">Must be 8–12 characters.</small>
+
+        <div class="input-group">
+          <input type="password" id="client-signup-reenter-password" name="signup-reenter-client-password" required>
+          <label for="client-signup-reenter-password">Re-enter Password</label>
+        </div>
+
+        <div class="input-group">
+          <input type="text" id="client-signup-phone-number" name="phone" required>
+          <label for="client-signup-phone-number">Phone Number</label>
+        </div>
+
+        <button type="submit" class="auth-button">Sign Up</button>
+        <p class="switch-link">Already have an account? <a href="#" id="showClientLogin">Log In</a></p>
+
+      </form>
+    </div>
+
+    <!-- Client Log In-->
+    <div class="auth-card" id="clientLoginCard" style="display: none;">
+      <h2>Client Log In</h2>
+      <form id="clientLoginForm">
+         <div class="input-group">
+          <input type="email" id="client-log-in-email" name="email" required>
+          <label for="client-log-in-email">Email</label>
+        </div>
+
+        <div class="input-group" style="position: relative;">
+          <input type="password" id="client-log-in-password" name="password" required>
+          <label for="client-log-in-password">Password</label>
+          <span id="toggleClientPassword" class="eye-icon">👁️</span>
+        </div>
+
+
+        <button type="submit" class="auth-button">Log In</button>
+        <p class="switch-link">Don’t have an account? <a href="#" id="showClientSignup">Sign Up</a></p>
+<p class="forgot-password">
+<a href="forgot-password.html" id="forgot-client-password">Forgot your password?</a>
+
+</p>
+
+      </form>
+    </div>
+  </div>
+</section>
+
+
+
+<!-- Popup Overlay (optional for dark background effect) -->
+<div id="popup-overlay" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 999;"></div>
+
+    <script src="/qassets/js/signup.js"></script>
+  </body>
+<h1>Sign up</h1>
+<p>Welcome! …</p>
+<!-- IMPORTANT: change JS-based navigation to simple links -->
+<!-- e.g. <button onclick="location.href='/login'"> becomes: -->
+<a href="/login" class="btn">Log in</a>
+        `,
+      }}
+    />
   );
 }
+
