@@ -9,7 +9,7 @@ export default function Home() {
       {/* Site details (hero) */}
       <section className="site-details">
         <div className="site-details-left">
-          <h1>SCHEDULE APPOINTMENTS AND SELL PRODUCTS</h1>
+          <h1>256156SCHEDULE APPOINTMENTS AND SELL PRODUCTS</h1>
           <p className="subhead">all in the same place</p>
 
           <h2>Automations</h2>
