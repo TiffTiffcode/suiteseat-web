@@ -1,4 +1,5 @@
 // src/app/signup/page.tsx
+import "./signup.css";   // <-- add this line
 import Link from "next/link";
 
 export default function SignupPage() {
