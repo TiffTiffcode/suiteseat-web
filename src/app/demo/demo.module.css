@@ -1,0 +1,66 @@
+/* src/app/demo/demo.module.css */
+.page {
+  min-height: 100vh;
+  background: #fafafa;
+  padding: 48px 24px;
+}
+
+.hero {
+  max-width: 960px;
+  margin: 0 auto 32px;
+  padding: 32px;
+  border-radius: 16px;
+  background: linear-gradient(90deg, #efb37c 0%, #c5f2da 100%);
+  box-shadow: 0 10px 24px rgba(0,0,0,0.06);
+}
+
+.title {
+  margin: 0;
+  font-size: 40px;
+  line-height: 1.1;
+}
+
+.subtitle {
+  margin-top: 8px;
+  font-size: 18px;
+  color: #333;
+}
+
+.cta {
+  display: inline-block;
+  margin-top: 16px;
+  padding: 12px 18px;
+  border-radius: 10px;
+  background: #111;
+  color: #fff;
+  text-decoration: none;
+  font-weight: 700;
+  transition: transform .08s ease;
+}
+.cta:hover { transform: translateY(-1px); }
+
+.grid {
+  max-width: 960px;
+  margin: 24px auto 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.card {
+  background: white;
+  border-radius: 14px;
+  padding: 20px;
+  box-shadow: 0 6px 18px rgba(0,0,0,.06);
+}
+
+.card h3 {
+  margin: 0 0 6px;
+  font-size: 18px;
+}
+
+.card p {
+  margin: 0;
+  color: #555;
+  font-size: 14px;
+}
