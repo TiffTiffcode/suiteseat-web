@@ -166,18 +166,17 @@ body.popup-open {
   border: 1px solid #ccc;
 }
 
-button[type="submit"] {
+.button {
   width: 100%;
   padding: 12px;
   background-color: #efb37c;
   color: black;
   border: none;
-  border-radius: 5px;
-  font-weight: bold;
+  border-radius: 8px;
+  font-weight: 700;
   cursor: pointer;
 }
-
-button[type="submit"]:hover {
+.button:hover {
   background-color: #e1a369;
 }
 
