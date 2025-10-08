@@ -1,28 +1,4 @@
-const osList = document.getElementById('optionset-list');
-const osDetail = document.getElementById('optionset-detail');
-const osForm = document.getElementById('optionset-form');
-const osInput = document.getElementById('new-optionset');
-const osKindCreateSelect = document.getElementById('optionset-kind-create');
-const osSelectedId = document.getElementById('selected-optionset-id');
-const osNameInput = document.getElementById('optionset-name-input');
-const osRenameBtn = document.getElementById('optionset-rename-btn');
-const osDeleteBtn = document.getElementById('optionset-delete-btn');
-const osKindSelect = document.getElementById('optionset-kind');
-const osKindSaveBtn = document.getElementById('optionset-kind-save');
 
-const ovTbody = document.getElementById('optionvalues-tbody');
-const ovForm = document.getElementById('optionvalue-form');
-const ovLabelInput = document.getElementById('ov-label');
-const ovImageUrl = document.getElementById('ov-imageUrl');
-const ovNumberValue = document.getElementById('ov-numberValue');
-const ovBoolValue = document.getElementById('ov-boolValue');
-const ovColorHex = document.getElementById('ov-colorHex');
-const ovOrderInput = document.getElementById('ov-order');
-
-const ovMetaImage = document.getElementById('ov-meta-image');
-const ovMetaNumber = document.getElementById('ov-meta-number');
-const ovMetaBoolean = document.getElementById('ov-meta-boolean');
-const ovMetaColor = document.getElementById('ov-meta-color');
 
 // public/js/admin.js
 document.addEventListener('DOMContentLoaded', () => {
@@ -33,20 +9,17 @@ document.addEventListener('DOMContentLoaded', () => {
   // ----------------------------
   const tabs  = Array.from(document.querySelectorAll('.tab[data-tab]'));
   const panes = Array.from(document.querySelectorAll('.content[data-content]'));
-
   function switchToTab(n) {
     const target = String(n);
     tabs.forEach(t => t.classList.toggle('active', t.dataset.tab === target));
     panes.forEach(p => p.classList.toggle('active', p.dataset.content === target));
   }
-
   tabs.forEach(t => t.addEventListener('click', () => switchToTab(t.dataset.tab)));
-  window.switchToTab = switchToTab; // so we can jump to Fields in code
-
+  window.switchToTab = switchToTab;
   // ----------------------------
   // Elements: Data Types
   // ----------------------------
-  const form = document.getElementById('new-data-type-form');
+ const form = document.getElementById('new-data-type-form');
   const input = document.getElementById('new-data-type');
   const list  = document.getElementById('datatype-list');
   const selectedIdInput = document.getElementById('selected-datatype-id');
@@ -58,62 +31,45 @@ document.addEventListener('DOMContentLoaded', () => {
   const fieldNameInput   = document.getElementById('new-field');
   const fieldTypeSelect  = document.getElementById('field-type');
   const allowMultipleBox = document.getElementById('allow-multiple');
-  const fieldList        = document.querySelector('#content2 #field-list');
   const btnShowFieldForm = document.getElementById('btn-show-field-form');
   const btnCancelField   = document.getElementById('btn-cancel-field');
   const fieldCtx         = document.getElementById('field-context');
   const fieldCtxName     = document.getElementById('field-context-name');
-  const fieldsTbody = document.getElementById('fields-tbody');
+  const fieldsTbody      = document.getElementById('fields-tbody');
 
-  
   // ----------------------------
   // Elements: Option Sets
   // ----------------------------
-const osForm          = document.getElementById('optionset-form');
-const osInput         = document.getElementById('new-optionset');
-const osList          = document.getElementById('optionset-list');
-const osDetail        = document.getElementById('optionset-detail');
-const osNameInput     = document.getElementById('optionset-name-input');
-const osRenameBtn     = document.getElementById('optionset-rename-btn');
-const osDeleteBtn     = document.getElementById('optionset-delete-btn');
-const osSelectedId    = document.getElementById('selected-optionset-id');
+  const osForm          = document.getElementById('optionset-form');
+  const osInput         = document.getElementById('new-optionset');
+  const osKindCreateSelect = document.getElementById('optionset-kind-create');
+  const osList          = document.getElementById('optionset-list');
+  const osDetail        = document.getElementById('optionset-detail');
+  const osNameInput     = document.getElementById('optionset-name-input');
+  const osRenameBtn     = document.getElementById('optionset-rename-btn');
+  const osDeleteBtn     = document.getElementById('optionset-delete-btn');
+  const osSelectedId    = document.getElementById('selected-optionset-id');
+  const osKindSelect    = document.getElementById('optionset-kind');
+  const osKindSaveBtn   = document.getElementById('optionset-kind-save');
 
+  const ovForm          = document.getElementById('optionvalue-form');
+  const ovLabelInput    = document.getElementById('ov-label');
+  const ovImageUrl      = document.getElementById('ov-imageUrl');
+  const ovNumberValue   = document.getElementById('ov-numberValue');
+  const ovBoolValue     = document.getElementById('ov-boolValue');
+  const ovColorHex      = document.getElementById('ov-colorHex');
+  const ovOrderInput    = document.getElementById('ov-order');
+  const ovTbody         = document.getElementById('optionvalues-tbody');
 
-const ovForm          = document.getElementById('optionvalue-form');
-const ovLabelInput    = document.getElementById('ov-label');
-const ovValueInput    = document.getElementById('ov-value');
-const ovOrderInput    = document.getElementById('ov-order');
-const ovTbody         = document.getElementById('optionvalues-tbody');
-
-const optionSetPicker = document.getElementById('option-set-picker');
-const optionSetSelect = document.getElementById('option-set-select');
-
-const osKindSelect     = document.getElementById('optionset-kind');
-const osKindSaveBtn    = document.getElementById('optionset-kind-save');
-
-const ovMetaImage   = document.getElementById('ov-meta-image');
-const ovMetaNumber  = document.getElementById('ov-meta-number');
-const ovMetaBoolean = document.getElementById('ov-meta-boolean');
-const ovMetaColor   = document.getElementById('ov-meta-color');
-
-const ovImageUrl    = document.getElementById('ov-imageUrl');
-const ovNumberValue = document.getElementById('ov-numberValue');
-const ovBoolValue   = document.getElementById('ov-boolValue');
-const ovColorHex    = document.getElementById('ov-colorHex');
-
-const osKindCreateSelect = document.getElementById('optionset-kind-create'); // left form
-
-
-  // Initial UI state
+  // initial UI
   if (fieldForm) fieldForm.style.display = 'none';
   if (btnShowFieldForm) btnShowFieldForm.disabled = true;
 
-  // Boot on page load
+  // boot
   loadDataTypes();
   refreshReferenceOptions();
   loadOptionSets();
-  loadOptionSets();
- populateOptionSetsInFieldType();
+  populateOptionSetsInFieldType();
   // ----------------------------
   // Create DataType
   // ----------------------------

@@ -11,6 +11,9 @@ body {
   background-color: #f9f9f9;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
+/* Tab content toggling */
+.tab-content .content { display: none; }
+.tab-content .content.active { display: block; }
 
 .tab {
   padding: 12px 24px;
