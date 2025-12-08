@@ -4,8 +4,12 @@ const APPLICATION_TYPE = "Application";
 
 // ---- API base (same pattern as other pages) ----
 const API_BASE =
-  (window.API_ORIGIN && String(window.API_ORIGIN)) ||
-  "http://localhost:8400";
+  (window.NEXT_PUBLIC_API_BASE_URL ||
+   window.API_BASE_URL ||
+   window.API_BASE ||
+   ''
+  ).replace(/\/+$/,'');
+
 // ================================
 // AUTH UI (header + popup)
 // ================================
@@ -125,20 +129,14 @@ function initAuthUI(currentUser) {
 // ---- Get signed-in user via /check-login ----
 async function getSignedInUser() {
   try {
-    const res = await fetch("/check-login", {
-      credentials: "include",
-      headers: { Accept: "application/json" },
+    const res = await fetch('/api/check-login', {
+      credentials: 'include',
     });
     if (!res.ok) return null;
     const data = await res.json();
-    if (!data?.loggedIn) return null;
-
-    return {
-      id: data.userId || data?.user?._id || data?.user?.id || null,
-      email: data.email || data?.user?.email || "",
-      firstName: data.firstName || data?.user?.firstName || "",
-    };
-  } catch {
+    return data?.user || null;
+  } catch (err) {
+    console.warn('[suite-settings] getSignedInUser error', err);
     return null;
   }
 }
