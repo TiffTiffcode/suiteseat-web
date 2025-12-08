@@ -1,31 +1,102 @@
 // src/app/api/login/route.ts
 import { NextRequest, NextResponse } from "next/server";
+import { cookies } from "next/headers";
+import bcrypt from "bcryptjs";
+import { connectDB } from "@/lib/db";
+import AuthUser from "@/models/AuthUser";
 
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE ||
-  process.env.API_BASE ||
-  "http://localhost:8400"; // fallback for local dev
+// Make sure this runs in Node, not Edge
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+type LeanUser = {
+  _id: unknown;
+  email?: string;
+  firstName?: string;
+  lastName?: string;
+  role?: string;
+  roles?: string[];
+  passwordHash?: string;  // stored bcrypt hash
+};
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
+    await connectDB();
 
-    const res = await fetch(`${API_BASE}/login`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
+    const { email = "", password = "" } = await req.json();
+    const normEmail = String(email).trim().toLowerCase();
+
+    if (!normEmail || !password) {
+      return NextResponse.json(
+        { ok: false, error: "Email and password required" },
+        { status: 400 }
+      );
+    }
+
+    const user = await AuthUser.findOne({ email: normEmail })
+      .select("_id email firstName lastName role roles passwordHash")
+      .lean<LeanUser>();
+
+    if (!user) {
+      return NextResponse.json(
+        { ok: false, error: "Invalid credentials" },
+        { status: 401 }
+      );
+    }
+
+    const hash = user.passwordHash || "";
+    let valid = false;
+
+    if (hash.startsWith("$2")) {
+      // normal bcrypt hash
+      valid = await bcrypt.compare(String(password), hash);
+    } else if (hash) {
+      // optional: legacy plaintext support
+      valid = String(password) === hash;
+      if (valid) {
+        const newHash = await bcrypt.hash(String(password), 10);
+        await AuthUser.updateOne(
+          { _id: user._id as any },
+          { $set: { passwordHash: newHash } }
+        );
+      }
+    }
+
+    if (!valid) {
+      return NextResponse.json(
+        { ok: false, error: "Invalid credentials" },
+        { status: 401 }
+      );
+    }
+
+    // IMPORTANT: cookies() is sync – no `await`
+ // AFTER
+const cookieStore = await cookies();
+cookieStore.set("session", String(user._id), {
+  httpOnly: true,
+  sameSite: "lax",
+  secure: true,
+  path: "/",
+  maxAge: 60 * 60 * 24 * 7, // 7 days
+});
+
+
+    const role = user.role || (user.roles?.[0]) || "pro";
+
+    return NextResponse.json({
+      ok: true,
+      loggedIn: true,
+      user: {
+        id: String(user._id),
+        firstName: user.firstName || "",
+        email: user.email || normEmail,
+        role,
       },
-      // If you later need to forward cookies, we can tweak this,
-      // but for now this keeps things simple and buildable.
-      body: JSON.stringify(body),
     });
-
-    const data = await res.json().catch(() => ({}));
-    return NextResponse.json(data, { status: res.status });
   } catch (err) {
-    console.error("[/api/login] proxy error:", err);
+    console.error("[api/login] error", err);
     return NextResponse.json(
-      { error: "Login proxy failed" },
+      { ok: false, error: "Server error" },
       { status: 500 }
     );
   }
