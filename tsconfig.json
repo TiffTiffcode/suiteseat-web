@@ -1,3 +1,4 @@
+//C:\Users\tiffa\OneDrive\Desktop\suiteseat-web\tsconfig.json
 {
   "compilerOptions": {
     "target": "ES2022",
@@ -15,7 +16,7 @@
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "jsx": "preserve",
+    "jsx": "react-jsx",
     "plugins": [
       {
         "name": "next"
@@ -27,19 +28,14 @@
         "src/*"
       ]
     },
-    "types": [
-      "node",
-      "react",
-      "react-dom"
-    ] // <-- add these
-    ,
     "incremental": true
   },
   "include": [
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
-    ".next/types/**/*.ts"
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules"

@@ -1,0 +1,224 @@
+/* C:\Users\tiffa\OneDrive\Desktop\suiteseat-web\src\app\[slug]\styles\BookingPage\basic.css */
+/* vars (put near the top of the file) */
+:root{
+  --text:#111;
+  --muted:#666;
+  --line:#e5e7eb;         /* light gray border */
+  --brand-orange:#ff6600; /* your accent */
+}
+
+/* === Basic Booking Page Template === */
+/* add to /public/qassets/css/booking-page.css */
+.bk-hero { position: relative; border-radius: 16px; overflow: hidden; margin: 16px 0; }
+.bk-hero-img { width: 100%; height: 280px; object-fit: cover; display: block; }
+.bk-hero-overlay {
+  position: absolute; inset: 0; display: flex; flex-direction: column;
+  justify-content: flex-end; padding: 16px; background: linear-gradient(transparent, rgba(0,0,0,.45));
+}
+.bk-title { color: #fff; font-size: 28px; font-weight: 700; margin: 0; }
+.bk-desc  { color: #f3f3f3; margin-top: 6px; }
+
+.bk-container {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 24px;
+  font-family: system-ui, sans-serif;
+  color: #111;
+}
+
+.bk-hero {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.bk-title {
+  font-size: 2rem;
+  font-weight: 700;
+}
+
+.bk-sub {
+  color: #666;
+}
+
+.bk-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 20px;
+}
+
+.bk-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  margin-bottom: 16px;
+}
+
+.bk-h3 {
+  font-size: 1.2rem;
+  margin-bottom: 10px;
+}
+
+.bk-list, .bk-grid-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.bk-placeholder {
+  padding: 8px;
+  border: 1px dashed #ccc;
+  border-radius: 8px;
+  color: #999;
+  font-size: 0.9rem;
+}
+
+.bk-btn-primary {
+  display: inline-block;
+  background: #efb37c;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 10px 20px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 12px;
+}
+
+.bk-btn-primary:hover {
+  background: #ff6600;
+}
+
+
+.bk-cal-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+.bk-month { font-weight:600; }
+.bk-cal-grid { display:grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.bk-day { padding:10px; border-radius:10px; background:#fff; }
+.bk-dot { display:inline-block; width:6px; height:6px; border-radius:50%; background:currentColor; margin-left:4px; vertical-align:middle; }
+.bk-slot-list { display:flex; gap:8px; flex-wrap:wrap; }
+.bk-slot { padding:8px 10px; border-radius:999px; background:#fff; border:1px solid var(--line); }
+
+
+/* day cells */
+/* Calendar day base (one block only) */
+.bk-cal-day{
+  appearance:none;
+  background:transparent;
+  border:1px solid transparent;
+  border-radius:10px;
+  padding:6px 8px;
+  font:inherit;
+  color:var(--muted);
+  cursor:default;
+}
+/* Unavailable */
+.bk-cal-day:disabled{
+  opacity:.35;
+  cursor:not-allowed;
+}
+/* Available (this comes AFTER base so it wins) */
+.bk-cal-day.is-available:not(:disabled){
+  border-color: rgba(0,0,0,.1);
+  color: var(--text);
+  cursor: pointer;
+}
+
+/* Selected (AFTER base so it wins) */
+.bk-cal-day.is-selected{
+  background: var(--brand-orange);
+  color:#fff;
+  border-color: transparent;
+}
+.bk-cal-day[disabled] { opacity: .4; cursor: not-allowed; }
+
+/* time buttons */
+.bk-time { padding: 6px 10px; border-radius: 8px; border: 1px solid var(--line); }
+
+.bk-cal-day.is-selected:hover{
+  background: var(--brand-orange);
+}
+/* modal shell */
+.bk-modal-overlay{
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.25);
+  display: grid; place-items: center;
+  z-index: 50;
+}
+.bk-modal{
+  background: #fff;
+  border-radius: 14px;
+  padding: 20px;
+  width: min(520px, 92vw);
+  box-shadow: 0 10px 30px rgba(0,0,0,.25);
+}
+.bk-modal-actions{
+  display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px;
+}
+.bk-summary-row{ margin: 6px 0; }
+.bk-chip{ padding: 8px 12px; border-radius: 999px; border: 1px solid #ddd; }
+/* Calendar day base */
+.bk-cal-day {
+  appearance: none;
+  border: 1px solid transparent;
+  background: transparent;
+  padding: 6px 8px;
+  border-radius: 10px;
+  font: inherit;
+  cursor: default;
+  color: var(--muted);
+}
+
+
+/* Available days get a subtle ring + darker text */
+.bk-cal-day.is-available:not(:disabled) {
+  border-color: rgba(0,0,0,.08);
+  color: var(--text);
+  cursor: pointer;
+}
+
+/* Hover for available days */
+.bk-cal-day.is-available:not(:disabled):hover {
+  border-color: rgba(0,0,0,.18);
+  background: rgba(0,0,0,.04);
+}
+
+/* Today dot (optional) */
+.bk-cal-day.is-today::after {
+  content: "";
+  display: block;
+  width: 4px; height: 4px;
+  margin: 3px auto 0;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: .6;
+}
+
+
+/* Auth modal basics */
+.bk-modal-overlay{
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.25);
+  display: grid; place-items: center;
+  z-index: 50;
+}
+.bk-modal{
+  background: #fff;
+  border-radius: 14px;
+  padding: 20px;
+  width: min(520px, 92vw);
+  box-shadow: 0 10px 30px rgba(0,0,0,.25);
+}
+.bk-modal-actions{
+  display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px;
+}
+
+/* Form bits */
+.bk-auth-form { display: grid; gap: 12px; }
+.bk-label { display: grid; gap: 6px; font-weight: 600; }
+.bk-input {
+  border: 1px solid #ddd; border-radius: 8px;
+  padding: 10px 12px; font: inherit;
+}
+.bk-error { color: #c0392b; font-size: .9rem; }
+.bk-modal-overlay { position: fixed; inset: 0; z-index: 9999; }
+.bk-modal { position: relative; z-index: 10000; }

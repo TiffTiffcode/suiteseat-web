@@ -1,0 +1,1937 @@
+
+
+.empty {
+  padding-bottom: 20px;
+}
+html, body {
+  height: 100%;
+  min-height: 100vh;
+  margin: 0;
+  padding: 20;
+  overflow-x: hidden; /* optional: hides sideways scroll */
+  
+}
+
+body {
+  overflow-y: auto;
+  
+}
+
+.bottom-tab-bar {
+  margin-bottom: 20px;
+}
+
+main {
+  padding-bottom: 100px; /* adjust to make room for fixed footer */
+}
+
+
+/* Header Styling */
+.header {
+    background: linear-gradient(90deg, #EFB37C 0%, #C5F2DA 100%);
+    padding: 20px;
+    text-align: left;
+    font-size: 24px;
+    color: black;
+    box-shadow: 0px 4px 11.2px 0px rgba(0, 0, 0, 0.25);
+  }
+  
+  .business-header
+  {margin-bottom:20px;
+     svg {
+    transform: translateY(5px) translateX(5px); /* Move the SVG down by 10px */
+     
+  }
+  
+  }
+
+
+
+
+/* ========= Base / Variables ========= */
+
+:root {
+  --peach: #ffffff;
+  --orange: #ffffff;
+  --bg: #f6f7fb;
+  --text: #111111;
+  --muted: #6b7280;
+  --card: #ffffff;
+  --line: #e5e7eb;
+  --radius: 16px;
+  --shadow: 0 10px 25px rgba(0, 0, 0, 0.06);
+  --sidebar-w: 260px;
+  --sidebar-w-collapsed: 80px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.45 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    Helvetica, Arial;
+}
+
+/* ========= Header (you already had some of this) ========= */
+
+.header {
+  background: linear-gradient(90deg, #efb37c 0%, #c5f2da 100%);
+  padding: 20px;
+  text-align: left;
+  font-size: 24px;
+  color: black;
+  box-shadow: 0 4px 11.2px rgba(0, 0, 0, 0.25);
+}
+
+.header-group-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.group.left-group {
+  font-weight: 700;
+}
+
+.group.right-group button {
+  margin-left: 8px;
+}
+
+
+
+
+
+.auth-modal[hidden] {
+  display: none;
+}
+
+.auth-modal {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.35);
+  z-index: 1000;
+}
+
+/* ========= App Layout ========= */
+
+.app {
+  display: grid;
+  min-height: calc(100vh - 72px); /* minus header */
+  grid-template-columns: var(--sidebar-w) 1fr;
+  transition: grid-template-columns 0.25s ease;
+}
+
+.app.collapsed {
+  grid-template-columns: var(--sidebar-w-collapsed) 1fr;
+}
+
+/* ========= Sidebar ========= */
+
+.sidebar {
+  position: relative;
+  background: linear-gradient(180deg, var(--peach), var(--orange));
+  color: #111;
+  padding: 14px 12px 16px;
+  overflow: hidden;
+}
+
+/* Arrow button */
+.collapse-btn {
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  border: none;
+  cursor: pointer;
+  background: #fff;
+  box-shadow: var(--shadow);
+  display: grid;
+  place-items: center;
+  transition: transform 0.25s ease;
+}
+
+.app.collapsed .collapse-btn {
+  transform: rotate(180deg);
+}
+
+/* Brand row */
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 8px 18px 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.25);
+  margin-bottom: 16px;
+}
+
+.brand .logo {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: #fff;
+  display: grid;
+  place-items: center;
+  box-shadow: var(--shadow);
+  font-weight: 700;
+}
+
+.brand .name {
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
+.app.collapsed .brand .name {
+  display: none;
+}
+
+/* Nav items */
+.nav {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.nav button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 12px;
+  margin: 6px 0;
+  border-radius: 12px;
+  border: none;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.75);
+  transition: background 0.15s ease, transform 0.05s ease;
+}
+
+.nav button:hover {
+  background: #ffffff;
+}
+
+.nav button:active {
+  transform: translateY(1px);
+}
+
+.nav .icon {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: #ffffff;
+  display: grid;
+  place-items: center;
+  box-shadow: var(--shadow);
+  font-size: 14px;
+}
+
+.nav .label {
+  font-weight: 600;
+}
+
+.app.collapsed .nav .label {
+  display: none;
+}
+
+.nav button.active {
+  outline: 2px solid rgba(17, 17, 17, 0.1);
+  background: #ffffff;
+}
+
+/* ========= Topbar + Content ========= */
+
+
+.main {
+  display: flex;
+  flex-direction: column;
+}
+
+.topbar {
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 18px;
+  background: var(--card);
+  box-shadow: var(--shadow);
+}
+
+.topbar .search {
+  flex: 1;
+  max-width: 520px;
+  margin-left: 6px;
+  display: flex;
+  gap: 8px;
+  background: #f3f4f6;
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+}
+
+.topbar input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+}
+
+.user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  background: #ddd;
+}
+
+/* Content + sections */
+
+.content {
+  padding: 20px;
+
+}
+
+.section {
+  width: 100%;
+  /* delete max-width */
+  display: none;
+  margin: 24px 0;  /* top/bottom spacing only */
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 20px;
+}
+
+
+.section.active {
+  display: block;
+}
+
+.cards {
+  margin-top: 14px;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(12, 1fr);
+}
+
+.card {
+  grid-column: span 4;
+  min-height: 120px;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 16px;
+  box-shadow: var(--shadow);
+}
+
+.muted {
+  color: var(--muted);
+}
+
+/* ========= Responsive behavior ========= */
+
+/* On smaller screens: force sidebar to compact width and hide labels */
+@media (max-width: 900px) {
+  .app {
+    grid-template-columns: var(--sidebar-w-collapsed) 1fr;
+  }
+  .nav .label {
+    display: none;
+  }
+}
+
+
+/* ========= Locations Section  ========= */
+/* Locations header row */
+.section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+/* Reuse generic btn styles; just tiny tweaks */
+.locations-add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+
+/* small + icon bubble */
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: #fff;
+  font-size: 14px;
+}
+
+/* card that contains the location form */
+.location-form-card h3 {
+  margin-top: 0;
+}
+
+/* Reuse "field" pattern like products */
+.location-form-card .field {
+  display: block;
+  margin: 14px 0;
+}
+
+.location-form-card .field > span {
+  display: block;
+  font-weight: 600;
+  margin: 0 0 6px;
+}
+
+.location-form-card input {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  outline: none;
+  background: #fff;
+}
+
+.location-details-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.location-details-header-main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.location-style-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px 20px;
+  box-shadow: 0 12px 30px rgba(0,0,0,0.25);
+  width: 100%;
+  max-width: 420px;
+}
+
+.location-style-row {
+  margin-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.location-style-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+
+.location-style-card {
+  max-width: 420px;
+}
+
+.location-style-row {
+  margin-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.location-style-bg-preview {
+  margin-top: 8px;
+  min-height: 60px;
+}
+
+.location-style-bg-thumb {
+  max-width: 100%;
+  max-height: 140px;
+  border-radius: 8px;
+  object-fit: cover;
+  display: block;
+}
+
+.dashboard-card {
+  cursor: pointer;
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.dashboard-card:hover {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  transform: translateY(-1px);
+}
+
+
+.loc-gallery-thumb-wrap {
+  position: relative;
+  width: 100%;
+}
+
+.gallery-remove-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 22px;
+  height: 22px;
+  background: rgba(0,0,0,0.65);
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 22px;
+}
+/* Gallery container becomes a responsive grid */
+#loc-current-gallery,
+.loc-gallery-container,
+.location-gallery-container,
+.location-gallery-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 10px;
+  align-items: start;
+}
+
+
+.loc-gallery-thumb {
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+#loc-current-gallery {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+.location-gallery,
+#location-details-gallery {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+#loc-current-gallery,
+#loc-new-gallery-preview {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 10px;
+}
+
+/* Location details gallery grid */
+.location-gallery,
+#location-details-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 10px;
+  align-items: start;
+}
+
+/* generic small icon button */
+.icon-btn {
+  border: none;
+  background: #f5f5f5;
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 18px;
+  cursor: pointer;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.06);
+}
+
+.icon-btn:hover {
+  background: #eee;
+}
+
+/* Action row */
+.location-form-actions {
+  margin-top: 12px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* Ghost button style (if you don't already have this) */
+.btn.ghost {
+  background: #fff;
+  color: #111;
+  border: 1px solid #e5e7eb;
+}
+
+#locations .section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+#location-form-card {
+  background: #fff;
+  border-radius: 16px;
+  padding: 16px 18px 18px;
+  box-shadow: var(--shadow, 0 10px 25px rgba(0,0,0,.06));
+  border: 1px solid #e5e7eb;
+  margin-bottom: 16px;
+}
+
+#locations .field {
+  display: block;
+  margin: 10px 0;
+}
+
+#locations .field > span {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+#locations .field input {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+}
+
+#locations .form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+#locations .location-item {
+  background: #fff;
+  border-radius: 16px;
+  border: 1px solid #e5e7eb;
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  box-shadow: var(--shadow, 0 6px 16px rgba(0,0,0,.04));
+}
+
+#locations .location-item h3 {
+  margin: 0 0 4px;
+}
+
+#locations .location-item p {
+  margin: 2px 0;
+}
+
+
+.location-main-inline {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.location-main-text {
+  display: flex;
+  flex-direction: column;
+}
+
+
+
+
+
+.location-details {
+  margin-top: 16px;
+}
+
+.location-details-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.location-details-header h3 {
+  margin: 4px 0;
+}
+
+.location-details-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+@media (max-width: 900px) {
+  .location-details-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.location-rent-amount {
+  font-weight: 600;
+  font-size: 1rem;
+}
+.location-main-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.location-main-left {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.location-main-right {
+  flex: 0 0 auto;
+}
+
+.location-thumb {
+  width: 60px;
+  height: 60px;
+  border-radius: 12px;
+  object-fit: cover;
+}
+
+.location-gallery {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.location-gallery-thumb {
+  width: 100%;
+  height: 90px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+/* Generic thumbnail styles for any of these containers */
+.location-details img,
+.location-gallery img,
+.location-current-photo img,
+.location-current-gallery img,
+.location-new-gallery-preview img,
+.suite-gallery-thumb {
+  max-width: 140px;
+  max-height: 140px;
+  width: 140px;
+  height: 140px;
+  object-fit: cover;
+  border-radius: 12px;
+  display: block;
+}
+
+/* Layout for gallery / preview areas */
+.location-gallery,
+.location-current-gallery,
+.location-new-gallery-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* Wrapper for preview + X button */
+.gallery-thumb-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.gallery-thumb-remove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  border: none;
+  border-radius: 999px;
+  padding: 0 6px;
+  font-size: 12px;
+  line-height: 1.2;
+  cursor: pointer;
+  background: rgba(0,0,0,0.7);
+  color: #fff;
+}
+
+.location-current-photo img,
+.location-current-gallery img,
+.location-new-gallery-preview img,
+.location-gallery img,
+.suite-gallery-thumb {
+  max-width: 120px;
+  max-height: 120px;
+  width: 120px;
+  height: 120px;
+  object-fit: cover;
+  border-radius: 12px;
+  display: block;
+}
+
+.location-current-gallery,
+.location-new-gallery-preview,
+.location-gallery {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.gallery-thumb-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.gallery-thumb-remove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  border: none;
+  border-radius: 999px;
+  padding: 0 6px;
+  font-size: 12px;
+  cursor: pointer;
+  background: rgba(0,0,0,0.7);
+  color: #fff;
+}
+
+.link-button {
+  border: none;
+  background: none;
+  padding: 0;
+  margin-top: 4px;
+  font: inherit;
+  color: #2563eb;      /* or your brand color */
+  cursor: pointer;
+}
+
+
+
+/* Keep About text nicely contained */
+#location-details-about {
+  white-space: pre-wrap;      /* keep line breaks from the textarea */
+  word-break: break-word;     /* break long words if needed */
+  overflow-wrap: break-word;  /* extra safety for long strings */
+  max-width: 100%;            /* don't stretch beyond its column */
+}
+
+
+/* Keep Details text contained */
+#location-details-desc {
+  white-space: pre-wrap;      /* keep line breaks */
+  word-break: break-word;     /* break long words */
+  overflow-wrap: break-word;  /* extra safety */
+  max-width: 100%;
+}
+
+/* (optional) make it scroll instead of super tall */
+#location-details-desc {
+  max-height: 160px;          /* adjust height if you want */
+  overflow-y: auto;
+}
+
+
+.location-text-toggle {
+  margin-top: 8px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: #2563eb; /* blue link style */
+  font-size: 14px;
+  cursor: pointer;
+}
+.location-text-toggle:hover {
+  text-decoration: underline;
+}
+
+/* Make Details + About fill the card width */
+#loc-details,
+#loc-about {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 80px;
+  font-size: 14px;
+  line-height: 1.4;
+  resize: vertical;  /* user can drag to make taller if they want */
+}
+
+
+.location-suite-main-inline {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.location-suite-thumb {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;   /* match your rounded cards vibe */
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.location-suite-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.location-suite-name {
+  font-weight: 600;
+}
+
+.location-suite-availability {
+  font-size: 13px;
+}
+
+
+.location-suite-main-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;           /* space between image and text */
+}
+
+.location-suite-thumb {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.location-suite-text {
+  display: flex;
+  flex-direction: column;
+}
+
+
+
+
+
+
+
+
+
+/* ---- Suities section ---- */
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.suitie-form-card {
+  margin-top: 12px;
+}
+
+.suitie-list {
+  margin-top: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* each suitie row */
+.suitie-item {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 14px 16px;
+  box-shadow: var(--shadow);
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.suitie-main h3 {
+  margin: 0 0 4px;
+  font-size: 15px;
+}
+
+.suitie-main p {
+  margin: 0;
+  font-size: 13px;
+}
+/* make the inside of the card a left/right layout */
+.suitie-main-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+/* let left side take most space */
+.suitie-main-left {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* right side (rent info) */
+.suitie-main-right {
+  flex: 0 0 auto;
+  text-align: right;
+}
+.suitie-meta {
+  font-size: 12px;
+  color: var(--muted);
+}
+/* avatar + text row inside left side */
+.suitie-main-left-inner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* circular avatar */
+.suitie-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: #f3f4f6;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.suitie-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* placeholder avatar with letter */
+.suitie-avatar--placeholder span {
+  font-weight: 600;
+  font-size: 16px;
+  color: #4b5563;
+}
+
+/* text next to avatar */
+.suitie-text h3 {
+  margin: 0 0 3px;
+  font-size: 15px;
+}
+
+.suitie-text p {
+  margin: 0;
+}
+
+/* you already have these, but just in case */
+.suitie-main-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.suitie-main-left {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.suitie-main-right {
+  flex: 0 0 auto;
+  text-align: right;
+}
+
+/* optional: small actions area on the right for later (edit/delete) */
+.suitie-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.suitie-actions .btn-ghost {
+  background: #fff;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  padding: 6px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.suitie-details {
+  margin-top: 18px;
+}
+
+.suitie-details-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+#suitie-details-card[hidden] {
+  display: none;
+}
+
+.suitie-details-header h3 {
+  margin: 0;
+}
+
+.suitie-meta {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.suitie-details-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+.suitie-photo {
+  width: 56px;
+  height: 56px;
+  border-radius: 999px;
+  object-fit: cover;
+  display: block;
+  margin-bottom: 6px;
+}
+
+@media (max-width: 900px) {
+  .suitie-details-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.suitie-divider {
+  border: none;
+  border-top: 1px solid var(--line);
+  margin: 16px 0;
+}
+
+.suitie-rent h4 {
+  margin: 0 0 8px;
+}
+
+.rent-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px 18px;
+  margin: 0;
+}
+
+.rent-grid dt {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  margin-bottom: 2px;
+}
+
+.rent-grid dd {
+  margin: 0;
+  font-weight: 600;
+}
+
+/* style the rent + status a bit */
+.rent-amount {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.rent-status {
+  font-size: 0.8rem;
+  margin-top: 0.15rem;
+}
+
+.rent-status.is-paid {
+  /* example – adjust to your brand */
+  color: #178f4b;
+  font-weight: 600;
+}
+
+.rent-status.is-unpaid {
+  /* example – adjust to your brand */
+  color: #c0392b;
+  font-weight: 600;
+}
+
+.detail-row {
+  margin-bottom: 12px;
+}
+.suite-gallery img {
+  max-width: 90px;
+  max-height: 70px;
+  border-radius: 8px;
+  margin-right: 6px;
+  object-fit: cover;
+}
+
+.gallery-list img {
+  width: 90px;
+  height: 70px;
+  margin-right: 6px;
+  border-radius: 6px;
+  object-fit: cover;
+}
+
+/*Application */
+/* ===========================
+   Suite Application Builder
+   =========================== */
+
+.suite-app-template {
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  padding: 16px 18px;
+  background: #fff;
+  font-size: 14px;
+  margin-top: 12px;
+}
+
+.suite-app-header {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+/* Top row: logo left, location right */
+.suite-app-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Center row: title + suite name centered */
+.suite-app-header-center {
+  text-align: center;
+}
+
+.suite-app-main-title {
+  display: block;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.suite-app-subtitle {
+  display: block;
+  font-size: 13px;
+  color: #555;
+}
+
+
+.suite-app-header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.suite-app-logo {
+  font-size: 12px;
+  color: #777;
+}
+
+.suite-app-main-title {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.suite-app-subtitle {
+  font-size: 13px;
+  color: #555;
+}
+
+.suite-app-header-right {
+  text-align: right;
+  font-size: 13px;
+}
+
+.suite-app-header-right .muted {
+  display: block;
+  font-size: 12px;
+}
+
+/* Section label bar (like your “PROFESSIONAL EXPERIENCE” bar) */
+.suite-app-section {
+  margin-top: 10px;
+  padding-top: 6px;
+  border-top: 1px solid #eee;
+}
+
+.suite-app-section-title {
+  background: #f5f5f7;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 6px;
+}
+
+/* Each line: bullet + label + grey box */
+.suite-app-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 24px;
+  padding: 12px 16px;
+  border-bottom: 1px solid #edf0f5;
+}
+
+.suite-app-row:last-child {
+  border-bottom: none;
+}
+
+/* left column: question */
+.suite-app-label {
+  flex: 0 0 220px;          /* fixed-ish width column */
+  font-size: 13px;
+  font-weight: 600;
+  color: #111827;
+  margin-bottom: 0;         /* no extra space, since it's inline now */
+}
+
+/* right column: answer */
+.suite-app-value {
+  flex: 1;
+  font-size: 13px;
+  color: #374151;
+  word-break: break-word;
+}
+
+
+.suite-app-bullet {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 10px;
+  color: #555;
+}
+
+.suite-app-bullet::before {
+  content: "•";
+}
+
+/* Label cell */
+.suite-app-label {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+/* Grey “input box” cell */
+.suite-app-input-box {
+  border: 1px solid #c7c7c7;
+  border-radius: 3px;
+  min-height: 26px;
+  background: #fdfdfd;
+  padding: 2px 6px;
+  display: flex;
+  align-items: center;
+  font-size: 12px;
+  color: #777;
+  white-space: nowrap;
+}
+
+/* Add more experience button */
+.suite-app-add-more {
+  margin-top: 4px;
+  font-size: 12px;
+  padding: 4px 8px;
+}
+
+/* Signature row can be taller */
+.suite-app-input-box.signature-box {
+  min-height: 40px;
+}
+
+/* Header logo + name */
+.suite-app-logo-block {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.suite-app-logo-circle {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #eeeeee;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 600;
+  color: #555;
+  overflow: hidden;
+}
+
+/* When we later inject an <img> here, it will fill the circle */
+.suite-app-logo-circle img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.suite-app-location-fallback {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.suite-app-header-right strong {
+  font-size: 14px;
+}
+
+/*Application card Grabbers */
+.suite-app-bullet {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: #e4e4e7;
+  margin-right: 10px;
+}
+
+/* turn it into a grab handle */
+.suite-app-drag-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  cursor: grab;
+}
+
+/* little 6-dot effect using background */
+.suite-app-drag-handle::before {
+  content: "⋮⋮";          /* simple vertical dots */
+  line-height: 1;
+}
+
+
+
+
+
+
+/* Full-screen dark overlay */
+.suite-app-modal {
+  position: fixed;
+  inset: 0;                     /* top:0, right:0, bottom:0, left:0 */
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.45);  /* dim background */
+  z-index: 9999;
+}
+
+/* respect [hidden] so JS can toggle it */
+.suite-app-modal[hidden] {
+  display: none;
+}
+
+/* The actual white popup card */
+.suite-app-modal-card {
+  background: #ffffff;
+  width: min(960px, calc(100% - 40px));
+  max-height: calc(100vh - 80px);
+  overflow-y: auto;
+  border-radius: 16px;
+  padding: 24px 24px 20px;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+}
+
+/* Optional: nicer scroll inside the card */
+.suite-app-modal-card::-webkit-scrollbar {
+  width: 8px;
+}
+.suite-app-modal-card::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.15);
+}
+
+/* When modal is open, prevent background scroll */
+body.modal-open {
+  overflow: hidden;
+}
+
+
+.link-button {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: #3b82f6; /* or whatever link color you use */
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* ===== Suite template preview modal ===== */
+
+
+
+.suite-template-modal-body {
+  margin-top: 8px;
+}
+
+/* Re-use the builder layout so it looks like the editor */
+.suite-template-modal-body .suite-app-section {
+  margin-bottom: 18px;
+}
+
+.suite-template-modal-body .suite-app-section-title {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.suite-template-modal-body .suite-app-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  column-gap: 12px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.suite-template-modal-body .suite-app-label {
+  font-size: 14px;
+}
+
+.suite-template-modal-body .suite-app-input-box {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.suite-template-modal-body h3 {
+  margin: 16px 0 6px;
+  font-size: 15px;
+}
+
+.suite-template-field {
+  margin-bottom: 10px;
+}
+
+.suite-template-field-label {
+  display: block;
+  font-size: 13px;
+  margin-bottom: 3px;
+}
+
+.suite-template-field-input {
+  width: 100%;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid #ddd;
+  font-size: 13px;
+}
+
+.suite-template-field-input[disabled],
+.suite-template-field-input[readonly] {
+  background: #f7f7f7;
+}
+
+.suite-template-modal {
+  position: fixed;
+  inset: 0;
+  display: flex;             /* JS sets to block */
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.35);
+  z-index: 1300;
+}
+
+
+.suite-template-row {
+  display: grid;
+  grid-template-columns: 2fr 1.5fr;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.suite-template-label {
+  font-weight: 500;
+}
+
+.suite-template-input {
+  font-size: 0.9rem;
+  font-style: italic;
+  color: #666;
+}
+
+
+.suite-current-photo-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.suite-remove-photo-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  border: none;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 999px;
+  padding: 0 6px;
+  line-height: 1.2;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.suite-gallery-item {
+  position: relative;
+  display: inline-block;
+  margin-right: 8px;
+}
+
+.suite-gallery-item .suite-gallery-thumb {
+  max-width: 90px;
+  border-radius: 8px;
+}
+
+.suite-gallery-item .suite-gallery-remove-btn {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  border: none;
+  background: rgba(0,0,0,0.6);
+  color: #fff;
+  border-radius: 999px;
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 16px;
+  padding: 0;
+}
+.suite-app-clickable {
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+/* ============================
+   Suite application PREVIEW
+   ============================ */
+
+/* === Suite application PREVIEW modal === */
+
+/* Full-screen container, centered like .suite-app-modal */
+#suite-template-preview-modal {
+  position: fixed;
+  inset: 0;                     /* top:0, right:0, bottom:0, left:0 */
+  display: grid;
+  place-items: center;          /* ⬅️ centers the card */
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 9999;
+}
+
+/* Let JS hide it by attribute instead of inline style if you want */
+#suite-template-preview-modal[hidden],
+#suite-template-preview-modal[aria-hidden="true"] {
+  display: none;
+}
+
+/* Dark overlay behind the card */
+.suite-template-modal-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+}
+
+/* The white popup card – same idea as .suite-app-modal-card */
+.suite-template-modal-inner {
+  position: relative;
+  background: #ffffff;
+  width: min(960px, calc(100% - 40px));  /* centered size */
+  max-height: calc(100vh - 80px);
+  overflow-y: auto;
+  border-radius: 16px;
+  padding: 24px 24px 20px;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+}
+
+#suite-template-preview-modal .suite-template-modal-inner {
+  position: relative;
+  background: #fff;
+  border-radius: 12px;
+  max-width: 720px;
+  width: min(720px, 90vw);     /* nice centered width */
+  max-height: 80vh;
+  padding: 24px 28px;
+  overflow-y: auto;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.25);
+  margin: 0;                   /* no stray margins */
+}
+
+/* close button stays in the top-right of the card */
+.suite-template-modal-close {
+  position: absolute;
+  top: 10px;
+  right: 14px;
+  background: transparent;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+
+/* The white card */
+.suite-template-modal-content {
+  background: #fff;
+  border-radius: 8px;
+  padding: 24px 28px;
+  max-width: 640px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.35);
+}
+
+.suite-template-modal-card {
+  background: #fff;
+  border-radius: 8px;
+  max-width: 820px;
+  width: 100%;
+  max-height: 80vh;
+  padding: 24px 28px;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.25);
+  overflow: auto;
+  font-size: 14px;
+}
+
+.suite-template-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.suite-template-modal-title {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.suite-template-close-btn {
+  border: none;
+  background: transparent;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+/* Section titles (like builder grey bars) */
+#suite-template-preview-body h3 {
+  margin: 22px 0 8px;
+  padding: 8px 10px;
+  background: #f5f5f5;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+}
+
+/* Question rows */
+.suite-template-row {
+  display: grid;
+  grid-template-columns: minmax(0, 260px) minmax(0, 1fr);
+  column-gap: 24px;
+  padding: 8px 2px;
+  border-bottom: 1px solid #eee;
+}
+
+.suite-template-row-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.suite-template-bullet {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  border: 1px solid #ccc;
+  flex-shrink: 0;
+}
+
+.suite-template-label {
+  font-weight: 500;
+  color: #222;
+}
+
+.suite-template-input {
+  font-style: italic;
+  color: #777;
+  align-self: center;
+}
+
+/* Empty state text */
+#suite-template-preview-body .muted {
+  color: #999;
+  font-size: 13px;
+  padding: 16px 0;
+}
+
+
+
+.suite-app-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.suite-app-table th,
+.suite-app-table td {
+  padding: 8px 10px;
+  text-align: left;
+}
+
+.suite-app-table thead {
+  border-bottom: 1px solid #eee;
+}
+
+.suite-app-table tbody tr:nth-child(even) {
+  background: #fafafa;
+}
+
+
+.suite-app-qa-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.suite-app-qa-item {
+  padding: 8px 0;
+  border-bottom: 1px solid #eee;
+}
+
+.suite-app-question {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.suite-app-answer {
+  color: #444;
+}
+
+.link-button {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #2563eb;
+  cursor: pointer;
+  text-decoration: underline;
+  font: inherit;
+}
+.link-button:hover {
+  text-decoration: none;
+}
+#suite-template-preview-title {
+  display: none;
+}
+
+/* hide the suites list under the dropdown */
+#suites-list {
+  display: none;
+}
+/* applicant meta at top of submitted application popup */
+.suite-app-meta {
+  margin-bottom: 16px;
+  font-size: 14px;
+  color: #444;
+}
+
+.suite-app-meta-name {
+  font-weight: 600;
+}
+
+.suite-app-meta-email {
+  color: #666;
+}
+
+.suite-app-meta {
+  margin-bottom: 12px;
+  font-size: 14px;
+}
+
+.suite-app-meta-name {
+  font-weight: 600;
+}
+
+.suite-app-meta-email {
+  color: #666;
+  font-size: 13px;
+}
+
+.icon-button {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.icon-button:hover {
+  opacity: 0.7;
+}
+
+.field-row-inline {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.field-row-inline input[type="number"] {
+  max-width: 120px;
+}
+
+.field-row-inline select {
+  min-width: 130px;
+}
+
+.location-suite-row {
+  padding: 8px 0;
+  cursor: pointer;
+}
+
+.location-suite-row:hover {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.suite-row-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.suite-row-thumb {
+  width: 56px;
+  height: 56px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.suite-row-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.suite-row-name {
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.suite-row-sub {
+  font-size: 0.85rem;
+  color: #666;
+}

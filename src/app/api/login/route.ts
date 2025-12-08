@@ -1,38 +1,72 @@
+//C:\Users\tiffa\OneDrive\Desktop\suiteseat-web\src\app\api\login\route.ts
 import { NextRequest, NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
+import bcrypt from 'bcryptjs';
+import { connectDB } from '@/lib/db';
+import AuthUser from '@/models/AuthUser';
 
-const API_BASE = process.env.API_BASE_URL || process.env.NEXT_PUBLIC_API_BASE_URL;
-
-function rewriteCookie(v: string, isHttps: boolean) {
-  let out = v.replace(/;\s*Domain=[^;]+/i, '');
-  if (!isHttps) out = out.replace(/;\s*Secure/ig, '');
-  return out;
-}
+type LeanUser = {
+  _id: unknown;
+  email?: string;
+  firstName?: string;
+  lastName?: string;
+  role?: string;
+  roles?: string[];
+  passwordHash?: string;   // 👈 important
+};
 
 export async function POST(req: NextRequest) {
-  if (!API_BASE) {
-    return NextResponse.json({ error: 'API base URL missing' }, { status: 500 });
+  await connectDB();
+
+  const { email = '', password = '' } = await req.json();
+  const normEmail = String(email).trim().toLowerCase();
+
+  // select the fields that actually exist in your collection
+  const user = await AuthUser.findOne({ email: normEmail })
+    .select('_id email firstName lastName role roles passwordHash')
+    .lean<LeanUser>();
+
+  if (!user) {
+    return NextResponse.json({ ok: false, error: 'Invalid credentials' }, { status: 401 });
   }
 
-  const body = await req.text();
-  const upstream = await fetch(`${API_BASE}/login`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', accept: 'application/json' },
-    body,
-    redirect: 'manual',
+  // bcrypt compare against passwordHash
+  const hash = user.passwordHash || '';
+  let valid = false;
+
+  if (hash.startsWith('$2')) {
+    valid = await bcrypt.compare(String(password), hash);
+  } else {
+    // (optional) legacy plaintext support – remove if not needed
+    valid = String(password) === hash;
+    if (valid) {
+      const newHash = await bcrypt.hash(String(password), 10);
+      // upgrade to bcrypt
+      await (await import('mongoose')).default.connection
+        .collection('authusers')
+        .updateOne({ _id: user._id as any }, { $set: { passwordHash: newHash } });
+    }
+  }
+
+  if (!valid) {
+    return NextResponse.json({ ok: false, error: 'Invalid credentials' }, { status: 401 });
+  }
+
+  const cookieStore = await cookies();
+  cookieStore.set('session', String(user._id), {
+    httpOnly: true, sameSite: 'lax', path: '/', maxAge: 60 * 60 * 24 * 7
   });
 
-  const text = await upstream.text();
-  const res = new NextResponse(text, { status: upstream.status });
+  // prefer single role, fallback to first role in array
+  const role = user.role || (user.roles?.[0]) || 'pro';
 
-  const ct = upstream.headers.get('content-type');
-  if (ct) res.headers.set('content-type', ct);
-
-  const isHttps = req.nextUrl.protocol === 'https:';
-  upstream.headers.forEach((val, key) => {
-    if (key.toLowerCase() === 'set-cookie') {
-      res.headers.append('set-cookie', rewriteCookie(val, isHttps));
+  return NextResponse.json({
+    ok: true,
+    user: {
+      id: String(user._id),
+      firstName: user.firstName || '',
+      email: user.email || normEmail,
+      role
     }
   });
-
-  return res;
 }

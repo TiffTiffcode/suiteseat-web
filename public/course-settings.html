@@ -1,0 +1,488 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Course Settings</title>
+  <!-- Your stylesheet -->
+ <link rel="stylesheet" href="/qassets/css/Course-settings.css">
+</head>
+<body>
+     <!-- Header -->
+  <header class="header">
+    <section class="header-group-container">
+      <div class="group left-group">Suite Seat</div>
+      <div class="group right-group">
+        <button class="blk-btn" id="open-login-popup-btn">Login</button>
+        <button class="blk-btn" id="logout-btn" style="display:none">Logout</button>
+        <span id="login-status-text" class="muted" style="margin-left:8px">Not signed in</span>
+      </div>
+    </section>
+  </header>
+
+  <!-- Main app layout -->
+  <div id="app" class="app">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <button id="collapseBtn" class="collapse-btn" title="Collapse / Expand" aria-label="Collapse sidebar">➜</button>
+
+    
+      <ul class="nav" id="nav">
+        <li>
+          <button data-target="dashboard" class="active">
+            <span class="icon">📊</span><span class="label">Dashboard</span>
+          </button>
+        </li>
+        <li>
+          <button data-target="courses">
+            <span class="icon">📚</span><span class="label">Courses</span>
+          </button>
+        </li>
+        <li>
+          <button data-target="students">
+            <span class="icon">👥</span><span class="label">Students</span>
+          </button>
+        </li>
+        <li>
+          <button data-target="manage-courses">
+            <span class="icon">⚙️</span><span class="label">Manage Courses</span>
+          </button>
+        </li>
+      </ul>
+    </aside>
+
+    <!-- Right side: topbar + content -->
+    <div>
+      <header class="topbar">
+        <div class="search">
+          <span>🔎</span>
+          <input placeholder="Search courses, students…" />
+        </div>
+        <div class="user">
+          <span class="muted">Hi, Ashlee</span>
+          <div class="avatar"></div>
+        </div>
+      </header>
+
+      <main class="content">
+       
+ <!-- Dashboard section -->
+<section id="dashboard" class="section active">
+  <h2>Dashboard</h2>
+  <p class="muted">Quick overview of your courses.</p>
+
+  <div class="cards">
+    <div class="card">
+      <strong>Active courses</strong>
+      <p class="muted" id="dash-active-courses-count">0</p>
+    </div>
+    <div class="card">
+      <strong>Enrollments</strong>
+      <p class="muted" id="dash-enrollments-count">0</p>
+    </div>
+    <div class="card">
+      <strong>Revenue</strong>
+      <p class="muted" id="dash-revenue-total">$0.00</p>
+    </div>
+  </div>
+
+  <h3 style="margin-top:24px;">Courses</h3>
+  <p class="muted">Create and manage your courses.</p>
+
+  <!-- simple list of courses on the dashboard -->
+  <div id="dash-courses-list" class="dash-courses-list"></div>
+</section>
+
+
+
+
+
+
+        <!-- Courses section -->
+      <section id="courses" class="section">
+  <h2>Courses</h2>
+  <p class="muted">Create and manage your courses.</p>
+
+  <!-- Top row with Add button -->
+  <div class="list-head" style="margin-top:12px; margin-bottom:16px;">
+    <div>
+      <strong>Your courses</strong>
+    
+    <!-- 🔽 NEW: dropdown for existing courses -->
+      <div class="course-picker" style="margin-top:8px;">
+        <label for="courses-select" class="muted" style="display:block; margin-bottom:4px;">
+          Select a course
+        </label>
+        <select id="courses-select">
+          <option value="">Loading your courses…</option>
+        </select>
+      </div>
+
+    </div>
+    <button id="courses-add-course" class="btn peach" type="button">
+      + Add Course
+    </button>
+  </div>
+
+
+<!-- 🔶 COURSE DETAILS CARD -->
+<div id="courses-details" class="card" hidden>
+  <div class="card-head">
+     <!-- toggle button -->
+    <button
+      id="courses-details-toggle"
+      type="button"
+      class="icon-toggle"
+      aria-label="Toggle course details"
+      aria-expanded="true"
+    >
+      <span class="icon-open">▾</span>     <!-- shown when open -->
+      <span class="icon-closed" hidden>▸</span> <!-- shown when collapsed -->
+    </button>
+    <div>
+        
+      <h3>Course details</h3>
+      <p class="muted">Title, description, pricing, and thumbnail.</p>
+    </div>
+
+   
+  </div>
+
+  <!-- everything below is the collapsible body -->
+  <div id="courses-details-body">
+    <div class="field">
+      <span>Course title</span>
+      <input id="courses-outline-title" type="text"
+             placeholder="Ex: Launch Your Beauty Brand" />
+    </div>
+
+    <div class="field">
+      <span>Short description</span>
+      <textarea id="courses-outline-desc" rows="3"
+        placeholder="What will students learn in this course?"></textarea>
+    </div>
+
+    <div class="field">
+      <span>Outline notes</span>
+      <textarea id="courses-outline-notes" rows="5"
+        placeholder="List modules/lessons here for now."></textarea>
+    </div>
+
+    <div class="grid-2">
+      <!-- Thumbnail -->
+      <div class="field">
+        <span>Thumbnail image</span>
+        <label class="drop" data-preview="courses-thumb-preview">
+          <input id="courses-thumb" type="file" accept="image/*" hidden />
+          <div id="courses-thumb-preview" class="preview">
+            <span class="muted">Click to upload thumbnail</span>
+          </div>
+        </label>
+      </div>
+
+      <!-- Price -->
+      <div class="field">
+        <span>Price</span>
+        <input id="courses-price" type="number" min="0" step="0.01"
+               placeholder="0.00" />
+        <small class="muted">Leave as 0.00 if this course is free.</small>
+      </div>
+    </div>
+
+    <div class="form-actions" style="display:flex; justify-content:flex-end; gap:8px; margin-top:16px;">
+      <button id="courses-cancel" class="btn ghost" type="button">Cancel</button>
+      <button id="courses-save"   class="btn peach" type="button">Save Course</button>
+      <button id="courses-delete" class="btn danger" type="button">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- 🔹 Course Outline (sections/lessons builder – separate) -->
+<div id="courses-outline" class="card" hidden>
+  <div class="outline-head">
+    <button
+      id="courses-outline-toggle"
+      class="icon-toggle-btn"
+      type="button"
+      aria-expanded="true"
+    >
+      <span class="icon-open">▾</span>
+      <span class="icon-closed" hidden>▸</span>
+    </button>
+
+    <div class="outline-title-wrap">
+      <strong>Course Outline</strong>
+      <p class="muted">Add sections and lessons for this course.</p>
+    </div>
+  </div>
+
+  <div id="courses-outline-body" class="outline-body">
+    <div class="outline-sections">
+      <!-- grey text when there are no sections -->
+      <p id="outline-empty-note" class="muted">No sections yet.</p>
+
+      <!-- where the dynamic section rows will go -->
+      <div id="outline-sections"></div>
+
+      <!-- single Add Section button -->
+      <div class="outline-add-wrap">
+        <button id="outline-add-section" type="button" class="btn peach">
+          + Add Section
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Course Outline wrapper (add this id around your outline area) -->
+<div id="course-outline-panel">
+  <!-- your existing Course Outline UI lives inside here -->
+</div>
+
+<!-- Lesson details panel (initially hidden) -->
+<div id="lesson-detail-panel" style="display:none;">
+  <div class="lesson-detail-header">
+    <button id="lesson-detail-back" class="btn ghost btn-sm">← Back to outline</button>
+    <h3 id="lesson-detail-title">Lesson details</h3>
+  </div>
+
+  <!-- store ids so you can save details later -->
+  <input type="hidden" id="lesson-detail-lesson-id">
+  <input type="hidden" id="lesson-detail-section-id">
+
+  <!-- put whatever details you want here -->
+  <div class="lesson-detail-body">
+    <label>
+      Lesson title
+      <input id="lesson-detail-name" type="text" class="outline-lesson-input">
+    </label>
+
+    <label>
+      Description
+      <textarea id="lesson-detail-description"></textarea>
+    </label>
+
+<div class="lesson-detail-layout">
+  <!-- LEFT: drop zone -->
+  <div id="lesson-drop-zone" class="lesson-drop-zone">
+    <p class="lesson-drop-hint">Drag blocks here</p>
+  </div>
+
+  <!-- RIGHT: draggable palette -->
+  <div class="lesson-block-palette">
+    <h4 class="lesson-palette-title">Blocks</h4>
+
+    <!-- Example text block -->
+    <div class="lesson-block" draggable="true" data-block-type="text">
+      <span class="lesson-block-icon">📝</span>
+      <span class="lesson-block-label">Text</span>
+    </div>
+
+    <!-- Example video block -->
+    <div class="lesson-block" draggable="true" data-block-type="video">
+      <span class="lesson-block-icon">🎥</span>
+      <span class="lesson-block-label">Video</span>
+    </div>
+
+    <!-- Example resource block -->
+    <div class="lesson-block" draggable="true" data-block-type="resource">
+      <span class="lesson-block-icon">📎</span>
+      <span class="lesson-block-label">Resource</span>
+    </div>
+  </div>
+</div>
+
+
+  <!-- ⬇️ Save Lesson ⬇️ -->
+  <div class="lesson-detail-footer">
+    <button id="lesson-detail-save" class="btn peach btn-sm">
+      Save lesson content
+    </button>
+  
+      <!-- ⬇️ Add Chapter️ -->
+    <button id="lesson-add-chapter" class="btn ghost btn-xs">
+  + Add chapter
+</button>
+
+  </div>
+<!-- Inside #lesson-detail-panel, probably in the body area -->
+
+<div class="lesson-chapters-bar">
+  <div class="lesson-chapters-header">
+    <span class="lesson-chapters-title">Chapters</span>
+ 
+  </div>
+  <div id="lesson-chapters-list"></div>
+</div>
+
+
+
+<!-- Chapter details panel (starts hidden) -->
+<div id="chapter-detail-panel" class="chapter-detail-panel" style="display:none;">
+  <input type="hidden" id="chapter-detail-index">
+   <label class="chapter-detail-label">
+    Chapter title
+    <input
+      id="chapter-detail-name"
+      type="text"
+      class="chapter-detail-input"
+      placeholder="Chapter title"
+    >
+  </label>
+
+  <!-- Chapter description -->
+  <label class="chapter-detail-label">
+    Chapter description
+    <textarea
+      id="chapter-detail-description"
+      class="chapter-detail-textarea"
+      placeholder="Describe what’s in this chapter"
+    ></textarea>
+  </label>
+
+  <!-- NEW: Chapter blocks layout -->
+  <div class="lesson-detail-layout chapter-detail-layout">
+    <!-- LEFT: chapter drop zone -->
+    <div id="chapter-drop-zone" class="lesson-drop-zone chapter-drop-zone">
+      <p class="lesson-drop-hint">Drag blocks here</p>
+    </div>
+
+    <!-- RIGHT: drag palette (Text / Video / Resource) -->
+    <div class="lesson-block-palette">
+      <h4 class="lesson-palette-title">Blocks</h4>
+
+      <!-- Text block -->
+      <div class="lesson-block" draggable="true" data-block-type="text">
+        <span class="lesson-block-icon">📝</span>
+        <span class="lesson-block-label">Text</span>
+      </div>
+
+      <!-- Video block -->
+      <div class="lesson-block" draggable="true" data-block-type="video">
+        <span class="lesson-block-icon">🎥</span>
+        <span class="lesson-block-label">Video</span>
+      </div>
+
+      <!-- Resource block -->
+      <div class="lesson-block" draggable="true" data-block-type="resource">
+        <span class="lesson-block-icon">📎</span>
+        <span class="lesson-block-label">Resource</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer buttons -->
+  <div class="chapter-detail-footer">
+    <button id="chapter-detail-cancel" class="btn ghost btn-xs">
+      Cancel
+    </button>
+    <button id="chapter-detail-save" class="btn peach btn-xs">
+      Save chapter
+    </button>
+  </div>
+</div>
+
+
+
+
+
+</section>
+
+
+
+
+
+
+
+
+
+
+
+<!-- Students section -->
+<section id="students" class="section">
+  <h2>Students</h2>
+  <p class="muted">Student profiles and enrollments.</p>
+
+  <!-- Course picker for students section -->
+  <div class="students-card">
+    <label class="field-label" for="students-course-select">Your courses</label>
+    <select id="students-course-select" class="input">
+      <option value="">Select a course…</option>
+    </select>
+  </div>
+
+  <!-- Enrollments table -->
+  <div class="students-table-wrapper">
+    <div class="students-table-header">
+      <h3>Enrollments</h3>
+      <p class="muted" id="students-table-subtitle">
+        Select a course to view students.
+      </p>
+    </div>
+
+    <table class="students-table">
+      <thead>
+        <tr>
+          <th>Student</th>
+          <th>Course</th>
+          <th>Date</th>
+          <th>Completed</th>
+        </tr>
+      </thead>
+      <tbody id="students-table-body">
+        <tr>
+          <td colspan="4" class="muted">
+            No course selected yet.
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+
+
+
+
+
+
+        
+        <!-- Manage Courses section -->
+        <section id="manage-courses" class="section">
+          <h2>Manage Courses</h2>
+          <p class="muted">Create, edit, and organize course content.</p>
+        </section>
+
+
+
+
+      </main>
+    </div>
+  </div>
+
+  <!-- Auth Modal (unchanged) -->
+  <div id="authModal" class="auth-modal" hidden aria-hidden="true">
+    <div class="auth-sheet">
+      <button id="authClose" class="auth-x" aria-label="Close">×</button>
+      <h3>Log in</h3>
+
+      <form id="authForm">
+        <label>Email</label>
+        <input id="authEmail" type="email" autocomplete="username" required />
+
+        <label>Password</label>
+        <input id="authPass" type="password" autocomplete="current-password" required />
+
+        <p id="authError" class="auth-error"></p>
+
+        <button id="authSubmit" type="submit" class="btn primary">
+          <span class="when-idle">Log in</span>
+          <span class="when-busy" hidden>Signing in…</span>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <script src="/qassets/js/course-settings.js?v=2"></script>
+</body>
+</html>

@@ -267,6 +267,16 @@ fieldForm.addEventListener('submit', async (e) => {
   // ----------------------------
   // Helpers
   // ----------------------------
+// turn a human label into a safe key: "Sale Price" -> "sale_price"
+function canon(s) {
+  return String(s || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_") // non-alphanumerics -> underscore
+    .replace(/^_+|_+$/g, "");    // trim underscores at ends
+}
+
+  /////////////////////////////////////////////
   async function refreshReferenceOptions() {
     const res = await fetch('/api/datatypes');
     const types = await res.json();
@@ -408,21 +418,60 @@ if (f.type === 'Dropdown' && f.optionSetId) {
   });
 
 } else if (f.type === 'Reference') {
-  // Prefer populated name, otherwise look it up
+  const typeLabel = document.createElement('div');
+  typeLabel.textContent = 'Reference';
+  tdType.appendChild(typeLabel);
+
+  // keep your existing reference name lookup here if you want
   if (f.referenceTo && typeof f.referenceTo === 'object' && f.referenceTo?.name) {
-    tdType.textContent = `Reference → ${f.referenceTo.name}`;
+    typeLabel.textContent = `Reference → ${f.referenceTo.name}`;
   } else {
-    tdType.textContent = 'Reference';
     (async () => {
       const map = await getDTMap();
-      tdType.textContent = `Reference → ${map[idOf(f.referenceTo)] || '(unknown)'}`;
+      typeLabel.textContent = `Reference → ${map[idOf(f.referenceTo)] || '(unknown)'}`;
     })();
   }
 
 } else {
-  tdType.textContent = f.type;
+  const typeLabel = document.createElement('div');
+  typeLabel.textContent = f.type;
+  tdType.appendChild(typeLabel);
 }
 
+// 🔹 "Allow multiple" toggle for any type (esp. File)
+const multiWrap = document.createElement('label');
+multiWrap.style.display = 'block';
+multiWrap.style.marginTop = '4px';
+const multiBox = document.createElement('input');
+multiBox.type = 'checkbox';
+multiBox.checked = !!f.allowMultiple;
+multiBox.style.marginRight = '4px';
+
+multiWrap.appendChild(multiBox);
+multiWrap.appendChild(document.createTextNode('Allow multiple'));
+tdType.appendChild(multiWrap);
+
+// save allowMultiple when changed
+multiBox.addEventListener('change', async () => {
+  const newVal = !!multiBox.checked;
+  try {
+    const r = await fetch(`/api/fields/${f._id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ allowMultiple: newVal })
+    });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      alert(err.error || 'Failed to save "allow multiple"');
+      multiBox.checked = !newVal; // revert
+      return;
+    }
+    f.allowMultiple = newVal;
+  } catch (e) {
+    alert('Failed to save: ' + e.message);
+    multiBox.checked = !newVal;
+  }
+});
 
 
     // --- col 3: delete (soft) ---

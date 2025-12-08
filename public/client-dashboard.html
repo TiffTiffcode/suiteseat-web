@@ -16,6 +16,14 @@
         </div>
     </section>
   </header>
+<Link
+  href="/store-settings"
+  className="inline-block rounded-2xl px-4 py-2 bg-black text-white"
+>
+
+</Link>
+
+<!-- In views/booking-page.ejs (or your page HTML) -->
 
 
                       <!-- Subheader-->
@@ -29,12 +37,12 @@
   <section class="options-bar">
     
 <!-- Your settings button -->
-<button id="open-settings-popup-btn" >⚙️</button>
+<button id="open-settings-popup-btn" style="display: none">⚙️</button>
  
 
   </section>
 
-  <section class="profile-photo" style="display: block;">
+  <section class="profile-photo" style="display: none">
  <div class="profile-photo-wrapper">
   <img id="client-profile-photo" src="/uploads/default-avatar.png" alt="Profile Photo" />
   <button class="edit-photo-btn" onclick="openSettingsPopup()">
@@ -47,7 +55,8 @@
 <!-- Tab Navigation -->
   <div class="tab-nav">
     <button class="tab-button active" data-tab="appointments-tab">Appointments</button>
-    <button class="tab-button" data-tab="orders-tab" style="display: none;">Orders</button>
+<button class="tab-button" data-tab="orders-tab">Orders</button>
+
   </div>
 
   <!-- Tab Content -->
@@ -59,7 +68,7 @@
 
   <!-- Sub-Tabs -->
   <div class="sub-tab-buttons">
-    <button class="sub-tab-btn active" data-tab="all">All</button>
+    <button class="sub-tab-btn " data-tab="all">All</button>
     <button class="sub-tab-btn active" data-tab="upcoming">Upcoming</button> <!-- Make this active -->
     <button class="sub-tab-btn" data-tab="past">Past</button>
   </div>
@@ -76,12 +85,13 @@
 
 
 
+
 <!-- Orders-Tab Content -->
-  <div class="tab-content" id="orders-tab" style="display: none;">
-    <h2>Your Orders</h2>
-    <p>This section will show your product orders in the future.</p>
-  </div>
-  
+<div class="tab-content" id="orders-tab" style="display: none;">
+  <h2>Your Orders</h2>
+  <div id="orders-list"></div>
+</div>
+
 
   <!-- Overlay background for popups -->
 <div id="popup-overlay"
@@ -122,6 +132,41 @@
     </form>
   </div>
 </div>
+
+
+<!-- Order Details Modal -->
+<div id="order-details-overlay" class="order-details-overlay" style="display:none;">
+  <div class="order-details-modal">
+    <button id="order-details-close" class="order-details-close">&times;</button>
+
+    <div class="order-details-header">
+      <h2 id="od-title">Order</h2>
+      <p id="od-link-page" class="od-link-page"></p>
+    </div>
+
+    <div class="order-details-body">
+      <div id="od-thumb" class="od-thumb" style="display:none;">
+        <img id="od-thumb-img" alt="" />
+      </div>
+
+      <p id="od-date" class="od-meta"></p>
+      <p id="od-price" class="od-meta"></p>
+      <p id="od-desc"></p>
+
+      <!-- 🔹 JS will put "Downloads" + links in here -->
+      <div id="od-downloads" class="order-downloads-section"></div>
+    </div>
+
+    <div class="order-details-footer">
+      <a id="od-open-link" href="#" target="_blank" class="od-open-link">
+        Open link page
+      </a>
+    </div>
+  </div>
+</div>
+
+
+
 
 
 

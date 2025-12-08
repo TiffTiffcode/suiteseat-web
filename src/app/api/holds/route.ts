@@ -1,3 +1,4 @@
+//C:\Users\tiffa\OneDrive\Desktop\suiteseat-web\src\app\api\holds\route.ts
 // POST /api/holds  -> create a hold {calendarId, dateISO, start, durationMin}
 // GET  /api/holds?calendarId=...&dateISO=... -> list active holds for that day
 import { NextResponse } from 'next/server';

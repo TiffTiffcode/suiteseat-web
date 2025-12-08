@@ -1,0 +1,585 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Linkpage Settings</title>
+  <!-- Your stylesheet -->
+ <link rel="stylesheet" href="/qassets/css/linkpage-settings.css">
+</head>
+<body>
+     <!-- Header -->
+  <header class="header">
+    <section class="header-group-container">
+      <div class="group left-group">Suite Seat</div>
+      <div class="group right-group">
+        <button class="blk-btn" id="open-login-popup-btn">Login</button>
+        <button class="blk-btn" id="logout-btn" style="display:none">Logout</button>
+        <span id="login-status-text" class="muted" style="margin-left:8px">Not signed in</span>
+      </div>
+    </section>
+  </header>
+
+
+  <!-- 🔹 Main app layout (sidebar + topbar + content) -->
+  <div id="app" class="app">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <button id="collapseBtn" class="collapse-btn" title="Collapse / Expand" aria-label="Collapse sidebar">
+        ➜
+      </button>
+
+      <div class="brand">
+      
+        <div class="name">Link Page</div>
+      </div>
+
+      <ul class="nav" id="nav">
+        <li>
+          <button data-target="lp-dashboard" class="active">
+            <span class="icon">📊</span><span class="label">Dashboard</span>
+          </button>
+        </li>
+        <li>
+          <button data-target="lp-links">
+            <span class="icon">🔗</span><span class="label">Links</span>
+          </button>
+        </li>
+        <li>
+          <button data-target="lp-shop">
+            <span class="icon">🛍️</span><span class="label">Shop</span>
+          </button>
+        </li>
+        <li>
+          <button data-target="lp-orders">
+            <span class="icon">📦</span><span class="label">Orders</span>
+          </button>
+        </li>
+      </ul>
+    </aside>
+
+    <!-- Right side: topbar + content -->
+    <div>
+      <header class="topbar">
+        <div class="search">
+          <span>🔎</span>
+          <input placeholder="Search links, products…" />
+        </div>
+        <div class="user">
+          <span class="muted" id="lp-user-greeting">Hi there</span>
+          <div class="avatar"></div>
+        </div>
+      </header>
+
+      <main class="content">
+       
+       
+       
+       
+       
+        <!-- DASHBOARD tab -->
+        <section id="lp-dashboard" class="section active">
+          <h2>Linkpage Dashboard</h2>
+          <p class="muted">Quick overview of your link page.</p>
+
+       <div class="cards">
+  <div class="card dashboard-card" data-target="lp-links">
+    <strong>Total links</strong>
+    <p class="muted" id="lp-total-links">0</p>
+  </div>
+  <div class="card dashboard-card" data-target="lp-shop">
+    <strong>Shop items</strong>
+    <p class="muted" id="lp-total-products">0</p>
+  </div>
+  <div class="card dashboard-card" data-target="lp-orders">
+    <strong>Orders</strong>
+    <p class="muted" id="lp-total-orders">0</p>
+  </div>
+</div>
+
+        </section>
+
+
+
+
+
+
+
+        <!-- LINKS tab -->
+       <section id="lp-links" class="section">
+  <h2>Links</h2>
+  <p class="muted">Add buttons and links to your link page.</p>
+
+    <button
+    id="lp-open-style-btn"
+    type="button"
+    class="link-card-icon-btn"
+    title="Style this page"
+  >
+    🎨
+  </button>
+
+  <!-- 🔹 Button to start a new link page -->
+  <button class="btn peach" id="lp-add-linkpage-btn" style="margin-top:12px;">
+    Add a new link page
+  </button>
+
+  <!-- Dropdown of existing link pages -->
+  <div class="linkpage-picker" style="margin-top:16px;">
+    <label for="linkpage-select" class="muted" style="display:block;margin-bottom:4px;">
+      Your link pages
+    </label>
+    <select id="linkpage-select" class="linkpage-select">
+      <option value="">Loading…</option>
+    </select>
+  </div>
+
+
+<!--  -->
+<div class="links-actions-row">
+  <button class="btn ghost" id="links-add-link-btn">Add a new link</button>
+  <button class="btn" id="links-preview-btn">Preview page</button>
+</div>
+
+<!-- ⬇️ ADD THIS RIGHT AFTER ⬇️ -->
+<div class="links-layout">
+  <!-- Left: list of links -->
+<section class="links-panel" id="links-list-panel">
+  <h3>Links in this page</h3>
+  <p class="muted">These links will appear on your link-in-bio page.</p>
+
+  <div id="links-list" class="links-list">
+    <!-- Placeholder when there are no links -->
+    <div class="link-empty-state" id="links-empty-state">
+      No links yet. Click “Add a new link” to create one.
+      
+    </div>
+  </div>
+</section>
+
+
+  <!-- Right: blank editor area for later -->
+<section class="links-panel" id="links-editor-panel" style="display:none;">
+  <h3>Link details</h3>
+  <p class="muted">
+    Select a link on the left (or create one) to edit its title, URL, and appearance.
+  </p>
+
+  <div id="link-detail-body">
+    <div class="lp-phone-preview">
+      <div class="lp-phone-screen">
+        <div class="lp-phone-link-button">Link title</div>
+        <div class="lp-phone-link-url">https://yourlink.com</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Page / link style editor (hidden until paint icon is clicked) -->
+<div id="link-style-panel" class="link-style-panel" style="display:none;">
+  <h4>Page styles</h4>
+  <p class="muted">These styles apply to this entire link page.</p>
+
+  <div class="link-style-grid">
+  <label>
+  Button Text Color
+  <input id="style-link-btn-text" type="color" />
+</label>
+  <!-- Link button background color -->
+<label>
+  Button Background Color
+  <input id="style-link-btn-bg" type="color" />
+</label>
+
+  <!-- Link text color -->
+<label>
+  Link Text Color
+  <input id="style-link-text" type="color" />
+</label>
+
+ <!-- Link border color -->
+<label>
+  Link Border Color
+  <input id="style-link-border" type="color" />
+</label>
+
+<!-- Link background color -->
+<label>
+  Link Background Color
+  <input id="style-link-bg" type="color" />
+</label>
+
+  <!-- Page background image uploader -->
+<<label>
+  Page Background Image
+  <input id="style-page-bg-img" type="file" accept="image/*" />
+  <div class="style-image-preview">
+    <img
+      id="page-bg-preview"
+      alt="Page background preview"
+      style="max-width: 120px; border-radius: 8px; display:none;"
+    />
+    <button
+      type="button"
+      id="page-bg-clear"
+      class="style-image-clear"
+      style="display:none; margin-left:8px;"
+    >
+      ✕
+    </button>
+  </div>
+</label>
+
+ <!-- Page background color -->
+<label>
+  Page Background Color
+  <input id="style-page-bg" type="color" />
+
+ <!-- Header image uploader -->
+<label>
+  Header Image
+  <input id="style-header-img" type="file" accept="image/*" />
+  <div class="style-image-preview">
+    <img
+      id="header-img-preview"
+      alt="Header image preview"
+      style="max-width: 120px; border-radius: 8px; display:none;"
+    />
+    <button
+      type="button"
+      id="header-img-clear"
+      class="style-image-clear"
+      style="display:none; margin-left:8px;"
+    >
+      ✕
+    </button>
+  </div>
+</label>
+
+  </div>
+
+<button id="link-style-save" type="button" class="btn peach btn-sm">
+  Save styles
+</button>
+
+
+</div>
+
+
+
+
+
+  <!-- 🔹 Hidden editor card (opens when button is clicked) -->
+  <div id="lp-linkpage-editor" class="card" style="margin-top:16px; display:none;">
+    <h3>Create link page</h3>
+    <p class="muted">Give your link page a name and choose the URL ending.</p>
+
+    <label for="lp-linkpage-name" style="margin-top:8px; display:block;">Link page name</label>
+    <input
+      id="lp-linkpage-name"
+      type="text"
+      placeholder="My main bio page"
+      style="width:100%; margin-top:4px;"
+    />
+
+    <label for="lp-linkpage-slug" style="margin-top:12px; display:block;">URL</label>
+    <div class="slug-row">
+      <span class="slug-prefix">suiteseat.io/</span>
+      <input
+        id="lp-linkpage-slug"
+        type="text"
+        placeholder="your-name"
+        style="flex:1;"
+      />
+    </div>
+
+    <p class="muted" id="lp-linkpage-url-preview" style="margin-top:4px;">
+      suiteseat.io/
+    </p>
+
+    <div class="actions-row" style="margin-top:16px; display:flex; gap:8px; justify-content:flex-end;">
+      <button class="btn ghost" id="lp-linkpage-cancel">Cancel</button>
+      <button class="btn peach" id="lp-linkpage-save">Save link page</button>
+    </div>
+  </div>
+</section>
+
+
+
+
+<!-- SHOP tab -->
+<section id="lp-shop" class="section">
+  <h2>Shop</h2>
+  <p class="muted">
+    Choose which link page this shop belongs to and add products.
+  </p>
+
+  <!-- Dropdown of existing link pages (for shop) -->
+  <div class="linkpage-picker" style="margin-top:16px;">
+    <label for="shop-linkpage-select" class="muted" style="display:block;margin-bottom:4px;">
+      Link page for this shop
+    </label>
+    <select id="shop-linkpage-select" class="linkpage-select">
+      <option value="">Select a link page…</option>
+    </select>
+  </div>
+
+  <!-- Actions row -->
+  <div class="links-actions-row" style="margin-top:16px;">
+    <button class="btn peach" id="shop-add-product-btn">
+      Add a new product
+    </button>
+  </div>
+
+  <!-- Hidden product editor panel -->
+  <div id="shop-product-editor" class="card" style="margin-top:16px; display:none;">
+    <h3>Create product</h3>
+    <p class="muted">
+      Add a product to the selected link page’s shop.
+    </p>
+
+    <!-- Product title -->
+    <label for="shop-product-title" style="margin-top:12px; display:block;">
+      Product title
+    </label>
+    <input
+      id="shop-product-title"
+      type="text"
+      placeholder="e.g. Digital ebook bundle"
+      style="width:100%; margin-top:4px;"
+    />
+
+    <!-- Quantity -->
+    <label for="shop-product-qty" style="margin-top:12px; display:block;">
+      Quantity in stock
+    </label>
+    <input
+      id="shop-product-qty"
+      type="number"
+      min="0"
+      step="1"
+      placeholder="e.g. 100"
+      style="width:100%; margin-top:4px;"
+    />
+
+    <!-- Default image -->
+    <label for="shop-product-default-img" style="margin-top:12px; display:block;">
+      Default image
+    </label>
+    <input
+      id="shop-product-default-img"
+      type="file"
+      accept="image/*"
+      style="margin-top:4px;"
+    />
+    <div class="style-image-preview" style="margin-top:6px;">
+      <img
+        id="shop-product-default-preview"
+        alt="Default image preview"
+        style="max-width: 120px; border-radius: 8px; display:none;"
+      />
+    </div>
+
+    <!-- Gallery images -->
+    <label for="shop-product-gallery" style="margin-top:12px; display:block;">
+      Gallery images
+    </label>
+    <input
+      id="shop-product-gallery"
+      type="file"
+      accept="image/*"
+      multiple
+      style="margin-top:4px;"
+    />
+    <ul
+      id="shop-product-gallery-list"
+      class="link-card-downloads-list"
+      style="margin-top:6px;"
+    ></ul>
+
+    <!-- Files customer will receive -->
+    <label for="shop-product-files" style="margin-top:12px; display:block;">
+      Files customer will receive
+    </label>
+    <input
+      id="shop-product-files"
+      type="file"
+      multiple
+      style="margin-top:4px;"
+    />
+    <div id="shop-product-files-list" style="margin-top:6px;"></div>
+
+    <!-- Price + sale price -->
+    <div style="display:flex; gap:12px; margin-top:12px;">
+      <div style="flex:1;">
+        <label for="shop-product-price" style="display:block;">Price</label>
+        <input
+          id="shop-product-price"
+          type="number"
+          min="0"
+          step="0.01"
+          placeholder="0.00"
+          style="width:100%; margin-top:4px;"
+        />
+      </div>
+      <div style="flex:1;">
+        <label for="shop-product-sale-price" style="display:block;">Sale price (optional)</label>
+        <input
+          id="shop-product-sale-price"
+          type="number"
+          min="0"
+          step="0.01"
+          placeholder="0.00"
+          style="width:100%; margin-top:4px;"
+        />
+      </div>
+    </div>
+
+    <!-- Description -->
+    <label for="shop-product-description" style="margin-top:12px; display:block;">
+      Description
+    </label>
+    <textarea
+      id="shop-product-description"
+      rows="4"
+      placeholder="Describe this product…"
+      style="width:100%; margin-top:4px;"
+    ></textarea>
+
+    <!-- Actions -->
+    <div
+      class="actions-row"
+      style="margin-top:16px; display:flex; gap:8px; justify-content:flex-end;"
+    >
+      <button class="btn ghost" id="shop-product-cancel-btn">Cancel</button>
+      <button class="btn peach" id="shop-product-save-btn">Save product</button>
+    </div>
+  </div>
+
+  <!-- Product list table -->
+  <div class="card" style="margin-top:16px;">
+    <h3>Products in this shop</h3>
+    <table class="shop-products-table">
+      <thead>
+        <tr>
+          <th style="width:32px;"></th> <!-- grabber column -->
+          <th style="width:72px;">Image</th>
+          <th>Product title</th>
+          <th>Qty</th>
+          <th>Price</th>
+          <th>Sale price</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="shop-products-tbody">
+        <tr id="shop-products-empty-row">
+          <td colspan="7" class="muted">
+            No products for this link page yet.
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+
+
+
+
+
+
+
+<!-- ORDERS tab -->
+<section id="lp-orders" class="section">
+  <h2>Orders</h2>
+  <p class="muted">See all orders placed through your link pages.</p>
+
+  <!-- Filter by link page (optional) -->
+<div class="linkpage-picker" style="margin-top:16px;">
+  <label for="orders-filter-select" class="muted" style="display:block;margin-bottom:4px;">
+    Orders for
+  </label>
+
+</div>
+    <!-- 🔹 Filter dropdown: Links + Shops -->
+  <div class="orders-filter-row" style="margin-top:16px; margin-bottom:8px; display:flex; gap:8px; align-items:center;">
+    <label for="orders-filter-select" class="muted">Filter by:</label>
+    <select id="orders-filter-select" class="linkpage-select" style="min-width:220px;">
+      <option value="">All orders</option>
+      <!-- JS will inject optgroups + options here -->
+    </select>
+  </div>
+
+  <div class="card" style="margin-top:16px;">
+    <h3>Recent orders</h3>
+
+    <table class="orders-table">
+      <thead>
+        <tr>
+          <th style="width:72px;">Image</th>
+          <th>Product title</th>
+          <th>Customer</th>
+          <th>Items</th>
+          <th>Total</th>
+          <th>Status</th>
+          <th>Payment Status</th>
+        </tr>
+      </thead>
+      <tbody id="orders-tbody">
+        <tr id="orders-empty-row">
+          <td colspan="7" class="muted">
+            No orders yet.
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+
+
+
+
+  </div>
+
+
+
+
+
+
+      </main>
+    </div>
+  </div>
+
+
+
+
+
+
+
+    <!-- Auth Modal (unchanged) -->
+  <div id="authModal" class="auth-modal" hidden aria-hidden="true">
+    <div class="auth-sheet">
+      <button id="authClose" class="auth-x" aria-label="Close">×</button>
+      <h3>Log in</h3>
+
+      <form id="authForm">
+        <label>Email</label>
+        <input id="authEmail" type="email" autocomplete="username" required />
+
+        <label>Password</label>
+        <input id="authPass" type="password" autocomplete="current-password" required />
+
+        <p id="authError" class="auth-error"></p>
+
+        <button id="authSubmit" type="submit" class="btn primary">
+          <span class="when-idle">Log in</span>
+          <span class="when-busy" hidden>Signing in…</span>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <script src="/qassets/js/linkpage-settings.js?v=2"></script>
+</body>
+</html>

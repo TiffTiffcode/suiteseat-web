@@ -645,6 +645,11 @@ body.popup-open {
   font-weight: normal;
   font-size: 14px;
 }
+.grey-btn{background:#eee;border:1px solid #ccc;padding:.7rem 1rem;border-radius:12px;}
+.danger-btn{background:#ffe8e8;color:#b00020;border:1px solid #ffbcbc;padding:.7rem 1rem;border-radius:12px;}
+
+#client-quick-edit-form .form-row{display:flex;flex-direction:column;margin-bottom:10px}
+.grey-btn{background:#eee;border:1px solid #ccc;padding:.6rem 1rem;border-radius:12px}
 
 #btn-new-client {
   background-color: #EFB37C;

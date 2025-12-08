@@ -1,3 +1,34 @@
+
+:root { --tabbar-h: 65px; }
+
+html, body { height: 100%; }
+
+body {
+  /* room so content isn't hidden under the fixed footer */
+  padding-bottom: calc(var(--tabbar-h) + 24px);
+}
+
+/* make the calendars list scroll inside the section if it can grow tall */
+#calendar-section .border-border {
+  /* adjust 260px to whatever your header/options height roughly is */
+  max-height: calc(100vh - 260px - var(--tabbar-h));
+  overflow-y: auto;
+}
+
+/* keep the header row visible while you scroll the list (optional) */
+#calendar-section .calendar-header {
+  position: sticky;
+  top: 0;
+  background: #fff;
+  z-index: 2;
+}
+
+
+
+
+
+
+
 .empty {
   padding-bottom: 20px;
 }
@@ -96,6 +127,40 @@ main {
   }
   
 
+/* make the list scrollable */
+#service-section .service-scroll {
+  max-height: 420px;    /* adjust as you like */
+  overflow-y: auto;
+  border-radius: 12px;
+  border: 1px solid #eee;   /* optional */
+  background: #fff;         /* optional */
+}
+
+/* keep header visible while scrolling (optional) */
+#service-section .border-start {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #fff;         /* match your page bg */
+}
+
+/* layout for columns (if not already) */
+#service-section .service-option-bar {
+  display: flex;            /* four columns side-by-side */
+}
+
+#service-section .service-column {
+  flex: 1 1 0;
+  min-width: 0;
+  /* if each service is rendered as a block inside the column,
+     add row divs with padding/borders as needed */
+}
+
+/* optional: nicer scrollbar */
+#service-section .service-scroll::-webkit-scrollbar { width: 8px; }
+#service-section .service-scroll::-webkit-scrollbar-thumb {
+  background: #d9d9d9; border-radius: 8px;
+}
 
 
 

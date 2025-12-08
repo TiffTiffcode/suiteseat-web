@@ -1,206 +1,197 @@
-//cache from last loadBusinessList() 
-window.businessCache = new Map();
+console.log('[accept-appoinments] web loaded');
+//helper
+function asId(v){
+  if (!v) return '';
+  if (typeof v === 'string') return v;
+  if (typeof v === 'object') return String(v._id || v.id || v.value || v.$id || '');
+  return '';
+}
+
+function sameBusiness(values, bizId) {
+  const candidates = [
+    values.Business, values["Business"],
+    values.businessId, values["Business Id"], values.BusinessId
+  ].map(asId).filter(Boolean);
+  return candidates.some(id => String(id) === String(bizId));
+}
+
+// cache the current user id so we don't re-fetch every time
+let MY_ID = null;
+
+// ---------- global caches ----------
+window.businessCache  = window.businessCache  || new Map();
+window.calendarCache  = window.calendarCache  || new Map();
+window.categoryCache  = window.categoryCache  || new Map();
+window.serviceCache   = window.serviceCache   || new Map();
+
 let editingBusinessId = null;
-// Calendar edit state
-window.calendarCache = window.calendarCache || new Map();
 let editingCalendarId = null;
-// Category edit state
-window.categoryCache = window.categoryCache || new Map();
 let editingCategoryId = null;
+let editingServiceId  = null;
 
-window.serviceCache = window.serviceCache || new Map();
-let editingServiceId = null;
+// ---------- helpers ----------
 
-// ---- helpers (place near top of file) ----
-if (!window.serviceCache) window.serviceCache = new Map();
 
-function firstDefined(...vals) {
-  for (const v of vals) if (v !== undefined && v !== null && v !== "") return v;
-  return undefined;
+// ---------- API helpers ----------
+async function login(email, password) {
+  const res  = await fetch('/api/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password })
+  });
+  const ct   = res.headers.get('content-type') || '';
+  const text = await res.text();
+  if (!res.ok) throw new Error(`HTTP ${res.status} – ${text.slice(0,200)}`);
+  if (!ct.includes('application/json')) throw new Error(`Expected JSON, got ${ct || 'unknown'}: ${text.slice(0,200)}`);
+  return JSON.parse(text);
 }
 
-function formatMoney(v) {
-  const n = Number(v);
-  if (!isFinite(n)) return ""; // show blank if not a number
-  return n.toLocaleString(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 2 });
+async function me() {
+  const res  = await fetch('/api/me', { cache: 'no-store' });
+  const text = await res.text();
+  try { return JSON.parse(text); } catch { return { ok:false }; }
 }
 
+async function loadMe() {
+  const data = await me();
+  const el = document.querySelector('#login-status-text');
+  if (el) el.textContent = data?.ok ? `Hey, ${data.user.firstName || 'User'}` : 'Not logged in';
+  return data;
+}
+
+// ---------- boot ----------
 document.addEventListener("DOMContentLoaded", () => {
+  // 1) show header status
+  loadMe().catch(e => console.warn('loadMe failed', e));
+
+  // 2) auth UI
   (async () => {
-    const loginStatus = document.getElementById("login-status-text");
+    const loginStatus  = document.getElementById("login-status-text");
     const openLoginBtn = document.getElementById("open-login-popup-btn");
     const logoutBtn    = document.getElementById("logout-btn");
 
-    // Show login status
-    fetch("/check-login")
-      .then(res => res.json())
-      .then(data => {
-        if (data.loggedIn) {
-          loginStatus.textContent = `Hi, ${data.firstName ?? ''} 👋`;
-          if (logoutBtn)    logoutBtn.style.display = "inline-block";
-          if (openLoginBtn) openLoginBtn.style.display = "none";
+    const data = await me();
 
-          // ✅ Load businesses after confirming logged in Page Loader
-          loadBusinessDropdown();
-            loadBusinessList();
-            loadCalendarList();
-            bindCategoryUI();
-            bindServiceUI();
+    if (data.ok) {
+      if (loginStatus)  loginStatus.textContent = `Hi, ${data.user.firstName ?? ''} 👋`;
+      if (logoutBtn)    logoutBtn.style.display = "inline-block";
+      if (openLoginBtn) openLoginBtn.style.display = "none";
 
-        } else {
-          loginStatus.textContent = "Not logged in";
-          if (logoutBtn)    logoutBtn.style.display = "none";
-          if (openLoginBtn) openLoginBtn.style.display = "inline-block";
-        }
-      });
- 
-    // Logout
+      // load app data now that we know we're logged in
+      await loadBusinessDropdown?.();
+      await loadBusinessList?.();
+      await loadCalendarList?.();
+      bindCategoryUI?.();
+      bindServiceUI?.();
+    } else {
+      if (loginStatus)  loginStatus.textContent = "Not logged in";
+      if (logoutBtn)    logoutBtn.style.display = "none";
+      if (openLoginBtn) openLoginBtn.style.display = "inline-block";
+    }
+
+    // logout -> /api/logout
     if (logoutBtn) {
       logoutBtn.addEventListener("click", async () => {
-        try {
-          const res = await fetch("/logout");
-          const result = await res.json();
-          if (res.ok) {
-            alert("👋 Logged out!");
-            window.location.href = "signup.html";
-          } else {
-            alert(result.message || "Logout failed.");
-          }
-        } catch (err) {
-          console.error("Logout error:", err);
-          alert("Something went wrong during logout.");
+        const res  = await fetch('/api/logout', { method: 'POST' });
+        const text = await res.text();
+        let out = {};
+        try { out = JSON.parse(text); } catch {}
+        if (res.ok && out.ok) {
+          alert("👋 Logged out!");
+          location.reload();
+        } else {
+          alert((out && out.error) || "Logout failed.");
         }
       });
     }
 
-    // Open Login Popup
+    // open login popup (if you have one)
     if (openLoginBtn) {
       openLoginBtn.addEventListener("click", () => {
-        document.getElementById("popup-login").style.display = "block";
-        document.getElementById("popup-overlay").style.display = "block";
+        document.getElementById("popup-login")?.style?.setProperty("display","block");
+        document.getElementById("popup-overlay")?.style?.setProperty("display","block");
         document.body.classList.add("popup-open");
       });
     }
+  })();
 
-    // Handle Login Submit
-    const loginForm = document.getElementById("login-form");
-    if (loginForm) {
-      loginForm.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        const email = document.getElementById("login-email").value.trim();
-        const password = document.getElementById("login-password").value.trim();
-        if (!email || !password) return alert("Please enter both email and password.");
-
-        try {
-          const res = await fetch("/login", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email, password }),
-          });
-          const result = await res.json();
-
-          if (res.ok) {
-            alert("✅ Logged in!");
-            if (typeof closeLoginPopup === 'function') closeLoginPopup();
-            location.reload();
-          } else {
-            alert(result.message || "Login failed.");
-          }
-        } catch (err) {
-          console.error("Login error:", err);
-          alert("Something went wrong.");
-        }
-      });
-    }
-
-
-    ////////////////////////////////////////////////////////////////////
-                    //Menu Section
-//Click Overlay to close popups
-document.addEventListener("DOMContentLoaded", () => {
-  const overlay = document.getElementById("popup-overlay");
-  if (overlay) overlay.addEventListener("click", closeAllPopups);
-});
-
-
-
-                    //Tab Swithing 
-                      // Tab Switching
-  const optionTabs = document.querySelectorAll(".option");
-  const tabSections = document.querySelectorAll("[id$='-section']");
-
-optionTabs.forEach((tab) => {
-  tab.addEventListener("click", () => {
-    optionTabs.forEach(t => t.classList.remove("active"));
-    tabSections.forEach(section => section.style.display = "none");
-
-    tab.classList.add("active");
-    const targetId = `${tab.dataset.id}-section`;
-    const section = document.getElementById(targetId);
-    if (section) section.style.display = "block";
-
-    // ⬇️ NEW: If Booking tab is clicked, bind Save Template logic
-    if (targetId === "booking-section") {
-      attachSaveTemplateLogic();
-    }
-  });
-});
-
-    ////////////////////////////////////////////////////////////////////
-                    //Business Section
-
-    // ✅ OPEN BUSINESS POPUP FIX
-// Add Business (create mode)
-const openBtn = document.getElementById("open-business-popup-button");
-const businessPopup = document.getElementById("popup-add-business");
-const overlay = document.getElementById("popup-overlay");
-
-function openBusinessCreate() {
-  // clear any edit state (we'll also define this outside later)
-  window.editingBusinessId = null;
-
-  // reset form fields
-  const form = document.getElementById("popup-add-business-form");
-  if (form) form.reset();
-
-  // reset image preview (optional)
-  const img = document.getElementById("current-hero-image");
-  const noImg = document.getElementById("no-image-text");
-  if (img) img.style.display = "none";
-  if (noImg) noImg.style.display = "block";
-  const file = document.getElementById("image-upload");
-  if (file) file.value = "";
-
-  // show correct buttons + title for CREATE
-  const save = document.getElementById("save-button");
-  const upd  = document.getElementById("update-button");
-  const del  = document.getElementById("delete-button");
-  if (save) save.style.display = "inline-block";
-  if (upd)  upd.style.display  = "none";
-  if (del)  del.style.display  = "none";
-  const title = document.getElementById("popup-title");
-  if (title) title.textContent = "Business";
-
-  // open popup
-  if (businessPopup && overlay) {
-    businessPopup.style.display = "block";
-    overlay.style.display = "block";
-    document.body.classList.add("popup-open");
+  // single login submit handler (no legacy /login, no duplicate listeners)
+  const form   = document.querySelector('#login-form');
+  const emailEl= document.querySelector('#login-email');
+  const passEl = document.querySelector('#login-password');
+  if (form && emailEl && passEl) {
+    form.removeAttribute('action'); // ensure no legacy action
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = emailEl.value.trim();
+      const password = passEl.value;
+      const out = await login(email, password);
+      if (out?.ok) {
+        await loadMe();
+        alert('Logged in!');
+        if (typeof closeLoginPopup === 'function') closeLoginPopup();
+      }
+    });
   }
-}
 
-if (openBtn && businessPopup && overlay) {
-  openBtn.addEventListener("click", openBusinessCreate);
-}
+  // ---------- Menu / overlay ----------
+  const overlayEl = document.getElementById("popup-overlay");
+  if (overlayEl) overlayEl.addEventListener("click", closeAllPopups);
 
-  })(); // end async IIFE
+  // Tab switching
+  const optionTabs  = document.querySelectorAll(".option");
+  const tabSections = document.querySelectorAll("[id$='-section']");
+  optionTabs.forEach((tab) => {
+    tab.addEventListener("click", () => {
+      optionTabs.forEach(t => t.classList.remove("active"));
+      tabSections.forEach(section => section.style.display = "none");
+      tab.classList.add("active");
+      const targetId = `${tab.dataset.id}-section`;
+      const section  = document.getElementById(targetId);
+      if (section) section.style.display = "block";
+      if (targetId === "booking-section") attachSaveTemplateLogic?.();
+    });
+  });
 
-  /* ---------- Save Business (with hero image) ---------- */
+  // ---------- Business Section: open create popup ----------
+  const openBtn       = document.getElementById("open-business-popup-button");
+  const businessPopup = document.getElementById("popup-add-business");
+  function openBusinessCreate() {
+    editingBusinessId = null;
 
-// (Optional) tiny helper — keeps relative /uploads/* as-is, absolute URLs pass through
+    const form = document.getElementById("popup-add-business-form");
+    form?.reset();
+
+    const img   = document.getElementById("current-hero-image");
+    const noImg = document.getElementById("no-image-text");
+    if (img)   img.style.display = "none";
+    if (noImg) noImg.style.display = "block";
+    const file = document.getElementById("image-upload");
+    if (file) file.value = "";
+
+    const save = document.getElementById("save-button");
+    const upd  = document.getElementById("update-button");
+    const del  = document.getElementById("delete-button");
+    if (save) save.style.display = "inline-block";
+    if (upd)  upd.style.display  = "none";
+    if (del)  del.style.display  = "none";
+    const title = document.getElementById("popup-title");
+    if (title) title.textContent = "Business";
+
+    if (businessPopup && overlayEl) {
+      businessPopup.style.display = "block";
+      overlayEl.style.display = "block";
+      document.body.classList.add("popup-open");
+    }
+  }
+  if (openBtn && businessPopup && overlayEl) {
+    openBtn.addEventListener("click", openBusinessCreate);
+  }
+});
+
+// ---------- Save Business (with hero image) ----------
 function toUrl(v){
   if (!v) return "";
-  // accept objects {url|path|src|filename|name}
   if (typeof v === "object") v = v.url || v.path || v.src || v.filename || v.name || "";
   if (!v) return "";
   return (/^https?:\/\//i.test(v) || String(v).startsWith("/"))
@@ -671,6 +662,7 @@ if (saveCategoryBtn && catBizSelect && catCalSelect) {
         ////////////////////////////////////////////////////////////////////
                     //Service Section                
 
+
 //Open Add Service Popup
 // Add Service (create mode)
 const openServiceBtn = document.getElementById("open-service-popup-button");
@@ -900,7 +892,7 @@ if (svcImgInput && !svcImgInput.dataset.bound) {
 }
 
 
-}); ////////////////////////////////////////end DOMContentLoaded
+ ////////////////////////////////////////end DOMContentLoaded
 
 
 
@@ -909,12 +901,6 @@ if (svcImgInput && !svcImgInput.dataset.bound) {
 
 
 ////////////////////////////////////////////////////
-// ✅ CLOSE LOGIN POPUP
-function closeLoginPopup() {
-  document.getElementById("popup-login").style.display = "none";
-  document.getElementById("popup-overlay").style.display = "none";
-  document.body.classList.remove("popup-open");
-}
 
 /////////////////////////////////////////////
                 //End Menu Section 
@@ -1568,9 +1554,11 @@ async function loadCalendarList() {
         const el = e.target.closest(".cal-row");
         if (!el) return;
         const cal = window.calendarCache.get(el.dataset.id);
-        if (cal && typeof window.openCalendarEdit === "function") {
-          window.openCalendarEdit(cal);
-        }
+if (typeof openCalendarEdit === "function") {
+  openCalendarEdit(cal);
+}
+
+
       });
       nameCol.dataset.bound = "1";
     }
@@ -1650,8 +1638,9 @@ async function loadCalendarOptions(selectId, businessId) {
       cache: 'no-store'
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const rows = (await res.json())
-      .filter(c => !c.deletedAt && c?.values?.businessId === businessId);
+   const rows = (await res.json()).filter(c =>
+  !c.deletedAt && sameBusiness(c.values || {}, businessId)
+);
 
     sel.innerHTML = '<option value="">-- Select --</option>';
     rows.forEach(cal => {
@@ -1690,11 +1679,12 @@ async function loadCategoryOptions(selectId, businessId, calendarId) {
       cache: 'no-store'
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const rows = (await res.json()).filter(cat =>
-      !cat.deletedAt &&
-      cat?.values?.businessId === businessId &&
-      cat?.values?.calendarId === calendarId
-    );
+   const rows = (await res.json()).filter(cat =>
+  !cat.deletedAt &&
+  sameBusiness(cat.values || {}, businessId) &&
+  String(asId(cat.values?.calendarId || cat.values?.Calendar || cat.values?.['Calendar'])) === String(calendarId)
+);
+
 
     sel.innerHTML = '<option value="">-- Select --</option>';
     rows.forEach(cat => {
@@ -1744,6 +1734,7 @@ async function openCalendarEdit(cal) {
   if (overlay) overlay.style.display = "block";
   document.body.classList.add("popup-open");
 }
+window.openCalendarEdit = openCalendarEdit; // expose for any legacy callers
 
 // UPDATE handler (bind once inside DOMContentLoaded or here with guard)
 (function bindCalendarUpdateDeleteOnce() {
@@ -2125,13 +2116,12 @@ async function openCategoryEdit(cat) {
                               //End Service Section 
 
 
-
-
- function formatMoney(val) {
+// keep this ONE – money formatter
+function formatMoney(val) {
   const num = typeof val === "number" ? val : parseFloat(String(val).replace(/[^\d.-]/g, ""));
   if (!isFinite(num)) return "";
   return new Intl.NumberFormat(undefined, { style: "currency", currency: "USD" }).format(num);
-}         
+}        
 
 //Fill the list in Service List
 async function loadServiceFilterDropdown() {
@@ -2180,133 +2170,208 @@ async function loadServiceFilterDropdown() {
     sel.disabled = true;
   }
 }
+// helpers
+function firstDefined(...xs){ return xs.find(v => v !== undefined && v !== null); }
+// keep this ONE – generic firstDefined
+function firstDefined(...vals) {
+  for (const v of vals) if (v !== undefined && v !== null && v !== "") return v;
+  return undefined;
+}
+
+// Extract an id from many possible shapes
+function asId(v){
+  if (!v) return '';
+  if (typeof v === 'string') return v;
+  if (typeof v === 'object') return String(v._id || v.id || '');
+  return '';
+}
+
+async function getMyId() {
+  if (MY_ID) return MY_ID;
+  try {
+    const me = await fetch('/api/me', { credentials: 'include' }).then(r => r.json());
+    MY_ID = me?.user?._id || null;
+  } catch {}
+  return MY_ID;
+}
+window.serviceCache = window.serviceCache || new Map();
 
 async function loadServiceList() {
-  const nameCol     = document.getElementById("service-name-column");
-  const calCol      = document.getElementById("service-calendar-column");
-  const catCol      = document.getElementById("service-category-column");
-  const priceCol    = document.getElementById("service-price-column");
+  const nameCol  = document.getElementById("service-name-column");
+  const calCol   = document.getElementById("service-calendar-column");
+  const catCol   = document.getElementById("service-category-column");
+  const priceCol = document.getElementById("service-price-column");
   if (!nameCol || !calCol || !catCol || !priceCol) return;
 
-  nameCol.innerHTML  = "Loading…";
-  calCol.innerHTML   = "";
-  catCol.innerHTML   = "";
-  priceCol.innerHTML = "";
-
-  // which business is active?
-  const bizDropdown = document.getElementById("business-dropdown");
+  // active business & calendar
   const businessId =
-    (bizDropdown && bizDropdown.value) ||
-    sessionStorage.getItem("selectedBusinessId") || "";
+    document.getElementById('business-dropdown')?.value ||
+    sessionStorage.getItem('selectedBusinessId') || '';
+
+  const filterCalendarId =
+    document.getElementById('service-section-calendar-dropdown')?.value || '';
+
+  nameCol.innerHTML = "Loading…";
+  calCol.innerHTML = catCol.innerHTML = priceCol.innerHTML = "";
 
   if (!businessId) {
     nameCol.innerHTML = "<div>Select a business</div>";
     return;
   }
 
-  // optional calendar filter (Service section’s dropdown)
-  const filterSel = document.getElementById("service-section-calendar-dropdown");
-  const filterCalendarId = filterSel ? filterSel.value : "";
-
   try {
-    // Fetch everything we need once
-    const [svcRes, calRes, catRes] = await Promise.all([
-      fetch(`/api/records/Service?ts=${Date.now()}`,   { credentials: "include", cache: "no-store" }),
-      fetch(`/api/records/Calendar?ts=${Date.now()}`,  { credentials: "include", cache: "no-store" }),
-      fetch(`/api/records/Category?ts=${Date.now()}`,  { credentials: "include", cache: "no-store" })
+    // ✅ include filters in the actual requests
+    const qs = (o) => new URLSearchParams(o).toString();
+
+    const [svcRes, calRes, catRes, myId] = await Promise.all([
+      fetch(`/api/records/Service?${qs({ Business: businessId, ...(filterCalendarId && { Calendar: filterCalendarId }), ts: Date.now() })}`, { credentials: "include", cache: "no-store" }),
+      fetch(`/api/records/Calendar?${qs({ Business: businessId, ts: Date.now() })}`, { credentials: "include", cache: "no-store" }),
+      fetch(`/api/records/Category?${qs({ Business: businessId, ts: Date.now() })}`, { credentials: "include", cache: "no-store" }),
+      getMyId()
     ]);
+
     if (!svcRes.ok || !calRes.ok || !catRes.ok) throw new Error("Fetch failed");
 
     const [rawServices, rawCalendars, rawCategories] = await Promise.all([
       svcRes.json(), calRes.json(), catRes.json()
     ]);
 
-    // Hide soft-deleted + narrow calendars/categories to this business
-    const services  = rawServices.filter(s => !s.deletedAt);
-    const calendars = rawCalendars.filter(c => !c.deletedAt && c?.values?.businessId === businessId);
-    const categories= rawCategories.filter(c => !c.deletedAt && c?.values?.businessId === businessId);
-
-    // Quick lookup maps
-    const calNameById = new Map(calendars.map(c => [
-      c._id, c?.values?.calendarName ?? c?.values?.name ?? "(Untitled)"
-    ]));
-    const catNameById = new Map(categories.map(c => [
-      c._id, c?.values?.categoryName ?? c?.values?.name ?? "(Untitled)"
-    ]));
-
-    // Filter services to business (and calendar if selected)
-    const rows = services.filter(s => {
-      const belongsToBiz = s?.values?.businessId === businessId;
-      const calMatch = !filterCalendarId || s?.values?.calendarId === filterCalendarId;
-      return belongsToBiz && calMatch;
-    });
-
-    // Render
-  // inside loadServiceList(), after you computed `rows`
-nameCol.innerHTML  = "";
-calCol.innerHTML   = "";
-catCol.innerHTML   = "";
-priceCol.innerHTML = "";
-if (window.serviceCache && typeof window.serviceCache.clear === "function") {
-  window.serviceCache.clear();
-}
-
-
-if (!rows.length) {
-  nameCol.innerHTML = "<div>No services yet</div>";
-  return;
-}
-
-rows.forEach(svc => {
-  window.serviceCache.set(svc._id, svc);
-
-  const svcName = svc?.values?.serviceName ?? svc?.values?.name ?? "(Untitled)";
-  const calName = calNameById.get(svc?.values?.calendarId) || "(Unknown)";
-  const catName = catNameById.get(svc?.values?.categoryId) || "(Unassigned)";
- const rawPrice = firstDefined(
-  svc?.values?.price,
-  svc?.values?.servicePrice,
-  svc?.values?.Price,     // capitalized fallback
-  svc?.values?.amount,    // extra safety
-  svc?.values?.cost
-);
-const price = rawPrice !== undefined ? formatMoney(rawPrice) : "";
-
-  // Name cell (clickable)
-  const n = document.createElement("div");
-  n.className = "service-row";
-  n.dataset.id = svc._id;
-  n.style.cursor = "pointer";
-  n.textContent = svcName;
-  nameCol.appendChild(n);
-
-  // Calendar cell
-  const c1 = document.createElement("div");
-  c1.textContent = calName;
-  calCol.appendChild(c1);
-
-  // Category cell
-  const c2 = document.createElement("div");
-  c2.textContent = catName;
-  catCol.appendChild(c2);
-
-  // Price cell
-  const p = document.createElement("div");
-  p.textContent = price || "";
-  priceCol.appendChild(p);
+    // normalize records -> {_id, values}
+    const normalize = (r) => ({
+  _id: String(r._id),
+  values: r.values || {},
+  createdBy: r.createdBy ? String(r.createdBy) : ""
 });
 
-// one-time delegated click -> edit
-if (!nameCol.dataset.bound) {
-  nameCol.addEventListener("click", (e) => {
-    const row = e.target.closest(".service-row");
-    if (!row) return;
-    const svc = window.serviceCache.get(row.dataset.id);
-    if (svc) openServiceEdit(svc);
-  });
-  nameCol.dataset.bound = "1";
-}
+    const calendars  = rawCalendars.map(normalize)
+      .filter(c => {
+        // keep only calendars for this business (any shape)
+        const bid = firstDefined(
+          c.values.businessId,
+          asId(c.values.Business),
+          asId(c.values['Business'])
+        );
+        return String(bid) === String(businessId);
+      });
 
+    const categories = rawCategories.map(normalize)
+      .filter(c => {
+        const bid = firstDefined(
+          c.values.businessId,
+          asId(c.values.Business),
+          asId(c.values['Business'])
+        );
+        return String(bid) === String(businessId);
+      });
+
+    // quick lookup maps
+    const calNameById = new Map(
+      calendars.map(c => [ String(c._id),
+        firstDefined(c.values.calendarName, c.values.name, "(Untitled)") ])
+    );
+    const catNameById = new Map(
+      categories.map(c => [ String(c._id),
+        firstDefined(c.values.categoryName, c.values.name, "(Untitled)") ])
+    );
+
+    // normalize & filter services robustly
+   const services = rawServices.map(normalize).filter(s => {
+  // OPTIONAL: you can delete this whole ownership check,
+  // the server already scopes results to the logged-in user unless admin.
+  if (myId && s.createdBy && s.createdBy !== String(myId)) return false;
+
+  const bid = firstDefined(
+    s.values.businessId,
+    asId(s.values.Business),
+    asId(s.values['Business'])
+  );
+  if (String(bid) !== String(businessId)) return false;
+
+  if (filterCalendarId) {
+    const cid = firstDefined(
+      s.values.calendarId,
+      asId(s.values.Calendar),
+      asId(s.values['Calendar']),
+      s.values.CalendarId
+    );
+    if (String(cid) !== String(filterCalendarId)) return false;
+  }
+  return true;
+});
+
+    // render
+    nameCol.innerHTML = calCol.innerHTML = catCol.innerHTML = priceCol.innerHTML = "";
+    window.serviceCache.clear();
+
+    if (!services.length) {
+      nameCol.innerHTML = "<div>No services yet</div>";
+      return;
+    }
+
+    services.forEach(svc => {
+      window.serviceCache.set(svc._id, svc);
+
+      const svcName = firstDefined(
+        svc.values.serviceName,
+        svc.values.name,
+        "(Untitled)"
+      );
+
+      const cid = firstDefined(
+        svc.values.calendarId,
+        asId(svc.values.Calendar),
+        asId(svc.values['Calendar']),
+        svc.values.CalendarId
+      );
+      const calName = calNameById.get(String(cid)) || "(Unknown)";
+
+      const catId = firstDefined(
+        svc.values.categoryId,
+        asId(svc.values.Category),
+        asId(svc.values['Category'])
+      );
+      const catName = catNameById.get(String(catId)) || "(Unassigned)";
+
+      const rawPrice = firstDefined(
+        svc.values.price,
+        svc.values.servicePrice,
+        svc.values.Price,
+        svc.values.amount,
+        svc.values.cost
+      );
+      const price = rawPrice !== undefined ? formatMoney(rawPrice) : "";
+
+      // Name cell (clickable)
+      const n = document.createElement("div");
+      n.className = "service-row";
+      n.dataset.id = svc._id;
+      n.style.cursor = "pointer";
+      n.textContent = svcName;
+      nameCol.appendChild(n);
+
+      const c1 = document.createElement("div");
+      c1.textContent = calName;
+      calCol.appendChild(c1);
+
+      const c2 = document.createElement("div");
+      c2.textContent = catName;
+      catCol.appendChild(c2);
+
+      const p = document.createElement("div");
+      p.textContent = price;
+      priceCol.appendChild(p);
+    });
+
+    // one-time delegated click -> edit
+    if (!nameCol.dataset.bound) {
+      nameCol.addEventListener("click", (e) => {
+        const row = e.target.closest(".service-row");
+        if (!row) return;
+        const svc = window.serviceCache.get(row.dataset.id);
+        if (svc) openServiceEdit(svc);
+      });
+      nameCol.dataset.bound = "1";
+    }
   } catch (e) {
     console.error("loadServiceList:", e);
     nameCol.innerHTML = "<div>Error loading services</div>";

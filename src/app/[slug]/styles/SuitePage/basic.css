@@ -1,0 +1,945 @@
+/* src/app/[slug]/styles/SuitePage/basic.css */
+
+.suite-page {
+  min-height: 100vh;
+  background: #f2f2f2;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  color: #111;
+}
+
+/* --- Top bar --- */
+
+.suite-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 20px;
+  background: #ffffff;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.suite-topbar-left {
+  display: flex;
+  flex-direction: column;
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.suite-topbar-location-label {
+  color: #666666;
+}
+
+.suite-topbar-location-name {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+/* Hamburger menu button */
+
+.suite-menu-btn {
+  width: 28px;
+  height: 22px;
+  border: none;
+  background: transparent;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  cursor: pointer;
+}
+
+.suite-menu-btn span {
+  display: block;
+  height: 2px;
+  border-radius: 999px;
+  background: #111111;
+}
+
+/* --- Main layout --- */
+
+.suite-main {
+  max-width: 100%;          /* ✅ no more narrow container */
+  margin: 0 auto;
+  padding: 32px 0 48px;      /* remove side padding */
+}
+
+
+.suite-title {
+  text-align: center;
+  font-size: 36px;
+  line-height: 1.15;
+  margin-bottom: 32px;
+}
+
+/* --- Hero image / carousel shell --- */
+
+.suite-hero-row {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 40px;
+  margin: 0 0 40px 0; 
+}
+
+.suite-hero-arrow {
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  border: none;
+  background: transparent;
+  font-size: 24px;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+
+/* Let the hero card go edge-to-edge */
+.suite-hero-card {
+  background: #ffffff;
+  box-shadow: 0 8px 26px rgba(15, 23, 42, 0.08);
+
+  /* make it full viewport width */
+  width: 100vw;
+  max-width: none;
+
+  /* center it relative to the viewport, not the container */
+  margin-left: calc(50% - 50vw);
+
+  border-radius: 0;        /* optional: remove rounded corners */
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Image fills the hero card */
+.suite-hero-img {
+  width: 100%;
+  max-height: 420px;
+  object-fit: cover;
+  display: block;
+}
+
+@media (max-width: 768px) {
+  .suite-hero-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .suite-hero-arrow {
+    display: none;
+  }
+}
+
+.suite-hero-placeholder {
+  text-align: center;
+  font-size: 28px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+/* --- Available suites --- */
+
+.suite-available-section {
+  padding: 24px 0 40px;
+}
+
+/* Center the whole block on the page */
+.suite-available-inner {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 0 16px;
+  text-align: center;        /* centers the title + messages */
+}
+
+.suite-available-title {
+  font-size: 18px;
+  margin-bottom: 18px;
+  /* optional: center the heading text */
+  /* text-align: center; */
+}
+
+
+/* Center the cards themselves */
+.suite-cards-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 24px;
+
+  /* 👇 this is the key */
+  justify-content: center;   /* center the grid inside its row */
+  margin: 0 auto;            /* keep the grid centered in the wrapper */
+  max-width: 1000px;         /* optional: keeps cards from stretching too wide */
+}
+.suite-card {
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.06);
+  padding: 16px 16px 20px;
+
+  /* NEW: consistent block + layout */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+
+  width: 360px;          /* or whatever you like */
+  height: 340px;         /* 👈 all cards same height */
+}
+
+/* The image frame */
+.suite-card-img-placeholder {
+  width: 100%;
+  height: 210px;                 /* fixed image area for *all* cards */
+  background: #f7f7f7;
+  border-radius: 8px;
+  overflow: hidden;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.suite-card-img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;           /* ✅ show whole image, no cropping */
+  display: block;
+}
+
+
+
+.suite-card-text {
+  padding: 12px 14px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+  text-align: center;
+}
+
+/* name pill */
+.suite-card-name {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #111;                /* dark pill */
+  color: #fff;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+/* date pill */
+.suite-card-date {
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: #f1f1f1;             /* light pill */
+  color: #444;
+  font-size: 12px;
+}
+
+
+/* --- Responsive tweaks --- */
+
+@media (max-width: 768px) {
+  .suite-main {
+    padding: 24px 12px 40px;
+  }
+
+  .suite-title {
+    font-size: 28px;
+  }
+
+  .suite-hero-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .suite-hero-arrow {
+    display: none;
+  }
+
+  .suite-cards-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 520px) {
+  .suite-cards-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .suite-card-img-placeholder {
+    width: 100%;
+  }
+}
+
+
+.suite-status {
+  font-size: 14px;
+  margin-bottom: 12px;
+}
+.suite-status-error {
+  color: #c0392b;
+}
+/* Center the suite detail view */
+.suite-detail-main {
+  max-width: 960px;          /* keep it from stretching too wide */
+  margin: 40px auto 80px;    /* center horizontally with auto left/right */
+  display: flex;
+  flex-direction: column;    /* stack image, title, meta vertically */
+  align-items: center;       /* center all children horizontally */
+  text-align: center;        /* center the text itself */
+}
+
+/* optional: keep the image card from being too wide */
+.suite-detail-main .suite-hero-card {
+  width: 100%;
+  max-width: 420px;
+}
+
+
+/* --- Slide-out menu / overlay --- */
+
+.suite-menu-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  justify-content: flex-end;
+  align-items: flex-start;
+  z-index: 40;
+}
+
+.suite-menu-panel {
+  margin: 12px 12px 0;
+  width: 220px;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.2);
+  padding: 20px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  font-size: 14px;
+}
+
+.suite-menu-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.suite-menu-section-title {
+  font-weight: 600;
+}
+
+.suite-menu-link,
+.suite-menu-link-secondary {
+  border: none;
+  background: none;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.suite-menu-link {
+  font-weight: 500;
+}
+
+.suite-menu-link-secondary {
+  font-size: 12px;
+  color: #666666;
+  margin-left: 8px;
+}
+
+/* small screens: center the panel a bit more */
+@media (max-width: 520px) {
+  .suite-menu-overlay {
+    justify-content: center;
+  }
+
+  .suite-menu-panel {
+    width: 260px;
+  }
+}
+
+
+/* Secondary Tab Bar */
+/* --- Sub navigation bar under top bar --- */
+
+.suite-subbar {
+  display: flex;
+  align-items:center;
+  gap: 32px;
+  padding: 10px 20px 14px;
+  background: #ffffff;
+  border-bottom: 1px solid #e5e5e5;
+  font-size: 14px;
+   justify-content: center; 
+}
+
+.suite-subbar-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.suite-subbar-link {
+  border: none;
+  background: transparent;
+  padding: 0;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.suite-subbar-link:hover {
+  text-decoration: underline;
+}
+
+.suite-subbar-sub {
+  font-size: 12px;
+  color: #666666;
+}
+
+.suite-subbar-suites {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* Responsive: stack the subbar on small screens */
+@media (max-width: 768px) {
+  .suite-subbar {
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+}
+
+/* Hide the subbar on small screens */
+@media (max-width: 640px) {
+  .suite-subbar {
+    display: none;
+  }
+}
+
+/* Suite Card */
+.suite-card {
+  cursor: pointer;
+}
+.suite-detail-main {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 32px 16px 48px;
+  text-align: center;
+}
+
+.suite-back-btn {
+  border: none;
+  background: transparent;
+  font-size: 14px;
+  margin-bottom: 16px;
+  cursor: pointer;
+}
+
+.suite-detail-meta {
+  margin-top: 16px;
+  font-size: 14px;
+  color: #444;
+}
+
+/*Suite Gallery */
+.suite-detail-meta {
+  margin-top: 16px;
+  text-align: center;
+  font-size: 14px;
+}
+
+.suite-detail-actions {
+  margin-top: 8px;
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+.suite-link-btn,
+.suite-pdf-btn {
+  border: none;
+  padding: 6px 12px;
+  background: #ffffff;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+  cursor: pointer;
+  font-size: 13px;
+}
+
+/* Suite detail under big image */
+.suite-detail-meta {
+  margin-top: 16px;
+  text-align: center;
+}
+
+.suite-detail-line {
+  font-size: 14px;
+  margin-bottom: 6px;
+}
+
+.suite-detail-label {
+  font-weight: 600;
+  margin-right: 4px;
+}
+
+/* PDF-style application button */
+.suite-app-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  text-decoration: none;
+  font-size: 14px;
+  color: #111;
+  cursor: pointer;
+}
+
+.suite-app-link:hover {
+  text-decoration: underline;
+}
+
+.suite-app-icon {
+  width: 26px;
+  height: 26px;
+  border-radius: 4px;
+  background: #ff3b30; /* "Adobe-ish" red without using their logo */
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+
+/* --- About section under suites --- */
+
+.suite-about-section {
+  max-width: 1120px;
+  margin: 40px auto 80px;
+  padding: 0 16px;
+}
+
+.suite-about-title {
+  font-size: 20px;
+  font-weight: 600;
+  margin-bottom: 16px;
+  text-align: left;
+}
+
+.suite-about-card {
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.06);
+  padding: 20px 24px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #333333;
+}
+
+
+/* ---------- Location Gallery Modal ---------- */
+
+.suite-gallery-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 60;
+}
+
+.suite-gallery-modal {
+  position: relative;
+  width: 90%;
+  max-width: 900px;
+  max-height: 80vh;
+  background: #f7f5f5;
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.suite-gallery-img {
+  width: 100%;
+  height: 100%;
+  max-height: 80vh;
+  object-fit: contain; /* show full image without cropping */
+  background: #ece7e7;
+}
+
+/* Close button */
+.suite-gallery-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  border: none;
+  background: rgba(0, 0, 0, 0.7);
+  color: #fff;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+/* Arrows */
+.suite-gallery-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  border: none;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 20px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.suite-gallery-arrow-left {
+  left: 12px;
+}
+
+.suite-gallery-arrow-right {
+  right: 12px;
+}
+
+/* Center the whole section */
+/* Section layout */
+.suite-pros-section {
+  margin-top: 48px;
+}
+
+.suite-pros-title {
+  font-size: 24px;
+  font-weight: 600;
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.suite-pros-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  justify-content: center;
+}
+
+/* BIG grey card (like your “right” example) */
+.suite-pro-card {
+  background: transparent;      /* 🔹 no visible card */
+  border-radius: 16px;          /* keep for click area */
+  min-width: 230px;
+  min-height: 230px;
+  padding: 32px 24px 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-shadow: none;             /* 🔹 remove drop shadow */
+}
+.suite-detail-image-wrap {
+  width: 320px;
+  max-width: 90vw;
+  margin: 24px auto 32px;
+  border-radius: 24px;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.12);
+}
+
+.suite-detail-img {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: cover;
+}
+
+
+/* White circular disc behind the avatar */
+.suite-pro-img-wrap {
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+}
+
+/* Actual avatar image – slightly smaller than disc */
+.suite-pro-img {
+  width: 120px;
+  height: 120px;
+  border-radius: 50% !important;
+  object-fit: cover;
+  display: block;
+}
+
+/* Placeholder letter when there’s no image */
+.suite-pro-placeholder {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: #f0f0f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  font-weight: 600;
+  color: #444;
+}
+
+/* White label card for the name */
+.suite-pro-name {
+  margin-top: 18px;
+  padding: 8px 18px;
+  background: #ffffff;
+  border-radius: 4px;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+
+/* ============================
+   OTHER LOCATIONS Section
+=============================== */
+
+.suite-other-locations-section {
+  margin: 60px auto 80px;
+  padding: 0 16px;
+  max-width: 1120px;
+}
+
+.suite-other-title {
+  text-align: center;
+  font-size: 24px;
+  font-weight: 600;
+  margin-bottom: 24px;
+}
+
+.suite-other-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 28px;
+  justify-items: center;
+}
+
+.suite-other-card {
+  width: 100%;
+  max-width: 260px;
+  text-decoration: none;
+  background: #fff;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+  transition: transform 0.1s ease;
+}
+
+.suite-other-card:hover {
+  transform: scale(1.03);
+}
+
+.suite-other-img {
+  width: 100%;
+  height: 150px;
+  object-fit: cover;
+  background: #f5f5f5;
+}
+
+.suite-other-name {
+  padding: 12px 10px;
+  font-size: 15px;
+  font-weight: 600;
+  text-align: center;
+  color: #222;
+}
+
+
+/* overlay */
+.suite-app-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 32px 16px;
+  z-index: 2000;
+}
+
+/* modal card */
+.suite-app-modal {
+  max-width: 960px;
+  width: 100%;
+  max-height: calc(100vh - 64px);
+  overflow: auto;
+  background: #ffffff;
+  border-radius: 24px;
+  box-shadow: 0 18px 60px rgba(15, 23, 42, 0.18);
+  padding: 24px 28px 28px;
+}
+
+/* header */
+.suite-app-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 16px;
+  position: relative;
+}
+
+.suite-app-close {
+  position: absolute;
+  right: 0;
+  top: 0;
+  border: none;
+  background: transparent;
+  font-size: 24px;
+  cursor: pointer;
+}
+
+.suite-app-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  background: #f3f4f6;
+  display: grid;
+  place-items: center;
+  font-weight: 600;
+}
+
+.suite-app-header-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.suite-app-location-name {
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.suite-app-suite-name {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.suite-app-header-sub {
+  font-size: 13px;
+  color: #6b7280;
+  margin-top: 8px;
+}
+
+/* body */
+.suite-app-body {
+  border-top: 1px solid #e5e7eb;
+  border-bottom: 1px solid #e5e7eb;
+  padding: 16px 0 12px;
+  margin: 8px 0 16px;
+}
+
+.suite-app-section {
+  margin-bottom: 18px;
+}
+
+.suite-app-section-title {
+  font-size: 13px;
+  font-weight: 600;
+  background: #f9fafb;
+  padding: 8px 10px;
+  border-radius: 6px;
+  margin-bottom: 10px;
+}
+
+.suite-app-question-row {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  padding: 6px 2px;
+}
+
+.suite-app-question-label {
+  font-size: 13px;
+  color: #111827;
+}
+
+.suite-app-input {
+  width: 100%;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+  padding: 7px 9px;
+  font-size: 13px;
+}
+
+.suite-app-textarea {
+  min-height: 72px;
+  resize: vertical;
+}
+
+/* footer */
+.suite-app-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.suite-app-footer-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.suite-app-primary-btn,
+.suite-app-secondary-btn,
+.suite-app-open-btn {
+  border-radius: 999px;
+  font-size: 13px;
+  padding: 8px 18px;
+  border: none;
+  cursor: pointer;
+}
+
+.suite-app-primary-btn {
+  background: #111827;
+  color: #fff;
+}
+
+.suite-app-secondary-btn {
+  background: #f3f4f6;
+  color: #111827;
+}
+
+.suite-app-open-btn {
+  background: #111827;
+  color: #fff;
+  margin-left: 8px;
+}
+
+.suite-app-error {
+  font-size: 12px;
+  color: #b91c1c;
+}
+
+.suite-app-success {
+  font-size: 12px;
+  color: #15803d;
+}

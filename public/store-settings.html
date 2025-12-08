@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Store Settings</title>
+  <!-- Your stylesheet -->
+ <link rel="stylesheet" href="/qassets/css/Store-settings.css">
+</head>
+<body>
+      <!-- Header -->
+  <header class="header">
+    <section class="header-group-container">
+      <div class="group left-group">Suite Seat</div>
+   <div class="group right-group"> 
+
+
+  <button class="blk-btn" id="open-login-popup-btn">Login</button>
+<button class="blk-btn" id="logout-btn" style="display:none">Logout</button>
+<span id="login-status-text" class="muted" style="margin-left:8px">Not signed in</span>
+
+</div>
+</section>
+
+  </header>
+
+<div id="app" class="app">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <button id="collapseBtn" class="collapse-btn" title="Collapse / Expand" aria-label="Collapse sidebar">➜</button>
+
+    <div class="brand" style display="none">
+    
+   
+    </div>
+
+    <ul class="nav" id="nav">
+      <li><button data-target="home" class="active"><span class="icon">🏠</span><span class="label">Home</span></button></li>
+      <li><button data-target="orders"><span class="icon">🧾</span><span class="label">Orders</span></button></li>
+      <li><button data-target="products"><span class="icon">🛍️</span><span class="label">Products</span></button></li>
+      <li><button data-target="customers"><span class="icon">👥</span><span class="label">Customers</span></button></li>
+      <li><button data-target="store"><span class="icon">🛒</span><span class="label">Online Store</span></button></li>
+    </ul>
+  </aside>
+
+  <!-- Main area -->
+  <div>
+    <header class="topbar">
+      <div class="search">
+        <span>🔎</span>
+        <input placeholder="Search orders, customers, products…" />
+      </div>
+      <div class="user">
+        <span class="muted">Hi, Ashlee</span>
+        <div class="avatar"></div>
+      </div>
+    </header>
+
+    <main class="content">
+      <!-- Sections -->
+      <section id="home" class="section active">
+        <h2>Home</h2>
+        <p class="muted">Quick stats and shortcuts.</p>
+        <div class="cards">
+          <div class="card"><strong>Today’s Orders</strong><p class="muted">0</p></div>
+          <div class="card"><strong>Revenue</strong><p class="muted">$0.00</p></div>
+          <div class="card"><strong>Visitors</strong><p class="muted">—</p></div>
+        </div>
+      </section>
+
+                                              <!-- Orders Section -->                           
+     <!-- Orders Section -->
+<section id="orders" class="section">
+  <h2>Orders</h2>
+  <p class="muted">Manage and fulfill orders.</p>
+
+  <!-- Toolbar: store dropdown + status filters + test button -->
+  <div class="orders-toolbar">
+    <label class="orders-store-label">
+      Store
+      <select id="orders-store-select">
+        <option value="">All stores</option>
+      </select>
+    </label>
+
+    <div class="orders-status-toggle">
+      <button type="button" class="chip active" data-status="">All</button>
+      <button type="button" class="chip" data-status="unfulfilled">Unfulfilled</button>
+      <button type="button" class="chip" data-status="fulfilled">Fulfilled</button>
+    </div>
+
+    <button id="orders-create-test" class="btn peach" type="button">
+      Create test order
+    </button>
+  </div>
+
+  <!-- Empty state -->
+  <div id="orders-empty" class="card">
+    <p class="muted">No orders yet.</p>
+  </div>
+
+  <!-- Orders list -->
+  <div id="orders-list" class="card" hidden>
+  <header class="list-head">
+    <div>
+      <h3>Orders</h3>
+      <p class="muted"><span id="orders-count">0</span> total</p>
+    </div>
+  </header>
+
+  <div id="orders-table" class="table"></div>
+</div>
+
+</section>
+
+
+
+
+
+                                      
+                             <!-- Product Section -->
+   <section id="products" class="section">
+
+    <!-- Store picker -->
+<div id="store-picker" class="store-picker">
+  <select id="store-select">
+    <option value="">Select a Store…</option>
+  </select>
+  <button id="store-new-btn" class="blk-btn" type="button">New Store</button>
+</div>
+
+<!-- New Store mini-modal -->
+<div id="store-modal" class="auth-modal" hidden>
+  <div class="auth-sheet">
+    <button id="store-x" class="auth-x" aria-label="Close">×</button>
+    <h3>Create Store</h3>
+    <label>Store name</label>
+    <input id="store-name" placeholder="My Beauty Store" />
+    <p class="auth-error" id="store-err"></p>
+    <button id="store-save" class="btn primary" type="button">
+      <span class="when-idle">Create Store</span>
+      <span class="when-busy" hidden>Saving…</span>
+    </button>
+  </div>
+</div>
+<br>
+  <!-- Empty state (shown when no products saved) -->
+  <div id="prod-empty" class="card">
+    <h2>Products</h2>
+    <p class="muted">Add, edit, and organize products.</p>
+    <button id="prod-open-form" class="btn">Add product</button>
+  </div>
+
+  <!-- List (shown once products exist) -->
+  <div id="prod-list" class="card" hidden>
+    <header class="list-head">
+      <div>
+        <h2>Products</h2>
+        <p class="muted"><span id="prod-count">0</span> total</p>
+      </div>
+      <button id="prod-open-form-2" class="btn">Add product</button>
+    </header>
+    <div id="prod-table" class="table"></div>
+  </div>
+
+  <!-- Create Product form -->
+  <div id="prod-form" class="card" hidden>
+    <div class="form-head">
+      <h2>New Product</h2>
+      <div class="form-actions">
+        <button id="prod-cancel" class="btn ghost">Cancel</button>
+        <button id="prod-save" class="btn peach">Save Product</button>
+      </div>
+    </div>
+
+    <form id="prod-create-form" novalidate>
+      <label class="field">
+        <span>Title</span>
+        <input id="p-title" name="title" placeholder="Product title" required />
+      </label>
+
+      <label class="field">
+        <span>Description</span>
+        <textarea id="p-desc" name="description" rows="3" placeholder="Describe your product"></textarea>
+      </label>
+
+      <div class="grid-2">
+        <div>
+          <span class="label">Image</span>
+          <label class="drop" data-preview="p-imagePreview">
+            <input id="p-image" type="file" accept="image/*" hidden />
+            <div id="p-imagePreview" class="preview"></div>
+            <span class="hint">Click to upload</span>
+          </label>
+        </div>
+
+        <div>
+          <span class="label">Gallery</span>
+          <div id="p-gallery" class="gallery">
+            <button id="p-add-thumb" type="button" class="thumb add" title="Add image">＋</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid-3">
+        <label class="field">
+          <span>Price</span>
+          <input id="p-price" name="price" type="number" min="0" step="0.01" placeholder="0.00" />
+        </label>
+        <label class="field">
+          <span>Sale Price</span>
+          <input id="p-sale" name="salePrice" type="number" min="0" step="0.01" placeholder="0.00" />
+        </label>
+        <label class="field">
+          <span>Inventory Quantity</span>
+          <input id="p-qty" name="qty" type="number" min="0" step="1" placeholder="0" />
+        </label>
+      </div>
+
+      <label class="field">
+        <span>Files</span>
+        <div class="files">
+          <input id="p-files" type="file" multiple />
+          <small class="muted">Upload files for your product. Max 5</small>
+        </div>
+      </label>
+    </form>
+  </div>
+</section>
+
+
+                             <!-- Customers Section -->
+      <section id="customers" class="section">
+        <h2>Customers</h2>
+        <p class="muted">Customer profiles and history.</p>
+        <button class="btn">Import customers</button>
+      </section>
+
+
+
+                                   <!-- Online Store Section -->
+      <section id="store" class="section">
+        <h2>Online Store</h2>
+        <p class="muted">Themes, pages, and preferences.</p>
+        <button class="btn peach" onclick="alert('Open Store Settings')">Open settings</button>
+      </section>
+    </main>
+  </div>
+</div>
+
+
+
+<!-- Login Modal -->
+<!-- Auth Modal -->
+<div id="authModal" class="auth-modal" hidden aria-hidden="true">
+
+  <div class="auth-sheet">
+    <button id="authClose" class="auth-x" aria-label="Close">×</button>
+    <h3>Log in</h3>
+
+    <form id="authForm">
+      <label>Email</label>
+      <input id="authEmail" type="email" autocomplete="username" required />
+
+      <label>Password</label>
+      <input id="authPass" type="password" autocomplete="current-password" required />
+
+      <p id="authError" class="auth-error"></p>
+
+      <button id="authSubmit" type="submit" class="btn primary">
+        <span class="when-idle">Log in</span>
+        <span class="when-busy" hidden>Signing in…</span>
+      </button>
+    </form>
+  </div>
+</div>
+
+
+<script src="/qassets/js/store-settings.js?v=2"></script>
+
+
+</body>
+</html>

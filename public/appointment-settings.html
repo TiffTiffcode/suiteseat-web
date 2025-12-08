@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Business Settings</title>
-    <link rel="stylesheet" href="/qassets/css/appqointment-settings.css">
+    <link rel="stylesheet" href="/qassets/css/appointment-settings.css">
 
 </head>
 <body>
@@ -160,14 +160,17 @@
       <div class="border">Category</div>
       <div class="border">Price</div>
     </section>
-    <section class="border-border">
-      <div class="service-option-bar">
-        <div class="service-column" id="service-name-column"></div>
-         <div class="service-column" id="service-calendar-column"></div>
-          <div class="service-column" id="service-category-column"></div>
-        <div class="service-column" id="service-price-column"></div>
-      </div>
-    </section>
+<section class="border-border">
+  <div class="service-scroll">
+    <div class="service-option-bar">
+      <div class="service-column" id="service-name-column"></div>
+      <div class="service-column" id="service-calendar-column"></div>
+      <div class="service-column" id="service-category-column"></div>
+      <div class="service-column" id="service-price-column"></div>
+    </div>
+  </div>
+</section>
+
   </div>
 
                          <!-- Booking Section  -->
@@ -419,7 +422,7 @@
     </div>
 
     <form id="login-form">
-      <div class="form-group">
+ <form id="login-form" action="" onsubmit="return false;">
         <label for="login-email">Email</label><br>
         <input type="email" id="login-email" required placeholder="Enter your email" />
       </div>

@@ -1,0 +1,79 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.card {
+  background: #ffffff;
+  border-radius: 24px;
+  padding: 24px 20px;
+  max-width: 420px;
+  width: 90%;
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.25);
+  text-align: center;
+}
+
+.title {
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.text {
+  font-size: 0.9rem;
+  color: #555;
+  margin-bottom: 16px;
+}
+
+.buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.btn {
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid #ddd;
+  background: #f7f7f7;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.btnPrimary {
+  background: #111111;
+  color: #ffffff;
+  border-color: #111111;
+}
+
+.btnGhost {
+  background: transparent;
+}
+
+.btn:hover {
+  filter: brightness(0.97);
+}
+
+.downloadsList {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 12px 0;
+  text-align: left;
+}
+
+.downloadsListItem + .downloadsListItem {
+  margin-top: 6px;
+}
+
+.downloadLink {
+  font-size: 0.85rem;
+  color: #111;
+  text-decoration: underline;
+}

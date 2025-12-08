@@ -1,9 +1,79 @@
-  const API = (type) => `/api/records/${encodeURIComponent(type)}`;
+ console.log('[availability v2 loaded');
+ const API = (type) => `/api/records/${encodeURIComponent(type)}`;
 // Remember last-used selections across page loads
 const LS_BIZ = 'lastBusinessId';
 const LS_CAL = 'lastCalendarId';
 
-  
+  // --- small fetch helpers ---
+async function fetchJSON(url, init={}) {
+  const res = await fetch(url, init);
+  // Try to read text first (so we can show meaningful errors)
+  const text = await res.text().catch(() => '');
+  const ct = res.headers.get('content-type') || '';
+
+  if (!res.ok) {
+    // Server likely sent an HTML error page; surface it
+    const preview = text.slice(0, 200);
+    throw new Error(`${res.status} ${res.statusText} — ${preview}`);
+  }
+
+  if (ct.includes('application/json')) {
+    try { return JSON.parse(text); } catch {
+      throw new Error('Response was not valid JSON');
+    }
+  }
+
+  // Non-JSON success; return raw text
+  return text;
+}
+// Call the correct login route; include credentials so cookie sticks
+async function apiLogin(email, password) {
+  await fetchJSON('/api/login', {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+    body: JSON.stringify({ email, password })
+  });
+}
+
+// Returns the user object or null (when 401)
+async function getMe() {
+  const res = await fetch('/api/users/me?ts=' + Date.now(), { credentials: 'include' });
+  if (res.status === 401) return null;
+  const ct = res.headers.get('content-type') || '';
+  const body = ct.includes('application/json') ? await res.json().catch(() => ({})) : {};
+  return body.user || null;
+}
+
+// UI handler for your “Log In” button on the availability page
+async function onAvailabilityLoginClick() {
+  const email = document.querySelector('#login-email')?.value?.trim();
+  const pass  = document.querySelector('#login-pass')?.value?.trim();
+  if (!email || !pass) { alert('Enter email and password'); return; }
+
+  try {
+    await apiLogin(email, pass);
+    const me = await getMe();
+    if (!me) { alert('Login failed. Please check your credentials.'); return; }
+
+    console.log('[availability] logged in as', me._id || me.email);
+    // continue to whatever admin action you needed…
+    // e.g., enable the “Add Availability” UI
+  } catch (err) {
+    console.error('Login error:', err);
+    alert(`Login error: ${err.message || err}`);
+  }
+}
+
+// Wire up once
+(function wireAvailLoginOnce(){
+  const btn = document.querySelector('#btn-login-avail');
+  if (btn && !btn.__wired) {
+    btn.__wired = true;
+    btn.addEventListener('click', onAvailabilityLoginClick);
+  }
+})();
+
   
   function toYMD(d) {
   const x = new Date(d);
@@ -19,9 +89,7 @@ const LS_CAL = 'lastCalendarId';
 
 // define once, only if not already defined
 // --- DEV ONLY: make this tab "admin" so /api/records works ---
-(async () => {
-  try { await fetch('/dev/admin-on', { method:'POST', credentials:'include' }); } catch {}
-})();
+
 
 // --- Admin API constants (define once) ---
 const TYPE_UPCOMING = "Upcoming Hours";
@@ -34,6 +102,50 @@ document.addEventListener("DOMContentLoaded", () => {
   const openLoginBtn = document.getElementById("open-login-popup-btn");
   const logoutBtn    = document.getElementById("logout-btn");
   const loginForm    = document.getElementById("login-form");
+
+  // Always include cookies + JSON Accept header for session-protected routes
+// one helper to always hit /api/*
+const apiFetch = (url, opts = {}) =>
+  fetch(url.startsWith('/api/') ? url : `/api${url.startsWith('/') ? url : `/${url}`}`, {
+    credentials: 'include',
+    headers: { Accept: 'application/json', ...(opts.headers || {}) },
+    cache: 'no-store',
+    ...opts,
+  });
+
+// replace old check-login with this:
+async function checkLogin() {
+  const res  = await apiFetch('/me');      // GET /api/me
+  const text = await res.text();
+  try {
+    const data = JSON.parse(text);         // { ok:boolean, user:null|{...} }
+    return { loggedIn: !!(data?.ok && data.user), user: data?.user || null };
+  } catch {
+    // got HTML or invalid JSON
+    return { loggedIn: false, user: null };
+  }
+}
+
+// Loader for UpcomingAvailability (adjust field names if yours differ)
+async function loadUpcomingHours({ businessId, calendarId, fromYMD, toYMD }) {
+  const where = {
+    business: businessId,          // or 'Business' / 'businessId' depending on your schema
+    calendar: calendarId,          // or 'Calendar' / 'calendarId'
+    date: { $gte: fromYMD, $lte: toYMD },  // if you store Y-M-D; change to your shape
+  };
+
+  const qs = new URLSearchParams({
+    where: JSON.stringify(where),
+    limit: '1000',
+    sort: JSON.stringify({ date: 1, startTime: 1 }) // optional
+  });
+
+  const url = `${API('UpcomingAvailability')}?${qs.toString()}`;
+  const r = await apiFetch(url);
+  if (!r.ok) throw new Error(`${r.status} ${await r.text()}`);
+  return r.json();
+}
+
 // Put this near the top of your file (above initLogin)
 // ---- Name helper (put above initLogin) ----
 function displayNameFrom(d) {
@@ -624,9 +736,8 @@ setRelativeMonthBadge(viewYear, viewMonth);   // <-- add this line
 
   // initial
   loadAndGenerateCalendar();
-})();
-
-
+})();  
+    
 // ===== Weekly bridge (optional) =====
 function getStartOfWeek(d) {
   const x = new Date(d);
@@ -1076,6 +1187,59 @@ function initializeAllTimeSelects() {
     populateTimeSelect(`end-upcoming-${d}`);
   });
 }
+//
+const API_ORIGIN = (window.NEXT_PUBLIC_API_ORIGIN) || "http://localhost:8400";
+
+// cache DataType ids
+const TYPE_CACHE = {};
+async function getTypeIdByName(name) {
+  const key = name.toLowerCase();
+  if (TYPE_CACHE[key]) return TYPE_CACHE[key];
+  const r = await fetch(`${API_ORIGIN}/api/datatypes`, { credentials: 'include' });
+  if (!r.ok) return null;
+  const list = await r.json();
+  const found = (list || []).find(dt =>
+    String(dt.name || dt.values?.Name || '').toLowerCase() === key
+  );
+  return (TYPE_CACHE[key] = found?._id ? String(found._id) : null);
+}
+
+// READ (list rows for a month)
+async function listUpcomingHours(where, limit = 500) {
+  const url = `${API_ORIGIN}/public/records`
+    + `?dataType=${encodeURIComponent('Upcoming Hours')}`
+    + `&where=${encodeURIComponent(JSON.stringify(where))}`
+    + `&limit=${limit}&sort=-updatedAt&ts=${Date.now()}`;
+  const res = await fetch(url, { credentials: 'include', cache: 'no-store' });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+// CREATE one row
+async function createUpcomingHours(values) {
+  const typeId = await getTypeIdByName('Upcoming Hours');
+  if (!typeId) throw new Error("Missing DataType 'Upcoming Hours'.");
+  const res = await fetch(`${API_ORIGIN}/api/records`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ dataTypeId: typeId, values }),
+  });
+  if (!res.ok) throw new Error(`Create failed: ${res.status} ${await res.text().catch(()=> '')}`);
+  return res.json();
+}
+
+// UPDATE by record id
+async function updateUpcomingHours(id, values) {
+  const res = await fetch(`${API_ORIGIN}/api/records/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ values }),
+  });
+  if (!res.ok) throw new Error(`Update failed: ${res.status}`);
+  return res.json();
+}
 
 
 /* ---------- hook up the NEW calendar ----------
@@ -1126,9 +1290,11 @@ async function openAvailabilityPopup(dateOrYear, month, day) {
   // 2) Fetch existing values and preselect
   try {
     const where = encodeURIComponent(JSON.stringify({ "Calendar": calendarId, "Date": ymd }));
-    const res = await fetch(`/api/records/${encodeURIComponent(TYPE_UPCOMING)}?where=${where}&ts=${Date.now()}`, {
-      credentials: "include", cache: "no-store"
-    });
+    const res = await fetch(`${API_ORIGIN}/public/records?dataType=${encodeURIComponent('Upcoming Hours')}&where=...`, {
+  credentials: 'include', cache: 'no-store'
+}); // ✅
+
+  
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const items = await res.json();
     const row = Array.isArray(items) ? items[0] : null;
