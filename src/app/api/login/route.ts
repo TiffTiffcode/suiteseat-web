@@ -1,72 +1,32 @@
-//C:\Users\tiffa\OneDrive\Desktop\suiteseat-web\src\app\api\login\route.ts
-import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import bcrypt from 'bcryptjs';
-import { connectDB } from '@/lib/db';
-import AuthUser from '@/models/AuthUser';
+// src/app/api/login/route.ts
+import { NextRequest, NextResponse } from "next/server";
 
-type LeanUser = {
-  _id: unknown;
-  email?: string;
-  firstName?: string;
-  lastName?: string;
-  role?: string;
-  roles?: string[];
-  passwordHash?: string;   // 👈 important
-};
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_BASE ||
+  process.env.API_BASE ||
+  "http://localhost:8400"; // fallback for local dev
 
 export async function POST(req: NextRequest) {
-  await connectDB();
+  try {
+    const body = await req.json();
 
-  const { email = '', password = '' } = await req.json();
-  const normEmail = String(email).trim().toLowerCase();
+    const res = await fetch(`${API_BASE}/login`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      // If you later need to forward cookies, we can tweak this,
+      // but for now this keeps things simple and buildable.
+      body: JSON.stringify(body),
+    });
 
-  // select the fields that actually exist in your collection
-  const user = await AuthUser.findOne({ email: normEmail })
-    .select('_id email firstName lastName role roles passwordHash')
-    .lean<LeanUser>();
-
-  if (!user) {
-    return NextResponse.json({ ok: false, error: 'Invalid credentials' }, { status: 401 });
+    const data = await res.json().catch(() => ({}));
+    return NextResponse.json(data, { status: res.status });
+  } catch (err) {
+    console.error("[/api/login] proxy error:", err);
+    return NextResponse.json(
+      { error: "Login proxy failed" },
+      { status: 500 }
+    );
   }
-
-  // bcrypt compare against passwordHash
-  const hash = user.passwordHash || '';
-  let valid = false;
-
-  if (hash.startsWith('$2')) {
-    valid = await bcrypt.compare(String(password), hash);
-  } else {
-    // (optional) legacy plaintext support – remove if not needed
-    valid = String(password) === hash;
-    if (valid) {
-      const newHash = await bcrypt.hash(String(password), 10);
-      // upgrade to bcrypt
-      await (await import('mongoose')).default.connection
-        .collection('authusers')
-        .updateOne({ _id: user._id as any }, { $set: { passwordHash: newHash } });
-    }
-  }
-
-  if (!valid) {
-    return NextResponse.json({ ok: false, error: 'Invalid credentials' }, { status: 401 });
-  }
-
-  const cookieStore = await cookies();
-  cookieStore.set('session', String(user._id), {
-    httpOnly: true, sameSite: 'lax', path: '/', maxAge: 60 * 60 * 24 * 7
-  });
-
-  // prefer single role, fallback to first role in array
-  const role = user.role || (user.roles?.[0]) || 'pro';
-
-  return NextResponse.json({
-    ok: true,
-    user: {
-      id: String(user._id),
-      firstName: user.firstName || '',
-      email: user.email || normEmail,
-      role
-    }
-  });
 }
