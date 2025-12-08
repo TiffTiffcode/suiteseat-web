@@ -85,7 +85,7 @@ function initAuthUI(currentUser) {
     if (errorEl) errorEl.textContent = "";
 
     try {
-      const res = await fetch("/login", {
+      const res = await fetch("/api/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -96,7 +96,6 @@ function initAuthUI(currentUser) {
       if (!res.ok || !body.loggedIn) {
         if (errorEl) errorEl.textContent = body.message || "Login failed.";
       } else {
-        // success – reload so /check-login sees the session
         closeModal();
         location.reload();
       }
@@ -111,15 +110,15 @@ function initAuthUI(currentUser) {
   });
 
   // logout
-  logoutBtn?.addEventListener("click", async () => {
-    try {
-      await fetch("/logout", {
-        method: "POST",
-        credentials: "include",
-      });
-    } catch {}
-    location.reload();
-  });
+logoutBtn?.addEventListener("click", async () => {
+  try {
+    await fetch("/api/logout", {
+      method: "POST",
+      credentials: "include",
+    });
+  } catch {}
+  location.reload();
+});
 
   // initial paint
   setLoggedInUI(currentUser);
