@@ -1,4 +1,11 @@
 console.log('[accept-appoinments] web loaded');
+
+// 🔹 Talk to the same API everywhere
+const API_BASE = window.API_BASE || '';  
+
+
+let REQUIRE_FIRST_BUSINESS = false; // keep your flag
+
 //helper
 function asId(v){
   if (!v) return '';
@@ -34,8 +41,9 @@ let editingServiceId  = null;
 
 // ---------- API helpers ----------
 async function login(email, password) {
-  const res  = await fetch('/api/login', {
+  const res  = await fetch(`${API_BASE}/api/login`, {
     method: 'POST',
+    credentials: 'include',               // 👈 always include
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password })
   });
@@ -47,7 +55,10 @@ async function login(email, password) {
 }
 
 async function me() {
-  const res  = await fetch('/api/me', { cache: 'no-store' });
+  const res  = await fetch(`${API_BASE}/api/me`, {
+    credentials: 'include',               // 👈 include cookie
+    cache: 'no-store',
+  });
   const text = await res.text();
   try { return JSON.parse(text); } catch { return { ok:false }; }
 }
@@ -72,18 +83,21 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const data = await me();
 
-    if (data.ok) {
-      if (loginStatus)  loginStatus.textContent = `Hi, ${data.user.firstName ?? ''} 👋`;
-      if (logoutBtn)    logoutBtn.style.display = "inline-block";
-      if (openLoginBtn) openLoginBtn.style.display = "none";
+if (data.ok) {
+  if (loginStatus)  loginStatus.textContent = `Hi, ${data.user.firstName ?? ''} 👋`;
+  if (logoutBtn)    logoutBtn.style.display = "inline-block";
+  if (openLoginBtn) openLoginBtn.style.display = "none";
 
-      // load app data now that we know we're logged in
-      await loadBusinessDropdown?.();
-      await loadBusinessList?.();
-      await loadCalendarList?.();
-      bindCategoryUI?.();
-      bindServiceUI?.();
-    } else {
+  // load app data now that we know we're logged in
+  await loadBusinessDropdown?.();
+  await loadBusinessList?.();
+  await loadCalendarList?.();
+  bindCategoryUI?.();
+  bindServiceUI?.();
+
+  // 👇 NEW: make sure at least one business exists
+  await ensureBusinessExists();
+} else {
       if (loginStatus)  loginStatus.textContent = "Not logged in";
       if (logoutBtn)    logoutBtn.style.display = "none";
       if (openLoginBtn) openLoginBtn.style.display = "inline-block";
@@ -92,7 +106,11 @@ document.addEventListener("DOMContentLoaded", () => {
     // logout -> /api/logout
     if (logoutBtn) {
       logoutBtn.addEventListener("click", async () => {
-        const res  = await fetch('/api/logout', { method: 'POST' });
+       const res  = await fetch(`${API_BASE}/api/logout`, {
+  method: 'POST',
+  credentials: 'include',
+});
+
         const text = await res.text();
         let out = {};
         try { out = JSON.parse(text); } catch {}
@@ -134,9 +152,21 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // ---------- Menu / overlay ----------
-  const overlayEl = document.getElementById("popup-overlay");
-  if (overlayEl) overlayEl.addEventListener("click", closeAllPopups);
+// ---------- Menu / overlay ----------
+const overlayEl = document.getElementById("popup-overlay");
+if (overlayEl) {
+  overlayEl.addEventListener("click", () => {
+    // If we are forcing them to create a business,
+    // DO NOT let them close the popup by clicking the background.
+    if (REQUIRE_FIRST_BUSINESS) {
+      alert("Please create your first business to continue.");
+      return;
+    }
+    if (typeof closeAllPopups === "function") {
+      closeAllPopups();
+    }
+  });
+}
 
   // Tab switching
   const optionTabs  = document.querySelectorAll(".option");
@@ -152,6 +182,49 @@ document.addEventListener("DOMContentLoaded", () => {
       if (targetId === "booking-section") attachSaveTemplateLogic?.();
     });
   });
+
+
+async function ensureBusinessExists() {
+  try {
+    const res = await fetch(`${API_BASE}/api/records/Business?limit=1`, {
+      credentials: "include",
+      headers: { "Accept": "application/json" },
+    });
+
+    if (res.status === 401) {
+      console.warn("[business] ensureBusinessExists: not logged in yet");
+      return;
+    }
+
+    if (!res.ok) {
+      console.warn("[business] ensureBusinessExists HTTP", res.status);
+      return;
+    }
+
+    const body = await res.json();
+    const rows = Array.isArray(body)
+      ? body
+      : Array.isArray(body.data)
+      ? body.data
+      : Array.isArray(body.records)
+      ? body.records
+      : [];
+
+    const hasAny = rows.length > 0;
+
+    if (!hasAny) {
+      console.log("[business] no businesses yet – forcing create popup");
+      REQUIRE_FIRST_BUSINESS = true;
+      if (typeof openBusinessCreate === "function") {
+        openBusinessCreate();
+      }
+    }
+  } catch (err) {
+    console.warn("[business] ensureBusinessExists error:", err);
+  }
+}
+
+
 
   // ---------- Business Section: open create popup ----------
   const openBtn       = document.getElementById("open-business-popup-button");
@@ -275,36 +348,38 @@ async function fetchBusinessById(id) {
       };
 
       // 1) If a hero file was picked, upload it first to /api/upload
-      if (fileInput?.files?.length) {
-        const fd = new FormData();
-        fd.append("file", fileInput.files[0]); // server expects field name "file"
+   // 1) If a hero file was picked, upload it first to /api/upload
+if (fileInput?.files?.length) {
+  const fd = new FormData();
+  fd.append("file", fileInput.files[0]); // server expects field name "file"
 
-        const up = await fetch("/api/upload", {
-          method: "POST",
-          credentials: "include",  // required by ensureAuthenticated
-          body: fd                 // do NOT set Content-Type manually for FormData
-        });
+  const up = await fetch(`${API_BASE}/api/upload`, {
+    method: "POST",
+    credentials: "include",  // required by ensureAuthenticated
+    body: fd                 // do NOT set Content-Type manually for FormData
+  });
 
-        if (!up.ok) {
-          let msg = `HTTP ${up.status}`;
-          try { const err = await up.json(); if (err?.error) msg += ` - ${err.error}`; } catch {}
-          throw new Error("Image upload failed: " + msg);
-        }
+  if (!up.ok) {
+    let msg = `HTTP ${up.status}`;
+    try { const err = await up.json(); if (err?.error) msg += ` - ${err.error}`; } catch {}
+    throw new Error("Image upload failed: " + msg);
+  }
 
-        const { url: uploadedUrl } = await up.json(); // => "/uploads/<filename>"
-        // Attach both keys for compatibility with your booking page
-        values.heroImageUrl = toUrl(uploadedUrl);
-        values.heroImage    = toUrl(uploadedUrl);
-        console.debug("[upload] heroImageUrl =", values.heroImageUrl);
-      }
+  const { url: uploadedUrl } = await up.json(); // => "/uploads/<filename>"
+  // Attach both keys for compatibility with your booking page
+  values.heroImageUrl = toUrl(uploadedUrl);
+  values.heroImage    = toUrl(uploadedUrl);
+  console.debug("[upload] heroImageUrl =", values.heroImageUrl);
+}
 
-      // 2) Create the Business
-      const res = await fetch(`/api/records/${encodeURIComponent(TYPE_NAME)}`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json", "Accept": "application/json" },
-        body: JSON.stringify({ values })
-      });
+// 2) Create the Business
+const res = await fetch(`${API_BASE}/api/records/${encodeURIComponent(TYPE_NAME)}`, {
+  method: "POST",
+  credentials: "include",
+  headers: { "Content-Type": "application/json", "Accept": "application/json" },
+  body: JSON.stringify({ values })
+});
+
       if (!res.ok) {
         let msg = `HTTP ${res.status}`;
         try { const err = await res.json(); if (err?.error) msg += ` - ${err.error}`; } catch {}
@@ -327,6 +402,8 @@ async function fetchBusinessById(id) {
       if (typeof loadBusinessList === "function") {
         await loadBusinessList();
       }
+            REQUIRE_FIRST_BUSINESS = false; // ✅ now they can use the page normally
+
       if (typeof closeAllPopups === "function") closeAllPopups();
 
     } catch (err) {
@@ -426,10 +503,11 @@ if (deleteBtn && !deleteBtn.dataset.bound) {
     deleteBtn.textContent = "Deleting…";
 
     try {
-      const res = await fetch(`/api/records/${encodeURIComponent(TYPE)}/${editingBusinessId}`, {
-        method: "DELETE",
-        credentials: "include"
-      });
+   const res = await fetch(`${API_BASE}/api/records/${encodeURIComponent(TYPE)}/${editingBusinessId}`, {
+  method: "DELETE",
+  credentials: "include"
+});
+
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
       alert("Business deleted.");
@@ -951,10 +1029,11 @@ async function loadBusinessDropdown({ preserve = true, selectId = null } = {}) {
 
   try {
     // 👇 cache-busting + no-store + soft-delete filter
-    const res = await fetch(`/api/records/Business?ts=${Date.now()}`, {
-      credentials: 'include',
-      cache: 'no-store'
-    });
+    const res = await fetch(`${API_BASE}/api/records/Business?ts=${Date.now()}`, {
+  credentials: 'include',
+  cache: 'no-store'
+});
+
     if (!res.ok) {
       dropdown.innerHTML = '<option value="">-- Choose Business --</option>';
       return;
@@ -1059,10 +1138,11 @@ async function loadBusinessList() {
 
   try {
     // You already use this endpoint for businesses
-    const res = await fetch(`/api/records/Business?ts=${Date.now()}`, {
-      credentials: "include",
-      cache: "no-store"
-    });
+    const res = await fetch(`${API_BASE}/api/records/Business?ts=${Date.now()}`, {
+  credentials: 'include',
+  cache: 'no-store'
+});
+
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const businesses = (await res.json()).filter(b => !b.deletedAt);
 
@@ -1366,10 +1446,12 @@ async function loadCalendarBusinessOptions() {
 
   let list = []; // <-- always defined
   try {
-    const res = await fetch(`/api/records/Business?ts=${Date.now()}`, {
-      credentials: 'include',
-      cache: 'no-store'
-    });
+const res = await fetch(`${API_BASE}/api/records/Business?ts=${Date.now()}`, {
+
+  credentials: 'include',
+  cache: 'no-store'
+});
+
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     list = (await res.json()).filter(b => !b.deletedAt);
   } catch (e) {
@@ -1586,10 +1668,11 @@ async function loadBusinessOptions(selectId) {
   sel.disabled = true;
 
   try {
-    const res = await fetch(`/api/records/Business?ts=${Date.now()}`, {
-      credentials: 'include',
-      cache: 'no-store'
-    });
+    const res = await fetch(`${API_BASE}/api/records/Business?ts=${Date.now()}`, {
+  credentials: 'include',
+  cache: 'no-store'
+});
+
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
     const businesses = (await res.json()).filter(b => !b.deletedAt);
