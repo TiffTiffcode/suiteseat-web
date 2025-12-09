@@ -11,50 +11,59 @@ type LeanUser = {
   lastName?: string;
   role?: string;
   roles?: string[];
-  passwordHash?: string; // new field
-  password?: string;     // legacy field
+  passwordHash?: string; // new
+  password?: string;     // legacy
 };
+
+// helper: escape regex from email
+function escapeRegex(str: string) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
 
 export async function POST(req: NextRequest) {
   try {
     await connectDB();
 
-    const { email = "", password = "" } = await req.json();
-    const normEmail = String(email).trim().toLowerCase();
+    const body = await req.json().catch(() => ({}));
+    const rawEmail = String(body.email || "").trim();
+    const normEmail = rawEmail.toLowerCase();
+    const password = String(body.password || "");
 
-    if (!normEmail || !password) {
+    if (!rawEmail || !password) {
       return NextResponse.json(
         { ok: false, error: "Email and password required" },
         { status: 400 }
       );
     }
 
-    const user = await AuthUser.findOne({ email: normEmail })
+    // 🔹 Case-insensitive email lookup
+    const emailRegex = new RegExp("^" + escapeRegex(normEmail) + "$", "i");
+    const user = await AuthUser.findOne({ email: emailRegex })
       .select("_id email firstName lastName role roles passwordHash password")
       .lean<LeanUser>();
 
     if (!user) {
-      // no user found for that email
+      // no user for that email
       return NextResponse.json(
         { ok: false, error: "Invalid credentials" },
         { status: 401 }
       );
     }
 
-    // ---- PASSWORD CHECK (supports old + new users) ----
+    // ---------- PASSWORD CHECK ----------
     const stored = (user.passwordHash || user.password || "").trim();
     let valid = false;
 
     if (stored.startsWith("$2")) {
       // bcrypt hash
-      valid = await bcrypt.compare(String(password), stored);
+      valid = await bcrypt.compare(password, stored);
     } else if (stored) {
-      // legacy plain-text password
-      valid = String(password) === stored;
+      // legacy plain text
+      valid = password === stored;
 
-      // if matched, upgrade to bcrypt hash and store in passwordHash
+      // upgrade to bcrypt if it matched
       if (valid) {
-        const newHash = await bcrypt.hash(String(password), 10);
+        const newHash = await bcrypt.hash(password, 10);
         await AuthUser.updateOne(
           { _id: user._id as any },
           { $set: { passwordHash: newHash }, $unset: { password: "" } }
@@ -69,12 +78,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ---- SET SESSION COOKIE ----
+    // ---------- SET SESSION COOKIE ----------
     const cookieStore = await cookies();
     cookieStore.set("session", String(user._id), {
       httpOnly: true,
       sameSite: "lax",
-      secure: true, // you're on HTTPS in prod
+      secure: true,
       path: "/",
       maxAge: 60 * 60 * 24 * 7, // 7 days
     });
