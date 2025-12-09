@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Suite Seat – Settings</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- Settings styles -->
+  <link rel="stylesheet" href="/qassets/css/settings.css" />
+
+  <!-- Auth + navigation logic -->
+  <script defer src="/qassets/js/settings.js"></script>
+</head>
+<body class="ss-page">
+
+  <!-- HEADER -->
+  <header class="ss-header">
+    <div class="ss-logo-text">Suite Seat</div>
+
+    <div class="ss-header-right">
+      <span id="login-status-text" class="ss-greeting">Not logged in</span>
+
+      <!-- Shows when user NOT logged in -->
+      <button id="open-login-popup-btn" class="ss-btn ss-btn-outline">
+        Login
+      </button>
+
+      <!-- Shows when user IS logged in -->
+      <button id="logout-btn" class="ss-btn ss-btn-outline" style="display:none;">
+        Logout
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN CONTENT -->
+  <main class="ss-settings-layout">
+    <!-- Row 1 -->
+    <section class="ss-card">
+      <h2 class="ss-card-title">Manage Appointments</h2>
+      <button
+        id="btn-appointments"
+        class="ss-card-btn"
+        type="button"
+      >
+        Scheduling Page<br />Settings
+      </button>
+    </section>
+
+    <section class="ss-card">
+      <h2 class="ss-card-title">Rent out your space</h2>
+      <button
+        id="btn-suites"
+        class="ss-card-btn"
+        type="button"
+      >
+        Suite Page<br />Settings
+      </button>
+    </section>
+
+    <!-- Row 2 -->
+    <section class="ss-card">
+      <h2 class="ss-card-title">Build a course</h2>
+      <button
+        id="btn-course"
+        class="ss-card-btn"
+        type="button"
+      >
+        Course Page<br />Settings
+      </button>
+    </section>
+
+    <section class="ss-card">
+      <h2 class="ss-card-title">Link all your pages</h2>
+      <button
+        id="btn-links"
+        class="ss-card-btn"
+        type="button"
+      >
+        Link Page<br />Settings
+      </button>
+    </section>
+
+    <!-- Row 3 (centered card) -->
+    <section class="ss-card ss-card-wide">
+      <h2 class="ss-card-title">Sell products</h2>
+      <button
+        id="btn-store"
+        class="ss-card-btn"
+        type="button"
+      >
+        Store Page<br />Settings
+      </button>
+    </section>
+  </main>
+
+  <!-- AUTH POPUP -->
+  <div id="authModal" class="auth-modal" hidden aria-hidden="true">
+    <div class="auth-modal-inner">
+      <button id="authClose" class="auth-close-btn">×</button>
+
+      <h2>Log in to Suite Seat</h2>
+
+      <form id="authForm">
+        <label>
+          Email
+          <input id="authEmail" type="email" autocomplete="email" required />
+        </label>
+
+        <label>
+          Password
+          <input id="authPass" type="password" autocomplete="current-password" required />
+        </label>
+
+        <div id="authError" class="auth-error"></div>
+
+        <button id="authSubmit" type="submit" class="ss-btn ss-btn-outline">
+          <span class="when-idle">Log in</span>
+          <span class="when-busy" hidden>Logging in…</span>
+        </button>
+      </form>
+    </div>
+  </div>
+
+</body>
+</html>

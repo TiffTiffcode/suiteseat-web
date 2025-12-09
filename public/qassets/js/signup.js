@@ -113,7 +113,7 @@ document.addEventListener('DOMContentLoaded', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ firstName, lastName, email, password, phone }),
       });
-      location.href = data.redirect || next || '/appointment-settings.html';
+      location.href = data.redirect || next || '/settings.html';
     } catch (err) {
       console.error(err);
       alert(`Sign up failed: ${err.message}`);
@@ -133,7 +133,7 @@ document.addEventListener('DOMContentLoaded', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
-      location.href = data.redirect || next || '/appointment-settings.html';
+      location.href = data.redirect || next || '/settings.html';
     } catch (err) {
       console.error(err);
       alert(`Login failed: ${err.message}`);
