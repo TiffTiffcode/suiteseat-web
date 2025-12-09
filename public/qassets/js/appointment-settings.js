@@ -226,6 +226,7 @@ async function ensureBusinessExists() {
 
 
 
+
   // ---------- Business Section: open create popup ----------
   const openBtn       = document.getElementById("open-business-popup-button");
   const businessPopup = document.getElementById("popup-add-business");
@@ -348,7 +349,7 @@ async function fetchBusinessById(id) {
       };
 
       // 1) If a hero file was picked, upload it first to /api/upload
-   // 1) If a hero file was picked, upload it first to /api/upload
+// 1) If a hero file was picked, upload it first to /api/upload
 if (fileInput?.files?.length) {
   const fd = new FormData();
   fd.append("file", fileInput.files[0]); // server expects field name "file"
@@ -356,7 +357,7 @@ if (fileInput?.files?.length) {
   const up = await fetch(`${API_BASE}/api/upload`, {
     method: "POST",
     credentials: "include",  // required by ensureAuthenticated
-    body: fd                 // do NOT set Content-Type manually for FormData
+    body: fd                  // do NOT set Content-Type manually
   });
 
   if (!up.ok) {
@@ -365,11 +366,9 @@ if (fileInput?.files?.length) {
     throw new Error("Image upload failed: " + msg);
   }
 
-  const { url: uploadedUrl } = await up.json(); // => "/uploads/<filename>"
-  // Attach both keys for compatibility with your booking page
+  const { url: uploadedUrl } = await up.json();
   values.heroImageUrl = toUrl(uploadedUrl);
   values.heroImage    = toUrl(uploadedUrl);
-  console.debug("[upload] heroImageUrl =", values.heroImageUrl);
 }
 
 // 2) Create the Business
@@ -379,6 +378,7 @@ const res = await fetch(`${API_BASE}/api/records/${encodeURIComponent(TYPE_NAME)
   headers: { "Content-Type": "application/json", "Accept": "application/json" },
   body: JSON.stringify({ values })
 });
+
 
       if (!res.ok) {
         let msg = `HTTP ${res.status}`;

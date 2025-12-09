@@ -421,7 +421,7 @@
       <button type="button" onclick="closeLoginPopup()" style="float:right; border:none; background:none; font-size:18px;">&times;</button>
     </div>
 
-    <form id="login-form">
+ 
  <form id="login-form" action="" onsubmit="return false;">
         <label for="login-email">Email</label><br>
         <input type="email" id="login-email" required placeholder="Enter your email" />
@@ -480,7 +480,7 @@
 
 <script>
   document.addEventListener("DOMContentLoaded", () => {
-    const path = window.location.pathname.split("/").pop(); // get current page like 'calendar.html'
+    const path = window.location.pathname.split("/").pop();
     const tabLinks = document.querySelectorAll(".tab-item");
 
     tabLinks.forEach(link => {
@@ -492,8 +492,15 @@
   });
 </script>
 
+<script>
+  // Local vs live
+  window.API_BASE =
+    window.location.hostname === "localhost"
+      ? "http://localhost:8400"
+      : "https://suiteseat-live.onrender.com"; // ⬅️ your live Express URL
+</script>
 
- <script src="/qassets/js/appointment-settings.js"></script>
-  
+<script src="/qassets/js/appointment-settings.js"></script>
+
 </body>
 </html>
