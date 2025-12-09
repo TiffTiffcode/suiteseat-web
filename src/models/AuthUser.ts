@@ -1,21 +1,36 @@
 //C:\Users\tiffa\OneDrive\Desktop\suiteseat-web\src\models\AuthUser.ts
 // src/models/AuthUser.ts
-import { Schema, model, models } from 'mongoose';
+import mongoose, { Schema, type Model } from 'mongoose';
 
-const AuthUserSchema = new Schema({
-  email:        { type: String, index: true, unique: true },
-  firstName:    { type: String },
-  lastName:     { type: String },
-  // 👇 your Atlas doc shows "passwordHash"
-  passwordHash: { type: String },
-  // Atlas shows "roles: []"
-  roles:        { type: [String], default: [] },
-  // if you also sometimes store a single role:
-  role:         { type: String }
-}, {
-  timestamps: true,
-  // your collection in Atlas is literally "authusers"
-  collection: 'authusers'
-});
+export interface IAuthUser {
+  _id: mongoose.Types.ObjectId;
+  email: string;
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  passwordHash?: string;  // ✅ main field we use now
+  password?: string;      // legacy, optional
+  role?: string;
+  roles?: string[];
+}
 
-export default models.AuthUser ?? model('AuthUser', AuthUserSchema);
+const AuthUserSchema = new Schema<IAuthUser>(
+  {
+    email: { type: String, required: true, unique: true, index: true },
+    firstName: String,
+    lastName: String,
+    phone: String,
+    passwordHash: String,
+    password: String,
+    role: { type: String, default: 'pro' },
+    roles: [{ type: String }],
+  },
+  {
+    timestamps: true,
+    collection: 'authusers',
+  }
+);
+
+export default (mongoose.models.AuthUser as Model<IAuthUser>) ||
+  mongoose.model<IAuthUser>('AuthUser', AuthUserSchema);
+
