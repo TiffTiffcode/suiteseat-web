@@ -264,14 +264,41 @@ async function ensureBusinessExists() {
 });
 
 // ---------- Save Business (with hero image) ----------
-function toUrl(v){
+
+
+// then:
+function toUrl(v) {
   if (!v) return "";
-  if (typeof v === "object") v = v.url || v.path || v.src || v.filename || v.name || "";
+  if (typeof v === "object") {
+    v = v.url || v.path || v.src || v.filename || v.name || "";
+  }
   if (!v) return "";
-  return (/^https?:\/\//i.test(v) || String(v).startsWith("/"))
-    ? String(v)
-    : `/uploads/${String(v).replace(/^\/+/, "")}`;
+
+  let value = String(v).trim();
+
+  // 1) Already a full URL
+  if (/^https?:\/\//i.test(value)) {
+    return value;
+  }
+
+  // 2) Starts with /uploads/...  -> prefix API_BASE
+  if (value.startsWith("/uploads/")) {
+    return `${API_BASE}${value}`;
+  }
+
+  // 3) Any other absolute path (rare), just return it
+  if (value.startsWith("/")) {
+    return value;
+  }
+
+  // 4) Bare filename -> /uploads/filename on the API host
+  value = value.replace(/^\/+/, "");
+  return `${API_BASE}/uploads/${value}`;
 }
+
+// make it available to other code that uses window.toUrl
+window.toUrl = toUrl;
+
 function setHeroPreview(src) {
   const img  = document.getElementById("current-hero-image");
   const none = document.getElementById("no-image-text");
@@ -1438,18 +1465,13 @@ async function fillServiceCount(businessId, targetEl) {
 
 //Open Business in Edit Mode 
 function openBusinessEdit(biz) {
-  // local fallback so we don’t depend on where toUrl is defined
-  const toUrl = window.toUrl || function(v){
-    if (!v) return "";
-    if (typeof v === "object") v = v.url || v.path || v.src || v.filename || v.name || "";
-    if (!v) return "";
-    v = String(v);
-    return (/^https?:\/\//i.test(v) || v.startsWith("/")) ? v : `/uploads/${v.replace(/^\/+/, "")}`;
-  };
+  if (!biz || !biz._id) {
+    alert("Could not open this business for editing.");
+    return;
+  }
 
   const popup   = document.getElementById("popup-add-business");
   const overlay = document.getElementById("popup-overlay");
-  if (!biz || !biz._id) { alert("Could not open this business for editing."); return; }
 
   editingBusinessId = biz._id;
   const v = biz.values || {};
@@ -1466,7 +1488,7 @@ function openBusinessEdit(biz) {
 
   const img   = document.getElementById("current-hero-image");
   const noImg = document.getElementById("no-image-text");
-  if (img) { img.src = heroUrl || ""; img.style.display = heroUrl ? "block" : "none"; }
+  if (img)  { img.src = heroUrl || ""; img.style.display = heroUrl ? "block" : "none"; }
   if (noImg) noImg.style.display = heroUrl ? "none" : "block";
 
   const fileInput = document.getElementById("image-upload");

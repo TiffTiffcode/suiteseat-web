@@ -43,6 +43,31 @@ document.addEventListener('DOMContentLoaded', () => {
   tabs.forEach(t => t.addEventListener('click', () => switchToTab(t.dataset.tab)));
   window.switchToTab = switchToTab; // so we can jump to Fields in code
 
+
+  // ----------------------------
+  // Elements: Businesses tab
+  // ----------------------------
+  const businessTableBody = document.querySelector('#business-records-table tbody');
+  const businessFilterInput = document.getElementById('business-filter-input');
+
+  // will hold loaded business records so we can filter on the client
+  let allBusinessRecords = [];
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
   // ----------------------------
   // Elements: Data Types
   // ----------------------------
@@ -108,12 +133,21 @@ const osKindCreateSelect = document.getElementById('optionset-kind-create'); // 
   if (fieldForm) fieldForm.style.display = 'none';
   if (btnShowFieldForm) btnShowFieldForm.disabled = true;
 
+    // live filter as you type
+  if (businessFilterInput) {
+    businessFilterInput.addEventListener('input', () => {
+      renderBusinessTable();
+    });
+  }
+
   // Boot on page load
   loadDataTypes();
   refreshReferenceOptions();
   loadOptionSets();
   loadOptionSets();
  populateOptionSetsInFieldType();
+  // 🔹 load Business records on startup
+  loadBusinessRecords();
   // ----------------------------
   // Create DataType
   // ----------------------------
@@ -195,6 +229,133 @@ async function loadDataTypes() {
   }
 }
 
+  // ----------------------------
+  // Load Business records (for debugging slugs)
+  // ----------------------------
+  async function loadBusinessRecords() {
+    if (!businessTableBody) return;
+
+    businessTableBody.innerHTML = '<tr><td colspan="4">Loading…</td></tr>';
+
+    try {
+      // 1) get all DataTypes to find Business
+      const dtRes = await fetch('/api/datatypes', {
+        headers: { 'Accept': 'application/json' }
+      });
+      if (!dtRes.ok) throw new Error(`DataTypes HTTP ${dtRes.status}`);
+      const dts = await dtRes.json();
+      const businessDT = (dts || []).find(dt =>
+        dt.name === 'Business' ||
+        dt.nameCanonical === 'business'
+      );
+
+      if (!businessDT) {
+        businessTableBody.innerHTML = '<tr><td colspan="4">No Business DataType found</td></tr>';
+        console.warn('[admin] Business DataType not found');
+        return;
+      }
+
+      console.log('[admin] Business DataType id:', businessDT._id);
+
+      // 2) load records for that DataType
+      //    👉 if your endpoint name is slightly different, tweak this URL
+      const recRes = await fetch(`/api/records?dataTypeId=${businessDT._id}&limit=500&sort=-createdAt`, {
+        headers: { 'Accept': 'application/json' }
+      });
+
+      if (!recRes.ok) throw new Error(`Records HTTP ${recRes.status}`);
+
+      const body = await recRes.json().catch(() => ({}));
+
+      // support several possible shapes: [rows] or {records:[..]} etc.
+      const rows = Array.isArray(body)
+        ? body
+        : Array.isArray(body.records)
+        ? body.records
+        : Array.isArray(body.items)
+        ? body.items
+        : [];
+
+      allBusinessRecords = rows;
+      console.log('[admin] loaded Business records:', rows.length);
+
+      renderBusinessTable();
+    } catch (err) {
+      console.error('[admin] loadBusinessRecords failed:', err);
+      businessTableBody.innerHTML =
+        `<tr><td colspan="4">Failed to load: ${err.message}</td></tr>`;
+    }
+  }
+
+    function renderBusinessTable() {
+    if (!businessTableBody) return;
+
+    const term = (businessFilterInput?.value || '').trim().toLowerCase();
+    let rows = allBusinessRecords || [];
+
+    if (term) {
+      rows = rows.filter(rec => {
+        const v = rec.values || {};
+        const name = String(v.businessName || v['Business Name'] || '').toLowerCase();
+        const slug = String(v.slug || v.businessSlug || v['Slug'] || '').toLowerCase();
+        return name.includes(term) || slug.includes(term);
+      });
+    }
+
+    if (!rows.length) {
+      businessTableBody.innerHTML = '<tr><td colspan="4">No businesses found</td></tr>';
+      return;
+    }
+
+    businessTableBody.innerHTML = '';
+
+    rows.forEach(rec => {
+      const v = rec.values || {};
+
+      const name =
+        v.businessName ||
+        v['Business Name'] ||
+        '(no name)';
+
+      // 👇 adjust keys if your slug field is named differently
+      const slug =
+        v.slug ||
+        v.businessSlug ||
+        v['Booking Slug'] ||
+        '';
+
+      const createdRaw = rec.createdAt || rec.created_at;
+      const createdAt = createdRaw
+        ? new Date(createdRaw).toLocaleString()
+        : '—';
+
+      const tr = document.createElement('tr');
+
+      const tdName = document.createElement('td');
+      tdName.textContent = String(name);
+
+      const tdSlug = document.createElement('td');
+      tdSlug.textContent = String(slug);
+      if (slug) {
+        tdSlug.style.fontFamily = 'monospace';
+      }
+
+      const tdCreated = document.createElement('td');
+      tdCreated.textContent = createdAt;
+
+      const tdId = document.createElement('td');
+      tdId.textContent = String(rec._id || '');
+      tdId.style.fontFamily = 'monospace';
+      tdId.style.fontSize = '11px';
+
+      tr.appendChild(tdName);
+      tr.appendChild(tdSlug);
+      tr.appendChild(tdCreated);
+      tr.appendChild(tdId);
+
+      businessTableBody.appendChild(tr);
+    });
+  }
 
   // ----------------------------
   // Show/Hide Field form

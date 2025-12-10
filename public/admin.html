@@ -41,7 +41,7 @@ git push
     <div class="tab" data-tab="2" id="tab2">Fields</div>
     <div class="tab" data-tab="4" id="tab4">Option Sets</div>
     <div class="tab" data-tab="3" id="tab3">Users</div>
-
+  <div class="tab" data-tab="5" id="tab5">Businesses</div>
   </div>
 
   <!-- Panels -->
@@ -165,6 +165,39 @@ git push
 
 
   </div>
+
+  <!-- ... existing Tab 3 and Tab 4 blocks ... -->
+
+  <!-- 🔹 Tab 5: Businesses -->
+  <div class="content" data-content="5" id="content5">
+    <h2>Businesses</h2>
+
+    <p style="margin-bottom:8px;">
+      Shows Business records from the dynamic Record collection
+      (name, slug, created date). Use this to debug booking slugs.
+    </p>
+
+    <!-- Optional simple filter box -->
+    <label>
+      Filter by name/slug:
+      <input type="text" id="business-filter-input" placeholder="e.g. trafe, newnea" />
+    </label>
+
+    <table id="business-records-table" style="width:100%; border-collapse:collapse; margin-top:10px;">
+      <thead>
+        <tr>
+          <th style="width:30%;">Business Name</th>
+          <th style="width:25%;">Slug</th>
+          <th style="width:25%;">Created At</th>
+          <th style="width:20%;">Record _id</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+
+
 
 
 
