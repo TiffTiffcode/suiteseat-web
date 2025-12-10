@@ -5,7 +5,7 @@ const API_BASE = window.API_BASE || '';
 
 
 let REQUIRE_FIRST_BUSINESS = false; // keep your flag
-
+window.businessCache = window.businessCache || new Map();
 //helper
 function asId(v){
   if (!v) return '';
@@ -280,25 +280,60 @@ function setHeroPreview(src) {
 }
 
 // Try cache → GET /api/records/Business/:id → fallback list
+// Try cache → GET /api/records/Business/:id → fallback list
 async function fetchBusinessById(id) {
+  if (!id) return null;
+
+  // ✅ 1) Check cache first
   const cached = window.businessCache?.get(id);
   if (cached) return cached;
 
+  // ✅ 2) Try direct record endpoint: GET {API_BASE}/api/records/Business/:id
   try {
-    const r = await fetch(`/api/records/Business/${encodeURIComponent(id)}`, {
-      credentials: 'include',
-      headers: { 'Accept': 'application/json' }
-    });
-    if (r.ok) return r.json();
-  } catch {}
+    const r = await fetch(
+      `${API_BASE}/api/records/Business/${encodeURIComponent(id)}`,
+      {
+        credentials: 'include',
+        headers: { 'Accept': 'application/json' },
+      }
+    );
 
+    if (r.ok) {
+      const data = await r.json();
+      // cache it
+      window.businessCache.set(id, data);
+      return data;
+    } else {
+      console.warn('[fetchBusinessById] /api/records/Business/:id HTTP', r.status);
+    }
+  } catch (err) {
+    console.error('[fetchBusinessById] error on /api/records/Business/:id', err);
+  }
+
+  // ✅ 3) Fallback: GET {API_BASE}/get-records/Business and search in list
   try {
-    const r = await fetch('/get-records/Business', { credentials: 'include' });
+    const r = await fetch(`${API_BASE}/get-records/Business`, {
+      credentials: 'include',
+      headers: { 'Accept': 'application/json' },
+    });
+
     if (r.ok) {
       const arr = await r.json();
-      return arr.find(x => x._id === id) || null;
+      const found = Array.isArray(arr)
+        ? arr.find((x) => x._id === id)
+        : null;
+
+      if (found) {
+        window.businessCache.set(id, found);
+      }
+
+      return found || null;
+    } else {
+      console.warn('[fetchBusinessById] /get-records/Business HTTP', r.status);
     }
-  } catch {}
+  } catch (err) {
+    console.error('[fetchBusinessById] error on /get-records/Business', err);
+  }
 
   return null;
 }
@@ -417,9 +452,7 @@ const res = await fetch(`${API_BASE}/api/records/${encodeURIComponent(TYPE_NAME)
       if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = prevText; }
     }
   });
-})();
-
-  //Update Business
+})();// Update Business
 const updateBtn = document.getElementById("update-button");
 const deleteBtn = document.getElementById("delete-button");
 
@@ -439,20 +472,38 @@ if (updateBtn && !updateBtn.dataset.bound) {
     };
 
     // If a new image is chosen, upload and include it in the PATCH
-    const file = document.getElementById("image-upload")?.files?.[0];
+    const fileInput = document.getElementById("image-upload");
+    const file = fileInput?.files?.[0];
+
     if (file) {
       const fd = new FormData();
       fd.append("file", file);
-      const up = await fetch("/api/upload", { method: "POST", credentials: "include", body: fd });
-      if (!up.ok) {
-        let msg = `HTTP ${up.status}`;
-        try { const err = await up.json(); if (err?.error) msg += ` - ${err.error}`; } catch {}
-        alert("Image upload failed: " + msg);
+
+      try {
+        const up = await fetch(`${API_BASE}/api/upload`, {
+          method: "POST",
+          credentials: "include",
+          body: fd,
+        });
+
+        if (!up.ok) {
+          let msg = `HTTP ${up.status}`;
+          try {
+            const err = await up.json();
+            if (err?.error) msg += ` - ${err.error}`;
+          } catch {}
+          alert("Image upload failed: " + msg);
+          return;
+        }
+
+        const { url } = await up.json(); // "/uploads/..."
+        values.heroImageUrl = toUrl(url);
+        values.heroImage    = values.heroImageUrl;
+      } catch (err) {
+        console.error("[update business] upload error", err);
+        alert("Image upload failed. See console for details.");
         return;
       }
-      const { url } = await up.json(); // "/uploads/..."
-      values.heroImageUrl = toUrl(url);
-      values.heroImage    = values.heroImageUrl;
     }
 
     updateBtn.disabled = true;
@@ -460,12 +511,16 @@ if (updateBtn && !updateBtn.dataset.bound) {
     updateBtn.textContent = "Updating…";
 
     try {
-      const res = await fetch(`/api/records/${encodeURIComponent(TYPE)}/${editingBusinessId}`, {
-        method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ values })
-      });
+      const res = await fetch(
+        `${API_BASE}/api/records/${encodeURIComponent(TYPE)}/${encodeURIComponent(editingBusinessId)}`,
+        {
+          method: "PATCH",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ values }),
+        }
+      );
+
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const updated = await res.json();
 
@@ -491,7 +546,7 @@ if (updateBtn && !updateBtn.dataset.bound) {
   updateBtn.dataset.bound = "1";
 }
 
-//Delete business
+// Delete business
 if (deleteBtn && !deleteBtn.dataset.bound) {
   deleteBtn.addEventListener("click", async () => {
     if (!editingBusinessId) return;
@@ -503,18 +558,24 @@ if (deleteBtn && !deleteBtn.dataset.bound) {
     deleteBtn.textContent = "Deleting…";
 
     try {
-   const res = await fetch(`${API_BASE}/api/records/${encodeURIComponent(TYPE)}/${editingBusinessId}`, {
-  method: "DELETE",
-  credentials: "include"
-});
+      const res = await fetch(
+        `${API_BASE}/api/records/${encodeURIComponent(TYPE)}/${encodeURIComponent(editingBusinessId)}`,
+        {
+          method: "DELETE",
+          credentials: "include",
+        }
+      );
 
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
       alert("Business deleted.");
-      closeAllPopups()
+      closeAllPopups();
+
       // clear selection if it was selected
       const saved = sessionStorage.getItem("selectedBusinessId");
-      if (saved === editingBusinessId) sessionStorage.removeItem("selectedBusinessId");
+      if (saved === editingBusinessId) {
+        sessionStorage.removeItem("selectedBusinessId");
+      }
 
       await loadBusinessDropdown({ preserve: true });
       await loadBusinessList();
@@ -529,7 +590,6 @@ if (deleteBtn && !deleteBtn.dataset.bound) {
   });
   deleteBtn.dataset.bound = "1";
 }
-
 
 
 
@@ -574,18 +634,20 @@ if (saveCalBtn && calNameInput && calBizSelect) {
     const prevText = saveCalBtn.textContent;
     saveCalBtn.textContent = "Saving…";
 
-    try {
-      const res = await fetch(`/api/records/${encodeURIComponent(TYPE_NAME)}`, {
-        method: "POST",
-        credentials: "include", // required by ensureAuthenticated
-        headers: { "Content-Type": "application/json" },
-body: JSON.stringify({
-  values: {
-    calendarName,
-    name: calendarName,
-    "Calendar Name": calendarName,
-    businessId,
-    Business: businessId
+   try {
+  const res = await fetch(
+    `${API_BASE}/api/records/${encodeURIComponent(TYPE_NAME)}`,
+    {
+      method: "POST",
+      credentials: "include", // required by ensureAuthenticated
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        values: {
+          calendarName,
+          name: calendarName,
+          "Calendar Name": calendarName,
+          businessId,
+          Business: businessId
   }
 })
 
@@ -691,12 +753,14 @@ if (saveCategoryBtn && catBizSelect && catCalSelect) {
     saveCategoryBtn.disabled = true;
     saveCategoryBtn.textContent = "Saving…";
 
-    try {
-      const res = await fetch(`/api/records/${encodeURIComponent(TYPE_NAME)}`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+  try {
+  const res = await fetch(
+    `${API_BASE}/api/records/${encodeURIComponent(TYPE_NAME)}`,
+    {
+      method: "POST",
+      credentials: "include", // required by ensureAuthenticated
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
           values: {
             // Use your actual field names here:
             categoryName,   // or "name"
@@ -881,7 +945,8 @@ if (serviceForm && !serviceForm.dataset.bound) {
         // server expects the key "file" (upload.single('file'))
         fd.append("file", file);
 
-        const up = await fetch("/api/upload", {
+      const up = await fetch(`${API_BASE}/api/upload`, {
+
           method: "POST",
           credentials: "include",
           body: fd
@@ -912,7 +977,8 @@ if (serviceForm && !serviceForm.dataset.bound) {
         imageUrl                                  // optional
       };
 
-      const res = await fetch(`/api/records/${encodeURIComponent(TYPE)}`, {
+     const res = await fetch(`${API_BASE}/api/records/${encodeURIComponent(TYPE)}`, {
+
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -1250,7 +1316,7 @@ async function publicList(dataType, filters = {}, limit = 500) {
   for (const [k,v] of Object.entries(filters)) {
     if (v !== undefined && v !== null && v !== "") params.append(k, v);
   }
-  const r = await fetch(`/public/records?${params.toString()}`, {
+  const r = await fetch(`${API_BASE}/public/records?${params.toString()}`, {
     headers: { Accept: "application/json" },
     credentials: "same-origin",
     cache: "no-store"
@@ -1524,7 +1590,7 @@ async function loadCalendarList() {
   }
 
   try {
-    const res = await fetch(`/api/records/Calendar?ts=${Date.now()}`, {
+   const res = await fetch(`${API_BASE}/api/records/Calendar?ts=${Date.now()}`, {
       credentials: "include",
       cache: "no-store",
       headers: { Accept: "application/json" }
@@ -1582,7 +1648,7 @@ async function loadCalendarList() {
 
         try {
           // 1) set this calendar to default = true
-          const setTrue = fetch(`/api/records/Calendar/${encodeURIComponent(thisId)}`, {
+         const setTrue = fetch(`${API_BASE}/api/records/Calendar/${encodeURIComponent(thisId)}`, {
             method: "PATCH",
             credentials: "include",
             headers: { "Content-Type": "application/json", Accept: "application/json" },
@@ -1594,7 +1660,7 @@ async function loadCalendarList() {
           // 2) clear others (same business) to false
           const siblings = rows.filter(r => r._id !== thisId);
           const clearOthers = siblings.map(sib =>
-            fetch(`/api/records/Calendar/${encodeURIComponent(sib._id)}`, {
+            fetch(`${API_BASE}/api/records/Calendar/${encodeURIComponent(sib._id)}`, {
               method: "PATCH",
               credentials: "include",
               headers: { "Content-Type": "application/json", Accept: "application/json" },
@@ -1757,7 +1823,8 @@ async function loadCategoryOptions(selectId, businessId, calendarId) {
   sel.disabled = true;
 
   try {
-    const res = await fetch(`/api/records/Category?ts=${Date.now()}`, {
+   const res = await fetch(`${API_BASE}/api/records/Category?ts=${Date.now()}`, {
+
       credentials: 'include',
       cache: 'no-store'
     });
@@ -1843,7 +1910,7 @@ window.openCalendarEdit = openCalendarEdit; // expose for any legacy callers
       updateBtn.textContent = "Updating…";
 
       try {
-        const res = await fetch(`/api/records/${encodeURIComponent(TYPE)}/${editingCalendarId}`, {
+        const res = await fetch(`${API_BASE}/api/records/${encodeURIComponent(TYPE)}/${editingCalendarId}`, {
           method: "PATCH",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
@@ -1935,7 +2002,9 @@ window.openCalendarEdit = openCalendarEdit; // expose for any legacy callers
   sel.disabled = true;
 
   try {
-    const res = await fetch("/api/records/Calendar", { credentials: "include" });
+    const res = await fetch(`${API_BASE}/api/records/Calendar`, {
+  credentials: "include"
+});
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const calendars = (await res.json()).filter(c => c?.values?.businessId === businessId);
 
@@ -1983,8 +2052,14 @@ async function loadCategoryList() {
   try {
     // Fetch once, avoid cache
     const [catRes, calRes] = await Promise.all([
-      fetch(`/api/records/Category?ts=${Date.now()}`, { credentials: "include", cache: "no-store" }),
-      fetch(`/api/records/Calendar?ts=${Date.now()}`, { credentials: "include", cache: "no-store" })
+      fetch(`${API_BASE}/api/records/Category?ts=${Date.now()}`, {
+    credentials: "include",
+    cache: "no-store"
+  }),
+        fetch(`${API_BASE}/api/records/Calendar?ts=${Date.now()}`, {
+    credentials: "include",
+    cache: "no-store"
+  })
     ]);
     if (!catRes.ok || !calRes.ok) throw new Error("Fetch failed");
 
@@ -2272,12 +2347,25 @@ function asId(v){
 async function getMyId() {
   if (MY_ID) return MY_ID;
   try {
-    const me = await fetch('/api/me', { credentials: 'include' }).then(r => r.json());
+    const res = await fetch(`${API_BASE}/api/me`, {
+      credentials: 'include',
+    });
+
+    if (!res.ok) {
+      console.warn('[getMyId] /api/me HTTP', res.status);
+      return null;
+    }
+
+    const me = await res.json();
     MY_ID = me?.user?._id || null;
-  } catch {}
+  } catch (err) {
+    console.error('[getMyId] error', err);
+  }
   return MY_ID;
 }
+
 window.serviceCache = window.serviceCache || new Map();
+
 
 async function loadServiceList() {
   const nameCol  = document.getElementById("service-name-column");
@@ -2306,12 +2394,32 @@ async function loadServiceList() {
     // ✅ include filters in the actual requests
     const qs = (o) => new URLSearchParams(o).toString();
 
-    const [svcRes, calRes, catRes, myId] = await Promise.all([
-      fetch(`/api/records/Service?${qs({ Business: businessId, ...(filterCalendarId && { Calendar: filterCalendarId }), ts: Date.now() })}`, { credentials: "include", cache: "no-store" }),
-      fetch(`/api/records/Calendar?${qs({ Business: businessId, ts: Date.now() })}`, { credentials: "include", cache: "no-store" }),
-      fetch(`/api/records/Category?${qs({ Business: businessId, ts: Date.now() })}`, { credentials: "include", cache: "no-store" }),
-      getMyId()
-    ]);
+const [svcRes, calRes, catRes, myId] = await Promise.all([
+  fetch(
+    `${API_BASE}/api/records/Service?${qs({
+      Business: businessId,
+      ...(filterCalendarId && { Calendar: filterCalendarId }),
+      ts: Date.now()
+    })}`,
+    { credentials: "include", cache: "no-store" }
+  ),
+  fetch(
+    `${API_BASE}/api/records/Calendar?${qs({
+      Business: businessId,
+      ts: Date.now()
+    })}`,
+    { credentials: "include", cache: "no-store" }
+  ),
+  fetch(
+    `${API_BASE}/api/records/Category?${qs({
+      Business: businessId,
+      ts: Date.now()
+    })}`,
+    { credentials: "include", cache: "no-store" }
+  ),
+  getMyId()
+]);
+
 
     if (!svcRes.ok || !calRes.ok || !catRes.ok) throw new Error("Fetch failed");
 
@@ -2506,7 +2614,12 @@ async function loadServiceList() {
         if (file) {
           const fd = new FormData();
           fd.append("file", file);
-          const up = await fetch("/api/upload", { method: "POST", credentials: "include", body: fd });
+         const up = await fetch(`${API_BASE}/api/upload`, {
+  method: "POST",
+  credentials: "include",
+  body: fd
+});
+
           if (!up.ok) {
             let msg = `HTTP ${up.status}`;
             try { const j = await up.json(); if (j?.error) msg += ` - ${j.error}`; } catch {}
@@ -2530,7 +2643,8 @@ async function loadServiceList() {
         if (imageUrlToSet !== undefined) values.imageUrl = imageUrlToSet;
 
         const TYPE = "Service";
-        const res = await fetch(`/api/records/${encodeURIComponent(TYPE)}/${editingServiceId}`, {
+      const res = await fetch(`${API_BASE}/api/records/${encodeURIComponent(TYPE)}/${editingServiceId}`, {
+
           method: "PATCH",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
