@@ -3,17 +3,19 @@ import "./styles/BookingPage/basic.css";
 import BookingClient from "./BookingClient";
 import LinkClient from "./LinkClient";
 import { LinkPageProvider } from "./LinkFlows/linkPageFlow";
-import SuiteClient from "./SuiteClient";
 
-const API = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8400";
+// 🔹 Use your live API in production, localhost in dev
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_BASE || "https://live-353x.onrender.com";
+
 export const dynamic = "force-dynamic";
 
-// Accept Windows backslashes, absolute URLs, server-relative, or bare filenames
+// ---------- hero helpers (same idea you already had) ----------
 function normalizeHeroPath(s: string) {
   const fixed = s.replace(/\\/g, "/");
   if (/^https?:\/\//i.test(fixed)) return fixed;
-  if (fixed.startsWith("/")) return `${API}${fixed}`;
-  return `${API}/uploads/${fixed}`;
+  if (fixed.startsWith("/")) return `${API_BASE}${fixed}`;
+  return `${API_BASE}/uploads/${fixed}`;
 }
 
 // Look across a lot of likely fields (single value or array)
@@ -45,59 +47,42 @@ function pickHeroUrlAny(v: any): string | null {
   return normalizeHeroPath(first);
 }
 
-export default async function Page({
-  params,
-}: {
-  params: Promise<{ slug: string }>;
-}) {
-  const { slug } = await params;
+// ---------- NEW: fetch Business directly by slug ----------
+async function fetchBusinessBySlug(slug: string) {
+  const params = new URLSearchParams();
+  params.set("dataType", "Business");
+  params.set("limit", "5");
+  // try both "slug" and "Slug" in values, just in case
+  params.set("values.slug", slug);
+  params.set("values.Slug", slug);
 
-  // 1️⃣ Try BUSINESS JSON first (old booking behavior)
-  const bizRes = await fetch(`${API}/${encodeURIComponent(slug)}.json`, {
+  const res = await fetch(`${API_BASE}/public/records?${params.toString()}`, {
     cache: "no-store",
   });
 
-  if (!bizRes.ok) {
-    console.log(
-      "[page] slug.json not found, trying Suite location for slug",
-      slug
-    );
+  if (!res.ok) return null;
 
-    // 2️⃣ Try SUITE LOCATION JSON when business JSON is missing
-    const suiteRes = await fetch(
-      `${API}/suite-location/${encodeURIComponent(slug)}.json`,
-      {
-        cache: "no-store",
-      }
-    );
+  const body = await res.json();
+  const row =
+    (Array.isArray(body) && body[0]) ||
+    body?.items?.[0] ||
+    body?.records?.[0] ||
+    body;
 
-    if (suiteRes.ok) {
-      const suite = await suiteRes.json();
-      const v = suite?.values ?? {};
+  return row || null;
+}
 
-      const suiteBusiness = {
-        _id: suite._id,
-        values: v,
-        name:
-          v["Location Name"] ||
-          v["Suite Location Name"] ||
-          v.Name ||
-          slug,
-        slug,
-        description: v.Description || v.details || "",
-        heroUrl: pickHeroUrlAny(v),
-      };
+// ---------- Page component ----------
+export default async function Page({ params }: { params: { slug: string } }) {
+  const slug = decodeURIComponent(params.slug);
 
-      console.log("[page] rendering SuiteClient for slug", slug);
-      return <SuiteClient biz={suiteBusiness} />;
-    }
+  // 1️⃣ Try to load a Business with that slug
+  const rec = await fetchBusinessBySlug(slug);
 
-    console.log(
-      "[page] no business/suite JSON, falling back to LinkClient for slug",
-      slug
-    );
+  if (!rec) {
+    console.log("[page] no Business for slug, falling back to Link Page:", slug);
 
-    // 3️⃣ FINAL FALLBACK: treat as Link Page (so old link-page slugs still work)
+    // 2️⃣ If no Business, treat slug as a Link Page (old behavior)
     return (
       <LinkPageProvider slug={slug}>
         <LinkClient slug={slug} />
@@ -105,53 +90,19 @@ export default async function Page({
     );
   }
 
-  // ✅ We *do* have a business JSON
-  const biz = await bizRes.json();
-  const v = biz?.values ?? {};
+  const v = rec.values ?? {};
 
-  const rawType = (
-    v["Page Type"] ||
-    v["Page Kind"] ||
-    biz.pageType ||
-    biz.kind ||
-    biz.dataTypeName ||
-    ""
-  )
-    .toString()
-    .toLowerCase();
-
-  const isLinkPage = rawType.includes("link");
-  const isBookingPage = rawType.includes("booking");
-  const isSuitePage =
-    rawType.includes("suite") || rawType.includes("location");
-
-  console.log("[page] slug:", slug, "rawType:", rawType);
-
-  // 👉  If the record says it's a link page, render link template
-  if (isLinkPage && !isBookingPage && !isSuitePage) {
-    return (
-      <LinkPageProvider slug={slug}>
-        <LinkClient slug={slug} />
-      </LinkPageProvider>
-    );
-  }
-
-  // Build common business object for booking/suite
   const business = {
-    _id: biz._id,
+    _id: rec._id,
     values: v,
-    name: v.Name || v.name || slug,
+    name: v.businessName || v.Name || rec.name || slug,
     slug,
     description: v.Description || v.description || "",
     heroUrl: pickHeroUrlAny(v),
   };
 
-  // 👉 If it's a suite page, use SuiteClient
-  if (isSuitePage && !isBookingPage) {
-    return <SuiteClient biz={business} />;
-  }
+  console.log("[page] booking business", { slug, heroUrl: business.heroUrl });
 
-  // 3️⃣ Default: booking page (business)
-  console.log("[page] booking heroUrl:", business.heroUrl);
+  // 3️⃣ Default: booking page for this Business
   return <BookingClient business={business} />;
 }

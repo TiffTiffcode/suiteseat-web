@@ -1,7 +1,32 @@
 console.log('[accept-appoinments] web loaded');
 
-// 🔹 Talk to the same API everywhere
-const API_BASE = window.API_BASE || '';  
+const API_BASE = window.API_BASE || "";
+
+function mediaUrl(raw) {
+  if (!raw) return "";
+
+  let v;
+
+  if (typeof raw === "string") {
+    v = raw;
+  } else {
+    v = raw.url || raw.path || raw.src || raw.filename || raw.name || "";
+  }
+
+  v = (v || "").trim();
+  if (!v) return "";
+
+  // already full URL
+  if (/^https?:\/\//i.test(v)) return v;
+
+  // already server-relative path
+  if (v.startsWith("/")) return v;
+
+  // treat as filename in /uploads
+  return `${API_BASE}/uploads/${v.replace(/^\/+/, "")}`;
+}
+
+ 
 
 
 let REQUIRE_FIRST_BUSINESS = false; // keep your flag
