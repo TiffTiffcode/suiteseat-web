@@ -8,7 +8,7 @@ import SuiteClient from "./SuiteClient";
 const API = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8400";
 export const dynamic = "force-dynamic";
 
-// Accept Windows backslashes, absolute URLs, server-relative, or bare filenames
+// ---------- hero helpers ----------
 function normalizeHeroPath(s: string) {
   const fixed = s.replace(/\\/g, "/");
   if (/^https?:\/\//i.test(fixed)) return fixed;
@@ -16,7 +16,6 @@ function normalizeHeroPath(s: string) {
   return `${API}/uploads/${fixed}`;
 }
 
-// Look across a lot of likely fields (single value or array)
 function pickHeroUrlAny(v: any): string | null {
   if (!v) return null;
 
@@ -45,118 +44,101 @@ function pickHeroUrlAny(v: any): string | null {
   return normalizeHeroPath(first);
 }
 
-// 🔹 NEW: look up a Business record by slug using /public/records
-async function fetchBusinessRecordBySlug(slug: string) {
+// ---------- helpers to fetch data ----------
+
+// 1) legacy .json business (old system)
+async function fetchLegacyBusiness(slug: string) {
   try {
-    const params = new URLSearchParams();
-    params.set("dataType", "Business");
-    // field name in your DataType should be "Slug"
-    params.set("Slug", slug);
-    params.set("limit", "1");
-
-    const url = `${API}/public/records?${params.toString()}`;
-    const res = await fetch(url, { cache: "no-store" });
-
-    if (!res.ok) {
-      console.log("[page] business slug lookup HTTP", res.status);
-      return null;
-    }
-
-    const raw = await res.json();
-    const rows = Array.isArray(raw)
-      ? raw
-      : Array.isArray(raw?.records)
-      ? raw.records
-      : Array.isArray(raw?.items)
-      ? raw.items
-      : [];
-
-    return rows[0] || null;
+    const res = await fetch(`${API}/${encodeURIComponent(slug)}.json`, {
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    const biz = await res.json();
+    console.log("[page] legacy business JSON hit for slug", slug);
+    return biz;
   } catch (err) {
-    console.log("[page] business slug lookup error", err);
+    console.error("[page] legacy JSON error for slug", slug, err);
     return null;
   }
 }
 
+// 2) NEW: dynamic Business record from your DataType/Record API
+//    IMPORTANT: if your Business datatype's slug field is NOT literally "Slug",
+//    change "Slug" below to whatever the field name is in the admin (e.g. "Business Slug").
+async function fetchDynamicBusiness(slug: string) {
+  try {
+    const params = new URLSearchParams();
+    params.set("dataType", "Business");
+    params.set("Slug", slug);      // <-- change this field name if needed
+    params.set("limit", "1");
+
+    const url = `${API}/public/records?${params.toString()}`;
+    const res = await fetch(url, { cache: "no-store" });
+    if (!res.ok) return null;
+
+    const body = await res.json();
+    const list =
+      Array.isArray(body) ? body :
+      Array.isArray(body.records) ? body.records :
+      Array.isArray(body.items) ? body.items :
+      [];
+
+    const match = list[0] ?? null;
+    if (match) {
+      console.log(
+        "[page] dynamic Business match for slug",
+        slug,
+        "type:",
+        match.dataTypeName || match.pageType || match.kind
+      );
+    } else {
+      console.log("[page] no dynamic Business match for slug", slug);
+    }
+    return match;
+  } catch (err) {
+    console.error("[page] dynamic Business lookup failed for slug", slug, err);
+    return null;
+  }
+}
+
+// 3) suite-location JSON (old system)
+async function fetchSuiteLocation(slug: string) {
+  try {
+    const res = await fetch(
+      `${API}/suite-location/${encodeURIComponent(slug)}.json`,
+      { cache: "no-store" }
+    );
+    if (!res.ok) return null;
+    const suite = await res.json();
+    console.log("[page] suite-location JSON hit for slug", slug);
+    return suite;
+  } catch (err) {
+    console.error("[page] suite-location error for slug", slug, err);
+    return null;
+  }
+}
+
+// ---------- main page component ----------
+
 export default async function Page({
   params,
 }: {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 }) {
-  const { slug } = params;
+  const { slug } = await params;
 
-  // 0️⃣ NEW STEP: try Business DataType by slug (for *new* businesses)
-  const dynamicBiz = await fetchBusinessRecordBySlug(slug);
+  // 1️⃣ Try legacy business .json (old booking behavior)
+  let biz: any | null = await fetchLegacyBusiness(slug);
 
-  if (dynamicBiz) {
-    const v = dynamicBiz.values ?? dynamicBiz;
-
-    const rawType = (
-      v["Page Type"] ||
-      v["Page Kind"] ||
-      dynamicBiz.pageType ||
-      dynamicBiz.kind ||
-      dynamicBiz.dataTypeName ||
-      ""
-    )
-      .toString()
-      .toLowerCase();
-
-    const isLinkPage = rawType.includes("link");
-    const isBookingPage =
-      rawType.includes("booking") || rawType === "" || rawType.includes("business");
-    const isSuitePage =
-      rawType.includes("suite") || rawType.includes("location");
-
-    const business = {
-      _id: dynamicBiz._id ?? dynamicBiz.id,
-      values: v,
-      name: v.Name || v.name || slug,
-      slug,
-      description: v.Description || v.description || "",
-      heroUrl: pickHeroUrlAny(v),
-    };
-
-    console.log("[page] dynamic Business match for slug", slug, "type:", rawType);
-
-    // If you ever mark a Business as "link" type, we can still honor that:
-    if (isLinkPage && !isBookingPage && !isSuitePage) {
-      return (
-        <LinkPageProvider slug={slug}>
-          <LinkClient slug={slug} />
-        </LinkPageProvider>
-      );
-    }
-
-    if (isSuitePage && !isBookingPage) {
-      return <SuiteClient biz={business} />;
-    }
-
-    // Default for Business = booking page
-    return <BookingClient business={business} />;
+  // 2️⃣ If no legacy file, try NEW dynamic Business lookup
+  if (!biz) {
+    biz = await fetchDynamicBusiness(slug);
   }
 
-  // 1️⃣ Your *old* behavior: try BUSINESS JSON first
-  const bizRes = await fetch(`${API}/${encodeURIComponent(slug)}.json`, {
-    cache: "no-store",
-  });
-
-  if (!bizRes.ok) {
-    console.log(
-      "[page] slug.json not found, trying Suite location for slug",
-      slug
-    );
-
-    // 2️⃣ Try SUITE LOCATION JSON when business JSON is missing
-    const suiteRes = await fetch(
-      `${API}/suite-location/${encodeURIComponent(slug)}.json`,
-      {
-        cache: "no-store",
-      }
-    );
-
-    if (suiteRes.ok) {
-      const suite = await suiteRes.json();
+  // 3️⃣ If still nothing, try Suite Location JSON
+  if (!biz) {
+    const suite = await fetchSuiteLocation(slug);
+    if (suite) {
       const v = suite?.values ?? {};
 
       const suiteBusiness = {
@@ -175,13 +157,14 @@ export default async function Page({
       console.log("[page] rendering SuiteClient for slug", slug);
       return <SuiteClient biz={suiteBusiness} />;
     }
+  }
 
+  // 4️⃣ If no business/suite at all, treat slug as Link Page / Store / Course
+  if (!biz) {
     console.log(
-      "[page] no business/suite JSON, falling back to LinkClient for slug",
+      "[page] no business/suite for slug, falling back to LinkClient",
       slug
     );
-
-    // 3️⃣ FINAL FALLBACK: treat as Link Page (so old link-page slugs still work)
     return (
       <LinkPageProvider slug={slug}>
         <LinkClient slug={slug} />
@@ -189,10 +172,9 @@ export default async function Page({
     );
   }
 
-  // ✅ We *do* have a business JSON (legacy behavior)
-  const biz = await bizRes.json();
-  const v = biz?.values ?? {};
+  // ---------- We *do* have a business-like object at this point ----------
 
+  const v = biz?.values ?? {};
   const rawType = (
     v["Page Type"] ||
     v["Page Kind"] ||
@@ -204,15 +186,15 @@ export default async function Page({
     .toString()
     .toLowerCase();
 
-  const isLinkPage = rawType.includes("link");
-  const isBookingPage = rawType.includes("booking");
-  const isSuitePage =
-    rawType.includes("suite") || rawType.includes("location");
+  const isLinkPage = rawType.includes("link") || rawType.includes("store") || rawType.includes("course");
+  const isBookingPage = rawType.includes("booking") || rawType.includes("appointment");
+  const isSuitePage = rawType.includes("suite") || rawType.includes("location");
 
-  console.log("[page] slug (json):", slug, "rawType:", rawType);
+  console.log("[page] slug:", slug, "rawType:", rawType);
 
-  // 👉  If the record says it's a link page, render link template
+  // 👉 if this record is actually a Link / Store / Course page, render link template
   if (isLinkPage && !isBookingPage && !isSuitePage) {
+    console.log("[page] record says link/store/course page – using LinkClient");
     return (
       <LinkPageProvider slug={slug}>
         <LinkClient slug={slug} />
@@ -230,12 +212,13 @@ export default async function Page({
     heroUrl: pickHeroUrlAny(v),
   };
 
-  // 👉 If it's a suite page, use SuiteClient
+  // 👉 suite-style layout if type says suite/location
   if (isSuitePage && !isBookingPage) {
+    console.log("[page] treating as suite page");
     return <SuiteClient biz={business} />;
   }
 
-  // 3️⃣ Default: booking page (business)
+  // 5️⃣ Default: booking page (business)
   console.log("[page] booking heroUrl:", business.heroUrl);
   return <BookingClient business={business} />;
 }
