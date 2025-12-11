@@ -2,6 +2,16 @@ console.log('[accept-appoinments] web loaded');
 
 const API_BASE = window.API_BASE || "";
 
+
+//add slug
+function toSlug(str = "") {
+  return String(str)
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 function mediaUrl(raw) {
   if (!raw) return "";
 
@@ -247,15 +257,6 @@ async function ensureBusinessExists() {
   } catch (err) {
     console.warn("[business] ensureBusinessExists error:", err);
   }
-}
-
-//add slug
-function toSlug(str = "") {
-  return String(str)
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
 }
 
 
