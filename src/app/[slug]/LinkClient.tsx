@@ -1,10 +1,14 @@
 // src/app/[slug]/LinkClient.tsx
 "use client";
 
-import BasicLinkTemplate from "./LinkTemplates/basic/Template";
 import { LinkPageProvider } from "./LinkFlows/linkPageFlow";
+import BasicLinkTemplate from "./LinkTemplates/basic/Template";
 
-export default function LinkClient({ slug }: { slug: string }) {
+type LinkClientProps = {
+  slug: string;
+};
+
+export default function LinkClient({ slug }: LinkClientProps) {
   return (
     <LinkPageProvider slug={slug}>
       <BasicLinkTemplate />

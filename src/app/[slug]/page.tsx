@@ -2,7 +2,7 @@
 import "./styles/BookingPage/basic.css";
 import BookingClient from "./BookingClient";
 import LinkClient from "./LinkClient";
-import { LinkPageProvider } from "./LinkFlows/linkPageFlow";
+
 import SuiteClient from "./SuiteClient";
 
 const API = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8400";
@@ -197,15 +197,12 @@ export default async function Page({
 
 // 4️⃣ If no business/suite at all, treat slug as Link Page / Store / Course
 if (!biz) {
-  console.log(
-    "[page] no business/suite for slug, falling back to LinkClient",
-    slug
-  );
-  return (
-    <LinkPageProvider slug={slug}>
-      <LinkClient />
-    </LinkPageProvider>
-  );
+console.log(
+  "[page] no business/suite for slug, falling back to LinkClient",
+  slug
+);
+return <LinkClient slug={slug} />;
+
 }
 
 
@@ -234,15 +231,12 @@ if (!biz) {
 
   console.log("[page] slug:", slug, "rawType:", rawType);
 
-  // 👉 if this record is actually a Link / Store / Course page, render link template
+// 👉 if this record is actually a Link / Store / Course page, render link template
 if (isLinkPage && !isBookingPage && !isSuitePage) {
   console.log("[page] record says link/store/course page – using LinkClient");
-  return (
-    <LinkPageProvider slug={slug}>
-      <LinkClient />
-    </LinkPageProvider>
-  );
+  return <LinkClient slug={slug} />;
 }
+
 
 
   // Build common business object for booking/suite
