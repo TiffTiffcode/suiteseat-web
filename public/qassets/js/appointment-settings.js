@@ -689,18 +689,44 @@ if (deleteBtn && !deleteBtn.dataset.bound) {
 
     ////////////////////////////////////////////////////////////////////
                     //Calendar Section
-  const openCalendarBtn = document.getElementById("open-calendar-button");
+const openCalendarBtn = document.getElementById("open-calendar-button");
 const calendarPopup   = document.getElementById("popup-add-calendar");
 const overlay         = document.getElementById("popup-overlay");
 
-if (openCalendarBtn && calendarPopup && overlay) {
-  openCalendarBtn.addEventListener("click", async () => {
-    await loadCalendarBusinessOptions();        // fill the dropdown
-    calendarPopup.style.display = "block";
-    overlay.style.display = "block";
-    document.body.classList.add("popup-open");
-  });
+async function openCalendarCreate() {
+  editingCalendarId = null; // ⬅️ very important: we're NOT editing anything
+
+  // reset fields
+  const nameIn = document.getElementById("popup-calendar-name-input");
+  const bizSel = document.getElementById("dropdown-calendar-business");
+  if (nameIn) nameIn.value = "";
+  if (bizSel) bizSel.value = "";
+
+  // set buttons to CREATE mode
+  const saveBtn   = document.getElementById("save-calendar-button");
+  const updateBtn = document.getElementById("update-calendar-button");
+  const deleteBtn = document.getElementById("delete-calendar-button");
+  if (saveBtn)   saveBtn.style.display   = "inline-block";
+  if (updateBtn) updateBtn.style.display = "none";
+  if (deleteBtn) deleteBtn.style.display = "none";
+
+  // fill business dropdown
+  await loadCalendarBusinessOptions();
+
+  // open popup
+  if (calendarPopup) calendarPopup.style.display = "block";
+  if (overlay)       overlay.style.display = "block";
+  document.body.classList.add("popup-open");
 }
+
+// bind the button
+if (openCalendarBtn && calendarPopup && overlay && !openCalendarBtn.dataset.bound) {
+  openCalendarBtn.addEventListener("click", () => {
+    openCalendarCreate().catch(console.error);
+  });
+  openCalendarBtn.dataset.bound = "1";
+}
+
 
 // Allow clicking overlay to close everything
 if (overlay) {
@@ -1159,7 +1185,28 @@ function closeAllPopups() {
 
 function closeLoginPopup()       { closeAllPopups(); }
 function closeAddBusinessPopup() { closeAllPopups(); }
-function closeAddCalendarPopup() { closeAllPopups(); }
+function closeAddCalendarPopup() {
+  // 🔹 clear edit state
+  editingCalendarId = null;
+
+  // 🔹 optionally reset fields so they don't stay sticky
+  const nameIn = document.getElementById("popup-calendar-name-input");
+  const bizSel = document.getElementById("dropdown-calendar-business");
+  if (nameIn) nameIn.value = "";
+  if (bizSel) bizSel.value = "";
+
+  // 🔹 make buttons look like "create" mode by default
+  const saveBtn   = document.getElementById("save-calendar-button");
+  const updateBtn = document.getElementById("update-calendar-button");
+  const deleteBtn = document.getElementById("delete-calendar-button");
+  if (saveBtn)   saveBtn.style.display   = "inline-block";
+  if (updateBtn) updateBtn.style.display = "none";
+  if (deleteBtn) deleteBtn.style.display = "none";
+
+  // 🔹 then close everything like before
+  closeAllPopups();
+}
+
 function closeCategoryPopup() { closeAllPopups(); }
 function closeAddServicePopup() { closeAllPopups(); }
 
