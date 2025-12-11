@@ -249,7 +249,14 @@ async function ensureBusinessExists() {
   }
 }
 
-
+//add slug
+function toSlug(str = "") {
+  return String(str)
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
 
 
   // ---------- Business Section: open create popup ----------
@@ -458,6 +465,21 @@ if (fileInput?.files?.length) {
   values.heroImage    = toUrl(uploadedUrl);
 }
 
+const baseName =
+  values.slug ||
+  values.businessSlug ||
+  values.bookingSlug ||
+  values.businessName ||
+  values.name ||
+  "";
+
+if (baseName) {
+  const slug = toSlug(baseName);
+  values.slug         = slug;
+  values.businessSlug = slug;
+  values.bookingSlug  = slug;
+}
+
 // 2) Create the Business
 const res = await fetch(`${API_BASE}/api/records/${encodeURIComponent(TYPE_NAME)}`, {
   method: "POST",
@@ -561,6 +583,22 @@ if (updateBtn && !updateBtn.dataset.bound) {
     updateBtn.disabled = true;
     const prev = updateBtn.textContent;
     updateBtn.textContent = "Updating…";
+
+    // 🔹 ensure slug exists when updating
+const baseName =
+  values.slug ||
+  values.businessSlug ||
+  values.bookingSlug ||
+  values.businessName ||
+  values.name ||
+  "";
+
+if (baseName) {
+  const slug = toSlug(baseName);
+  values.slug        = slug;
+  values.businessSlug = slug;
+  values.bookingSlug  = slug;
+}
 
     try {
       const res = await fetch(
