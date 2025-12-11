@@ -195,18 +195,19 @@ export default async function Page({
     }
   }
 
-  // 4️⃣ If no business/suite at all, treat slug as Link Page / Store / Course
-  if (!biz) {
-    console.log(
-      "[page] no business/suite for slug, falling back to LinkClient",
-      slug
-    );
-    return (
-      <LinkPageProvider slug={slug}>
-        <LinkClient slug={slug} />
-      </LinkPageProvider>
-    );
-  }
+// 4️⃣ If no business/suite at all, treat slug as Link Page / Store / Course
+if (!biz) {
+  console.log(
+    "[page] no business/suite for slug, falling back to LinkClient",
+    slug
+  );
+  return (
+    <LinkPageProvider slug={slug}>
+      <LinkClient />
+    </LinkPageProvider>
+  );
+}
+
 
   // ---------- We *do* have a business-like object at this point ----------
 
@@ -234,14 +235,15 @@ export default async function Page({
   console.log("[page] slug:", slug, "rawType:", rawType);
 
   // 👉 if this record is actually a Link / Store / Course page, render link template
-  if (isLinkPage && !isBookingPage && !isSuitePage) {
-    console.log("[page] record says link/store/course page – using LinkClient");
-    return (
-      <LinkPageProvider slug={slug}>
-        <LinkClient slug={slug} />
-      </LinkPageProvider>
-    );
-  }
+if (isLinkPage && !isBookingPage && !isSuitePage) {
+  console.log("[page] record says link/store/course page – using LinkClient");
+  return (
+    <LinkPageProvider slug={slug}>
+      <LinkClient />
+    </LinkPageProvider>
+  );
+}
+
 
   // Build common business object for booking/suite
   const business = {
