@@ -6,6 +6,7 @@ import SuiteClient from "./SuiteClient";
 
 const API = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8400";
 export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
 
 // ---------- hero helpers ----------
 function normalizeHeroPath(s: string) {
@@ -60,9 +61,11 @@ export default async function Page({
 
   // 1️⃣ Try BUSINESS JSON first (old booking behavior)
   try {
-    const bizRes = await fetch(`${API}/${encodeURIComponent(slug)}.json`, {
-      cache: "no-store",
-    });
+const bizRes = await fetch(`${API}/${encodeURIComponent(slug)}.json`, {
+  cache: "no-store",
+  next: { revalidate: 0 },
+});
+
 
     if (bizRes.ok) {
       const biz = await bizRes.json();
@@ -121,10 +124,13 @@ export default async function Page({
 
   // 2️⃣ Try SUITE LOCATION JSON when business JSON is missing
   try {
-    const suiteRes = await fetch(
-      `${API}/suite-location/${encodeURIComponent(slug)}.json`,
-      { cache: "no-store" }
-    );
+   const suiteRes = await fetch(
+  `${API}/suite-location/${encodeURIComponent(slug)}.json`,
+  {
+    cache: "no-store",
+    next: { revalidate: 0 },
+  }
+);
 
     if (suiteRes.ok) {
       const suite = await suiteRes.json();

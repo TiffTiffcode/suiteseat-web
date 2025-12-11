@@ -43,7 +43,7 @@ export function LinkPageProvider({
   slug,
   children,
 }: {
-  slug?: string;
+  slug: string | undefined;
   children: React.ReactNode;
 }) {
   const [state, setState] = useState<LinkPageState>({
@@ -57,34 +57,31 @@ export function LinkPageProvider({
     let cancelled = false;
 
     async function load() {
-      // 🔒 normalize slug safely so we never crash on undefined
-      const rawSlug = (slug ?? "").toString().trim();
+      console.log("[linkPageFlow] loading slug:", slug);
 
-      console.log("[linkPageFlow] loading slug:", rawSlug || slug);
-
-      if (!rawSlug) {
+      if (!slug) {
         console.warn("[linkPageFlow] no slug provided – skipping load");
-        if (!cancelled) {
-          setState({
-            loading: false,
-            error: "No slug provided for link page.",
-            page: null,
-            links: [],
-          });
-        }
+        setState({
+          loading: false,
+          error: "No slug provided for link page.",
+          page: null,
+          links: [],
+        });
         return;
       }
-
-      const lowerSlug = rawSlug.toLowerCase();
 
       setState((s) => ({ ...s, loading: true, error: null }));
 
       try {
         // 1️⃣ Get ALL Link Pages
-        const pageRes = await fetch(
-          `${API}/public/records?dataType=Link%20Page&limit=500`,
-          { cache: "no-store" }
-        );
+      const pageRes = await fetch(
+  `${API}/public/records?dataType=Link%20Page&limit=500`,
+  {
+    cache: "no-store",
+    next: { revalidate: 0 },
+  }
+);
+
 
         if (!pageRes.ok) throw new Error(`HTTP ${pageRes.status}`);
 
@@ -93,12 +90,10 @@ export function LinkPageProvider({
 
         const allPages: LinkPageRecord[] = Array.isArray(raw)
           ? raw
-          : Array.isArray(raw?.records)
-          ? raw.records
-          : Array.isArray(raw?.items)
-          ? raw.items
-          : Array.isArray(raw?.data)
-          ? raw.data
+          : Array.isArray((raw as any)?.records)
+          ? (raw as any).records
+          : Array.isArray((raw as any)?.items)
+          ? (raw as any).items
           : [];
 
         console.log(
@@ -109,6 +104,8 @@ export function LinkPageProvider({
           }))
         );
 
+        const lowerSlug = slug.toLowerCase();
+
         console.log(
           "[linkPageFlow] searching for slug",
           lowerSlug,
@@ -116,11 +113,9 @@ export function LinkPageProvider({
           allPages.map((p) => p.values)
         );
 
-        // 2️⃣ Find the page whose any slug-like field matches
         const page =
           allPages.find((p) => {
             const v: any = p.values || {};
-
             const candidates: any[] = [
               v.Slug,
               v.slug,
@@ -130,7 +125,6 @@ export function LinkPageProvider({
               v["pageSlug"],
             ].filter(Boolean);
 
-            // also scan ALL keys for something containing "slug"
             for (const [k, val] of Object.entries(v)) {
               if (k.toLowerCase().includes("slug")) {
                 candidates.push(val);
@@ -149,31 +143,30 @@ export function LinkPageProvider({
 
         // 3️⃣ Load links referenced in "Link(s)"
         const refs = (page.values as any)["Link(s)"] || [];
-        const ids: string[] = Array.isArray(refs)
-          ? refs
-              .map((r: any) => String(r?._id || "").trim())
-              .filter(Boolean)
-          : [];
+        const ids: string[] = refs
+          .map((r: any) => String(r?._id || ""))
+          .filter(Boolean);
 
         let links: LinkRecord[] = [];
-
         if (ids.length) {
-          const linkRes = await fetch(
-            `${API}/public/records?dataType=Link&limit=500`,
-            { cache: "no-store" }
-          );
+       const linkRes = await fetch(
+  `${API}/public/records?dataType=Link&limit=500`,
+  {
+    cache: "no-store",
+    next: { revalidate: 0 },
+  }
+);
+
           if (!linkRes.ok) throw new Error(`HTTP ${linkRes.status}`);
 
           const rawLinks = await linkRes.json();
 
           const allLinks: LinkRecord[] = Array.isArray(rawLinks)
             ? rawLinks
-            : Array.isArray(rawLinks?.records)
-            ? rawLinks.records
-            : Array.isArray(rawLinks?.items)
-            ? rawLinks.items
-            : Array.isArray(rawLinks?.data)
-            ? rawLinks.data
+            : Array.isArray((rawLinks as any)?.records)
+            ? (rawLinks as any).records
+            : Array.isArray((rawLinks as any)?.items)
+            ? (rawLinks as any).items
             : [];
 
           links = allLinks.filter((l: any) =>
