@@ -46,47 +46,6 @@ function pickHeroUrlAny(v: any): string | null {
 
 // ---------- helpers to fetch data ----------
 
-// 0) NEW: primary resolver on the API – /api/public/booking-page-by-slug/:slug
-async function fetchBookingResolver(slug: string) {
-  try {
-    const url = `${API}/api/public/booking-page-by-slug/${encodeURIComponent(
-      slug
-    )}`;
-    console.log("[page] booking resolver URL:", url);
-
-    const res = await fetch(url, { cache: "no-store" });
-    if (!res.ok) {
-      console.log(
-        "[page] booking resolver not ok:",
-        res.status,
-        res.statusText
-      );
-      return null;
-    }
-
-    const data = await res.json();
-    if (!data || typeof data !== "object") return null;
-
-    // If API returns { error: "Business not found" } just bail
-    if ("error" in data) {
-      console.log("[page] booking resolver error:", (data as any).error);
-      return null;
-    }
-
-    // Common shapes we might get back:
-    // { business: {...} }
-    if ((data as any).business) return (data as any).business;
-    // { record: {...} }
-    if ((data as any).record) return (data as any).record;
-
-    // Otherwise assume the object itself is the business-like record
-    return data;
-  } catch (err) {
-    console.error("[page] booking resolver failed for slug", slug, err);
-    return null;
-  }
-}
-
 // 1) legacy .json business (old system)
 async function fetchLegacyBusiness(slug: string) {
   try {
@@ -105,14 +64,15 @@ async function fetchLegacyBusiness(slug: string) {
 
 // 2) NEW: dynamic Business record from your DataType/Record API
 async function fetchDynamicBusiness(slug: string) {
-  try {
-    const cleanSlug = slug.trim();
-    const slugLower = cleanSlug.toLowerCase();
+  const cleanSlug = (slug || "").trim();
+  const slugLower = cleanSlug.toLowerCase();
 
+  if (!slugLower) return null;
+
+  try {
     const params = new URLSearchParams();
     params.set("dataType", "Business");
-    // grab a chunk & match in JS (loose + backwards compatible)
-    params.set("limit", "200");
+    params.set("limit", "500"); // grab a chunk & filter in JS
 
     const url = `${API}/public/records?${params.toString()}`;
     console.log("[page] dynamic Business lookup URL:", url);
@@ -125,42 +85,47 @@ async function fetchDynamicBusiness(slug: string) {
 
     const body = await res.json();
 
-    const list: any[] = Array.isArray(body)
-      ? body
-      : Array.isArray(body.records)
-      ? body.records
-      : Array.isArray(body.items)
-      ? body.items
-      : Array.isArray(body.data)
-      ? body.data
-      : [];
+    const list: any[] =
+      Array.isArray(body)
+        ? body
+        : Array.isArray(body.records)
+        ? body.records
+        : Array.isArray(body.items)
+        ? body.items
+        : Array.isArray(body.data)
+        ? body.data
+        : [];
 
+    // Try to match by any reasonable slug/name field
     const match =
       list.find((r: any) => {
         const v = r?.values || {};
 
-        const s1 = String(v.slug ?? "").trim().toLowerCase();
-        const s2 = String(v.Slug ?? "").trim().toLowerCase();
-        const s3 = String(r.slug ?? "").trim().toLowerCase();
-        const n1 = String(v.Name ?? "").trim().toLowerCase();
-        const n2 = String(v["Business Name"] ?? "").trim().toLowerCase();
+        const candidates = [
+          v.slug,
+          v.Slug,
+          r.slug,
+          v.Name,
+          v["Business Name"],
+          v["Business"],
+          v["Business name"],
+          v["Page Slug"],
+        ]
+          .filter(Boolean)
+          .map((x: any) => String(x).trim().toLowerCase());
 
-        return (
-          s1 === slugLower ||
-          s2 === slugLower ||
-          s3 === slugLower ||
-          n1 === slugLower ||
-          n2 === slugLower
-        );
+        return candidates.includes(slugLower);
       }) || null;
 
     if (match) {
-      console.log(
-        "[page] dynamic Business match for slug",
-        slug,
-        "type:",
-        match.dataTypeName || match.pageType || match.kind
-      );
+      console.log("[page] dynamic Business match for slug", slug, {
+        id: match._id,
+        values: {
+          Name: match?.values?.Name,
+          BusinessName: match?.values?.["Business Name"],
+          slug: match?.values?.slug,
+        },
+      });
     } else {
       console.log("[page] NO dynamic Business match for slug", slug);
     }
@@ -190,32 +155,25 @@ async function fetchSuiteLocation(slug: string) {
 }
 
 // ---------- main page component ----------
+
 export default async function Page({
   params,
 }: {
-  params: Promise<{ slug: string }>;
+  params: { slug: string };
 }) {
-  const { slug } = await params;
-  const cleanSlug = slug.trim();
-
-  let biz: any | null = null;
-
-  // 0️⃣ Try the main API resolver first (new behavior)
-  biz = await fetchBookingResolver(cleanSlug);
+  const { slug } = params;
 
   // 1️⃣ Try legacy business .json (old booking behavior)
-  if (!biz) {
-    biz = await fetchLegacyBusiness(cleanSlug);
-  }
+  let biz: any | null = await fetchLegacyBusiness(slug);
 
   // 2️⃣ If no legacy file, try NEW dynamic Business lookup
   if (!biz) {
-    biz = await fetchDynamicBusiness(cleanSlug);
+    biz = await fetchDynamicBusiness(slug);
   }
 
   // 3️⃣ If still nothing, try Suite Location JSON
   if (!biz) {
-    const suite = await fetchSuiteLocation(cleanSlug);
+    const suite = await fetchSuiteLocation(slug);
     if (suite) {
       const v = suite?.values ?? {};
 
@@ -226,13 +184,13 @@ export default async function Page({
           v["Location Name"] ||
           v["Suite Location Name"] ||
           v.Name ||
-          cleanSlug,
-        slug: cleanSlug,
+          slug,
+        slug,
         description: v.Description || v.details || "",
         heroUrl: pickHeroUrlAny(v),
       };
 
-      console.log("[page] rendering SuiteClient for slug", cleanSlug);
+      console.log("[page] rendering SuiteClient for slug", slug);
       return <SuiteClient biz={suiteBusiness} />;
     }
   }
@@ -241,18 +199,18 @@ export default async function Page({
   if (!biz) {
     console.log(
       "[page] no business/suite for slug, falling back to LinkClient",
-      cleanSlug
+      slug
     );
     return (
-      <LinkPageProvider slug={cleanSlug}>
-        <LinkClient slug={cleanSlug} />
+      <LinkPageProvider slug={slug}>
+        <LinkClient slug={slug} />
       </LinkPageProvider>
     );
   }
 
   // ---------- We *do* have a business-like object at this point ----------
-  const v = biz?.values ?? {};
 
+  const v = biz?.values ?? {};
   const rawType = (
     v["Page Type"] ||
     v["Page Kind"] ||
@@ -273,14 +231,14 @@ export default async function Page({
   const isSuitePage =
     rawType.includes("suite") || rawType.includes("location");
 
-  console.log("[page] slug:", cleanSlug, "rawType:", rawType);
+  console.log("[page] slug:", slug, "rawType:", rawType);
 
   // 👉 if this record is actually a Link / Store / Course page, render link template
   if (isLinkPage && !isBookingPage && !isSuitePage) {
     console.log("[page] record says link/store/course page – using LinkClient");
     return (
-      <LinkPageProvider slug={cleanSlug}>
-        <LinkClient slug={cleanSlug} />
+      <LinkPageProvider slug={slug}>
+        <LinkClient slug={slug} />
       </LinkPageProvider>
     );
   }
@@ -289,8 +247,8 @@ export default async function Page({
   const business = {
     _id: biz._id,
     values: v,
-    name: v.Name || v.name || cleanSlug,
-    slug: cleanSlug,
+    name: v.Name || v.name || slug,
+    slug,
     description: v.Description || v.description || "",
     heroUrl: pickHeroUrlAny(v),
   };
