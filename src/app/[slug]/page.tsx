@@ -67,11 +67,13 @@ async function fetchLegacyBusiness(slug: string) {
 //    change "Slug" below to whatever the field name is in the admin (e.g. "Business Slug").
 async function fetchDynamicBusiness(slug: string) {
   try {
+    const cleanSlug = slug.trim();
+    const slugLower = cleanSlug.toLowerCase();
+
     const params = new URLSearchParams();
     params.set("dataType", "Business");
-    // 🔥 match how your hero fetch does it:
-    params.set("values.slug", slug);
-    params.set("limit", "20"); // small buffer, we’ll filter manually just in case
+    // don't filter by slug here – just grab a chunk & match in JS
+    params.set("limit", "200");
 
     const url = `${API}/public/records?${params.toString()}`;
     console.log("[page] dynamic Business lookup URL:", url);
@@ -95,14 +97,23 @@ async function fetchDynamicBusiness(slug: string) {
         ? body.data
         : [];
 
-    // Extra safety: filter on the slug ourselves
     const match =
       list.find((r: any) => {
         const v = r?.values || {};
-        const s1 = String(v.slug ?? "").trim();
-        const s2 = String(v.Slug ?? "").trim();
-        const s3 = String(r.slug ?? "").trim();
-        return s1 === slug || s2 === slug || s3 === slug;
+
+        const s1 = String(v.slug ?? "").trim().toLowerCase();
+        const s2 = String(v.Slug ?? "").trim().toLowerCase();
+        const s3 = String(r.slug ?? "").trim().toLowerCase();
+        const n1 = String(v.Name ?? "").trim().toLowerCase();
+        const n2 = String(v["Business Name"] ?? "").trim().toLowerCase();
+
+        return (
+          s1 === slugLower ||
+          s2 === slugLower ||
+          s3 === slugLower ||
+          n1 === slugLower ||
+          n2 === slugLower
+        );
       }) || null;
 
     if (match) {
@@ -122,6 +133,7 @@ async function fetchDynamicBusiness(slug: string) {
     return null;
   }
 }
+
 
 // 3) suite-location JSON (old system)
 async function fetchSuiteLocation(slug: string) {
