@@ -1,6 +1,13 @@
- console.log('[availability v2 loaded');
- const API = (type) => `/api/records/${encodeURIComponent(type)}`;
-// Remember last-used selections across page loads
+console.log('[availability v2 loaded');
+
+// Admin API helper – always talk to the backend origin
+const API = (type) => {
+  const origin = window.NEXT_PUBLIC_API_ORIGIN || "";
+  return `${origin}/api/records/${encodeURIComponent(type)}`;
+};
+
+
+ // Remember last-used selections across page loads
 const LS_BIZ = 'lastBusinessId';
 const LS_CAL = 'lastCalendarId';
 
