@@ -69,21 +69,42 @@ async function fetchDynamicBusiness(slug: string) {
   try {
     const params = new URLSearchParams();
     params.set("dataType", "Business");
-    params.set("Slug", slug);      // <-- change this field name if needed
-    params.set("limit", "1");
+    // 🔥 match how your hero fetch does it:
+    params.set("values.slug", slug);
+    params.set("limit", "20"); // small buffer, we’ll filter manually just in case
 
     const url = `${API}/public/records?${params.toString()}`;
+    console.log("[page] dynamic Business lookup URL:", url);
+
     const res = await fetch(url, { cache: "no-store" });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      console.log("[page] dynamic Business lookup not ok:", res.status);
+      return null;
+    }
 
     const body = await res.json();
-    const list =
-      Array.isArray(body) ? body :
-      Array.isArray(body.records) ? body.records :
-      Array.isArray(body.items) ? body.items :
-      [];
 
-    const match = list[0] ?? null;
+    const list: any[] =
+      Array.isArray(body)
+        ? body
+        : Array.isArray(body.records)
+        ? body.records
+        : Array.isArray(body.items)
+        ? body.items
+        : Array.isArray(body.data)
+        ? body.data
+        : [];
+
+    // Extra safety: filter on the slug ourselves
+    const match =
+      list.find((r: any) => {
+        const v = r?.values || {};
+        const s1 = String(v.slug ?? "").trim();
+        const s2 = String(v.Slug ?? "").trim();
+        const s3 = String(r.slug ?? "").trim();
+        return s1 === slug || s2 === slug || s3 === slug;
+      }) || null;
+
     if (match) {
       console.log(
         "[page] dynamic Business match for slug",
@@ -92,8 +113,9 @@ async function fetchDynamicBusiness(slug: string) {
         match.dataTypeName || match.pageType || match.kind
       );
     } else {
-      console.log("[page] no dynamic Business match for slug", slug);
+      console.log("[page] NO dynamic Business match for slug", slug);
     }
+
     return match;
   } catch (err) {
     console.error("[page] dynamic Business lookup failed for slug", slug, err);
