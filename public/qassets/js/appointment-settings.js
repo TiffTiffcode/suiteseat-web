@@ -1868,10 +1868,11 @@ async function loadCalendarOptions(selectId, businessId) {
   sel.disabled = true;
 
   try {
-    const res = await fetch(`/api/records/Calendar?ts=${Date.now()}`, {
-      credentials: 'include',
-      cache: 'no-store'
-    });
+const res = await fetch(`${API_BASE}/api/records/Calendar?ts=${Date.now()}`, {
+  credentials: "include",
+  cache: "no-store",
+});
+
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
    const rows = (await res.json()).filter(c =>
   !c.deletedAt && sameBusiness(c.values || {}, businessId)
@@ -2037,10 +2038,14 @@ window.openCalendarEdit = openCalendarEdit; // expose for any legacy callers
       deleteBtn.textContent = "Deleting…";
 
       try {
-        const res = await fetch(`/api/records/${encodeURIComponent(TYPE)}/${editingCalendarId}`, {
-          method: "DELETE",
-          credentials: "include"
-        });
+   const res = await fetch(
+  `${API_BASE}/api/records/${encodeURIComponent(TYPE)}/${editingCalendarId}`,
+  {
+    method: "DELETE",
+    credentials: "include",
+  }
+);
+
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
         alert("Calendar deleted.");
@@ -2390,10 +2395,11 @@ async function loadServiceFilterDropdown() {
   sel.disabled = true;
 
   try {
-    const res = await fetch(`/api/records/Calendar?ts=${Date.now()}`, {
-      credentials: "include",
-      cache: "no-store"
-    });
+const res = await fetch(`${API_BASE}/api/records/Calendar?ts=${Date.now()}`, {
+  credentials: "include",
+  cache: "no-store",
+});
+
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const calendars = (await res.json())
       .filter(c => !c.deletedAt && c?.values?.businessId === businessId);
