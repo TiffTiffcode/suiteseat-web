@@ -2841,6 +2841,21 @@ const [svcRes, calRes, catRes, myId] = await Promise.all([
   }
 })();
 
+document.addEventListener("DOMContentLoaded", () => {
+  const desc = document.getElementById("popup-service-description-input");
+  if (!desc) return;
+
+  function autoResize() {
+    desc.style.height = "auto";            // reset
+    desc.style.height = desc.scrollHeight + "px"; // grow to fit
+  }
+
+  // grow when user types
+  desc.addEventListener("input", autoResize);
+
+  // also adjust when the popup opens (in case there's existing text)
+  autoResize();
+});
 
 
 window.openServiceEdit = async function openServiceEdit(svc) {

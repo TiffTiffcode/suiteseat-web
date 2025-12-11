@@ -659,6 +659,18 @@ body.popup-open {
   backdrop-filter: blur(4px);
 }
 
+#popup-service-description-input {
+  width: 100%;          /* make it stretch across the form */
+  min-height: 80px;     /* starting height */
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid #ddd;
+  font-size: 14px;
+  line-height: 1.4;
+  box-sizing: border-box;
+  resize: vertical;     /* allow drag-resize if you want */
+}
+
 
 .bottom-tab-bar {
   position: fixed;

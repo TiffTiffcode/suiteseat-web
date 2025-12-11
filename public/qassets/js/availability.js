@@ -171,36 +171,46 @@ function displayNameFrom(d) {
 }
 
 // ---- Login init (replace your initLogin with this) ----
+// ---- Login init – use /api/me instead of /check-login ----
 async function initLogin() {
   try {
-    const res  = await fetch("/check-login", { credentials: "include", cache: "no-store" });
-    const data = await res.json();
-    console.log("check-login →", data);
+    // use the apiFetch helper + /api/me
+    const res  = await apiFetch('/me');  // GET /api/me
+    const text = await res.text();
+    let data = {};
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = {};
+    }
 
-    if (data.loggedIn) {
-   const name = displayNameFrom(data) 
-          || (data.email ? data.email.split('@')[0] : '')
-          || (data.userId ? `User ${String(data.userId).slice(-4)}` : '');
+    const user = data.user || null;
+    const loggedIn = !!user;
 
-if (loginStatus) {
-  loginStatus.textContent = name ? `Hi, ${name} 👋` : `Hi 👋`;
-}
+    if (loggedIn) {
+      const name =
+        displayNameFrom(user) ||
+        (user.email ? user.email.split('@')[0] : '') ||
+        (user._id ? `User ${String(user._id).slice(-4)}` : '');
 
-      if (logoutBtn)    logoutBtn.style.display = "inline-block";
-      if (openLoginBtn) openLoginBtn.style.display = "none";
+      if (loginStatus)  loginStatus.textContent = name ? `Hi, ${name} 👋` : 'Hi 👋';
+      if (logoutBtn)    logoutBtn.style.display = 'inline-block';
+      if (openLoginBtn) openLoginBtn.style.display = 'none';
 
-      // After login → initialize dropdowns (business first, then calendar)
+      // after detecting login, wire dropdowns
       await initBusinessDropdown();
       await initCalendarDropdown();
     } else {
-      if (loginStatus)  loginStatus.textContent = "Not logged in";
-      if (logoutBtn)    logoutBtn.style.display = "none";
-      if (openLoginBtn) openLoginBtn.style.display = "inline-block";
+      if (loginStatus)  loginStatus.textContent = 'Not logged in';
+      if (logoutBtn)    logoutBtn.style.display = 'none';
+      if (openLoginBtn) openLoginBtn.style.display = 'inline-block';
     }
   } catch (e) {
-    console.error("check-login failed:", e);
+    console.error('initLogin failed:', e);
+    if (loginStatus) loginStatus.textContent = 'Not logged in';
   }
 }
+
 
 
   if (logoutBtn) {
@@ -229,33 +239,40 @@ if (loginStatus) {
     });
   }
 
-  if (loginForm) {
-    loginForm.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const email = document.getElementById("login-email").value.trim();
-      const password = document.getElementById("login-password").value.trim();
-      if (!email || !password) return alert("Please enter both email and password.");
-      try {
-        const res = await fetch("/login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, password }),
-        });
-        const result = await res.json();
-        if (res.ok) {
-          alert("✅ Logged in!");
-          window.closeLoginPopup?.();
-          location.reload();
-        } else {
-          alert(result.message || "Login failed.");
-        }
-      } catch (err) {
-        console.error("Login error:", err);
-        alert("Something went wrong.");
+if (loginForm) {
+  loginForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const email    = document.getElementById("login-email").value.trim();
+    const password = document.getElementById("login-password").value.trim();
+    if (!email || !password) {
+      alert("Please enter both email and password.");
+      return;
+    }
+
+    try {
+      // use the shared helper → POST /api/login
+      await apiLogin(email, password);
+
+      // confirm we’re actually logged in
+      const me = await getMe();
+      if (!me) {
+        alert("Login failed. Please check your email and password.");
+        return;
       }
-    });
-    
-  }
+
+      alert("✅ Logged in!");
+      closeLoginPopup?.();
+
+      // refresh the greeting + dropdowns
+      await initLogin();
+    } catch (err) {
+      console.error("Login error:", err);
+      alert(`Login error: ${err.message || err}`);
+    }
+  });
+}
+
 
   //////////////////////////////////////////////////////////////////////////////
                        //Menu Section
@@ -666,7 +683,8 @@ const end   = v['End']   || v['End Time']   || '';
     }catch(e){ console.error('Load upcoming hours failed', e); }
 
    renderMonth(viewYear, viewMonth, savedMap);
-setRelativeMonthBadge(viewYear, viewMonth);   // <-- add this line
+   setRelativeMonthBadge(viewYear, viewMonth);
+
 
   }
 
