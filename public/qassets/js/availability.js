@@ -1,10 +1,10 @@
 console.log('[availability v2 loaded');
+const TYPE_UPCOMING = 'Upcoming Hours';
+const API_ORIGIN = window.NEXT_PUBLIC_API_ORIGIN || "http://localhost:8400";
 
-// Admin API helper – always talk to the backend origin
-const API = (type) => {
-  const origin = window.NEXT_PUBLIC_API_ORIGIN || "";
-  return `${origin}/api/records/${encodeURIComponent(type)}`;
-};
+const API = (type) => `${API_ORIGIN}/api/records/${encodeURIComponent(type)}`;
+
+
 
 
  // Remember last-used selections across page loads
@@ -97,10 +97,6 @@ async function onAvailabilityLoginClick() {
 // define once, only if not already defined
 // --- DEV ONLY: make this tab "admin" so /api/records works ---
 
-
-// --- Admin API constants (define once) ---
-const TYPE_UPCOMING = "Upcoming Hours";
-
 document.addEventListener("DOMContentLoaded", () => {
   // =========================
   // LOGIN 
@@ -134,7 +130,7 @@ async function checkLogin() {
 }
 
 // Loader for UpcomingAvailability (adjust field names if yours differ)
-async function loadUpcomingHours({ businessId, calendarId, fromYMD, toYMD }) {
+/*async function loadUpcomingHours({ businessId, calendarId, fromYMD, toYMD }) {
   const where = {
     business: businessId,          // or 'Business' / 'businessId' depending on your schema
     calendar: calendarId,          // or 'Calendar' / 'calendarId'
@@ -152,6 +148,9 @@ async function loadUpcomingHours({ businessId, calendarId, fromYMD, toYMD }) {
   if (!r.ok) throw new Error(`${r.status} ${await r.text()}`);
   return r.json();
 }
+*/
+
+
 
 // Put this near the top of your file (above initLogin)
 // ---- Name helper (put above initLogin) ----
@@ -290,30 +289,17 @@ if (loginForm) {
 const bizSel = document.getElementById('dropdown-category-business');
 
 async function initBusinessDropdown() {
+  console.log('[biz] initBusinessDropdown called');
+
   await loadBusinessOptions('dropdown-category-business', { placeholder: '-- Select --' });
 
-  // Try to restore last-used business
-  const lastBiz = localStorage.getItem(LS_BIZ) || sessionStorage.getItem('selectedBusinessId') || '';
-  if (bizSel && lastBiz && bizSel.querySelector(`option[value="${lastBiz}"]`)) {
-    bizSel.value = lastBiz;
+  if (!bizSel) {
+    console.warn('[biz] dropdown-category-business not found in DOM');
+    return;
   }
 
-  if (bizSel && !bizSel.dataset.bound) {
-    bizSel.addEventListener('change', async () => {
-      const v = bizSel.value || '';
-      // Persist both locally
-      localStorage.setItem(LS_BIZ, v);
-      sessionStorage.setItem('selectedBusinessId', v);
-
-      // Business changed → clear remembered calendar (it might not belong)
-      localStorage.removeItem(LS_CAL);
-      sessionStorage.removeItem('selectedAvailabilityCalendarId');
-
-      // Rebuild calendars for this business
-      await initCalendarDropdown();
-    });
-    bizSel.dataset.bound = '1';
-  }
+  console.log('[biz] options after load:', bizSel.options.length);
+  // No need to auto-select or anything fancy yet
 }
 
 // =========================
@@ -602,7 +588,7 @@ document.getElementById("popup-close")?.addEventListener("click", () => {
 
 /* ===== Upcoming Hours calendar inside #upcomingHours-section ===== */
 
-window.TYPE_UPCOMING ??= 'Upcoming Hours';
+
 //make calendar say 2 months ago ect
 // Month label: This month / Next month / 2 months away / Last month / 2 months ago ...
 function relativeMonthLabel(viewYear, viewMonth) {
@@ -916,7 +902,7 @@ document.addEventListener('keydown', (e) => {
 
 }); // END DOMContentLoaded
 
-if (typeof initializeAllTimeSelects === 'function') initializeAllTimeSelects();
+
 
 // Canonicalize: ignore spaces, punctuation, and case
 const canon = (s) =>
@@ -1027,25 +1013,37 @@ async function loadBusinessOptions(selectId, {
   placeholder= '-- Select --'
 } = {}) {
   const sel = document.getElementById(selectId);
-  if (!sel) return;
+  if (!sel) {
+    console.warn('[biz] no select found with id', selectId);
+    return;
+  }
+
+  console.log('[biz] loading options into', selectId);
 
   sel.innerHTML = `<option value="">${placeholder}</option>`;
   sel.disabled = true;
 
   try {
-    const res = await fetch(`/api/records/Business?ts=${Date.now()}`, {
+    const res = await fetch(`${API_ORIGIN}/api/records/Business?ts=${Date.now()}`, {
       credentials: 'include',
       cache: 'no-store'
     });
+    console.log('[biz] response status', res.status);
+
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-    const businesses = (await res.json())
+    const raw = await res.json();
+    console.log('[biz] raw response:', raw);
+
+    const businesses = (raw || [])
       .filter(b => !b.deletedAt)
       .sort((a,b) =>
         (a?.values?.businessName || a?.values?.Name || '').localeCompare(
           b?.values?.businessName || b?.values?.Name || ''
         )
       );
+
+    console.log('[biz] businesses after filter/sort:', businesses.length, businesses);
 
     sel.innerHTML = `<option value="">${placeholder}</option>`;
     for (const biz of businesses) {
@@ -1055,18 +1053,14 @@ async function loadBusinessOptions(selectId, {
       opt.textContent = label;
       sel.appendChild(opt);
     }
-
-    const saved = remember ? (sessionStorage.getItem('selectedBusinessId') || '') : '';
-    const want  = defaultId || saved;
-    if (want && sel.querySelector(`option[value="${want}"]`)) sel.value = want;
-
   } catch (e) {
-    console.error('loadBusinessOptions:', e);
+    console.error('loadBusinessOptions error:', e);
     sel.innerHTML = `<option value="">${placeholder}</option>`;
   } finally {
     sel.disabled = false;
   }
 }
+
 
 // Fill a <select> with (non-deleted) Calendars for a Business
 async function loadCalendarOptions(
@@ -1091,10 +1085,10 @@ async function loadCalendarOptions(
   sel.disabled = true;
 
   try {
-    const res = await fetch(`/api/records/Calendar?ts=${Date.now()}`, {
-      credentials: 'include',
-      cache: 'no-store'
-    });
+const res = await fetch(`${API_ORIGIN}/api/records/Calendar?ts=${Date.now()}`, {
+  credentials: 'include',
+  cache: 'no-store'
+});
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
     const rows = (await res.json())
@@ -1212,8 +1206,7 @@ function initializeAllTimeSelects() {
     populateTimeSelect(`end-upcoming-${d}`);
   });
 }
-//
-const API_ORIGIN = (window.NEXT_PUBLIC_API_ORIGIN) || "http://localhost:8400";
+
 
 // cache DataType ids
 const TYPE_CACHE = {};
@@ -1314,10 +1307,18 @@ async function openAvailabilityPopup(dateOrYear, month, day) {
 
   // 2) Fetch existing values and preselect
   try {
-    const where = encodeURIComponent(JSON.stringify({ "Calendar": calendarId, "Date": ymd }));
-    const res = await fetch(`${API_ORIGIN}/public/records?dataType=${encodeURIComponent('Upcoming Hours')}&where=...`, {
-  credentials: 'include', cache: 'no-store'
-}); // ✅
+const where = encodeURIComponent(JSON.stringify({ "Calendar": calendarId, "Date": ymd }));
+
+const url =
+  `${API_ORIGIN}/public/records` +
+  `?dataType=${encodeURIComponent('Upcoming Hours')}` +
+  `&where=${where}` +
+  `&limit=1&ts=${Date.now()}`;
+
+const res = await fetch(url, {
+  credentials: 'include',
+  cache: 'no-store'
+});
 
   
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -1516,83 +1517,3 @@ if (typeof window.loadAndGenerateCalendar === 'function') {
   btn.dataset.bound = '1';
 })();
 
-// ===== Open the availability popup for a given date (ISO "YYYY-MM-DD" or Date) =====
-async function openAvailabilityPopup(dateOrIso) {
-  const popup     = document.getElementById('availability-popup');
-  const dateLabel = document.getElementById('popup-date-label');
-
-  // normalize to a local Date and key
-  let jsDate;
-  if (dateOrIso instanceof Date) {
-    jsDate = new Date(dateOrIso.getFullYear(), dateOrIso.getMonth(), dateOrIso.getDate());
-  } else {
-    const d = new Date(String(dateOrIso) + 'T00:00:00');
-    jsDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  }
-  const ymd = toYMD(jsDate);
-  window.upcomingSelectedDate = jsDate;
-
-  if (dateLabel) {
-    dateLabel.textContent = jsDate.toLocaleDateString(undefined, {
-      weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'
-    });
-  }
-  popup?.setAttribute('data-date', ymd);
-
-  const businessId = document.getElementById('dropdown-category-business')?.value || '';
-  const calendarId = document.getElementById('dropdown-availability-calendar')?.value || '';
-  if (!businessId || !calendarId) {
-    alert('Please select a business and calendar first.');
-    return;
-  }
-
-  // build selects and clear prior values
-  populateTimeSelect24('current-day-start');
-  populateTimeSelect24('current-day-end');
-  setTimeSelect('current-day-start', '');
-  setTimeSelect('current-day-end',   '');
-
-  // fetch existing values (if any)
-// fetch existing values (if any) and preselect
-try {
-  const where = encodeURIComponent(JSON.stringify({ "Calendar": calendarId, "Date": ymd }));
-  const res = await fetch(`/api/records/${encodeURIComponent(TYPE_UPCOMING)}?where=${where}&limit=1&ts=${Date.now()}`, {
-    credentials: 'include',
-    cache: 'no-store'
-  });
-
-  let startVal = '';
-  let endVal   = '';
-
-  if (res.ok) {
-    const items = await res.json();
-    const row = Array.isArray(items) ? items[0] : null;
-    if (row?.values) {
-      const v = row.values;
-      startVal = v['Start Time'] || v.Start || '';
-      endVal   = v['End Time']   || v.End   || '';
-    }
-  }
-
-  // Fallback: if DB didn’t return anything, try the in-memory map from the grid
-  if ((!startVal && !endVal) && window.upcomingHoursMap && window.upcomingHoursMap[ymd]) {
-    startVal = window.upcomingHoursMap[ymd].start || '';
-    endVal   = window.upcomingHoursMap[ymd].end   || '';
-  }
-
-  // Set selects (setTimeSelect converts to "HH:MM" if needed)
-  setTimeSelect('current-day-start', startVal);
-  setTimeSelect('current-day-end',   endVal);
-} catch (err) {
-  console.error('Error loading availability:', err);
-  // Still try cache if fetch failed
-  if (window.upcomingHoursMap && window.upcomingHoursMap[ymd]) {
-    const { start = '', end = '' } = window.upcomingHoursMap[ymd];
-    setTimeSelect('current-day-start', start);
-    setTimeSelect('current-day-end',   end);
-  }
-}
-
-
-  if (popup) popup.style.display = 'block';
-}
