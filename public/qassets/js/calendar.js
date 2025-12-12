@@ -2009,10 +2009,11 @@ function inWeekRange(appt, weekStart, weekEnd) {
 }
 // --- tolerant fetch: try operators first (optional); on 404/405/500, do simple query + client filter ---
 // relies on asArray(), inWeekRange(), api(), idVal()
+// relies on asArray(), inWeekRange(), api(), idVal()
 async function fetchAppointmentsSafe(whereObj, limit = "2000", opts = {}) {
   const { businessId, weekStart, weekEnd } = opts;
 
-  // 1) OPTIONAL: typed route WITH operators (disabled on Live by default)
+  // 1) OPTIONAL: typed route WITH operators (disabled on Live)
   if (USE_COMPLEX_APPT_QUERY && whereObj && Object.keys(whereObj).length) {
     const qsOp = new URLSearchParams({
       where: JSON.stringify(whereObj || {}),
@@ -2030,7 +2031,6 @@ async function fetchAppointmentsSafe(whereObj, limit = "2000", opts = {}) {
         const list = asArray(raw);
         console.log("[appts] operator ok, count:", list.length);
 
-        // optional: filter by week if you want
         const finalList =
           weekStart && weekEnd
             ? list.filter(a => inWeekRange(a, weekStart, weekEnd))
@@ -2049,12 +2049,13 @@ async function fetchAppointmentsSafe(whereObj, limit = "2000", opts = {}) {
     }
   }
 
-  // 2) Typed route WITHOUT where (simple)
+  // 2) Typed route WITHOUT where
   try {
     const qsTypedNoWhere = new URLSearchParams({
       limit,
       ts: Date.now().toString(),
     });
+
     const r2 = await api(`/api/records/Appointment?${qsTypedNoWhere.toString()}`, {
       headers: { Accept: "application/json" },
     });
@@ -2076,12 +2077,12 @@ async function fetchAppointmentsSafe(whereObj, limit = "2000", opts = {}) {
             v?.Business?._id,
             v.businessId,
             v["Business Id"],
-          ].map(idVal); // assumes idVal(x) -> string or ""
+          ].map(idVal);
           return hits.includes(String(businessId));
         });
       }
 
-      // filter by week range
+      // filter by week
       if (weekStart && weekEnd) {
         filtered2 = filtered2.filter(a => inWeekRange(a, weekStart, weekEnd));
       }
@@ -2097,10 +2098,10 @@ async function fetchAppointmentsSafe(whereObj, limit = "2000", opts = {}) {
       if (filtered2.length) return filtered2;
     }
   } catch {
-    // ignore and fall through to generic route
+    // ignore and fall through
   }
 
-  // 3) Generic route with simple business-only where (no operators)
+  // 3) Generic route with simple business-only where
   const simpleWhere =
     businessId && businessId !== "all"
       ? {
@@ -2145,7 +2146,6 @@ async function fetchAppointmentsSafe(whereObj, limit = "2000", opts = {}) {
     filtered3.length,
     "(raw:",
     list3.length,
-    ")"
   );
 
   if (filtered3.length || (businessId && businessId !== "all")) {
@@ -2181,6 +2181,7 @@ async function fetchAppointmentsSafe(whereObj, limit = "2000", opts = {}) {
 
   return filtered4;
 }
+
 
 //////////////////////////////////////
 // === Inline "New Client" toggles for the appointment popup ===
