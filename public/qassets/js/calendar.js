@@ -1842,22 +1842,23 @@ function c_labelFromClient(values = {}) {
   return full || (values["Client Name"] || values.Name || values.email || "(Client)");
 }
 
-async function c_tryFetch(type, whereObj, limit="2000") {
+async function c_tryFetch(type, whereObj, limit = "2000") {
   const qs = new URLSearchParams({
     where: JSON.stringify(whereObj || {}),
     limit,
     includeRefField: "1",
-    ts: Date.now().toString()
+    ts: Date.now().toString(),
   });
-  const r = await api(`/api/records/${encodeURIComponent(type)}?${qs}`, {
-    credentials: "include",
-    cache: "no-store",
-    headers: { Accept: "application/json" }
-  });
+
+  const r = await api(`/api/records/${encodeURIComponent(type)}?${qs.toString()}`);
   if (!r.ok) return [];
-  const data = await r.json();
-  return Array.isArray(data) ? data : [];
+
+  const data = await r.json().catch(() => []);
+  return Array.isArray(data)
+    ? data
+    : (data.items || data.data || data.records || []);
 }
+
 // Returns a de-duped array of Client records for the Business.
 // If none exist directly, we look at Appointments for that Business and
 // pull the referenced Clients, then fetch those client records.
@@ -1905,7 +1906,8 @@ async function loadClientsForSelectedBusiness(
 ) {
   const bizDD = document.getElementById("appointment-business");
   const sel   = document.getElementById("appointment-client");
-  const showAllChk = document.getElementById("clients-show-all");
+ const showAllChk = document.getElementById("show-all-clients");
+
   if (!bizDD || !sel) return;
 
   const bizId = String((bizIdOverride ?? bizDD.value) || "");
@@ -1931,7 +1933,8 @@ async function loadClientsForSelectedBusiness(
     .forEach(r => {
       const v   = r.values || {};
       const opt = document.createElement("option");   // ← make sure it's **opt**, not copt
-      opt.value = c_asId(r);
+      opt.value = String(r._id || r.id || "");
+
       opt.textContent = c_labelFromClient(v);
       sel.appendChild(opt);
     });
@@ -1958,20 +1961,22 @@ async function loadClientsForSelectedBusiness(
 
 
 // Bind once: refresh Clients whenever Business changes
-(function wireClientsOnce(){
+document.addEventListener("DOMContentLoaded", function wireClientsOnce(){
   const bizDD = document.getElementById("appointment-business");
-  const showAllChk = document.getElementById("clients-show-all"); // optional
+  const showAllChk = document.getElementById("show-all-clients"); // ✅ matches HTML
   if (!bizDD) return;
 
   if (!bizDD.dataset.boundClients) {
     bizDD.addEventListener("change", () => loadClientsForSelectedBusiness());
     bizDD.dataset.boundClients = "1";
   }
+
   if (showAllChk && !showAllChk.dataset.bound) {
     showAllChk.addEventListener("change", () => loadClientsForSelectedBusiness());
     showAllChk.dataset.bound = "1";
   }
-})();
+});
+
 // --- helper: JS-side week filter (no server operators) ---
 // --- tiny helper to coerce various API shapes into an array ---
 function asArray(x){
