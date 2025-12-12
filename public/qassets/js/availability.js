@@ -1,11 +1,17 @@
 console.log('[availability v2 loaded');
+
+// 👇 replace this:
+// const API_ORIGIN = window.location.origin;
+
+// 👇 with this:
+const API_ORIGIN =
+  window.location.hostname === 'localhost'
+    ? 'http://localhost:6400'          // ← your local Live server port
+    : 'https://YOUR-LIVE-API-URL-HERE'; // ← same as NEXT_PUBLIC_API_BASE
+                                        // e.g. https://suiteseat-live.onrender.com
+
 const TYPE_UPCOMING = 'Upcoming Hours';
-// Use the same origin the page is served from (works locally + live)
-const API_ORIGIN = window.location.origin;
-
-
 const API = (type) => `${API_ORIGIN}/api/records/${encodeURIComponent(type)}`;
-
 
 
 
