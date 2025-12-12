@@ -1,3 +1,10 @@
+
+const API_BASE =
+  location.hostname === "www.suiteseat.io"
+    ? "https://live.suiteseat.io"  // ⬅️ your deployed Express API host
+    : "https://live-353x.onrender.com";     // ⬅️ local dev
+
+
 // keep these at top as you already have:
 let editingClientId = null;
 let fullClientList = [];
@@ -30,7 +37,11 @@ document.addEventListener("DOMContentLoaded", () => {
   // check login and update header
   async function checkLogin() {
     try {
-      const res  = await fetch("/check-login", { credentials: "include", cache: "no-store" });
+      const res  = await fetch(`${API_BASE}/check-login`, {
+  credentials: "include",
+  cache: "no-store",
+});
+
       const data = await res.json();
       if (data.loggedIn) {
         const name = displayNameFrom(data) || (data.email ? data.email.split("@")[0] : "");
@@ -59,7 +70,10 @@ document.addEventListener("DOMContentLoaded", () => {
   // logout
   logoutBtn?.addEventListener("click", async () => {
     try {
-      const res = await fetch("/logout", { credentials: "include" });
+      const res = await fetch(`${API_BASE}/logout`, {
+  credentials: "include",
+});
+
       const result = await res.json().catch(() => ({}));
       if (res.ok) {
         alert("👋 Logged out!");
@@ -81,13 +95,14 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!email || !password) return alert("Please enter both email and password.");
 
     try {
-      const res = await fetch("/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        cache: "no-store",
-        body: JSON.stringify({ email, password }),
-      });
+  const res = await fetch(`${API_BASE}/login`, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  credentials: "include",
+  cache: "no-store",
+  body: JSON.stringify({ email, password }),
+});
+
       const result = await res.json().catch(() => ({}));
       if (res.ok) {
         alert("✅ Logged in!");
@@ -133,10 +148,11 @@ document.addEventListener("DOMContentLoaded", () => {
         ts: Date.now().toString()
       });
 
-      const res = await fetch(`/api/records/Business?${params}`, {
-        credentials: "include",
-        cache: "no-store"
-      });
+      const res = await fetch(`${API_BASE}/api/records/Business?${params}`, {
+  credentials: "include",
+  cache: "no-store",
+});
+
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
       const rows = (await res.json())
@@ -175,7 +191,11 @@ document.addEventListener("DOMContentLoaded", () => {
       sort:  JSON.stringify(sortObj),
       ts:    Date.now().toString()
     });
-    const res = await fetch(`/api/records/Client?${qs}`, { credentials: "include", cache: "no-store" });
+    const res = await fetch(`${API_BASE}/api/records/Client?${qs}`, {
+  credentials: "include",
+  cache: "no-store",
+});
+
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     return Array.isArray(data) ? data : [];
@@ -225,10 +245,11 @@ document.addEventListener("DOMContentLoaded", () => {
   window.loadAllClients = loadAllClients;
 
 async function openEditClientPopup(clientId) {
-  const res = await fetch(`/api/records/Client/${encodeURIComponent(clientId)}?ts=${Date.now()}`, {
-    credentials: "include",
-    cache: "no-store"
-  });
+  const res = await fetch(`${API_BASE}/api/records/Client/${encodeURIComponent(clientId)}?ts=${Date.now()}`, {
+  credentials: "include",
+  cache: "no-store",
+});
+
   const rec = await res.json();
 
   // fill fields...
@@ -252,9 +273,11 @@ async function openEditClientPopup(clientId) {
   const sel = document.getElementById("client-business");
   if (bizId && !sel.querySelector(`option[value="${bizId}"]`)) {
     try {
-      const rb = await fetch(`/api/records/Business/${encodeURIComponent(bizId)}?ts=${Date.now()}`, {
-        credentials: "include", cache: "no-store"
-      });
+      const rb = await fetch(`${API_BASE}/api/records/Business/${encodeURIComponent(bizId)}?ts=${Date.now()}`, {
+  credentials: "include",
+  cache: "no-store",
+});
+
       if (rb.ok) {
         const biz = await rb.json();
         const label = biz?.values?.["Business Name"] || biz?.values?.["Name"] || "Business";
@@ -284,10 +307,11 @@ async function populateClientBusinessDropdown(preferredId = "") {
       ts: Date.now().toString()
     });
 
-    const res = await fetch(`/api/records/Business?${params}`, {
-      credentials: "include",
-      cache: "no-store"
-    });
+    const res = await fetch(`${API_BASE}/api/records/Business?${params}`, {
+  credentials: "include",
+  cache: "no-store",
+});
+
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
     const rows = (await res.json())
@@ -350,9 +374,11 @@ function getClientBusinessId(clientRecord) {
 
     try {
       const isEdit = !!window.editingClientId;
-      const url    = isEdit
-        ? `/api/records/Client/${encodeURIComponent(window.editingClientId)}`
-        : `/api/records/Client`;
+const url = isEdit
+  ? `${API_BASE}/api/records/Client/${encodeURIComponent(window.editingClientId)}`
+  : `${API_BASE}/api/records/Client`;
+
+
       const method = isEdit ? "PATCH" : "POST";
 
       const res = await fetch(url, {
@@ -405,10 +431,11 @@ function getClientBusinessId(clientRecord) {
         ts: Date.now().toString()
       });
 
-      const res = await fetch(`/api/records/Business?${params}`, {
-        credentials: "include",
-        cache: "no-store"
-      });
+      const res = await fetch(`${API_BASE}/api/records/Business?${params}`, {
+  credentials: "include",
+  cache: "no-store",
+});
+
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
       const rows = (await res.json())
@@ -497,10 +524,11 @@ async function populateClientBusinessDropdown() {
       ts: Date.now().toString()
     });
 
-    const res = await fetch(`/api/records/Business?${params}`, {
-      credentials: "include",
-      cache: "no-store"
-    });
+    const res = await fetch(`${API_BASE}/api/records/Business?${params}`, {
+  credentials: "include",
+  cache: "no-store",
+});
+
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
     const rows = (await res.json())
@@ -637,9 +665,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
       try {
         const isEdit = !!window.editingClientId;
-        const url    = isEdit
-          ? `/api/records/Client/${encodeURIComponent(window.editingClientId)}`
-          : `/api/records/Client`;
+      const url = isEdit
+  ? `${API_BASE}/api/records/Client/${encodeURIComponent(window.editingClientId)}`
+  : `${API_BASE}/api/records/Client`;
+
         const method = isEdit ? "PATCH" : "POST";
 
         const res = await fetch(url, {
@@ -1082,10 +1111,11 @@ document.querySelectorAll(".add-info-btn").forEach((btn) => {
         ts: Date.now().toString()
       });
 
-      const res = await fetch(`/api/records/Business?${params}`, {
-        credentials: "include",
-        cache: "no-store"
-      });
+      const res = await fetch(`${API_BASE}/api/records/Business?${params}`, {
+  credentials: "include",
+  cache: "no-store",
+});
+
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
       const rows = (await res.json())
@@ -1218,10 +1248,11 @@ async function populateBusinessSelect(selectEl, preferredId = "") {
       ts: Date.now().toString()
     });
 
-    const res = await fetch(`/api/records/Business?${params}`, {
-      credentials: "include",
-      cache: "no-store"
-    });
+    const res = await fetch(`${API_BASE}/api/records/Business?${params}`, {
+  credentials: "include",
+  cache: "no-store",
+});
+
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
     const rows = (await res.json())
@@ -1282,10 +1313,11 @@ window.ensureClientBusinessOptions = async function ensureClientBusinessOptions(
         sort: JSON.stringify({ "Business Name": 1, "Name": 1, createdAt: 1 }),
         ts: Date.now().toString()
       });
-      const res = await fetch(`/api/records/Business?${params}`, {
-        credentials: "include",
-        cache: "no-store"
-      });
+      const res = await fetch(`${API_BASE}/api/records/Business?${params}`, {
+  credentials: "include",
+  cache: "no-store",
+});
+
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
       const rows = (await res.json())
