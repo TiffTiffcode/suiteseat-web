@@ -65,42 +65,37 @@ function isHiddenForMe(client) {
 ////////////////////////
 //Log In
 (async function initAuthHeader() {
-  // where the Login button lives in your HTML
   const headerRight = document.querySelector(".right-group");
   if (!headerRight) return;
 
   try {
-    const res  = await fetch("/check-login", { credentials: "include", cache: "no-store" });
+    // 🔁 use your API helper, not the same-origin fetch
+    const res  = await api("/check-login");
     const data = await res.json().catch(() => ({}));
 
     if (data && data.loggedIn) {
-      // keep some auth info handy
       window.STATE = window.STATE || {};
       window.STATE.userId = String(data.userId || "");
       window.STATE.user   = data;
 
-      // pick a friendly display name
       const display =
         (data.firstName && data.firstName.trim()) ||
         (data.name && data.name.trim().split(" ")[0]) ||
         (data.email && data.email.split("@")[0]) ||
         "there";
 
-      // replace the Login button with greeting + Logout
       headerRight.innerHTML = `
         Hi, ${display} 👋 
         <button class="blk-btn" id="logout-btn">Logout</button>
       `;
 
-      // wire logout
       document.getElementById("logout-btn")?.addEventListener("click", async () => {
-        const out = await fetch("/logout", { credentials: "include" });
+        // 🔁 also log out via the API server
+        const out = await api("/logout");
         if (out.ok) location.reload();
       });
     } else {
-      // user not logged in — keep the Login button working
       document.getElementById("open-login-popup-btn")?.addEventListener("click", () => {
-        // minimal popup open helper if you don't already have one
         const pop = document.getElementById("popup-login");
         const ovl = document.getElementById("popup-overlay");
         if (pop) pop.style.display = "block";
@@ -112,6 +107,7 @@ function isHiddenForMe(client) {
     console.error("[auth] /check-login failed:", err);
   }
 })();
+
 
 /////////////////////////////////////////////////////
       //Business Dropdown
@@ -128,8 +124,11 @@ async function loadUserBusinesses() {
 
   try {
     // (Optional) log who we are
-    const me = await fetch("/check-login", { credentials: "include", cache: "no-store" }).then(r=>r.json()).catch(()=>null);
-    console.log("[biz] /check-login:", me);
+const me = await api("/check-login")
+  .then(r => r.json())
+  .catch(() => null);
+console.log("[biz] /check-login:", me);
+
 
     // ✅ No WHERE here — your server middleware already clamps to this user
     const qs = new URLSearchParams({
