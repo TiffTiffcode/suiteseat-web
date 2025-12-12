@@ -1,8 +1,13 @@
-const API_BASE =
-  location.hostname === "www.suiteseat.io"
-    ? "https://live.suiteseat.io"
-    : "http://localhost:8400";
+console.log('[clients] loaded');
 
+const API_ORIGIN =
+  window.location.hostname === 'localhost'
+    ? 'http://localhost:8400'            // local dev server
+    : 'https://live-353x.onrender.com';  // Render API in prod
+
+// helper for "Data Type" style endpoints:
+const apiRecords = (type) =>
+  `${API_ORIGIN}/api/records/${encodeURIComponent(type)}`;
 
 
 // keep these at top as you already have:
