@@ -140,11 +140,7 @@ console.log("[biz] /check-login:", me);
       ts: Date.now().toString()
     });
 
-    const res = await api(`/api/records/Business?${qs}`, {
-      credentials: "include",
-      cache: "no-store",
-      headers: { Accept: "application/json" }
-    });
+const res = await api(`/api/records/Business?${qs.toString()}`);
 
     if (res.status === 401) {
       console.warn("[biz] not logged in");
@@ -1275,11 +1271,8 @@ async function getMyBusinessIds() {
       limit: '1000',
       ts: Date.now().toString(),
     });
-    const res = await api(`/api/records/Business?${qs}`, {
-      credentials: 'include',
-      cache: 'no-store',
-      headers: { Accept: 'application/json' },
-    });
+   const res = await api(`/api/records/Business?${qs.toString()}`);
+
     if (!res.ok) return [];
     const rows = await res.json();
     return (rows || []).map(r => String(r._id)).filter(Boolean);
@@ -1340,12 +1333,9 @@ async function loadAppointmentBusinessDropdown() {
       ts: Date.now().toString(),
     });
 
-    const res = await api(`/api/records/Business?${qs}`, {
-      credentials: "include",
-      cache: "no-store",
-      headers: { Accept: "application/json" },
-    });
-    if (!res.ok) return;
+const res = await api(`/api/records/Business?${qs.toString()}`);
+if (!res.ok) return;
+
 
     const rows = await res.json();
     const nameOf = (v) =>
@@ -1553,11 +1543,13 @@ async function fetchServicesForBusiness(bizId){
       includeRefField: "1",
       ts: Date.now().toString()
     });
-    const r = await fetch(`/api/records/${encodeURIComponent(type)}?${qs}`, {
-      credentials: "include",
-      cache: "no-store",
-      headers: { Accept: "application/json" }
-    });
+ const r = await api(
+  `/api/records/${encodeURIComponent(type)}?${qs.toString()}`,
+  {
+    headers: { Accept: "application/json" },
+  }
+);
+
     if (!r.ok) return [];
     const data = await r.json();
     return Array.isArray(data) ? data : [];
