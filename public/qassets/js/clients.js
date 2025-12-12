@@ -5,6 +5,9 @@ const API_ORIGIN =
     ? 'http://localhost:8400'            // local dev server
     : 'https://live-353x.onrender.com';  // Render API in prod
 
+// ✅ keep old name working for older code
+const API_BASE = API_ORIGIN;
+
 // helper for "Data Type" style endpoints:
 const apiRecords = (type) =>
   `${API_ORIGIN}/api/records/${encodeURIComponent(type)}`;
