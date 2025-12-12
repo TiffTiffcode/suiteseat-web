@@ -7,7 +7,7 @@ console.log('[availability v2 loaded');
 const API_ORIGIN =
   window.location.hostname === 'localhost'
     ? 'http://localhost:6400'
-    : 'https://suiteseat-live.onrender.com'; // ← put YOUR real API here
+    : 'https://live-353x.onrender.com'; // ← put YOUR real API here
 
 
 const TYPE_UPCOMING = 'Upcoming Hours';
