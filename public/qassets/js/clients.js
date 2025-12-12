@@ -1,7 +1,7 @@
 const API_BASE =
   location.hostname === "www.suiteseat.io"
-    ? "http://localhost:8400" // use Render in production too
-    : "https://live-353x.onrender.com"; // or http://localhost:8400 if you prefer for local
+    ? "https://live.suiteseat.io"
+    : "http://localhost:8400";
 
 
 
