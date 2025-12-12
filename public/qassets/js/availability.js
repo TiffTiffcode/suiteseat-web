@@ -1,12 +1,9 @@
 console.log('[availability v2 loaded');
 
-// 👇 replace this:
-// const API_ORIGIN = window.location.origin;
 
-// 👇 with this:
 const API_ORIGIN =
   window.location.hostname === 'localhost'
-    ? 'http://localhost:6400'
+    ? 'http://localhost:8400'
     : 'https://live-353x.onrender.com'; // ← put YOUR real API here
 
 

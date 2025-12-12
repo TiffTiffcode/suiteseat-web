@@ -5,8 +5,9 @@ console.log("[calendar] fresh build v1");
 ///////////////////////////
 // --- pick the right API origin in dev ---
 const API_ORIGIN =
-  window.API_BASE ||                               // allow override
-  (location.port === "3000" ? "http://localhost:8400" : ""); // Next dev → Express
+  window.location.hostname === 'localhost'
+    ? 'http://localhost:8400'
+    : 'https://live-353x.onrender.com'; // ← put YOUR real API here
 
 async function api(path, init = {}) {
   return fetch(`${API_ORIGIN}${path}`, {
