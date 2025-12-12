@@ -1099,13 +1099,27 @@ const res = await fetch(`${API_ORIGIN}/api/records/Calendar?ts=${Date.now()}`, {
 });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-    const rows = (await res.json())
-      .filter(c => !c.deletedAt && c?.values?.businessId === businessId)
-      .sort((a,b) =>
-        (a?.values?.calendarName || a?.values?.name || '').localeCompare(
-          b?.values?.calendarName || b?.values?.name || ''
-        )
-      );
+const rows = (await res.json())
+  .filter(c => {
+    if (c.deletedAt) return false;
+
+    const v = c.values || {};
+    // Try several possible field names
+    const calBizId =
+      v.businessId ||
+      v.Business ||
+      v.business ||
+      v['Business Id'] ||
+      v['business id'];
+
+    return String(calBizId) === String(businessId);
+  })
+  .sort((a, b) =>
+    (a?.values?.calendarName || a?.values?.name || '').localeCompare(
+      b?.values?.calendarName || b?.values?.name || ''
+    )
+  );
+
 
     sel.innerHTML = `<option value="">${placeholder}</option>`;
     for (const cal of rows) {
@@ -1133,6 +1147,38 @@ function closeLoginPopup() {
   document.getElementById("popup-login")?.style?.setProperty("display", "none");
   document.getElementById("popup-overlay")?.style?.setProperty("display", "none");
   document.body.classList.remove("popup-open");
+}
+
+
+// after: const bizSel = document.getElementById('dropdown-category-business');
+
+if (bizSel && !bizSel.dataset.bound) {
+  bizSel.addEventListener('change', async () => {
+    const bizId = bizSel.value || '';
+
+    // remember selection for next load
+    localStorage.setItem(LS_BIZ, bizId);
+    sessionStorage.setItem('selectedBusinessId', bizId);
+
+    // reset saved calendar when business changes
+    localStorage.removeItem(LS_CAL);
+    sessionStorage.removeItem('selectedAvailabilityCalendarId');
+
+    // reload calendars for this business
+    await loadCalendarOptions(
+      'dropdown-availability-calendar',
+      bizId,
+      { placeholder: '-- Select --' }
+    );
+
+    // optional: clear the calendar grid until they pick a calendar
+    const calSel = document.getElementById('dropdown-availability-calendar');
+    if (calSel && !calSel.value) {
+      // you can clear UI here if needed
+    }
+  });
+
+  bizSel.dataset.bound = '1';
 }
 
 
