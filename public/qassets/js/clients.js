@@ -42,7 +42,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // check login and update header
   async function checkLogin() {
     try {
-      const res  = await fetch(`${API_BASE}/check-login`, {
+  const res  = await fetch(`${API_ORIGIN}/check-login`, {
   credentials: "include",
   cache: "no-store",
 });
@@ -75,7 +75,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // logout
   logoutBtn?.addEventListener("click", async () => {
     try {
-      const res = await fetch(`${API_BASE}/logout`, {
+      const res = await fetch(`${API_ORIGIN}/logout`, {
   credentials: "include",
 });
 
@@ -100,7 +100,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!email || !password) return alert("Please enter both email and password.");
 
     try {
-  const res = await fetch(`${API_BASE}/login`, {
+  const res = await fetch(`${API_ORIGIN}/login`, {
   method: "POST",
   headers: { "Content-Type": "application/json" },
   credentials: "include",
@@ -196,10 +196,11 @@ document.addEventListener("DOMContentLoaded", () => {
       sort:  JSON.stringify(sortObj),
       ts:    Date.now().toString()
     });
-    const res = await fetch(`${API_BASE}/api/records/Client?${qs}`, {
-  credentials: "include",
-  cache: "no-store",
+const res = await fetch(apiRecords('Client') + `?${qs}`, {
+  credentials: 'include',
+  cache: 'no-store',
 });
+
 
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
@@ -250,10 +251,14 @@ document.addEventListener("DOMContentLoaded", () => {
   window.loadAllClients = loadAllClients;
 
 async function openEditClientPopup(clientId) {
-  const res = await fetch(`${API_BASE}/api/records/Client/${encodeURIComponent(clientId)}?ts=${Date.now()}`, {
-  credentials: "include",
-  cache: "no-store",
-});
+const res = await fetch(
+  `${apiRecords('Client')}/${encodeURIComponent(clientId)}?ts=${Date.now()}`,
+  {
+    credentials: 'include',
+    cache: 'no-store',
+  }
+);
+
 
   const rec = await res.json();
 
@@ -312,10 +317,11 @@ async function populateClientBusinessDropdown(preferredId = "") {
       ts: Date.now().toString()
     });
 
-    const res = await fetch(`${API_BASE}/api/records/Business?${params}`, {
-  credentials: "include",
-  cache: "no-store",
+const res = await fetch(apiRecords('Business') + `?${params}`, {
+  credentials: 'include',
+  cache: 'no-store',
 });
+
 
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
@@ -379,10 +385,10 @@ function getClientBusinessId(clientRecord) {
 
     try {
       const isEdit = !!window.editingClientId;
+const base = apiRecords('Client');
 const url = isEdit
-  ? `${API_BASE}/api/records/Client/${encodeURIComponent(window.editingClientId)}`
-  : `${API_BASE}/api/records/Client`;
-
+  ? `${base}/${encodeURIComponent(window.editingClientId)}`
+  : base;
 
       const method = isEdit ? "PATCH" : "POST";
 
@@ -571,7 +577,9 @@ function normalizeKey(s = "") {
 }
 
 async function detectClientFieldMap() {
-  const url = `/api/records/Client?limit=5&sort=${encodeURIComponent(JSON.stringify({ _id: -1, createdAt: -1 }))}&ts=${Date.now()}`;
+const url =
+  `${apiRecords('Client')}?limit=5&sort=${encodeURIComponent(JSON.stringify({ _id: -1, createdAt: -1 }))}&ts=${Date.now()}`;
+
   const res = await fetch(url, { credentials: "include", cache: "no-store" });
   const rows = res.ok ? await res.json() : [];
 
@@ -670,9 +678,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
       try {
         const isEdit = !!window.editingClientId;
-      const url = isEdit
-  ? `${API_BASE}/api/records/Client/${encodeURIComponent(window.editingClientId)}`
-  : `${API_BASE}/api/records/Client`;
+ const base = apiRecords('Client');
+const url = isEdit
+  ? `${base}/${encodeURIComponent(window.editingClientId)}`
+  : base;
+
 
         const method = isEdit ? "PATCH" : "POST";
 
@@ -762,23 +772,25 @@ document.addEventListener("DOMContentLoaded", () => {
 
     try {
       // 1) Try HARD delete
-      let res = await fetch(`/api/records/Client/${id}?ts=${Date.now()}`, {
-        method: "DELETE",
-        credentials: "include",
-        cache: "no-store"
-      });
-
+    let res = await fetch(
+  `${apiRecords('Client')}/${id}?ts=${Date.now()}`,
+  {
+    method: 'DELETE',
+    credentials: 'include',
+    cache: 'no-store',
+  }
+);
       // 2) If not allowed (405/404), do SOFT delete with the right label
       if (!res.ok && (res.status === 405 || res.status === 404)) {
         const map = await detectClientFieldMap(); // uses your helper above
         const softValues = { [map.isDeleted]: true };
-        res = await fetch(`/api/records/Client/${id}`, {
-          method: "PATCH",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          cache: "no-store",
-          body: JSON.stringify({ values: softValues })
-        });
+     res = await fetch(`${apiRecords('Client')}/${id}`, {
+  method: 'PATCH',
+  credentials: 'include',
+  headers: { 'Content-Type': 'application/json' },
+  cache: 'no-store',
+  body: JSON.stringify({ values: softValues }),
+});
       }
 
       const result = await safeJson(res);
@@ -895,10 +907,10 @@ async function loadBusinessOptions() {
       ts   : Date.now()
     });
 
-    const res = await fetch(`/api/records/Business?${qs}`, {
-      credentials: "include",
-      cache: "no-store"
-    });
+ const res = await fetch(apiRecords('Business') + `?${qs}`, {
+  credentials: 'include',
+  cache: 'no-store'
+});
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
     const rows = (await res.json())
