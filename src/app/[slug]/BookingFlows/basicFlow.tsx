@@ -114,6 +114,28 @@ currentUserId: string | null;
 
 
 // ── Fetch helpers (module-level) ──────────────────────────────────────────────
+// Does this category belong to the selected calendar?
+function categoryMatchesCalendar(cat: any, calendarId?: string | null) {
+  if (!calendarId) return false; // nothing selected
+
+  const v = cat?.values || cat || {};
+
+  // Try different possible shapes
+  const ref =
+    v.Calendar ||
+    v.calendar ||
+    v.calendarId ||
+    v.CalendarId ||
+    cat.calendarId;
+
+  if (!ref) return false;
+  if (typeof ref === "string") return String(ref) === String(calendarId);
+  if (typeof ref === "object") {
+    return String(ref._id || ref.id) === String(calendarId);
+  }
+  return false;
+}
+
 async function fetchCalendarsForBusiness(businessId: string) {
   const keys = ["Business", "businessId"];
   for (const k of keys) {

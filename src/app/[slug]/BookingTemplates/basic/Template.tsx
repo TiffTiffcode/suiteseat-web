@@ -64,9 +64,39 @@ type BookedDetails = {
   time?: string | null;
   service?: string | null;
 };
+function categoryMatchesCalendar(cat: any, calendarId?: string | null) {
+  if (!calendarId) return false;
+
+  const v = cat?.values || cat || {};
+
+  const ref =
+    v.Calendar ||
+    v.calendar ||
+    v.calendarId ||
+    v.CalendarId ||
+    cat.calendarId;
+
+  if (!ref) return false;
+  if (typeof ref === "string") return String(ref) === String(calendarId);
+  if (typeof ref === "object") {
+    return String(ref._id || ref.id) === String(calendarId);
+  }
+  return false;
+}
+
 
 export default function BasicBookingTemplate({ business }: { business?: any }) {
   const flow = useBookingFlow();
+
+    const filteredCategories = useMemo(
+    () =>
+      Array.isArray(flow.categories)
+        ? flow.categories.filter((cat: any) =>
+            categoryMatchesCalendar(cat, flow.selectedCalendarId)
+          )
+        : [],
+    [flow.categories, flow.selectedCalendarId]
+  );
 
   const [showNextModal, setShowNextModal] = useState(false);
   const [bookedDetails, setBookedDetails] = useState<BookedDetails>({});
@@ -228,28 +258,29 @@ return (
                 </button>
               </div>
 
-              {flow.loadingCats ? (
-                <div className="bk-placeholder">Loading categories…</div>
-              ) : Array.isArray(flow.categories) && flow.categories.length ? (
-                <fieldset disabled={!!flow.isReschedule}>
-                  <div className="bk-list" style={{ display: "flex", gap: 12, overflowX: "auto" }}>
-                    {flow.categories.map((cat: any) => (
-                      <button
-                        key={cat._id}
-                        type="button"
-                        className="card card--select"
-                        style={{ minWidth: 220, textAlign: "left" }}
-                        onClick={() => flow.handleCategorySelect(cat._id)}
-                      >
-                        <div className="card__title">{cat?.name ?? "Untitled category"}</div>
-                        {cat?.desc ? <div className="card__sub">{cat.desc}</div> : null}
-                      </button>
-                    ))}
-                  </div>
-                </fieldset>
-              ) : (
-                <div className="bk-placeholder">No categories found.</div>
-              )}
+          {flow.loadingCats ? (
+  <div className="bk-placeholder">Loading categories…</div>
+) : filteredCategories.length ? (
+  <fieldset disabled={!!flow.isReschedule}>
+    <div className="bk-list" style={{ display: "flex", gap: 12, overflowX: "auto" }}>
+      {filteredCategories.map((cat: any) => (
+        <button
+          key={cat._id}
+          type="button"
+          className="card card--select"
+          style={{ minWidth: 220, textAlign: "left" }}
+          onClick={() => flow.handleCategorySelect(cat._id)}
+        >
+          <div className="card__title">{cat?.name ?? cat?.values?.Name ?? "Untitled category"}</div>
+          {cat?.desc ? <div className="card__sub">{cat.desc}</div> : null}
+        </button>
+      ))}
+    </div>
+  </fieldset>
+) : (
+  <div className="bk-placeholder">No categories for this calendar.</div>
+)}
+
             </section>
           )}
 
