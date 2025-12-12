@@ -2,6 +2,9 @@
 // ==== Auth bootstrap: detect user and paint header ====
 
 console.log("[calendar] fresh build v1");
+// Toggle this off because the Live API chokes on the complex $and/$or query
+const USE_COMPLEX_APPT_QUERY = false;
+
 ///////////////////////////
 // --- pick the right API origin in dev ---
 const API_ORIGIN =
@@ -2004,34 +2007,49 @@ function inWeekRange(appt, weekStart, weekEnd) {
   const dt = new Date(y, (m||1)-1, d||1, 0,0,0,0);
   return dt >= weekStart && dt <= weekEnd;
 }
-
-// --- tolerant fetch: try operators first; on 404/405/500, do simple query + client filter ---
-// --- tiny helpers already in your file ---
-// asArray(), inWeekRange(), api()
+// --- tolerant fetch: try operators first (optional); on 404/405/500, do simple query + client filter ---
+// relies on asArray(), inWeekRange(), api(), idVal()
 async function fetchAppointmentsSafe(whereObj, limit = "2000", opts = {}) {
-  const qsOp = new URLSearchParams({
-    where: JSON.stringify(whereObj || {}),
-    limit,
-    ts: Date.now().toString(),
-  });
-
-  // 1) Try typed route WITH operators
-  let res = await api(`/api/records/Appointment?${qsOp.toString()}`, {
-    headers: { Accept: "application/json" },
-  });
-
-  if (res.ok) {
-    const raw = await res.json().catch(() => []);
-    const list = asArray(raw);
-    console.log("[appts] operator ok, count:", list.length);
-    return list;
-  }
-
-  console.warn("[appts] operator query failed; status =", res.status, "→ using fallback");
-
   const { businessId, weekStart, weekEnd } = opts;
 
-  // 2) Try typed route WITHOUT operators (server-side filtering often breaks on custom operators)
+  // 1) OPTIONAL: typed route WITH operators (disabled on Live by default)
+  if (USE_COMPLEX_APPT_QUERY && whereObj && Object.keys(whereObj).length) {
+    const qsOp = new URLSearchParams({
+      where: JSON.stringify(whereObj || {}),
+      limit,
+      ts: Date.now().toString(),
+    });
+
+    try {
+      const res = await api(`/api/records/Appointment?${qsOp.toString()}`, {
+        headers: { Accept: "application/json" },
+      });
+
+      if (res.ok) {
+        const raw  = await res.json().catch(() => []);
+        const list = asArray(raw);
+        console.log("[appts] operator ok, count:", list.length);
+
+        // optional: filter by week if you want
+        const finalList =
+          weekStart && weekEnd
+            ? list.filter(a => inWeekRange(a, weekStart, weekEnd))
+            : list;
+
+        return finalList;
+      }
+
+      console.warn(
+        "[appts] operator query failed; status =",
+        res.status,
+        "→ using fallback"
+      );
+    } catch (err) {
+      console.warn("[appts] operator query threw:", err, "→ using fallback");
+    }
+  }
+
+  // 2) Typed route WITHOUT where (simple)
   try {
     const qsTypedNoWhere = new URLSearchParams({
       limit,
@@ -2040,26 +2058,47 @@ async function fetchAppointmentsSafe(whereObj, limit = "2000", opts = {}) {
     const r2 = await api(`/api/records/Appointment?${qsTypedNoWhere.toString()}`, {
       headers: { Accept: "application/json" },
     });
+
     if (r2.ok) {
-      const raw2 = await r2.json().catch(() => []);
+      const raw2  = await r2.json().catch(() => []);
       const list2 = asArray(raw2);
-      // client-side filter by business + week
+
       let filtered2 = list2;
+
+      // filter by business
       if (businessId && businessId !== "all") {
         filtered2 = filtered2.filter(a => {
           const v = a.values || {};
           const hits = [
-            a.Business, a?.Business?._id, v.Business, v?.Business?._id,
-            v.businessId, v["Business Id"]
-          ].map(idVal);
+            a.Business,
+            a?.Business?._id,
+            v.Business,
+            v?.Business?._id,
+            v.businessId,
+            v["Business Id"],
+          ].map(idVal); // assumes idVal(x) -> string or ""
           return hits.includes(String(businessId));
         });
       }
-      if (weekStart && weekEnd) filtered2 = filtered2.filter(a => inWeekRange(a, weekStart, weekEnd));
-      console.log("[appts] typed no-where returned", filtered2.length, "(raw:", list2.length, ")");
+
+      // filter by week range
+      if (weekStart && weekEnd) {
+        filtered2 = filtered2.filter(a => inWeekRange(a, weekStart, weekEnd));
+      }
+
+      console.log(
+        "[appts] typed no-where returned",
+        filtered2.length,
+        "(raw:",
+        list2.length,
+        ")"
+      );
+
       if (filtered2.length) return filtered2;
     }
-  } catch {}
+  } catch {
+    // ignore and fall through to generic route
+  }
 
   // 3) Generic route with simple business-only where (no operators)
   const simpleWhere =
@@ -2093,22 +2132,53 @@ async function fetchAppointmentsSafe(whereObj, limit = "2000", opts = {}) {
     return [];
   }
 
-  const raw3 = await res3.json().catch(() => []);
+  const raw3  = await res3.json().catch(() => []);
   const list3 = asArray(raw3);
   let filtered3 = list3;
-  if (weekStart && weekEnd) filtered3 = filtered3.filter(a => inWeekRange(a, weekStart, weekEnd));
-  console.log("[appts] fallback (biz-only) returned", filtered3.length, "(raw:", list3.length, ")");
-  if (filtered3.length || (businessId && businessId !== "all")) return filtered3;
+
+  if (weekStart && weekEnd) {
+    filtered3 = filtered3.filter(a => inWeekRange(a, weekStart, weekEnd));
+  }
+
+  console.log(
+    "[appts] fallback (biz-only) returned",
+    filtered3.length,
+    "(raw:",
+    list3.length,
+    ")"
+  );
+
+  if (filtered3.length || (businessId && businessId !== "all")) {
+    return filtered3;
+  }
 
   // 4) Final: generic ALL, then client-side filter
-  const qsAll = new URLSearchParams({ limit, dataType: "Appointment", ts: Date.now().toString() });
-  const res4 = await api(`/api/records?${qsAll.toString()}`, { headers: { Accept: "application/json" } });
+  const qsAll = new URLSearchParams({
+    limit,
+    dataType: "Appointment",
+    ts: Date.now().toString(),
+  });
+
+  const res4 = await api(`/api/records?${qsAll.toString()}`, {
+    headers: { Accept: "application/json" },
+  });
+
   if (!res4.ok) return filtered3;
 
-  const raw4 = await res4.json().catch(() => []);
+  const raw4  = await res4.json().catch(() => []);
   const list4 = asArray(raw4);
-  const filtered4 = weekStart && weekEnd ? list4.filter(a => inWeekRange(a, weekStart, weekEnd)) : list4;
-  console.log("[appts] final all-rows fetch:", list4.length, "→ in-week:", filtered4.length);
+  const filtered4 =
+    weekStart && weekEnd
+      ? list4.filter(a => inWeekRange(a, weekStart, weekEnd))
+      : list4;
+
+  console.log(
+    "[appts] final all-rows fetch:",
+    list4.length,
+    "→ in-week:",
+    filtered4.length
+  );
+
   return filtered4;
 }
 
