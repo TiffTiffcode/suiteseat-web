@@ -482,16 +482,7 @@ const url = isEdit
       form.dataset.bound = "1";
     }
 
-    // + Add Client button(s)
-    const addBtn1 = $("#add-client-btn");
-    const addBtn2 = $("#open-add-client-popup-btn");
-    [addBtn1, addBtn2].forEach(btn => {
-      if (btn && !btn.dataset.bound) {
-        btn.addEventListener("click", openClientPopup);
-        btn.dataset.bound = "1";
-      }
-    });
-
+  
     // Populate left filter + initial list
     populateBusinessDropdown().then(async () => {
       const bf = $("#business-filter");
