@@ -1,6 +1,8 @@
 console.log('[availability v2 loaded');
 const TYPE_UPCOMING = 'Upcoming Hours';
-const API_ORIGIN = window.NEXT_PUBLIC_API_ORIGIN || "http://localhost:8400";
+// Use the same origin the page is served from (works locally + live)
+const API_ORIGIN = window.location.origin;
+
 
 const API = (type) => `${API_ORIGIN}/api/records/${encodeURIComponent(type)}`;
 
