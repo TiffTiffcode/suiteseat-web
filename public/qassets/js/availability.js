@@ -288,6 +288,15 @@ if (loginForm) {
 }
 
 
+
+
+
+
+
+
+
+
+
   //////////////////////////////////////////////////////////////////////////////
                        //Menu Section
 
@@ -309,6 +318,35 @@ async function initBusinessDropdown() {
   console.log('[biz] options after load:', bizSel.options.length);
   // No need to auto-select or anything fancy yet
 }
+  // bind business -> calendar reload
+  if (bizSel && !bizSel.dataset.bound) {
+    bizSel.addEventListener('change', async () => {
+      const bizId = bizSel.value || '';
+
+      // remember selection for next load
+      localStorage.setItem(LS_BIZ, bizId);
+      sessionStorage.setItem('selectedBusinessId', bizId);
+
+      // reset saved calendar when business changes
+      localStorage.removeItem(LS_CAL);
+      sessionStorage.removeItem('selectedAvailabilityCalendarId');
+
+      // reload calendars for this business
+      await loadCalendarOptions(
+        'dropdown-availability-calendar',
+        bizId,
+        { placeholder: '-- Select --' }
+      );
+
+      // optional: clear the calendar grid until they pick a calendar
+      const calSel = document.getElementById('dropdown-availability-calendar');
+      if (calSel && !calSel.value) {
+        // clear or disable stuff if you want
+      }
+    });
+
+    bizSel.dataset.bound = '1';
+  }
 
 // =========================
 // CALENDAR DROPDOWN (replace your whole block)
@@ -368,6 +406,16 @@ async function initCalendarDropdown() {
     calSel.dataset.bound = '1';
   }
 }
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -1150,36 +1198,6 @@ function closeLoginPopup() {
 }
 
 
-// after: const bizSel = document.getElementById('dropdown-category-business');
-
-if (bizSel && !bizSel.dataset.bound) {
-  bizSel.addEventListener('change', async () => {
-    const bizId = bizSel.value || '';
-
-    // remember selection for next load
-    localStorage.setItem(LS_BIZ, bizId);
-    sessionStorage.setItem('selectedBusinessId', bizId);
-
-    // reset saved calendar when business changes
-    localStorage.removeItem(LS_CAL);
-    sessionStorage.removeItem('selectedAvailabilityCalendarId');
-
-    // reload calendars for this business
-    await loadCalendarOptions(
-      'dropdown-availability-calendar',
-      bizId,
-      { placeholder: '-- Select --' }
-    );
-
-    // optional: clear the calendar grid until they pick a calendar
-    const calSel = document.getElementById('dropdown-availability-calendar');
-    if (calSel && !calSel.value) {
-      // you can clear UI here if needed
-    }
-  });
-
-  bizSel.dataset.bound = '1';
-}
 
 
 //////////////////////////////////////////////////////////////
