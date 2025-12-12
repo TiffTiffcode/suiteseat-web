@@ -6,9 +6,9 @@ console.log('[availability v2 loaded');
 // 👇 with this:
 const API_ORIGIN =
   window.location.hostname === 'localhost'
-    ? 'http://localhost:6400'          // ← your local Live server port
-    : 'https://YOUR-LIVE-API-URL-HERE'; // ← same as NEXT_PUBLIC_API_BASE
-                                        // e.g. https://suiteseat-live.onrender.com
+    ? 'http://localhost:6400'
+    : 'https://suiteseat-live.onrender.com'; // ← put YOUR real API here
+
 
 const TYPE_UPCOMING = 'Upcoming Hours';
 const API = (type) => `${API_ORIGIN}/api/records/${encodeURIComponent(type)}`;
