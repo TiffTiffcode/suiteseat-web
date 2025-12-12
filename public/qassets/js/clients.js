@@ -1,8 +1,8 @@
-
 const API_BASE =
   location.hostname === "www.suiteseat.io"
-    ? "https://live.suiteseat.io"  // ⬅️ your deployed Express API host
-    : "https://live-353x.onrender.com";     // ⬅️ local dev
+    ? "http://localhost:8400" // use Render in production too
+    : "https://live-353x.onrender.com"; // or http://localhost:8400 if you prefer for local
+
 
 
 // keep these at top as you already have:
