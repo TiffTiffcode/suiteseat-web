@@ -15,10 +15,23 @@ const ASSET_BASE = process.env.NEXT_PUBLIC_ASSET_BASE ?? "";
 // ---- helpers ---------------------------------------------------------------
 function resolveAsset(raw?: string | null) {
   if (!raw) return null;
-  if (raw.startsWith("http")) return raw;
-  if (raw.startsWith("/")) return raw;
-  return `${ASSET_BASE}/uploads/${raw}`;
+
+  const s = String(raw).trim();
+  if (!s) return null;
+
+  // cloudinary or any full url
+  if (s.startsWith("http://") || s.startsWith("https://")) return s;
+
+  // already absolute
+  if (s.startsWith("/")) return s;
+
+  // already includes uploads prefix
+  if (s.startsWith("uploads/")) return `/${s}`;
+
+  // default: treat as filename
+  return `/uploads/${s}`;
 }
+
 
 // Read duration from a Service (robust to different field shapes)
 function readMinFlexible(s: any): number {
@@ -70,12 +83,12 @@ function refId(v: any): string {
   if (typeof v === "object") return String(v._id || v.id || v.value || v.$id || "");
   return "";
 }
-function categoryMatchesCalendar(cat: any, selectedCalendarId?: string | null) {
+function categoryMatchesCalendar(cat: any, selectedCalendarId?: string | null, calendars?: any[]) {
   if (!selectedCalendarId) return false;
+
   const v = cat?.values || cat || {};
 
-  // Try common keys first
-  const preferred =
+  const raw =
     v.Calendar ??
     v["Calendar"] ??
     v.calendar ??
@@ -86,26 +99,23 @@ function categoryMatchesCalendar(cat: any, selectedCalendarId?: string | null) {
     v["Calendar Ref"] ??
     cat?.calendarId;
 
-  // If found, compare it
-  if (preferred) {
-    const calId = Array.isArray(preferred) ? refId(preferred[0]) : refId(preferred);
-    return String(calId) === String(selectedCalendarId);
-  }
+  // 1) try id match (your current approach)
+  const calId = Array.isArray(raw) ? refId(raw[0]) : refId(raw);
+  if (calId && String(calId) === String(selectedCalendarId)) return true;
 
-  // Otherwise: brute scan ALL values for something that equals selectedCalendarId
-  for (const val of Object.values(v)) {
-    if (!val) continue;
+  // 2) fallback: match by calendar NAME (common if you saved "Calendar 1" as text)
+  const selectedCal = Array.isArray(calendars)
+    ? calendars.find((c: any) => String(c._id) === String(selectedCalendarId))
+    : null;
 
-    if (Array.isArray(val)) {
-      for (const item of val) {
-        const id = refId(item);
-        if (id && String(id) === String(selectedCalendarId)) return true;
-      }
-    } else {
-      const id = refId(val);
-      if (id && String(id) === String(selectedCalendarId)) return true;
-    }
-  }
+  const selectedName = selectedCal?.name ? String(selectedCal.name).trim() : "";
+
+  // extract possible name from raw
+  const rawName =
+    (typeof raw === "string" ? raw : "") ||
+    (typeof raw === "object" ? String(raw?.name || raw?.label || raw?.value || "").trim() : "");
+
+  if (selectedName && rawName && rawName.toLowerCase() === selectedName.toLowerCase()) return true;
 
   return false;
 }
@@ -114,15 +124,16 @@ function categoryMatchesCalendar(cat: any, selectedCalendarId?: string | null) {
 export default function BasicBookingTemplate({ business }: { business?: any }) {
   const flow = useBookingFlow();
 
-    const filteredCategories = useMemo(
-    () =>
-      Array.isArray(flow.categories)
-        ? flow.categories.filter((cat: any) =>
-            categoryMatchesCalendar(cat, flow.selectedCalendarId)
-          )
-        : [],
-    [flow.categories, flow.selectedCalendarId]
-  );
+const filteredCategories = useMemo(
+  () =>
+    Array.isArray(flow.categories)
+      ? flow.categories.filter((cat: any) =>
+          categoryMatchesCalendar(cat, flow.selectedCalendarId, flow.calendars)
+        )
+      : [],
+  [flow.categories, flow.selectedCalendarId, flow.calendars]
+);
+
 
   useEffect(() => {
   console.log("[cats debug] selectedCalendarId:", flow.selectedCalendarId);
