@@ -64,25 +64,33 @@ type BookedDetails = {
   time?: string | null;
   service?: string | null;
 };
-function categoryMatchesCalendar(cat: any, calendarId?: string | null) {
-  if (!calendarId) return false;
+function refId(v: any): string {
+  if (!v) return "";
+  if (typeof v === "string") return v;
+  if (typeof v === "object") return String(v._id || v.id || v.value || v.$id || "");
+  return "";
+}
+function categoryMatchesCalendar(cat: any, selectedCalendarId?: string | null) {
+  if (!selectedCalendarId) return false;
 
   const v = cat?.values || cat || {};
 
-  const ref =
-    v.Calendar ||
-    v.calendar ||
-    v.calendarId ||
-    v.CalendarId ||
-    cat.calendarId;
+  const raw =
+    v.Calendar ??
+    v["Calendar"] ??
+    v.calendar ??
+    v.calendarId ??
+    v["Calendar Id"] ??
+    v["CalendarID"] ??
+    v.CalendarId ??
+    v["Calendar Ref"] ??
+    cat?.calendarId;
 
-  if (!ref) return false;
-  if (typeof ref === "string") return String(ref) === String(calendarId);
-  if (typeof ref === "object") {
-    return String(ref._id || ref.id) === String(calendarId);
-  }
-  return false;
+  const calId = Array.isArray(raw) ? refId(raw[0]) : refId(raw);
+
+  return String(calId) === String(selectedCalendarId);
 }
+
 
 
 export default function BasicBookingTemplate({ business }: { business?: any }) {
