@@ -72,10 +72,10 @@ function refId(v: any): string {
 }
 function categoryMatchesCalendar(cat: any, selectedCalendarId?: string | null) {
   if (!selectedCalendarId) return false;
-
   const v = cat?.values || cat || {};
 
-  const raw =
+  // Try common keys first
+  const preferred =
     v.Calendar ??
     v["Calendar"] ??
     v.calendar ??
@@ -86,11 +86,29 @@ function categoryMatchesCalendar(cat: any, selectedCalendarId?: string | null) {
     v["Calendar Ref"] ??
     cat?.calendarId;
 
-  const calId = Array.isArray(raw) ? refId(raw[0]) : refId(raw);
+  // If found, compare it
+  if (preferred) {
+    const calId = Array.isArray(preferred) ? refId(preferred[0]) : refId(preferred);
+    return String(calId) === String(selectedCalendarId);
+  }
 
-  return String(calId) === String(selectedCalendarId);
+  // Otherwise: brute scan ALL values for something that equals selectedCalendarId
+  for (const val of Object.values(v)) {
+    if (!val) continue;
+
+    if (Array.isArray(val)) {
+      for (const item of val) {
+        const id = refId(item);
+        if (id && String(id) === String(selectedCalendarId)) return true;
+      }
+    } else {
+      const id = refId(val);
+      if (id && String(id) === String(selectedCalendarId)) return true;
+    }
+  }
+
+  return false;
 }
-
 
 
 export default function BasicBookingTemplate({ business }: { business?: any }) {
@@ -105,6 +123,29 @@ export default function BasicBookingTemplate({ business }: { business?: any }) {
         : [],
     [flow.categories, flow.selectedCalendarId]
   );
+
+  useEffect(() => {
+  console.log("[cats debug] selectedCalendarId:", flow.selectedCalendarId);
+  console.log("[cats debug] categories count:", flow.categories?.length);
+  console.log("[cats debug] first category raw:", flow.categories?.[0]);
+
+  if (Array.isArray(flow.categories) && flow.categories.length) {
+    const v = flow.categories[0]?.values || flow.categories[0] || {};
+    console.log("[cats debug] first category keys:", Object.keys(v));
+   console.log("[cats debug] first category Calendar-ish values:", {
+  Calendar_plain: v.Calendar,
+  Calendar_quoted: v["Calendar"],
+  calendar: v.calendar,
+  calendarId: v.calendarId,
+  Calendar_Id: v["Calendar Id"],
+  CalendarId: v.CalendarId,
+  Calendar_Ref: v["Calendar Ref"],
+});
+
+  }
+
+  console.log("[cats debug] filtered count:", filteredCategories.length);
+}, [flow.selectedCalendarId, flow.categories, filteredCategories.length]);
 
   const [showNextModal, setShowNextModal] = useState(false);
   const [bookedDetails, setBookedDetails] = useState<BookedDetails>({});
