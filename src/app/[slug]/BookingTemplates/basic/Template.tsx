@@ -83,39 +83,59 @@ function refId(v: any): string {
   if (typeof v === "object") return String(v._id || v.id || v.value || v.$id || "");
   return "";
 }
-function categoryMatchesCalendar(cat: any, selectedCalendarId?: string | null, calendars?: any[]) {
+
+function categoryMatchesCalendar(
+  cat: any,
+  selectedCalendarId?: string | null,
+  calendars?: any[]
+) {
   if (!selectedCalendarId) return false;
 
-  const v = cat?.values || cat || {};
+  // ✅ Use values only if it actually has data; otherwise use flattened record
+  const v =
+    cat?.values && Object.keys(cat.values).length
+      ? cat.values
+      : cat || {};
 
   const raw =
+    v.calendarId ??
+    v.CalendarId ??
     v.Calendar ??
     v["Calendar"] ??
-    v.calendar ??
-    v.calendarId ??
     v["Calendar Id"] ??
     v["CalendarID"] ??
-    v.CalendarId ??
+    v.calendar ??
     v["Calendar Ref"] ??
     cat?.calendarId;
 
-  // 1) try id match (your current approach)
+  // 1) ID match
   const calId = Array.isArray(raw) ? refId(raw[0]) : refId(raw);
   if (calId && String(calId) === String(selectedCalendarId)) return true;
 
-  // 2) fallback: match by calendar NAME (common if you saved "Calendar 1" as text)
+  // 2) fallback name match
   const selectedCal = Array.isArray(calendars)
     ? calendars.find((c: any) => String(c._id) === String(selectedCalendarId))
     : null;
 
-  const selectedName = selectedCal?.name ? String(selectedCal.name).trim() : "";
+  const selectedName = String(
+    selectedCal?.values?.calendarName ??
+    selectedCal?.values?.name ??
+    selectedCal?.calendarName ??
+    selectedCal?.name ??
+    ""
+  ).trim();
 
-  // extract possible name from raw
-  const rawName =
-    (typeof raw === "string" ? raw : "") ||
-    (typeof raw === "object" ? String(raw?.name || raw?.label || raw?.value || "").trim() : "");
+  const rawName = String(
+    typeof raw === "string"
+      ? raw
+      : raw?.name ?? raw?.label ?? raw?.value ?? ""
+  ).trim();
 
-  if (selectedName && rawName && rawName.toLowerCase() === selectedName.toLowerCase()) return true;
+  if (
+    selectedName &&
+    rawName &&
+    rawName.toLowerCase() === selectedName.toLowerCase()
+  ) return true;
 
   return false;
 }
