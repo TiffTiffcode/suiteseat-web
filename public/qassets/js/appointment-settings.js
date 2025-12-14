@@ -2151,7 +2151,12 @@ window.openCalendarEdit = openCalendarEdit; // expose for any legacy callers
   credentials: "include"
 });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const calendars = (await res.json()).filter(c => c?.values?.businessId === businessId);
+    const calendars = (await res.json()).filter(c => {
+  const v = c?.values || {};
+  const bid = String(firstDefined(v.businessId, asId(v.Business), asId(v["Business"])) || "");
+  return bid === String(businessId);
+});
+
 
     sel.innerHTML = '<option value="">All Calendars</option>';
     calendars.forEach(c => {
@@ -2220,11 +2225,31 @@ async function loadCategoryList() {
     );
 
     // Filter by business and (optionally) calendar
-    const rows = categories.filter(cat => {
-      const belongsToBiz  = cat?.values?.businessId === businessId;
-      const calendarMatch = !filterCalendarId || cat?.values?.calendarId === filterCalendarId;
-      return belongsToBiz && calendarMatch;
-    });
+const rows = categories.filter(cat => {
+  const v = cat?.values || {};
+
+  const bid = String(
+    firstDefined(
+      v.businessId,
+      asId(v.Business),
+      asId(v["Business"])
+    ) || ""
+  );
+
+  const cid = String(
+    firstDefined(
+      v.calendarId,
+      asId(v.Calendar),
+      asId(v["Calendar"])
+    ) || ""
+  );
+
+  const belongsToBiz = bid === String(businessId);
+  const calendarMatch = !filterCalendarId || cid === String(filterCalendarId);
+
+  return belongsToBiz && calendarMatch;
+});
+
 
     nameCol.innerHTML = "";
     calCol.innerHTML  = "";
@@ -2247,7 +2272,10 @@ async function loadCategoryList() {
       nameCol.appendChild(n);
 
       // Calendar name
-      const calName = calNameById.get(cat?.values?.calendarId) || "(Unknown)";
+     const v = cat?.values || {};
+const cid = String(firstDefined(v.calendarId, asId(v.Calendar), asId(v["Calendar"])) || "");
+const calName = calNameById.get(cid) || "(Unknown)";
+
       const c = document.createElement("div");
       c.textContent = calName;
       calCol.appendChild(c);
@@ -2394,7 +2422,7 @@ async function openCategoryEdit(cat) {
       deleteBtn.textContent = "Deleting…";
 
       try {
-        const res = await fetch(`/api/records/${encodeURIComponent(TYPE)}/${editingCategoryId}`, {
+        const res = await fetch(`${API_BASE}/api/records/${encodeURIComponent(TYPE)}/${editingCategoryId}`, {
           method: "DELETE",
           credentials: "include"
         });
@@ -2825,7 +2853,7 @@ const [svcRes, calRes, catRes, myId] = await Promise.all([
 
       try {
         const TYPE = "Service";
-        const res = await fetch(`/api/records/${encodeURIComponent(TYPE)}/${editingServiceId}`, {
+        const res = await fetch(`${API_BASE}/api/records/${encodeURIComponent(TYPE)}/${editingServiceId}`, {
           method: "DELETE",
           credentials: "include"
         });
