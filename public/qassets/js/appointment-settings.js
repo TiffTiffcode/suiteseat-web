@@ -882,9 +882,16 @@ if (saveCategoryBtn && catBizSelect && catCalSelect) {
             // Use your actual field names here:
             categoryName,   // or "name"
             businessId,     // reference to Business record _id
-            calendarId      // reference to Calendar record _id
-          }
-        })
+            calendarId,      // reference to Calendar record _id
+          // ✅ add these alias fields (match your public queries + future-proof)
+    Business: businessId,
+    Calendar: calendarId,
+
+    // ✅ optional: make sure your list display has a stable "name"
+    name: categoryName,
+    Name: categoryName,
+  }
+})
       });
 
       if (!res.ok) {
@@ -2353,7 +2360,7 @@ async function openCategoryEdit(cat) {
       updateBtn.textContent = "Updating…";
 
       try {
-        const res = await fetch(`/api/records/${encodeURIComponent(TYPE)}/${editingCategoryId}`, {
+        const res = await fetch(`${API_BASE}/api/records/${encodeURIComponent(TYPE)}/${editingCategoryId}`, {
           method: "PATCH",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
@@ -2468,8 +2475,7 @@ const res = await fetch(`${API_BASE}/api/records/Calendar?ts=${Date.now()}`, {
   }
 }
 // helpers
-function firstDefined(...xs){ return xs.find(v => v !== undefined && v !== null); }
-// keep this ONE – generic firstDefined
+
 function firstDefined(...vals) {
   for (const v of vals) if (v !== undefined && v !== null && v !== "") return v;
   return undefined;
