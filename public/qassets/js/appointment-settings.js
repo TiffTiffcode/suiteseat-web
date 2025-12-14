@@ -877,21 +877,15 @@ if (saveCategoryBtn && catBizSelect && catCalSelect) {
       method: "POST",
       credentials: "include", // required by ensureAuthenticated
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-          values: {
-            // Use your actual field names here:
-            categoryName,   // or "name"
-            businessId,     // reference to Business record _id
-            calendarId,      // reference to Calendar record _id
-          // ✅ add these alias fields (match your public queries + future-proof)
+  body: JSON.stringify({
+  values: {
     Business: businessId,
     Calendar: calendarId,
-
-    // ✅ optional: make sure your list display has a stable "name"
-    name: categoryName,
-    Name: categoryName,
+    categoryName,
+    name: categoryName
   }
 })
+
       });
 
       if (!res.ok) {
@@ -2121,6 +2115,9 @@ window.openCalendarEdit = openCalendarEdit; // expose for any legacy callers
     deleteBtn.dataset.bound = "1";
   }
 })();
+
+
+
 
 
 /////////////////////////////////////////////
