@@ -6,11 +6,29 @@ import { useBookingFlow } from "../../BookingFlows/basicFlow";
 import AuthModal from "./AuthModal";
 import { fmtDate, fmtTime12h, fmtUSD, getDurationMin } from "../../../lib/format";
 
+
+
 type Calendar = { _id: string; name: string };
 type TemplateProps = { calendars: Calendar[] };
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8400";
 const ASSET_BASE = process.env.NEXT_PUBLIC_ASSET_BASE ?? "";
+
+
+function resolveAssetUrl(raw?: string | null) {
+  if (!raw) return "";
+
+  // already absolute
+  if (/^https?:\/\//i.test(raw)) return raw;
+
+  // relative uploads path -> point it at your API
+  if (raw.startsWith("/uploads/")) return `${API_BASE}${raw}`;
+
+  // other relative path (optional)
+  if (raw.startsWith("/")) return raw;
+
+  return raw;
+}
 
 // ---- helpers ---------------------------------------------------------------
 function resolveAsset(raw?: string | null) {
