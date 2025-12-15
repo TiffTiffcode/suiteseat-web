@@ -877,14 +877,14 @@ if (saveCategoryBtn && catBizSelect && catCalSelect) {
       method: "POST",
       credentials: "include", // required by ensureAuthenticated
       headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({
+body: JSON.stringify({
   values: {
+    Name: categoryName,
     Business: businessId,
     Calendar: calendarId,
-    categoryName,
-    name: categoryName
   }
 })
+
 
       });
 

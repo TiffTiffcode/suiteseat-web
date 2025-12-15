@@ -115,25 +115,9 @@ currentUserId: string | null;
 
 // ── Fetch helpers (module-level) ──────────────────────────────────────────────
 // Does this category belong to the selected calendar?
-function categoryMatchesCalendar(cat: any, calendarId?: string | null) {
-  if (!calendarId) return false; // nothing selected
-
-  const v = cat?.values || cat || {};
-
-  // Try different possible shapes
-  const ref =
-    v.Calendar ||
-    v.calendar ||
-    v.calendarId ||
-    v.CalendarId ||
-    cat.calendarId;
-
-  if (!ref) return false;
-  if (typeof ref === "string") return String(ref) === String(calendarId);
-  if (typeof ref === "object") {
-    return String(ref._id || ref.id) === String(calendarId);
-  }
-  return false;
+function categoryMatchesCalendar(cat: any, selectedCalendarId?: string | null) {
+  if (!selectedCalendarId) return false;
+  return String(cat?.calendarId || "") === String(selectedCalendarId);
 }
 
 async function fetchCalendarsForBusiness(businessId: string) {
@@ -154,44 +138,63 @@ async function fetchCalendarsForBusiness(businessId: string) {
   }
   return [];
 }
+function refId(v: any): string {
+  if (!v) return "";
+  if (typeof v === "string") return v;
+  if (typeof v === "object") return String(v._id || v.id || v.value || v.$id || "");
+  return "";
+}
+
 async function fetchCategoriesForCalendar(businessId: string, calendarId: string) {
-  // Try by Calendar first
-  for (const key of ["Calendar", "calendarId"]) {
-    const url = `${API}/public/records?dataType=Category&${encodeURIComponent(key)}=${encodeURIComponent(calendarId)}&ts=${Date.now()}`;
-    console.log("[cats] try", url);
-    const r = await fetch(url, { cache: "no-store" });
-    if (!r.ok) continue;
+  // ✅ IMPORTANT: your DataType field is named "Calendar" (per your screenshot)
+  const url = `${API}/public/records?dataType=Category&Calendar=${encodeURIComponent(calendarId)}&ts=${Date.now()}`;
+  console.log("[cats] url", url);
+
+  const r = await fetch(url, { cache: "no-store" });
+  if (r.ok) {
     const rows = await r.json();
     if (Array.isArray(rows) && rows.length) {
       return rows.map((doc: any) => {
         const v = doc.values || {};
-        const name = v.Name || v.name || v["Category Name"] || v.categoryName || "Category";
-        const desc = v.Description || v.description || v.Details || v.details || "";
-        return { _id: String(doc._id), name: String(name), desc: String(desc || "") };
+        const name =
+          v.Name || v.name || v["Category Name"] || v.categoryName || "Category";
+        const desc =
+          v.Description || v.description || v.Details || v.details || "";
+
+        return {
+          _id: String(doc._id),
+          name: String(name),
+          desc: String(desc || ""),
+          // ✅ keep ids so filtering works
+          calendarId: refId(v.Calendar || v.calendarId),
+          businessId: refId(v.Business || v.businessId),
+        };
       });
     }
   }
 
-  // Fallback: by Business (if your data didn’t link Calendar)
-  {
-    const url = `${API}/public/records?dataType=Category&Business=${encodeURIComponent(businessId)}&ts=${Date.now()}`;
-    console.log("[cats] fallback", url);
-    const r = await fetch(url, { cache: "no-store" });
-    if (r.ok) {
-      const rows = await r.json();
-      if (Array.isArray(rows) && rows.length) {
-        return rows.map((doc: any) => {
-          const v = doc.values || {};
-          const name = v.Name || v.name || v["Category Name"] || v.categoryName || "Category";
-          const desc = v.Description || v.description || v.Details || v.details || "";
-          return { _id: String(doc._id), name: String(name), desc: String(desc || "") };
-        });
-      }
-    }
-  }
+  // fallback by Business (also use the real field name "Business")
+  const url2 = `${API}/public/records?dataType=Category&Business=${encodeURIComponent(businessId)}&ts=${Date.now()}`;
+  console.log("[cats] fallback", url2);
 
-  return [];
+  const r2 = await fetch(url2, { cache: "no-store" });
+  const rows2 = r2.ok ? await r2.json() : [];
+  return Array.isArray(rows2)
+    ? rows2.map((doc: any) => {
+        const v = doc.values || {};
+        const name = v.Name || v.name || v["Category Name"] || v.categoryName || "Category";
+        const desc = v.Description || v.description || v.Details || v.details || "";
+        return {
+          _id: String(doc._id),
+          name: String(name),
+          desc: String(desc || ""),
+          calendarId: refId(v.Calendar || v.calendarId),
+          businessId: refId(v.Business || v.businessId),
+        };
+      })
+    : [];
 }
+
 
 
 // REPLACE your fetchServicesForCategory with this version

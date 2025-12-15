@@ -143,6 +143,15 @@ function categoryMatchesCalendar(
 
 export default function BasicBookingTemplate({ business }: { business?: any }) {
   const flow = useBookingFlow();
+useEffect(() => {
+  console.log("[cats debug] selectedCalendarId:", flow.selectedCalendarId);
+  console.log("[cats debug] categories count:", flow.categories?.length ?? 0);
+  console.log("[cats debug] sample cat:", flow.categories?.[0]);
+  console.log(
+    "[cats debug] sample cat.values keys:",
+    Object.keys(flow.categories?.[0]?.values || {})
+  );
+}, [flow.selectedCalendarId, flow.categories]);
 
 const filteredCategories = useMemo(() => {
   console.log("[cats debug] selectedCalendarId:", flow.selectedCalendarId);
