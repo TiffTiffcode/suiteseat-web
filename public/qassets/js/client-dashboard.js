@@ -1,4 +1,7 @@
 console.log('[client-dashboard] using /check-login');
+const API_BASE =
+  (window.API_BASE) ||
+  "https://live-353x.onrender.com"; // <-- your real API domain
 
 // ---- detect if user came from link page ----
 const urlParams = new URLSearchParams(window.location.search);
@@ -9,10 +12,6 @@ let hasAnyAppointments = false;
 let hasAnyOrders = false;
 let userSelectedMainTab = null; // "appointments-tab" | "orders-tab" | null
 
-// Use ONE consistent base for the backend:
-const API_BASE =
-  (window.API_ORIGIN && String(window.API_ORIGIN)) ||
-  "http://localhost:8400";
 
 
 // Default avatar served by the backend (or move file to Next /public)
@@ -136,16 +135,21 @@ window.closeLoginPopup = closeLoginPopup;
 
 async function checkLogin() {
   try {
-    const res = await fetch("/check-login", {
+    const res = await fetch(`${API_BASE}/check-login`, {
+      method: "GET",
       credentials: "include",
-      headers: { Accept: "application/json" }
+      headers: { Accept: "application/json" },
+      cache: "no-store",
     });
+
     if (!res.ok) return { loggedIn: false };
     return await res.json();
-  } catch {
+  } catch (e) {
+    console.error("[client-dashboard] checkLogin failed:", e);
     return { loggedIn: false };
   }
 }
+
 
 function renderAuthUI(data) {
   const loggedIn = !!data?.loggedIn;

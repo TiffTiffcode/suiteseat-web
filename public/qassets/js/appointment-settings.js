@@ -297,6 +297,20 @@ async function ensureBusinessExists() {
 });
 
 // ---------- Save Business (with hero image) ----------
+async function uploadImageToCloudinary(file) {
+  const fd = new FormData();
+  fd.append("file", file);
+
+  const res = await fetch(`${API_BASE}/api/upload`, {
+    method: "POST",
+    body: fd,
+    credentials: "include",
+  });
+
+  const data = await res.json();
+  if (!res.ok) throw new Error(data?.error || "Upload failed");
+  return data.url; // must be Cloudinary https://... OR permanent URL
+}
 
 
 // then:
@@ -353,58 +367,99 @@ async function fetchBusinessById(id) {
     const r = await fetch(
       `${API_BASE}/api/records/Business/${encodeURIComponent(id)}`,
       {
-        credentials: 'include',
-        headers: { 'Accept': 'application/json' },
+        credentials: "include",
+        headers: { Accept: "application/json" },
+        cache: "no-store",
       }
     );
 
     if (r.ok) {
       const data = await r.json();
-      // cache it
-      window.businessCache.set(id, data);
+      window.businessCache?.set?.(id, data);
       return data;
     } else {
-      console.warn('[fetchBusinessById] /api/records/Business/:id HTTP', r.status);
+      console.warn("[fetchBusinessById] /api/records/Business/:id HTTP", r.status);
     }
   } catch (err) {
-    console.error('[fetchBusinessById] error on /api/records/Business/:id', err);
+    console.error("[fetchBusinessById] error on /api/records/Business/:id", err);
   }
 
   // ✅ 3) Fallback: GET {API_BASE}/get-records/Business and search in list
   try {
     const r = await fetch(`${API_BASE}/get-records/Business`, {
-      credentials: 'include',
-      headers: { 'Accept': 'application/json' },
+      credentials: "include",
+      headers: { Accept: "application/json" },
+      cache: "no-store",
     });
 
     if (r.ok) {
       const arr = await r.json();
-      const found = Array.isArray(arr)
-        ? arr.find((x) => x._id === id)
-        : null;
+      const found = Array.isArray(arr) ? arr.find((x) => x._id === id) : null;
 
-      if (found) {
-        window.businessCache.set(id, found);
-      }
-
+      if (found) window.businessCache?.set?.(id, found);
       return found || null;
     } else {
-      console.warn('[fetchBusinessById] /get-records/Business HTTP', r.status);
+      console.warn("[fetchBusinessById] /get-records/Business HTTP", r.status);
     }
   } catch (err) {
-    console.error('[fetchBusinessById] error on /get-records/Business', err);
+    console.error("[fetchBusinessById] error on /get-records/Business", err);
   }
 
   return null;
 }
 
+// ✅ Upload helper (expects server returns { url: "https://..." } permanent)
+async function uploadImageToCloudinary(file) {
+  const fd = new FormData();
+  fd.append("file", file);
+
+  const res = await fetch(`${API_BASE}/api/upload`, {
+    method: "POST",
+    body: fd,
+    credentials: "include",
+  });
+
+  let data = null;
+  try {
+    data = await res.json();
+  } catch {}
+
+  if (!res.ok) {
+    const msg = data?.error || `Upload failed (HTTP ${res.status})`;
+    throw new Error(msg);
+  }
+
+  if (!data?.url) throw new Error("Upload succeeded but no url returned.");
+  return data.url; // must be permanent https://...
+}
+
+// ✅ small helper: read current preview src
+function getCurrentHeroSrc() {
+  const img = document.getElementById("current-hero-image");
+  const src = img?.getAttribute("src") || "";
+  // ignore empty/placeholder
+  return src && !src.includes("undefined") ? src : "";
+}
+
+// ✅ preview helper (keeps your UI correct)
+function setHeroPreview(src) {
+  const img = document.getElementById("current-hero-image");
+  const none = document.getElementById("no-image-text");
+  if (img) {
+    img.src = src || "";
+    img.style.display = src ? "block" : "none";
+  }
+  if (none) {
+    none.style.display = src ? "none" : "block";
+  }
+}
 
 (() => {
-  const form      = document.getElementById("popup-add-business-form");
+  const form = document.getElementById("popup-add-business-form");
   const submitBtn = document.getElementById("save-button");
   const fileInput = document.getElementById("image-upload");
-  const imgPrev   = document.getElementById("current-hero-image");
-  const noImgTxt  = document.getElementById("no-image-text");
+  const imgPrev = document.getElementById("current-hero-image");
+  const noImgTxt = document.getElementById("no-image-text");
 
   if (!form) return;
 
@@ -417,82 +472,98 @@ async function fetchBusinessById(id) {
         imgPrev.style.display = "block";
         if (noImgTxt) noImgTxt.style.display = "none";
       } else {
-        if (imgPrev) { imgPrev.src = ""; imgPrev.style.display = "none"; }
+        if (imgPrev) {
+          imgPrev.src = "";
+          imgPrev.style.display = "none";
+        }
         if (noImgTxt) noImgTxt.style.display = "block";
       }
     });
   }
 
+  // =========================
+  // ✅ CREATE BUSINESS
+  // =========================
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
 
     const TYPE_NAME = "Business";
-    const prevText  = submitBtn ? submitBtn.textContent : "";
+    const prevText = submitBtn ? submitBtn.textContent : "";
 
     try {
-      if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = "Saving..."; }
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Saving...";
+      }
 
       // Collect values from the form
       const values = {
-        businessName:    document.getElementById("popup-business-name-input").value.trim(),
-        yourName:        document.getElementById("popup-your-name-input").value.trim(),
-        phoneNumber:     document.getElementById("popup-business-phone-number-input").value.trim(),
-        locationName:    document.getElementById("popup-business-location-name-input").value.trim(),
-        businessAddress: document.getElementById("popup-business-address-input").value.trim(),
-        businessEmail:   document.getElementById("popup-business-email-input").value.trim()
-        // We'll attach heroImageUrl / heroImage below if a file is chosen
+        businessName: document
+          .getElementById("popup-business-name-input")
+          .value.trim(),
+        yourName: document.getElementById("popup-your-name-input").value.trim(),
+        phoneNumber: document
+          .getElementById("popup-business-phone-number-input")
+          .value.trim(),
+        locationName: document
+          .getElementById("popup-business-location-name-input")
+          .value.trim(),
+        businessAddress: document
+          .getElementById("popup-business-address-input")
+          .value.trim(),
+        businessEmail: document
+          .getElementById("popup-business-email-input")
+          .value.trim(),
       };
 
-      // 1) If a hero file was picked, upload it first to /api/upload
-// 1) If a hero file was picked, upload it first to /api/upload
-if (fileInput?.files?.length) {
-  const fd = new FormData();
-  fd.append("file", fileInput.files[0]); // server expects field name "file"
+      // ✅ HERO IMAGE (CREATE)
+      // keep current preview if user didn’t pick a new file
+      let heroUrl = getCurrentHeroSrc();
 
-  const up = await fetch(`${API_BASE}/api/upload`, {
-    method: "POST",
-    credentials: "include",  // required by ensureAuthenticated
-    body: fd                  // do NOT set Content-Type manually
-  });
+      // if user picked a file, upload and replace
+      if (fileInput?.files?.[0]) {
+        heroUrl = await uploadImageToCloudinary(fileInput.files[0]);
+      }
 
-  if (!up.ok) {
-    let msg = `HTTP ${up.status}`;
-    try { const err = await up.json(); if (err?.error) msg += ` - ${err.error}`; } catch {}
-    throw new Error("Image upload failed: " + msg);
-  }
+      // save the hero url if we have it
+      if (heroUrl) {
+        values.heroImageUrl = heroUrl;
+        values.heroImage = heroUrl;
+      }
 
-  const { url: uploadedUrl } = await up.json();
-  values.heroImageUrl = toUrl(uploadedUrl);
-  values.heroImage    = toUrl(uploadedUrl);
-}
+      // ✅ Slug fields
+      const baseName =
+        values.slug ||
+        values.businessSlug ||
+        values.bookingSlug ||
+        values.businessName ||
+        values.name ||
+        "";
 
-const baseName =
-  values.slug ||
-  values.businessSlug ||
-  values.bookingSlug ||
-  values.businessName ||
-  values.name ||
-  "";
+      if (baseName) {
+        const slug = toSlug(baseName);
+        values.slug = slug;
+        values.businessSlug = slug;
+        values.bookingSlug = slug;
+      }
 
-if (baseName) {
-  const slug = toSlug(baseName);
-  values.slug         = slug;
-  values.businessSlug = slug;
-  values.bookingSlug  = slug;
-}
-
-// 2) Create the Business
-const res = await fetch(`${API_BASE}/api/records/${encodeURIComponent(TYPE_NAME)}`, {
-  method: "POST",
-  credentials: "include",
-  headers: { "Content-Type": "application/json", "Accept": "application/json" },
-  body: JSON.stringify({ values })
-});
-
+      // ✅ Create the Business record
+      const res = await fetch(
+        `${API_BASE}/api/records/${encodeURIComponent(TYPE_NAME)}`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json", Accept: "application/json" },
+          body: JSON.stringify({ values }),
+        }
+      );
 
       if (!res.ok) {
         let msg = `HTTP ${res.status}`;
-        try { const err = await res.json(); if (err?.error) msg += ` - ${err.error}`; } catch {}
+        try {
+          const err = await res.json();
+          if (err?.error) msg += ` - ${err.error}`;
+        } catch {}
         throw new Error(msg);
       }
 
@@ -500,110 +571,108 @@ const res = await fetch(`${API_BASE}/api/records/${encodeURIComponent(TYPE_NAME)
       console.log("[Business] Created:", created);
       alert("Business saved!");
 
-      // 3) Reset UI
+      // Reset UI
       form.reset();
-      if (imgPrev) { imgPrev.src = ""; imgPrev.style.display = "none"; }
-      if (noImgTxt) noImgTxt.style.display = "block";
+      setHeroPreview("");
 
-      // 4) Refresh lists / dropdowns you already have
+      // Refresh lists / dropdowns
       if (typeof loadBusinessDropdown === "function") {
         await loadBusinessDropdown({ preserve: false, selectId: created._id });
       }
       if (typeof loadBusinessList === "function") {
         await loadBusinessList();
       }
-            REQUIRE_FIRST_BUSINESS = false; // ✅ now they can use the page normally
 
+      REQUIRE_FIRST_BUSINESS = false;
       if (typeof closeAllPopups === "function") closeAllPopups();
-
     } catch (err) {
-      console.error("[Business] Save error:", err);
+      console.error("[Business] Create error:", err);
       if (String(err).includes("401")) {
         alert("Please log in before uploading an image.");
       } else {
         alert("Error saving business: " + (err?.message || err));
       }
     } finally {
-      if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = prevText; }
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = prevText;
+      }
     }
   });
-})();// Update Business
+})();
+
+// =========================
+// ✅ UPDATE / DELETE BUTTONS
+// =========================
 const updateBtn = document.getElementById("update-button");
 const deleteBtn = document.getElementById("delete-button");
 
 if (updateBtn && !updateBtn.dataset.bound) {
   updateBtn.addEventListener("click", async () => {
     if (!editingBusinessId) return alert("No business selected.");
+
     const TYPE = "Business";
 
     const values = {
-      businessName:    document.getElementById("popup-business-name-input").value.trim(),
-      yourName:        document.getElementById("popup-your-name-input").value.trim(),
-      phoneNumber:     document.getElementById("popup-business-phone-number-input").value.trim(),
-      locationName:    document.getElementById("popup-business-location-name-input").value.trim(),
-      businessAddress: document.getElementById("popup-business-address-input").value.trim(),
-      businessEmail:   document.getElementById("popup-business-email-input").value.trim()
-      // heroImageUrl / heroImage will be set below if a new file is chosen
+      businessName: document
+        .getElementById("popup-business-name-input")
+        .value.trim(),
+      yourName: document.getElementById("popup-your-name-input").value.trim(),
+      phoneNumber: document
+        .getElementById("popup-business-phone-number-input")
+        .value.trim(),
+      locationName: document
+        .getElementById("popup-business-location-name-input")
+        .value.trim(),
+      businessAddress: document
+        .getElementById("popup-business-address-input")
+        .value.trim(),
+      businessEmail: document
+        .getElementById("popup-business-email-input")
+        .value.trim(),
     };
 
-    // If a new image is chosen, upload and include it in the PATCH
+    // ✅ HERO IMAGE (UPDATE)
+    // keep existing preview hero unless a new file chosen
+    let heroUrl = getCurrentHeroSrc();
+
     const fileInput = document.getElementById("image-upload");
     const file = fileInput?.files?.[0];
 
     if (file) {
-      const fd = new FormData();
-      fd.append("file", file);
+      heroUrl = await uploadImageToCloudinary(file);
+    }
 
-      try {
-        const up = await fetch(`${API_BASE}/api/upload`, {
-          method: "POST",
-          credentials: "include",
-          body: fd,
-        });
+    if (heroUrl) {
+      values.heroImageUrl = heroUrl;
+      values.heroImage = heroUrl;
+    }
 
-        if (!up.ok) {
-          let msg = `HTTP ${up.status}`;
-          try {
-            const err = await up.json();
-            if (err?.error) msg += ` - ${err.error}`;
-          } catch {}
-          alert("Image upload failed: " + msg);
-          return;
-        }
+    // ✅ ensure slug exists when updating
+    const baseName =
+      values.slug ||
+      values.businessSlug ||
+      values.bookingSlug ||
+      values.businessName ||
+      values.name ||
+      "";
 
-        const { url } = await up.json(); // "/uploads/..."
-        values.heroImageUrl = toUrl(url);
-        values.heroImage    = values.heroImageUrl;
-      } catch (err) {
-        console.error("[update business] upload error", err);
-        alert("Image upload failed. See console for details.");
-        return;
-      }
+    if (baseName) {
+      const slug = toSlug(baseName);
+      values.slug = slug;
+      values.businessSlug = slug;
+      values.bookingSlug = slug;
     }
 
     updateBtn.disabled = true;
     const prev = updateBtn.textContent;
     updateBtn.textContent = "Updating…";
 
-    // 🔹 ensure slug exists when updating
-const baseName =
-  values.slug ||
-  values.businessSlug ||
-  values.bookingSlug ||
-  values.businessName ||
-  values.name ||
-  "";
-
-if (baseName) {
-  const slug = toSlug(baseName);
-  values.slug        = slug;
-  values.businessSlug = slug;
-  values.bookingSlug  = slug;
-}
-
     try {
       const res = await fetch(
-        `${API_BASE}/api/records/${encodeURIComponent(TYPE)}/${encodeURIComponent(editingBusinessId)}`,
+        `${API_BASE}/api/records/${encodeURIComponent(TYPE)}/${encodeURIComponent(
+          editingBusinessId
+        )}`,
         {
           method: "PATCH",
           credentials: "include",
@@ -615,27 +684,32 @@ if (baseName) {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const updated = await res.json();
 
-      // Update cache + UI preview
-      if (window.businessCache) {
-        window.businessCache.set(editingBusinessId, updated);
-      }
-      const heroRaw = updated?.values?.heroImageUrl ?? updated?.values?.heroImage ?? "";
-      setHeroPreview(heroRaw ? toUrl(heroRaw) : "");
+      // cache + preview
+      window.businessCache?.set?.(editingBusinessId, updated);
+
+      const heroRaw =
+        updated?.values?.heroImageUrl ||
+        updated?.values?.heroImage ||
+        values.heroImageUrl ||
+        "";
+      setHeroPreview(heroRaw);
 
       alert("Business updated!");
-      closeAllPopups();
-      await loadBusinessDropdown({ preserve: true, selectId: editingBusinessId });
-      await loadBusinessList();
+      closeAllPopups?.();
+      await loadBusinessDropdown?.({ preserve: true, selectId: editingBusinessId });
+      await loadBusinessList?.();
     } catch (e) {
       console.error(e);
-      alert("Error updating business: " + e.message);
+      alert("Error updating business: " + (e?.message || e));
     } finally {
       updateBtn.disabled = false;
       updateBtn.textContent = prev;
     }
   });
+
   updateBtn.dataset.bound = "1";
 }
+
 
 // Delete business
 if (deleteBtn && !deleteBtn.dataset.bound) {
@@ -1620,7 +1694,6 @@ function openBusinessEdit(biz) {
   if (overlay) overlay.style.display = "block";
   document.body.classList.add("popup-open");
 }
-
 
 
 
