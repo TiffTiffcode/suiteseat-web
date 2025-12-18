@@ -328,8 +328,11 @@ return (
       </header>
     )}
 
-    <section className="bk-grid">
-        <div className="bk-flow">
+   {/* Bottom booking area – centered */}
+    <section className="booking-bottom">
+      <div className="booking-bottom-inner">
+        <div className="bk-grid">
+          <div className="bk-flow">
           {/* Calendars */}
           {!flow.selectedCalendarId && (
             <section className="bk-card" id="calendars-section">
@@ -724,10 +727,11 @@ return (
         </>
       )}
     </div>
-  </section>
-)}
-
       </section>
+          )}
+        </div>
+      </div>
+    </section>
 
       {/* Confirm modal */}
       {flow.isConfirmOpen && !flow.isAuthOpen && (

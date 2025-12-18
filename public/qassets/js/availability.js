@@ -351,16 +351,31 @@ const bizSel = document.getElementById('dropdown-category-business');
 async function initBusinessDropdown() {
   console.log('[biz] initBusinessDropdown called');
 
-  await loadBusinessOptions('dropdown-category-business', { placeholder: '-- Select --' });
+  // 🔹 read last-used business from storage
+  const savedBizId =
+    localStorage.getItem(LS_BIZ) ||
+    sessionStorage.getItem('selectedBusinessId') ||
+    '';
+
+  // 🔹 pass it into loadBusinessOptions
+  await loadBusinessOptions('dropdown-category-business', {
+    placeholder: '-- Select --',
+    defaultId: savedBizId,
+  });
 
   if (!bizSel) {
     console.warn('[biz] dropdown-category-business not found in DOM');
     return;
   }
 
-  console.log('[biz] options after load:', bizSel.options.length);
-  // No need to auto-select or anything fancy yet
+  // safety: if default didn’t get applied inside loadBusinessOptions
+  if (savedBizId && bizSel.querySelector(`option[value="${savedBizId}"]`)) {
+    bizSel.value = savedBizId;
+  }
+
+  console.log('[biz] options after load:', bizSel.options.length, 'selected=', bizSel.value);
 }
+
   // bind business -> calendar reload
   if (bizSel && !bizSel.dataset.bound) {
     bizSel.addEventListener('change', async () => {
@@ -1156,6 +1171,10 @@ async function loadBusinessOptions(selectId, {
     console.error('loadBusinessOptions error:', e);
     sel.innerHTML = `<option value="">${placeholder}</option>`;
   } finally {
+    // ⬇️ NEW: preselect saved or default business if we have one
+    if (defaultId && sel.querySelector(`option[value="${defaultId}"]`)) {
+      sel.value = defaultId;
+    }
     sel.disabled = false;
   }
 }
