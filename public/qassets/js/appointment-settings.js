@@ -1,6 +1,10 @@
 console.log('[accept-appoinments] web loaded');
 
-const API_BASE = window.API_BASE || "";
+const API_BASE =
+  window.location.hostname === "suiteseat.io"
+    ? "https://suiteseat-app1.onrender.com"
+    : "http://localhost:8400";
+
 
 
 //add slug
