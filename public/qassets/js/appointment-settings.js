@@ -2052,7 +2052,7 @@ async function loadCategoryOptions(selectId, businessId, calendarId) {
   const sel = document.getElementById(selectId);
   if (!sel) return;
 
-  // Base state
+  // reset base state
   sel.innerHTML = '<option value="">-- Select --</option>';
   sel.disabled = true;
 
@@ -2067,12 +2067,12 @@ async function loadCategoryOptions(selectId, businessId, calendarId) {
 
     const raw = await res.json();
 
-    // Filter by business + optional calendar
     const categories = raw
       .filter(c => !c.deletedAt)
       .filter(c => {
         const v = c.values || {};
 
+        // match business
         const bid = String(
           firstDefined(
             v.businessId,
@@ -2082,6 +2082,7 @@ async function loadCategoryOptions(selectId, businessId, calendarId) {
         );
         if (bid !== String(businessId)) return false;
 
+        // optional calendar filter
         if (!calendarId) return true;
 
         const cid = String(
@@ -2094,11 +2095,13 @@ async function loadCategoryOptions(selectId, businessId, calendarId) {
         return cid === String(calendarId);
       });
 
-    // Add options using categoryName (fallback to name)
     categories.forEach(cat => {
       const v = cat.values || {};
+
+      // 🔹 IMPORTANT: include v.Name (capital N)
       const label = firstDefined(
-        v.categoryName,   // ✅ this is how you save it
+        v.categoryName,
+        v.Name,
         v.name,
         "(Untitled)"
       );
@@ -2114,7 +2117,6 @@ async function loadCategoryOptions(selectId, businessId, calendarId) {
     console.error("loadCategoryOptions:", e);
   }
 }
-
 
 
 //Update Calendar 
@@ -2618,6 +2620,12 @@ async function openCategoryEdit(cat) {
     deleteBtn.dataset.bound = "1";
   }
 })();
+
+
+
+
+
+
 
                   //////////////////////////////////////
                               //End Service Section 
