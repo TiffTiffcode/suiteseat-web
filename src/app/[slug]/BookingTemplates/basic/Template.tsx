@@ -304,6 +304,14 @@ const filteredCategories = useMemo(() => {
     });
   }
 
+ const showAvailability =
+    !!flow.selectedServiceId && !flow.isConfirmOpen && !showNextModal;
+
+
+
+
+
+  
 return (
   <main id="booking-root" className="bk-container">
     {heroSrc ? (
@@ -445,41 +453,97 @@ return (
               ) : flow.services?.length ? (
                 <fieldset disabled={flow.isReschedule}>
                   <div className="bk-list" style={{ display: "flex", gap: 12, overflowX: "auto" }}>
-                    {flow.services.map((srv: any) => {
-                      const id = String(srv._id);
-                      const picked = flow.isPicked(id);
+                  {flow.services.map((srv: any) => {
+  const id = String(srv._id);
+  const picked = flow.isPicked(id);
 
-                      return (
-                        <button
-                          key={id}
-                          type="button"
-                          className={"card card--select" + (picked ? " is-picked" : "")}
-                          style={{ minWidth: 220, textAlign: "left" }}
-                          onClick={() => {
-                            if (multiMode) {
-                              picked ? flow.removePick(id) : flow.addPick(id);
-                            } else {
-                              flow.handleServiceSelect(id);
-                            }
-                          }}
-                        >
-                          <div className="card__title">
-                            {srv.name || srv.values?.Name || "Service"} {picked ? "✓" : ""}
-                          </div>
-                          {srv.desc && <div className="card__sub">{srv.desc}</div>}
-                          {(srv.price != null && srv.price !== "") && (
-                            <div className="card__sub" style={{ color: "var(--muted)" }}>
-                              ${Number(srv.price).toFixed(2)}
-                            </div>
-                          )}
-                          {srv.durationMin ? (
-                            <div className="card__sub" style={{ color: "var(--muted)" }}>
-                              {srv.durationMin} min
-                            </div>
-                          ) : null}
-                        </button>
-                      );
-                    })}
+  // Title / desc
+  const title =
+    srv.values?.serviceName ??
+    srv.values?.Name ??
+    srv.name ??
+    "Service";
+
+  const desc =
+    srv.values?.description ??
+    srv.desc ??
+    "";
+
+  // Price
+  const rawPrice =
+    srv.values?.price ??
+    srv.values?.Price ??
+    srv.price;
+
+  // Duration
+  const rawDuration =
+    srv.values?.durationMinutes ??
+    srv.durationMin;
+
+  // 🔹 Image (from your admin “imageUrl” field)
+  const rawImage =
+    srv.values?.imageUrl ??
+    srv.imageUrl ??
+    srv.values?.ImageUrl ??
+    srv.values?.image ??
+    (Array.isArray(srv.values?.images) ? srv.values.images[0] : null);
+
+  const imgSrc = resolveAsset(rawImage ?? null);
+
+  return (
+    <button
+      key={id}
+      type="button"
+      className={"card card--select" + (picked ? " is-picked" : "")}
+      style={{ minWidth: 220, textAlign: "left" }}
+      onClick={() => {
+        if (multiMode) {
+          picked ? flow.removePick(id) : flow.addPick(id);
+        } else {
+          flow.handleServiceSelect(id);
+        }
+      }}
+    >
+      <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+        {imgSrc && (
+          <img
+            src={imgSrc}
+            alt={title}
+            style={{
+              width: 64,
+              height: 64,
+              borderRadius: 8,
+              objectFit: "cover",
+              flexShrink: 0,
+            }}
+          />
+        )}
+
+        <div>
+          <div className="card__title">
+            {title} {picked ? "✓" : ""}
+          </div>
+
+          {desc && <div className="card__sub">{desc}</div>}
+
+          {rawPrice != null && rawPrice !== "" && (
+            <div className="card__sub" style={{ color: "var(--muted)" }}>
+              {fmtUSD(Number(rawPrice))}
+            </div>
+          )}
+
+          {rawDuration ? (
+            <div className="card__sub" style={{ color: "var(--muted)" }}>
+              {rawDuration} min
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </button>
+  );
+})}
+
+
                   </div>
                 </fieldset>
               ) : (
@@ -530,103 +594,139 @@ return (
           )}
         </div>
 
-        {/* Availability */}
-        {flow.selectedServiceId && !flow.isConfirmOpen && !showNextModal && (
-          <section className="bk-card" id="availability-section">
-            <h3 className="bk-h3">Availability</h3>
+     {/* Availability */}
+{showAvailability && (
+  <section
+    className="bk-card"
+    id="availability-section"
+    style={{ margin: "0 auto" }}   // 🔹 helps keep it centered
+  >
+    <h3 className="bk-h3">Availability</h3>
+    <button
+      type="button"
+      className="bk-btn"
+      onClick={() => {
+        flow.goBackToServices();
+        document
+          .getElementById("services-section")
+          ?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }}
+    >
+      ← Back to services
+    </button>
+
+    <div className="bk-calendar">
+      <div className="bk-cal-header">
+        <button
+          type="button"
+          className="bk-btn"
+          onClick={() => flow.shiftMonth(-1)}
+        >
+          ‹
+        </button>
+        <div className="bk-month">{flow.monthLabel}</div>
+        <button
+          type="button"
+          className="bk-btn"
+          onClick={() => flow.shiftMonth(1)}
+        >
+          ›
+        </button>
+      </div>
+
+      {flow.loadingMonth ? (
+        <div className="bk-placeholder">Loading month…</div>
+      ) : (
+        <div className="bk-cal-grid">
+          {flow.monthDays.map((d: any) => (
             <button
+              key={d.dateISO}
               type="button"
-              className="bk-btn"
-              onClick={() => {
-                flow.goBackToServices();
-                document.getElementById("services-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
-              }}
+              className={[
+                "bk-cal-day",
+                d.isToday ? "is-today" : "",
+                d.isAvailable ? "is-available" : "",
+                flow.selectedDateISO === d.dateISO ? "is-selected" : "",
+              ]
+                .join(" ")
+                .trim()}
+              disabled={!d.isAvailable}
+              onClick={() => flow.selectDate(d.dateISO)}
             >
-              ← Back to services
+              {d.dateISO.slice(-2)}
             </button>
+          ))}
+        </div>
+      )}
+    </div>
 
-            <div className="bk-calendar">
-              <div className="bk-cal-header">
-                <button type="button" className="bk-btn" onClick={() => flow.shiftMonth(-1)}>
-                  ‹
+    <div className="bk-slots">
+      {flow.loadingSlots ? (
+        <div className="bk-placeholder">Loading times…</div>
+      ) : (
+        <>
+          <div className="bk-slot-group">
+            <h4>Morning</h4>
+            <div className="bk-slot-list">
+              {flow.slots.morning.map((t: string) => (
+                <button
+                  key={t}
+                  type="button"
+                  className="bk-time"
+                  onClick={() => flow.openConfirm(t)}
+                >
+                  {t}
                 </button>
-                <div className="bk-month">{flow.monthLabel}</div>
-                <button type="button" className="bk-btn" onClick={() => flow.shiftMonth(1)}>
-                  ›
-                </button>
-              </div>
-
-              {flow.loadingMonth ? (
-                <div className="bk-placeholder">Loading month…</div>
-              ) : (
-                <div className="bk-cal-grid">
-                  {flow.monthDays.map((d: any) => (
-                    <button
-                      key={d.dateISO}
-                      type="button"
-                      className={[
-                        "bk-cal-day",
-                        d.isToday ? "is-today" : "",
-                        d.isAvailable ? "is-available" : "",
-                        flow.selectedDateISO === d.dateISO ? "is-selected" : "",
-                      ]
-                        .join(" ")
-                        .trim()}
-                      disabled={!d.isAvailable}
-                      onClick={() => flow.selectDate(d.dateISO)}
-                    >
-                      {d.dateISO.slice(-2)}
-                    </button>
-                  ))}
-                </div>
+              ))}
+              {!flow.slots.morning.length && (
+                <div className="bk-sub">—</div>
               )}
             </div>
+          </div>
 
-            <div className="bk-slots">
-              {flow.loadingSlots ? (
-                <div className="bk-placeholder">Loading times…</div>
-              ) : (
-                <>
-                  <div className="bk-slot-group">
-                    <h4>Morning</h4>
-                    <div className="bk-slot-list">
-                      {flow.slots.morning.map((t: string) => (
-                        <button key={t} type="button" className="bk-time" onClick={() => flow.openConfirm(t)}>
-                          {t}
-                        </button>
-                      ))}
-                      {!flow.slots.morning.length && <div className="bk-sub">—</div>}
-                    </div>
-                  </div>
-
-                  <div className="bk-slot-group">
-                    <h4>Afternoon</h4>
-                    <div className="bk-slot-list">
-                      {flow.slots.afternoon.map((t: string) => (
-                        <button key={t} type="button" className="bk-time" onClick={() => flow.openConfirm(t)}>
-                          {t}
-                        </button>
-                      ))}
-                      {!flow.slots.afternoon.length && <div className="bk-sub">—</div>}
-                    </div>
-                  </div>
-
-                  <div className="bk-slot-group">
-                    <h4>Evening</h4>
-                    <div className="bk-slot-list">
-                      {flow.slots.evening.map((t: string) => (
-                        <button key={t} type="button" className="bk-time" onClick={() => flow.openConfirm(t)}>
-                          {t}
-                        </button>
-                      ))}
-                      {!flow.slots.evening.length && <div className="bk-sub">—</div>}
-                    </div>
-                  </div>
-                </>
+          <div className="bk-slot-group">
+            <h4>Afternoon</h4>
+            <div className="bk-slot-list">
+              {flow.slots.afternoon.map((t: string) => (
+                <button
+                  key={t}
+                  type="button"
+                  className="bk-time"
+                  onClick={() => flow.openConfirm(t)}
+                >
+                  {t}
+                </button>
+              ))}
+              {!flow.slots.afternoon.length && (
+                <div className="bk-sub">—</div>
               )}
             </div>
-          </section>
-        )}
+          </div>
+
+          <div className="bk-slot-group">
+            <h4>Evening</h4>
+            <div className="bk-slot-list">
+              {flow.slots.evening.map((t: string) => (
+                <button
+                  key={t}
+                  type="button"
+                  className="bk-time"
+                  onClick={() => flow.openConfirm(t)}
+                >
+                  {t}
+                </button>
+              ))}
+              {!flow.slots.evening.length && (
+                <div className="bk-sub">—</div>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  </section>
+)}
+
       </section>
 
       {/* Confirm modal */}

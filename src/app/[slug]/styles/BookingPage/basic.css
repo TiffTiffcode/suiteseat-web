@@ -965,3 +965,22 @@ body.modal-open{ overflow: hidden; }   /* lock page scroll while open */
 .bk-modal { background:#fff; border-radius:16px; padding:20px; width:min(520px,92vw); box-shadow:0 10px 30px rgba(0,0,0,.2); }
 .bk-confirm-details { margin: 12px 0; }
 .bk-modal-actions { display:flex; justify-content:flex-end; gap: 8px; }
+
+/* existing */
+.bk-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1.4fr);
+  gap: 32px;
+}
+
+/* NEW: when only availability is shown, use one centered column */
+.bk-grid.bk-grid--single {
+  grid-template-columns: minmax(0, 1fr);
+  justify-content: center;
+}
+
+/* Center the availability card nicely */
+.bk-grid.bk-grid--single #availability-section {
+  max-width: 480px; /* tweak if you want it wider */
+  margin: 0 auto;
+}
