@@ -1214,9 +1214,17 @@ if (serviceForm && !serviceForm.dataset.bound) {
       serviceForm.reset();
 
       // Refresh UI
-      await loadServiceFilterDropdown();
-      await loadServiceList();
-      closeAddServicePopup();
+    // Refresh UI
+await loadServiceFilterDropdown();
+await loadServiceList();
+
+// 🔹 NEW: refresh Business table so "# of Services" updates
+if (typeof loadBusinessList === "function") {
+  await loadBusinessList();
+}
+
+closeAddServicePopup();
+
 
     } catch (e) {
       console.error(e);
@@ -2353,36 +2361,52 @@ const rows = categories.filter(cat => {
     }
 
     rows.forEach(cat => {
-      window.categoryCache?.set(cat._id, cat);
+  const v = cat?.values || {};
 
-      // Name (clickable → edit)
-      const n = document.createElement("div");
-      n.className = "cat-row";
-      n.dataset.id = cat._id;
-      n.style.cursor = "pointer";
-      n.textContent = cat?.values?.categoryName ?? cat?.values?.name ?? "(Untitled)";
-      nameCol.appendChild(n);
+  // cache full record
+  window.categoryCache?.set(cat._id, cat);
 
-      // Calendar name
-     const v = cat?.values || {};
-const cid = String(firstDefined(v.calendarId, asId(v.Calendar), asId(v["Calendar"])) || "");
-const calName = calNameById.get(cid) || "(Unknown)";
+  // Name (clickable → edit)
+  const n = document.createElement("div");
+  n.className = "cat-row";
+  n.dataset.id = cat._id;
+  n.style.cursor = "pointer";
 
-      const c = document.createElement("div");
-      c.textContent = calName;
-      calCol.appendChild(c);
-    });
+  // 👇 now includes "Name" as a fallback
+  n.textContent =
+    v.categoryName ??
+    v.Name ??           // <--- added
+    v.name ??
+    "(Untitled)";
 
-    // Delegate clicks once → open edit mode
-    if (!nameCol.dataset.bound) {
-      nameCol.addEventListener("click", (e) => {
-        const el = e.target.closest(".cat-row");
-        if (!el) return;
-        const cat = window.categoryCache?.get(el.dataset.id);
-        if (cat) openCategoryEdit(cat);
-      });
-      nameCol.dataset.bound = "1";
-    }
+  nameCol.appendChild(n);
+
+  // Calendar name
+  const cid = String(
+    firstDefined(
+      v.calendarId,
+      asId(v.Calendar),
+      asId(v["Calendar"])
+    ) || ""
+  );
+  const calName = calNameById.get(cid) || "(Unknown)";
+
+  const c = document.createElement("div");
+  c.textContent = calName;
+  calCol.appendChild(c);
+});
+
+// Delegate clicks once → open edit mode
+if (!nameCol.dataset.bound) {
+  nameCol.addEventListener("click", (e) => {
+    const el = e.target.closest(".cat-row");
+    if (!el) return;
+    const cat = window.categoryCache?.get(el.dataset.id);
+    if (cat) openCategoryEdit(cat);
+  });
+  nameCol.dataset.bound = "1";
+}
+
 
   } catch (e) {
     console.error("loadCategoryList:", e);
@@ -2421,22 +2445,44 @@ async function openCategoryEdit(cat) {
 
   editingCategoryId = cat._id;
 
+  const v = cat?.values || {};
+
   // 1) Fill Business dropdown
   await loadBusinessOptions("dropdown-category-business");
   const bizSel = document.getElementById("dropdown-category-business");
-  if (bizSel) bizSel.value = cat?.values?.businessId || "";
+  if (bizSel) {
+    const storedBiz = String(
+      firstDefined(
+        v.businessId,
+        asId(v.Business),
+        asId(v["Business"])
+      ) || ""
+    );
+    bizSel.value = storedBiz;
+  }
 
   // 2) Fill Calendar dropdown for that business
   await loadCalendarOptions("dropdown-business-calendar", bizSel?.value || "");
   const calSel = document.getElementById("dropdown-business-calendar");
-  if (calSel) calSel.value = cat?.values?.calendarId || "";
+  if (calSel) {
+    const storedCal = String(
+      firstDefined(
+        v.calendarId,
+        asId(v.Calendar),
+        asId(v["Calendar"])
+      ) || ""
+    );
+    calSel.value = storedCal;
+  }
 
-  // 3) Set the name input
+  // 3) Set the name input (also look at Name)
   const nameIn = document.getElementById("popup-category-name-input");
   if (nameIn) {
-    nameIn.value = cat?.values?.categoryName ?? cat?.values?.name ?? "";
-  } else {
-    console.warn("Category name input not found: #popup-category-name-input");
+    nameIn.value =
+      v.categoryName ??
+      v.Name ??      // <- NEW
+      v.name ??
+      "";
   }
 
   // 4) Toggle buttons (Edit mode)
@@ -2452,6 +2498,7 @@ async function openCategoryEdit(cat) {
   if (overlay) overlay.style.display = "block";
   document.body.classList.add("popup-open");
 }
+
 
 //Update Category 
 (function bindCategoryUpdateDeleteOnce() {
@@ -2484,7 +2531,19 @@ async function openCategoryEdit(cat) {
           method: "PATCH",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ values: { categoryName, businessId, calendarId } })
+         body: JSON.stringify({
+  values: {
+    // main canonical fields
+    Name:        categoryName,
+    Business:    businessId,
+    Calendar:    calendarId,
+
+    // optional aliases to keep everything happy
+    categoryName,
+    businessId,
+    calendarId,
+  }
+})
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         await res.json();
@@ -2721,14 +2780,30 @@ const [svcRes, calRes, catRes, myId] = await Promise.all([
       });
 
     // quick lookup maps
-    const calNameById = new Map(
-      calendars.map(c => [ String(c._id),
-        firstDefined(c.values.calendarName, c.values.name, "(Untitled)") ])
-    );
-    const catNameById = new Map(
-      categories.map(c => [ String(c._id),
-        firstDefined(c.values.categoryName, c.values.name, "(Untitled)") ])
-    );
+const calNameById = new Map(
+  calendars.map(c => [
+    String(c._id),
+    firstDefined(
+      c.values.calendarName,
+      c.values.Name,      // just in case
+      c.values.name,
+      "(Untitled)"
+    )
+  ])
+);
+
+const catNameById = new Map(
+  categories.map(c => [
+    String(c._id),
+    firstDefined(
+      c.values.categoryName,
+      c.values.Name,      // 👈 added this
+      c.values.name,
+      "(Untitled)"
+    )
+  ])
+);
+
 
     // normalize & filter services robustly
    const services = rawServices.map(normalize).filter(s => {
@@ -2920,8 +2995,13 @@ const [svcRes, calRes, catRes, myId] = await Promise.all([
 
         alert("Service updated!");
         closeAddServicePopup();
-        await loadServiceFilterDropdown();
-        await loadServiceList();
+      await loadServiceFilterDropdown();
+await loadServiceList();
+
+if (typeof loadBusinessList === "function") {
+  await loadBusinessList();
+}
+
       } catch (e) {
         console.error(e);
         alert("Error updating service: " + e.message);
