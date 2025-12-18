@@ -2047,49 +2047,74 @@ const res = await fetch(`${API_BASE}/api/records/Calendar?ts=${Date.now()}`, {
 }
 
 //Reusable Category
+// Fill a <select> with categories for a given business + (optional) calendar
 async function loadCategoryOptions(selectId, businessId, calendarId) {
   const sel = document.getElementById(selectId);
   if (!sel) return;
 
-  if (!businessId || !calendarId) {
-    sel.innerHTML = '<option value="">-- Select --</option>';
-    sel.disabled = true;
-    return;
-  }
-
-  sel.innerHTML = '<option value="">Loading…</option>';
+  // Base state
+  sel.innerHTML = '<option value="">-- Select --</option>';
   sel.disabled = true;
 
-  try {
-   const res = await fetch(`${API_BASE}/api/records/Category?ts=${Date.now()}`, {
+  if (!businessId) return;
 
-      credentials: 'include',
-      cache: 'no-store'
+  try {
+    const res = await fetch(`${API_BASE}/api/records/Category?ts=${Date.now()}`, {
+      credentials: "include",
+      cache: "no-store",
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-   const rows = (await res.json()).filter(cat =>
-  !cat.deletedAt &&
-  sameBusiness(cat.values || {}, businessId) &&
-  String(asId(cat.values?.calendarId || cat.values?.Calendar || cat.values?.['Calendar'])) === String(calendarId)
-);
 
+    const raw = await res.json();
 
-    sel.innerHTML = '<option value="">-- Select --</option>';
-    rows.forEach(cat => {
-      const label = cat?.values?.categoryName ?? cat?.values?.name ?? '(Untitled)';
-      const opt = document.createElement('option');
+    // Filter by business + optional calendar
+    const categories = raw
+      .filter(c => !c.deletedAt)
+      .filter(c => {
+        const v = c.values || {};
+
+        const bid = String(
+          firstDefined(
+            v.businessId,
+            asId(v.Business),
+            asId(v["Business"])
+          ) || ""
+        );
+        if (bid !== String(businessId)) return false;
+
+        if (!calendarId) return true;
+
+        const cid = String(
+          firstDefined(
+            v.calendarId,
+            asId(v.Calendar),
+            asId(v["Calendar"])
+          ) || ""
+        );
+        return cid === String(calendarId);
+      });
+
+    // Add options using categoryName (fallback to name)
+    categories.forEach(cat => {
+      const v = cat.values || {};
+      const label = firstDefined(
+        v.categoryName,   // ✅ this is how you save it
+        v.name,
+        "(Untitled)"
+      );
+
+      const opt = document.createElement("option");
       opt.value = cat._id;
       opt.textContent = label;
       sel.appendChild(opt);
     });
 
-    sel.disabled = rows.length === 0;
+    sel.disabled = categories.length === 0;
   } catch (e) {
-    console.error('loadCategoryOptions:', e);
-    sel.innerHTML = '<option value="">-- Select --</option>';
-    sel.disabled = true;
+    console.error("loadCategoryOptions:", e);
   }
 }
+
 
 
 //Update Calendar 
