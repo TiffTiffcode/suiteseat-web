@@ -1,10 +1,7 @@
 console.log('[accept-appoinments] web loaded');
 
 const API_BASE =
-  window.location.hostname === "suiteseat.io"
-    ? "https://suiteseat-app1.onrender.com"
-    : "http://localhost:8400";
-
+  window.location.hostname =window.API_BASE || "";
 
 
 //add slug
@@ -94,32 +91,47 @@ async function login(email, password) {
 }
 
 async function me() {
-  const res  = await fetch(`${API_BASE}/api/me`, {
-    credentials: 'include',               // 👈 include cookie
+  const res = await fetch(`${API_BASE}/api/me`, {
+    credentials: 'include', // send cookies
     cache: 'no-store',
   });
+
   const text = await res.text();
-  try { return JSON.parse(text); } catch { return { ok:false }; }
+
+  if (!res.ok) {
+    console.warn('[me] HTTP error', res.status, text.slice(0, 200));
+    throw new Error(`HTTP ${res.status}`);
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch (err) {
+    console.error('[me] JSON parse failed', err, text.slice(0, 200));
+    return { ok: false };
+  }
 }
 
 async function loadMe() {
   const data = await me();
   const el = document.querySelector('#login-status-text');
-  if (el) el.textContent = data?.ok ? `Hey, ${data.user.firstName || 'User'}` : 'Not logged in';
+  if (el) {
+    el.textContent = data?.ok
+      ? `Hey, ${data.user.firstName || 'User'}`
+      : 'Not logged in';
+  }
   return data;
 }
-
 // ---------- boot ----------
-document.addEventListener("DOMContentLoaded", () => {
+
+document.addEventListener('DOMContentLoaded', () => {
   // 1) show header status
-  loadMe().catch(e => console.warn('loadMe failed', e));
+  loadMe().catch(e => console.warn('loadMe_failed', e));
 
-  // 2) auth UI
+  // 2) auth UI...
   (async () => {
-    const loginStatus  = document.getElementById("login-status-text");
-    const openLoginBtn = document.getElementById("open-login-popup-btn");
-    const logoutBtn    = document.getElementById("logout-btn");
-
+    const loginStatus  = document.getElementById('login-status-text');
+    const openLoginBtn = document.getElementById('open-login-popup-btn');
+    const logoutBtn    = document.getElementById('logout-btn');
     const data = await me();
 
 if (data.ok) {
