@@ -1,100 +1,150 @@
-console.log('[availability v2 loaded');
+console.log('[availability v2 loaded]');
 
+// ---------- API base (match accept-appointments) ----------
+const host = window.location.hostname;
+const isProdHost =
+  host === "suiteseat.io" ||
+  host === "www.suiteseat.io";
 
-const API_ORIGIN =
-  window.location.hostname === 'localhost'
-    ? 'http://localhost:8400'
-    : 'https://live-353x.onrender.com'; // ← put YOUR real API here
+const API_ORIGIN = isProdHost
+  ? "https://suiteseat-app1.onrender.com"
+  : "http://localhost:8400";
 
+// Helper to build full API URLs on the same origin
+function apiUrl(path) {
+  return `${API_ORIGIN}${path.startsWith('/') ? path : `/${path}`}`;
+}
 
-const TYPE_UPCOMING = 'Upcoming Hours';
+// For /api/records/<Type>
+const TYPE_UPCOMING = "Upcoming Hours";
 const API = (type) => `${API_ORIGIN}/api/records/${encodeURIComponent(type)}`;
 
+// Remember last-used selections across page loads
+const LS_BIZ = "lastBusinessId";
+const LS_CAL = "lastCalendarId";
 
-
- // Remember last-used selections across page loads
-const LS_BIZ = 'lastBusinessId';
-const LS_CAL = 'lastCalendarId';
-
-  // --- small fetch helpers ---
-async function fetchJSON(url, init={}) {
+// --- small fetch helper that can handle JSON or text ---
+async function fetchJSON(url, init = {}) {
   const res = await fetch(url, init);
-  // Try to read text first (so we can show meaningful errors)
-  const text = await res.text().catch(() => '');
-  const ct = res.headers.get('content-type') || '';
+  const text = await res.text().catch(() => "");
+  const ct = res.headers.get("content-type") || "";
 
   if (!res.ok) {
-    // Server likely sent an HTML error page; surface it
     const preview = text.slice(0, 200);
     throw new Error(`${res.status} ${res.statusText} — ${preview}`);
   }
 
-  if (ct.includes('application/json')) {
-    try { return JSON.parse(text); } catch {
-      throw new Error('Response was not valid JSON');
+  if (ct.includes("application/json")) {
+    try {
+      return JSON.parse(text);
+    } catch {
+      throw new Error("Response was not valid JSON");
     }
   }
 
-  // Non-JSON success; return raw text
   return text;
 }
-// Call the correct login route; include credentials so cookie sticks
+
+// ---------- login + /me helpers that ALWAYS use API_ORIGIN ----------
+
+// POST /api/login
 async function apiLogin(email, password) {
-  await fetchJSON('/api/login', {
-    method: 'POST',
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-    body: JSON.stringify({ email, password })
+  await fetchJSON(apiUrl("/api/login"), {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify({ email, password }),
   });
 }
 
-// Returns the user object or null (when 401)
+// GET /api/me  (same pattern as accept-appointments)
 async function getMe() {
-  const res = await fetch('/api/users/me?ts=' + Date.now(), { credentials: 'include' });
-  if (res.status === 401) return null;
-  const ct = res.headers.get('content-type') || '';
-  const body = ct.includes('application/json') ? await res.json().catch(() => ({})) : {};
-  return body.user || null;
+  const res = await fetch(apiUrl("/api/me?ts=" + Date.now()), {
+    credentials: "include",
+    cache: "no-store",
+  });
+
+  const text = await res.text();
+  if (!res.ok) {
+    console.warn("[getMe] HTTP error", res.status, text.slice(0, 200));
+    return null;
+  }
+
+  try {
+    const data = JSON.parse(text);
+    return data?.user || null;
+  } catch (err) {
+    console.error("[getMe] JSON parse failed", err, text.slice(0, 200));
+    return null;
+  }
 }
 
-// UI handler for your “Log In” button on the availability page
+// shared fetch helper for /api/* (ONLY ONE VERSION!!)
+const apiFetch = (path, opts = {}) => {
+  // path: "/me"  →  /api/me
+  // path: "/api/records" → /api/records
+  const p = path.startsWith("/api/")
+    ? path
+    : path.startsWith("/")
+    ? `/api${path}`
+    : `/api/${path}`;
+
+  return fetch(apiUrl(p), {
+    credentials: "include",
+    headers: { Accept: "application/json", ...(opts.headers || {}) },
+    cache: "no-store",
+    ...opts,
+  });
+};
+
+// Optional: button-based login handler (if you keep #btn-login-avail)
 async function onAvailabilityLoginClick() {
-  const email = document.querySelector('#login-email')?.value?.trim();
-  const pass  = document.querySelector('#login-pass')?.value?.trim();
-  if (!email || !pass) { alert('Enter email and password'); return; }
+  const email = document.querySelector("#login-email")?.value?.trim();
+  const pass = document.querySelector("#login-pass")?.value?.trim();
+  if (!email || !pass) {
+    alert("Enter email and password");
+    return;
+  }
 
   try {
     await apiLogin(email, pass);
     const me = await getMe();
-    if (!me) { alert('Login failed. Please check your credentials.'); return; }
+    if (!me) {
+      alert("Login failed. Please check your credentials.");
+      return;
+    }
 
-    console.log('[availability] logged in as', me._id || me.email);
-    // continue to whatever admin action you needed…
-    // e.g., enable the “Add Availability” UI
+    console.log("[availability] logged in as", me._id || me.email);
+    // you can call initLogin() again if you want to refresh the greeting
+    await initLogin?.();
   } catch (err) {
-    console.error('Login error:', err);
+    console.error("Login error:", err);
     alert(`Login error: ${err.message || err}`);
   }
 }
 
-// Wire up once
-(function wireAvailLoginOnce(){
-  const btn = document.querySelector('#btn-login-avail');
+// If you still want the separate “Login” button wired once:
+(function wireAvailLoginOnce() {
+  const btn = document.querySelector("#btn-login-avail");
   if (btn && !btn.__wired) {
     btn.__wired = true;
-    btn.addEventListener('click', onAvailabilityLoginClick);
+    btn.addEventListener("click", onAvailabilityLoginClick);
   }
 })();
 
-  
-  function toYMD(d) {
+// ---------- simple date helper ----------
+function toYMD(d) {
   const x = new Date(d);
-  x.setHours(0,0,0,0);
+  x.setHours(0, 0, 0, 0);
   const y = x.getFullYear();
-  const m = String(x.getMonth() + 1).padStart(2, '0');
-  const day = String(x.getDate()).padStart(2, '0');
+  const m = String(x.getMonth() + 1).padStart(2, "0");
+  const day = String(x.getDate()).padStart(2, "0");
   return `${y}-${m}-${day}`; // local YYYY-MM-DD
 }
+
 
 
 
@@ -111,15 +161,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const logoutBtn    = document.getElementById("logout-btn");
   const loginForm    = document.getElementById("login-form");
 
-  // Always include cookies + JSON Accept header for session-protected routes
-// one helper to always hit /api/*
-const apiFetch = (url, opts = {}) =>
-  fetch(url.startsWith('/api/') ? url : `/api${url.startsWith('/') ? url : `/${url}`}`, {
-    credentials: 'include',
-    headers: { Accept: 'application/json', ...(opts.headers || {}) },
-    cache: 'no-store',
-    ...opts,
-  });
 
 // replace old check-login with this:
 async function checkLogin() {
@@ -181,12 +222,12 @@ function displayNameFrom(d) {
   return candidates.find(Boolean) || '';
 }
 
-// ---- Login init (replace your initLogin with this) ----
+
 // ---- Login init – use /api/me instead of /check-login ----
 async function initLogin() {
   try {
-    // use the apiFetch helper + /api/me
-    const res  = await apiFetch('/me');  // GET /api/me
+    // use the apiFetch helper + /api/me on API_ORIGIN
+    const res  = await apiFetch('/me');  // GET /api/me on live-353x
     const text = await res.text();
     let data = {};
     try {
@@ -224,23 +265,28 @@ async function initLogin() {
 
 
 
-  if (logoutBtn) {
-    logoutBtn.addEventListener("click", async () => {
-      try {
-        const res = await fetch("/logout");
-        const result = await res.json();
-        if (res.ok) {
-          alert("👋 Logged out!");
-          window.location.href = "index.html";
-        } else {
-          alert(result.message || "Logout failed.");
-        }
-      } catch (err) {
-        console.error("Logout error:", err);
-        alert("Something went wrong during logout.");
+if (logoutBtn) {
+  logoutBtn.addEventListener("click", async () => {
+    try {
+      const res = await apiFetch("/logout", {
+        method: "POST",
+      });
+
+      if (res.ok) {
+        alert("👋 Logged out!");
+        // simplest: reload this page so login status updates
+        window.location.reload();
+      } else {
+        const result = await res.json().catch(() => ({}));
+        alert(result.message || "Logout failed.");
       }
-    });
-  }
+    } catch (err) {
+      console.error("Logout error:", err);
+      alert("Something went wrong during logout.");
+    }
+  });
+}
+
 
   if (openLoginBtn) {
     openLoginBtn.addEventListener("click", () => {
