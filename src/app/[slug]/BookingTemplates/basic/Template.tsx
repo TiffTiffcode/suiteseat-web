@@ -307,304 +307,353 @@ const filteredCategories = useMemo(() => {
  const showAvailability =
     !!flow.selectedServiceId && !flow.isConfirmOpen && !showNextModal;
 
+const weekdayLabels = ["S", "M", "T", "W", "Th", "F", "S"];
 
 
 
 
   
 return (
-  <main id="booking-root" className="bk-container">
+  <main id="booking-root">
+    {/* Full-width hero */}
     {heroSrc ? (
-      <header className="bk-hero bk-hero--image bk-hero--contain">
+      <header className="bk-hero bk-hero--image bk-hero--contain bk-hero-full">
         <div className="bk-hero-imgwrap">
           <img src={heroSrc} alt={`${title} hero`} className="bk-hero-img" />
         </div>
       </header>
     ) : (
-      <header className="bk-hero">
-    
-        {/* remove or comment this line to hide “Book an appointment” */}
+      <header className="bk-hero bk-hero-full">
         {/* <p className="bk-sub">{desc}</p> */}
       </header>
     )}
 
-   {/* Bottom booking area – centered */}
-    <section className="booking-bottom">
-      <div className="booking-bottom-inner">
-        <div className="bk-grid">
-          <div className="bk-flow">
-          {/* Calendars */}
-          {!flow.selectedCalendarId && (
-            <section className="bk-card" id="calendars-section">
-              <h3 className="bk-h3">Calendars</h3>
-              {flow.loading ? (
-                <div className="bk-placeholder">Loading calendars…</div>
-              ) : flow.calendars?.length ? (
-                <div className="bk-list" style={{ display: "flex", gap: 12, overflowX: "auto" }}>
-                  {flow.calendars.map((c: any) => (
+{/* Bottom booking area – now full width */}
+<section className="booking-bottom">
+  <div className="booking-bottom-inner">
+    <div className="bk-grid bk-grid--full">
+      <div className="bk-flow">
+        {/* Calendars */}
+        {!flow.selectedCalendarId && (
+          <section className="bk-card bk-card--full" id="calendars-section">
+            <h3 className="bk-h3">Calendars</h3>
+            {flow.loading ? (
+              <div className="bk-placeholder">Loading calendars…</div>
+            ) : flow.calendars?.length ? (
+              <div
+                className="bk-list"
+                style={{ display: "flex", gap: 12, overflowX: "auto" }}
+              >
+                {flow.calendars.map((c: any) => (
+                  <button
+                    key={c._id}
+                    type="button"
+                    className="card card--select"
+                    style={{ minWidth: 220, textAlign: "left" }}
+                    onClick={() => flow.handleCalendarSelect(c._id)}
+                    disabled={flow.isReschedule}
+                  >
+                    <div className="card__title">{c.name}</div>
+                    {c.desc && <div className="card__sub">{c.desc}</div>}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="bk-placeholder">No calendars found.</div>
+            )}
+          </section>
+        )}
+
+        {/* Categories */}
+        {flow.selectedCalendarId && !flow.selectedCategoryId && (
+          <section className="bk-card bk-card--full" id="categories-section">
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 12,
+              }}
+            >
+              <h3 className="bk-h3" style={{ margin: 0 }}>
+                Categories
+              </h3>
+              <button
+                type="button"
+                className="bk-btn"
+                onClick={() => {
+                  flow.goBackToCalendars();
+                  document
+                    .getElementById("calendars-section")
+                    ?.scrollIntoView({ behavior: "smooth", block: "start" });
+                }}
+              >
+                ← Back to calendars
+              </button>
+            </div>
+
+            {flow.loadingCats ? (
+              <div className="bk-placeholder">Loading categories…</div>
+            ) : filteredCategories.length ? (
+              <fieldset disabled={!!flow.isReschedule}>
+                <div
+                  className="bk-list"
+                  style={{
+                    display: "flex",
+                    gap: 12,
+                    overflowX: "auto",
+                  }}
+                >
+                  {filteredCategories.map((cat: any) => (
                     <button
-                      key={c._id}
+                      key={cat._id}
                       type="button"
                       className="card card--select"
                       style={{ minWidth: 220, textAlign: "left" }}
-                      onClick={() => flow.handleCalendarSelect(c._id)}
-                      disabled={flow.isReschedule}
+                      onClick={() => flow.handleCategorySelect(cat._id)}
                     >
-                      <div className="card__title">{c.name}</div>
-                      {c.desc && <div className="card__sub">{c.desc}</div>}
+                      <div className="card__title">
+                        {cat?.name ?? cat?.values?.Name ?? "Untitled category"}
+                      </div>
+                      {cat?.desc ? (
+                        <div className="card__sub">{cat.desc}</div>
+                      ) : null}
                     </button>
                   ))}
                 </div>
-              ) : (
-                <div className="bk-placeholder">No calendars found.</div>
-              )}
-            </section>
-          )}
-
-          {/* Categories */}
-          {flow.selectedCalendarId && !flow.selectedCategoryId && (
-            <section className="bk-card" id="categories-section">
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-                <h3 className="bk-h3" style={{ margin: 0 }}>
-                  Categories
-                </h3>
-                <button
-                  type="button"
-                  className="bk-btn"
-                  onClick={() => {
-                    flow.goBackToCalendars();
-                    document.getElementById("calendars-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
-                  }}
-                >
-                  ← Back to calendars
-                </button>
+              </fieldset>
+            ) : (
+              <div className="bk-placeholder">
+                No categories for this calendar.
               </div>
-
-          {flow.loadingCats ? (
-  <div className="bk-placeholder">Loading categories…</div>
-) : filteredCategories.length ? (
-  <fieldset disabled={!!flow.isReschedule}>
-    <div className="bk-list" style={{ display: "flex", gap: 12, overflowX: "auto" }}>
-      {filteredCategories.map((cat: any) => (
-        <button
-          key={cat._id}
-          type="button"
-          className="card card--select"
-          style={{ minWidth: 220, textAlign: "left" }}
-          onClick={() => flow.handleCategorySelect(cat._id)}
-        >
-          <div className="card__title">{cat?.name ?? cat?.values?.Name ?? "Untitled category"}</div>
-          {cat?.desc ? <div className="card__sub">{cat.desc}</div> : null}
-        </button>
-      ))}
-    </div>
-  </fieldset>
-) : (
-  <div className="bk-placeholder">No categories for this calendar.</div>
-)}
-
-            </section>
-          )}
-
-          {/* Services */}
-          {flow.selectedCategoryId && !flow.selectedServiceId && (
-            <section className="bk-card" id="services-section">
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-                <h3 className="bk-h3" style={{ margin: 0 }}>
-                  Services
-                </h3>
-
-                <div style={{ display: "flex", gap: 8 }}>
-                  {/* Multi-select toggle */}
-                  <button
-                    type="button"
-                    className="bk-btn"
-                    onClick={() => setMultiMode((m) => !m)}
-                    title="Pick more than one service"
-                  >
-                    {multiMode ? "✓ Multiple selected" : "Select multiple"}
-                  </button>
-
-                  {/* Continue button (only when in multi mode) */}
-                  {multiMode && (
-                    <button
-                      type="button"
-                      className="bk-btn-primary"
-                      disabled={flow.pickedServiceIds.length === 0}
-                      onClick={continueToAvailability}
-                    >
-                      Continue ({flow.pickedServiceIds.length})
-                    </button>
-                  )}
-
-                  {/* Back to categories */}
-                  <button
-                    type="button"
-                    className="bk-btn"
-                    onClick={() => {
-                      flow.goBackToCategories();
-                      document.getElementById("categories-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
-                    }}
-                  >
-                    ← Back to categories
-                  </button>
-                </div>
-              </div>
-
-              {flow.loadingServices ? (
-                <div className="bk-placeholder">Loading services…</div>
-              ) : flow.services?.length ? (
-                <fieldset disabled={flow.isReschedule}>
-                  <div className="bk-list" style={{ display: "flex", gap: 12, overflowX: "auto" }}>
-                  {flow.services.map((srv: any) => {
-  const id = String(srv._id);
-  const picked = flow.isPicked(id);
-
-  // Title / desc
-  const title =
-    srv.values?.serviceName ??
-    srv.values?.Name ??
-    srv.name ??
-    "Service";
-
-  const desc =
-    srv.values?.description ??
-    srv.desc ??
-    "";
-
-  // Price
-  const rawPrice =
-    srv.values?.price ??
-    srv.values?.Price ??
-    srv.price;
-
-  // Duration
-  const rawDuration =
-    srv.values?.durationMinutes ??
-    srv.durationMin;
-
-  // 🔹 Image (from your admin “imageUrl” field)
-  const rawImage =
-    srv.values?.imageUrl ??
-    srv.imageUrl ??
-    srv.values?.ImageUrl ??
-    srv.values?.image ??
-    (Array.isArray(srv.values?.images) ? srv.values.images[0] : null);
-
-  const imgSrc = resolveAsset(rawImage ?? null);
-
-  return (
-    <button
-      key={id}
-      type="button"
-      className={"card card--select" + (picked ? " is-picked" : "")}
-      style={{ minWidth: 220, textAlign: "left" }}
-      onClick={() => {
-        if (multiMode) {
-          picked ? flow.removePick(id) : flow.addPick(id);
-        } else {
-          flow.handleServiceSelect(id);
-        }
-      }}
-    >
-      <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-        {imgSrc && (
-          <img
-            src={imgSrc}
-            alt={title}
-            style={{
-              width: 64,
-              height: 64,
-              borderRadius: 8,
-              objectFit: "cover",
-              flexShrink: 0,
-            }}
-          />
+            )}
+          </section>
         )}
 
-        <div>
-          <div className="card__title">
-            {title} {picked ? "✓" : ""}
-          </div>
+    {/* Services */}
+{flow.selectedCategoryId && !flow.selectedServiceId && (
+  <section className="bk-card" id="services-section">
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 12,
+      }}
+    >
+      <h3 className="bk-h3" style={{ margin: 0 }}>
+        Services
+      </h3>
 
-          {desc && <div className="card__sub">{desc}</div>}
+      <div style={{ display: "flex", gap: 8 }}>
+        {/* Multi-select toggle */}
+        <button
+          type="button"
+          className="bk-btn"
+          onClick={() => setMultiMode((m) => !m)}
+          title="Pick more than one service"
+        >
+          {multiMode ? "✓ Multiple selected" : "Select multiple"}
+        </button>
 
-          {rawPrice != null && rawPrice !== "" && (
-            <div className="card__sub" style={{ color: "var(--muted)" }}>
-              {fmtUSD(Number(rawPrice))}
-            </div>
-          )}
+        {/* Continue button (only when in multi mode) */}
+        {multiMode && (
+          <button
+            type="button"
+            className="bk-btn-primary"
+            disabled={flow.pickedServiceIds.length === 0}
+            onClick={continueToAvailability}
+          >
+            Continue ({flow.pickedServiceIds.length})
+          </button>
+        )}
 
-          {rawDuration ? (
-            <div className="card__sub" style={{ color: "var(--muted)" }}>
-              {rawDuration} min
-            </div>
-          ) : null}
-        </div>
+        {/* Back to categories */}
+        <button
+          type="button"
+          className="bk-btn"
+          onClick={() => {
+            flow.goBackToCategories();
+            document
+              .getElementById("categories-section")
+              ?.scrollIntoView({ behavior: "smooth", block: "start" });
+          }}
+        >
+          ← Back to categories
+        </button>
       </div>
-    </button>
-  );
-})}
+    </div>
 
+    {flow.loadingServices ? (
+      <div className="bk-placeholder">Loading services…</div>
+    ) : flow.services?.length ? (
+      <fieldset disabled={flow.isReschedule}>
+        {/* ⬇️ vertical list instead of horizontal flex scroller */}
+        <div className="bk-list bk-list--vertical">
+          {flow.services.map((srv: any) => {
+            const id = String(srv._id);
+            const picked = flow.isPicked(id);
 
-                  </div>
-                </fieldset>
-              ) : (
-                <div className="bk-placeholder">No services found.</div>
-              )}
+            const title =
+              srv.values?.serviceName ??
+              srv.values?.Name ??
+              srv.name ??
+              "Service";
 
-              {/* helper text / sticky summary for multi mode */}
-              {multiMode && (
-                <>
-                  <div className="bk-sub" style={{ marginTop: 12 }}>
-                    {pickedCount ? `${pickedCount} selected` : "Pick one or more services"}
-                  </div>
+            const desc = srv.values?.description ?? srv.desc ?? "";
 
-                  <div className="bk-sticky-footer">
-                    <div className="bk-summary">
-                      {pickedCount ? (
-                        <>
-                          <strong>{pickedCount}</strong> selected
-                          {roughMin ? <> • <strong>{roughMin}</strong> min</> : null}
-                          {Number.isFinite(roughPrice) && roughPrice > 0 ? (
-                            <> • <strong>{fmtUSD(roughPrice)}</strong></>
-                          ) : null}
-                        </>
-                      ) : (
-                        <>Select services to continue</>
-                      )}
+            const rawPrice =
+              srv.values?.price ?? srv.values?.Price ?? srv.price;
+
+            const rawDuration =
+              srv.values?.durationMinutes ?? srv.durationMin;
+
+            const rawImage =
+              srv.values?.imageUrl ??
+              srv.imageUrl ??
+              srv.values?.ImageUrl ??
+              srv.values?.image ??
+              (Array.isArray(srv.values?.images)
+                ? srv.values.images[0]
+                : null);
+
+            const imgSrc = resolveAsset(rawImage ?? null);
+
+            return (
+              <button
+                key={id}
+                type="button"
+                className={
+                  "card card--select" + (picked ? " is-picked" : "")
+                }
+                style={{
+                  width: "100%",          // ⬅️ fill the row
+                  textAlign: "left",
+                }}
+                onClick={() => {
+                  if (multiMode) {
+                    picked ? flow.removePick(id) : flow.addPick(id);
+                  } else {
+                    flow.handleServiceSelect(id);
+                  }
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 12,
+                    alignItems: "flex-start",
+                  }}
+                >
+                  {imgSrc && (
+                    <img
+                      src={imgSrc}
+                      alt={title}
+                      style={{
+                        width: 64,
+                        height: 64,
+                        borderRadius: 8,
+                        objectFit: "cover",
+                        flexShrink: 0,
+                      }}
+                    />
+                  )}
+
+                  <div>
+                    <div className="card__title">
+                      {title} {picked ? "✓" : ""}
                     </div>
-                    <div className="bk-actions">
-                      <button
-                        className="bk-btn"
-                        onClick={() => flow.clearPicks()}
-                        disabled={!pickedCount}
+
+                    {desc && <div className="card__sub">{desc}</div>}
+
+                    {rawPrice != null && rawPrice !== "" && (
+                      <div
+                        className="card__sub"
+                        style={{ color: "var(--muted)" }}
                       >
-                        Clear
-                      </button>
-                      <button
-                        className="bk-btn bk-primary"
-                        disabled={!pickedCount}
-                        onClick={continueToAvailability}
+                        {fmtUSD(Number(rawPrice))}
+                      </div>
+                    )}
+
+                    {rawDuration ? (
+                      <div
+                        className="card__sub"
+                        style={{ color: "var(--muted)" }}
                       >
-                        Continue to Availability
-                      </button>
-                    </div>
+                        {rawDuration} min
+                      </div>
+                    ) : null}
                   </div>
-                </>
-              )}
-            </section>
-          )}
+                </div>
+              </button>
+            );
+          })}
         </div>
+      </fieldset>
+    ) : (
+      <div className="bk-placeholder">No services found.</div>
+    )}
+
+    {multiMode && (
+      <>
+        <div className="bk-sub" style={{ marginTop: 12 }}>
+          {pickedCount
+            ? `${pickedCount} selected`
+            : "Pick one or more services"}
+        </div>
+
+        <div className="bk-sticky-footer">
+          <div className="bk-summary">
+            {pickedCount ? (
+              <>
+                <strong>{pickedCount}</strong> selected
+                {roughMin ? (
+                  <>
+                    {" "}
+                    • <strong>{roughMin}</strong> min
+                  </>
+                ) : null}
+                {Number.isFinite(roughPrice) && roughPrice > 0 ? (
+                  <>
+                    {" "}
+                    • <strong>{fmtUSD(roughPrice)}</strong>
+                  </>
+                ) : null}
+              </>
+            ) : (
+              <>Select services to continue</>
+            )}
+          </div>
+          <div className="bk-actions">
+            <button
+              className="bk-btn"
+              onClick={() => flow.clearPicks()}
+              disabled={!pickedCount}
+            >
+              Clear
+            </button>
+            <button
+              className="bk-btn bk-primary"
+              disabled={!pickedCount}
+              onClick={continueToAvailability}
+            >
+              Continue to Availability
+            </button>
+          </div>
+        </div>
+      </>
+    )}
+  </section>
+)}
 
      {/* Availability */}
 {showAvailability && (
   <section
-    className="bk-card"
+    className="bk-card bk-card--availability"
     id="availability-section"
-    style={{ margin: "0 auto" }}   // 🔹 helps keep it centered
   >
     <h3 className="bk-h3">Availability</h3>
+
     <button
       type="button"
       className="bk-btn"
@@ -618,7 +667,7 @@ return (
       ← Back to services
     </button>
 
-    <div className="bk-calendar">
+    <div className="bk-calendar bk-calendar--wide">
       <div className="bk-cal-header">
         <button
           type="button"
@@ -627,7 +676,9 @@ return (
         >
           ‹
         </button>
+
         <div className="bk-month">{flow.monthLabel}</div>
+
         <button
           type="button"
           className="bk-btn"
@@ -640,7 +691,15 @@ return (
       {flow.loadingMonth ? (
         <div className="bk-placeholder">Loading month…</div>
       ) : (
-        <div className="bk-cal-grid">
+        <div className="bk-cal-grid bk-cal-grid--wide">
+          {/* Weekday header row */}
+          {weekdayLabels.map((label) => (
+            <div key={label} className="bk-cal-dow">
+              {label}
+            </div>
+          ))}
+
+          {/* Date buttons */}
           {flow.monthDays.map((d: any) => (
             <button
               key={d.dateISO}
@@ -681,9 +740,7 @@ return (
                   {t}
                 </button>
               ))}
-              {!flow.slots.morning.length && (
-                <div className="bk-sub">—</div>
-              )}
+              {!flow.slots.morning.length && <div className="bk-sub">—</div>}
             </div>
           </div>
 
@@ -700,9 +757,7 @@ return (
                   {t}
                 </button>
               ))}
-              {!flow.slots.afternoon.length && (
-                <div className="bk-sub">—</div>
-              )}
+              {!flow.slots.afternoon.length && <div className="bk-sub">—</div>}
             </div>
           </div>
 
@@ -719,19 +774,19 @@ return (
                   {t}
                 </button>
               ))}
-              {!flow.slots.evening.length && (
-                <div className="bk-sub">—</div>
-              )}
+              {!flow.slots.evening.length && <div className="bk-sub">—</div>}
             </div>
           </div>
         </>
       )}
     </div>
-      </section>
-          )}
-        </div>
+         </section>
+        )}
       </div>
-    </section>
+    </div>
+  </div>
+</section>
+
 
       {/* Confirm modal */}
       {flow.isConfirmOpen && !flow.isAuthOpen && (

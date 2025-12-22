@@ -403,6 +403,14 @@ useEffect(() => {
   }, [businessId]);
  const router = useRouter();
 async function handleCalendarSelect(calId: string) {
+  // 🧠 only if we’re actually switching calendars…
+  if (calId !== selectedCalendarId) {
+    // ❌ wipe multi-select state
+    clearPicks();          // <- from your addPick/removePick/clearPicks
+    setMultiSelection([]); // <- your multiSelection state
+    setPickedServices([]); // <- so duration/summary reset too
+  }
+
   setSelectedCalendarId(calId);
 
   // 🔄 reset everything downstream of Calendar
