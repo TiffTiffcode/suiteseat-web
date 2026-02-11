@@ -1,13 +1,11 @@
 console.log("[suite-settings] loaded");
 
-window.STATE = window.STATE || { locations: [] };
+window.STATE = window.STATE || { locations: [], user: { loggedIn:false, userId:null, email:"", firstName:"" } };
 
-// ✅ Live API (Express) server
-// Use API server in dev, same-origin in prod
-const API_ORIGIN =
-  location.hostname === "localhost" ? "http://localhost:8400" : "";
+// Dev uses API server, prod uses same-origin
+const API_ORIGIN = (location.hostname === "localhost") ? "http://localhost:8400" : "";
 
-// Build full URL for API
+// Always return a /api url (same pattern your working page uses)
 function apiUrl(path) {
   const base = path.startsWith("/api")
     ? path
@@ -15,7 +13,6 @@ function apiUrl(path) {
   return `${API_ORIGIN}${base}`;
 }
 
-// Low-level fetch wrapper
 async function apiFetch(path, opts = {}) {
   return fetch(apiUrl(path), {
     credentials: "include",
@@ -24,16 +21,17 @@ async function apiFetch(path, opts = {}) {
   });
 }
 
-// JSON helper
 async function fetchJSON(path, opts = {}) {
   const res = await apiFetch(path, {
     headers: { "Content-Type": "application/json", ...(opts.headers || {}) },
     ...opts,
   });
-  const text = await res.text();
+
+  const text = await res.text().catch(() => "");
   let data;
-  try { data = JSON.parse(text); } catch { data = { error: text }; }
-  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  try { data = JSON.parse(text); } catch { data = { raw: text }; }
+
+  if (!res.ok) throw new Error(data.message || data.error || `HTTP ${res.status}`);
   return data;
 }
 
@@ -51,11 +49,10 @@ async function readJsonSafe(res) {
 }
 
 // ---- Get signed-in user via /check-login ----
+
 async function hydrateUser() {
   try {
-    const res = await apiFetch("/api/me");
-    const text = await res.text();
-    let data; try { data = JSON.parse(text); } catch { data = {}; }
+    const data = await fetchJSON("/api/me", { method: "GET" });
 
     const user =
       data?.user ||
@@ -70,24 +67,26 @@ async function hydrateUser() {
         email: user.email || "",
         firstName: user.firstName || user.name || "",
       };
+
       currentUser = {
         id: window.STATE.user.userId,
         email: window.STATE.user.email,
         firstName: window.STATE.user.firstName,
       };
     } else {
-      window.STATE.user = { loggedIn: false, userId: null, email: "", firstName: "" };
+      window.STATE.user = { loggedIn:false, userId:null, email:"", firstName:"" };
       currentUser = null;
     }
   } catch (e) {
     console.warn("[auth] hydrateUser failed:", e);
-    window.STATE.user = { loggedIn: false, userId: null, email: "", firstName: "" };
+    window.STATE.user = { loggedIn:false, userId:null, email:"", firstName:"" };
     currentUser = null;
   }
 
   setLoggedInUI(currentUser);
   return currentUser;
 }
+
 
 
 
