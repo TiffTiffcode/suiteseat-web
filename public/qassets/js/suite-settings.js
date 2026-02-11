@@ -155,7 +155,7 @@ function initAuthUI() {
 
   try {
     // ✅ login route is same-origin
-const res = await fetch(`${AUTH_BASE}/api/login`, {
+const res = await fetch(`${AUTH_BASE}/auth/login`, {
   method: "POST",
   headers: { "Content-Type": "application/json" },
   credentials: "include",
@@ -191,7 +191,8 @@ const res = await fetch(`${AUTH_BASE}/api/login`, {
 
   logoutBtn?.addEventListener("click", async () => {
     try {
-await fetch(`${AUTH_BASE}/api/logout`, {
+await await fetch(`${AUTH_BASE}/api/logout`, {
+
   method: "POST",
   credentials: "include",
 });
