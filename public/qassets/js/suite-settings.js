@@ -4353,10 +4353,6 @@ function getId(row) {
 function getValues(row) {
   return row?.values || row || {};
 }
-function apiUrl(path) {
-  // Use YOUR existing API_BASE logic if you already have it
-  return `${API_BASE}${path}`;
-}
 
 // 1) Load Locations into the filter dropdown
 async function loadSuitiesLocationFilter() {
