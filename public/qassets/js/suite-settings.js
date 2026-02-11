@@ -3,22 +3,41 @@ console.log("[suite-settings] loaded");
 window.STATE = window.STATE || { locations: [] };
 
 // ✅ Live API (Express) server
-const API_BASE =
-  window.location.hostname === "localhost"
-    ? "http://localhost:8400"
-    : "https://live-353x.onrender.com";
+// Use API server in dev, same-origin in prod
+const API_ORIGIN =
+  location.hostname === "localhost" ? "http://localhost:8400" : "";
 
-const AUTH_BASE = API_BASE; // login + check-login live on the API server
-
+// Build full URL for API
 function apiUrl(path) {
-  return `${API_BASE}${path.startsWith("/") ? "" : "/"}${path}`;
+  const base = path.startsWith("/api")
+    ? path
+    : `/api${path.startsWith("/") ? path : `/${path}`}`;
+  return `${API_ORIGIN}${base}`;
 }
 
-/**
- * ✅ IMPORTANT:
- * - On localhost, your auth routes live on 8400 (Express).
- * - On production (suiteseat.io), auth is same-origin.
- */
+// Low-level fetch wrapper
+async function apiFetch(path, opts = {}) {
+  return fetch(apiUrl(path), {
+    credentials: "include",
+    headers: { Accept: "application/json", ...(opts.headers || {}) },
+    ...opts,
+  });
+}
+
+// JSON helper
+async function fetchJSON(path, opts = {}) {
+  const res = await apiFetch(path, {
+    headers: { "Content-Type": "application/json", ...(opts.headers || {}) },
+    ...opts,
+  });
+  const text = await res.text();
+  let data;
+  try { data = JSON.parse(text); } catch { data = { error: text }; }
+  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  return data;
+}
+
+window.STATE = window.STATE || { user: { loggedIn: false, userId: null, email: "", firstName: "" } };
 
 let currentUser = null;
 
@@ -32,34 +51,44 @@ async function readJsonSafe(res) {
 }
 
 // ---- Get signed-in user via /check-login ----
-async function getSignedInUser() {
+async function hydrateUser() {
   try {
-const res = await fetch(`${AUTH_BASE}/check-login`, {
-  method: "GET",
-  credentials: "include",
-  headers: { Accept: "application/json" },
-  cache: "no-store",
-});
+    const res = await apiFetch("/api/me");
+    const text = await res.text();
+    let data; try { data = JSON.parse(text); } catch { data = {}; }
 
+    const user =
+      data?.user ||
+      data?.data?.user ||
+      (data?.ok && data?.session?.user) ||
+      null;
 
-    if (!res.ok) return null;
-
-    const data = await res.json().catch(() => ({}));
-    if (!data?.loggedIn) return null;
-
-    return {
-      id: data.userId || data.id,
-      email: data.email,
-      firstName: data.firstName || "",
-      lastName: data.lastName || "",
-      name: data.name || "",
-      roles: data.roles || [],
-    };
-  } catch (err) {
-    console.warn("[suite-settings2] getSignedInUser error", err);
-    return null;
+    if (user && (user._id || user.id)) {
+      window.STATE.user = {
+        loggedIn: true,
+        userId: user._id || user.id,
+        email: user.email || "",
+        firstName: user.firstName || user.name || "",
+      };
+      currentUser = {
+        id: window.STATE.user.userId,
+        email: window.STATE.user.email,
+        firstName: window.STATE.user.firstName,
+      };
+    } else {
+      window.STATE.user = { loggedIn: false, userId: null, email: "", firstName: "" };
+      currentUser = null;
+    }
+  } catch (e) {
+    console.warn("[auth] hydrateUser failed:", e);
+    window.STATE.user = { loggedIn: false, userId: null, email: "", firstName: "" };
+    currentUser = null;
   }
+
+  setLoggedInUI(currentUser);
+  return currentUser;
 }
+
 
 
 function setLoggedInUI(user) {
@@ -155,29 +184,24 @@ function initAuthUI() {
 
   try {
     // ✅ login route is same-origin
-const res = await fetch(`${AUTH_BASE}/auth/login`, {
+const r = await apiFetch("/api/login", {
   method: "POST",
-  headers: { "Content-Type": "application/json" },
-  credentials: "include",
+  headers: {
+    "Content-Type": "application/json",
+    Accept: "application/json",
+  },
   body: JSON.stringify({ email, password }),
 });
 
+const t = await r.text();
+let d; try { d = JSON.parse(t); } catch { d = { error: t }; }
+if (!r.ok || d.error) throw new Error(d.error || `HTTP ${r.status}`);
 
+await hydrateUser();
+closeModal();
+lockApp(false);
+bootAppAfterLogin();
 
-    const body = await res.json().catch(() => ({}));
-
-    // ✅ your /api/login returns { ok: true, user: {...} }
-    if (!res.ok || !body.ok) {
-      if (errorEl) errorEl.textContent = body.message || "Login failed.";
-      return;
-    }
-
-    currentUser = await getSignedInUser();
-    setLoggedInUI(currentUser);
-    lockApp(false);
-    closeModal();
-
-    bootAppAfterLogin();
   } catch (err) {
     console.error("[auth] login error", err);
     if (errorEl) errorEl.textContent = "Something went wrong. Try again.";
@@ -191,11 +215,12 @@ const res = await fetch(`${AUTH_BASE}/auth/login`, {
 
   logoutBtn?.addEventListener("click", async () => {
     try {
-await await fetch(`${AUTH_BASE}/api/logout`, {
+await fetchJSON("/api/logout", { method: "POST" });
+currentUser = null;
+setLoggedInUI(null);
+location.reload();
 
-  method: "POST",
-  credentials: "include",
-});
+ 
 
 
     } catch {}
@@ -6216,22 +6241,20 @@ btn.addEventListener("click", async () => {
 
 
 
-
-
 // ================================
 // Boot after login
 // ================================
 async function bootAppAfterLogin() {
   console.log("[suite-settings2] bootAppAfterLogin");
 
-  // ✅ Ensure currentUser is actually set
+  // ✅ Ensure currentUser is actually set (via /api/me)
   if (!currentUser?.id) {
-    currentUser = await getSignedInUser();
+    await hydrateUser(); // sets currentUser + UI
     console.log("[suite-settings2] currentUser:", currentUser);
   }
 
   if (!currentUser?.id) {
-    console.warn("[suite-settings2] still no currentUser after login check");
+    console.warn("[suite-settings2] still no currentUser after hydrateUser");
     lockApp(true);
     return;
   }
@@ -6241,18 +6264,19 @@ async function bootAppAfterLogin() {
   // ✅ now safe to load data
   await loadLocations();
 }
+
 // ================================
 // ONE DOMContentLoaded (in order)
 // ================================
 document.addEventListener("DOMContentLoaded", async () => {
+  // UI wiring first
   initAuthUI();
   initSidebarCollapse();
   initTabSwitching();
 
   // ✅ Get user FIRST (before anything that depends on currentUser)
-  currentUser = await getSignedInUser();
+  await hydrateUser(); // sets currentUser + setLoggedInUI
   console.log("[suite-settings2] currentUser:", currentUser);
-  setLoggedInUI(currentUser);
 
   // ✅ If not logged in, stop here (don’t load protected data/UI)
   if (!currentUser?.id) {
@@ -6312,7 +6336,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Dashboard + nav
   // ================================
   initDashboardCardNav();
-  //initNavLocationGuard();
+  // initNavLocationGuard();
 
   // ================================
   // Invoices (✅ AFTER currentUser exists)
@@ -6324,22 +6348,19 @@ document.addEventListener("DOMContentLoaded", async () => {
   initInvoiceDueDatePicker();
   initInvoiceSaveButton();
 
-
-    // ================================
-  // Settings 
   // ================================
-  // ✅ Stripe setup (runs once)
+  // Settings (Stripe)
+  // ================================
   initStripeConnectButton();
   await refreshStripeStatusUI();
 
-  // ✅ IMPORTANT: also refresh when user clicks Settings tab
+  // refresh when user clicks Settings tab
   const settingsBtn = document.querySelector('button[data-target="settings"]');
   settingsBtn?.addEventListener("click", async () => {
-    dbg("settings tab opened -> refresh stripe status", true);
+    // dbg("settings tab opened -> refresh stripe status", true);
     initStripeConnectButton();       // safe (guarded by dataset.bound)
     await refreshStripeStatusUI();   // updates UI every time
   });
-
 
   // ================================
   // Boot + data loads
