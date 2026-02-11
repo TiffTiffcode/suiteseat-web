@@ -315,7 +315,9 @@ return (
                           style={{ minWidth: 220, textAlign: "left" }}
                           onClick={() => {
                             if (multiMode) {
-                              picked ? flow.removePick(id) : flow.addPick(id);
+                           picked ? flow.removePick(id) : flow.addPick(id, srv);
+
+
                             } else {
                               flow.handleServiceSelect(id);
                             }
