@@ -6,7 +6,7 @@ window.STATE = window.STATE || { locations: [] };
 const API_BASE =
   window.location.hostname === "localhost"
     ? "http://localhost:8400"
-    : "https://YOUR-RENDER-API.onrender.com"; // <-- put your real Render URL
+    : "https://live-353x.onrender.com";
 
 const AUTH_BASE = API_BASE; // login + check-login live on the API server
 
