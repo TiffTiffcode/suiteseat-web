@@ -1,4 +1,9 @@
 /* src/app/[slug]/styles/SuitePage/basic.css */
+html, body {
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden; /* ✅ prevents the right-side gap caused by 100vw */
+}
 
 .suite-page {
   min-height: 100vh;
@@ -58,10 +63,22 @@
 
 /* --- Main layout --- */
 
-.suite-main {
-  max-width: 100%;          /* ✅ no more narrow container */
-  margin: 0 auto;
-  padding: 32px 0 48px;      /* remove side padding */
+/* ===== Force suite cards to stack on small screens ===== */
+@media (max-width: 780px) {
+  .suite-cards-row {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 24px !important;
+  }
+
+  .suite-card {
+    width: min(360px, 92vw) !important;  /* keeps your styling but fits phone */
+  }
+
+  .suite-card-img-placeholder {
+    width: 100% !important;
+  }
 }
 
 
@@ -104,7 +121,8 @@
 
   /* center it relative to the viewport, not the container */
   margin-left: calc(50% - 50vw);
-
+margin-right: calc(50% - 50vw);
+margin-top:calc(50% - 50vw);
   border-radius: 0;        /* optional: remove rounded corners */
   padding: 0;
   display: flex;
@@ -113,9 +131,9 @@
 }
 
 /* Image fills the hero card */
-.suite-hero-img {
+.suite-hero-img{
   width: 100%;
-  max-height: 420px;
+  height: clamp(220px, 45vw, 420px);
   object-fit: cover;
   display: block;
 }
@@ -185,6 +203,18 @@
   width: 360px;          /* or whatever you like */
   height: 340px;         /* 👈 all cards same height */
 }
+
+@media (max-width: 780px){
+  .suite-cards-row{
+    grid-template-columns: 1fr;   /* stack */
+    justify-items: center;
+  }
+
+  .suite-card{
+    width: min(360px, 92vw);      /* ✅ keep the look, but shrink if needed */
+  }
+}
+
 
 /* The image frame */
 .suite-card-img-placeholder {
@@ -291,11 +321,6 @@
   text-align: center;        /* center the text itself */
 }
 
-/* optional: keep the image card from being too wide */
-.suite-detail-main .suite-hero-card {
-  width: 100%;
-  max-width: 420px;
-}
 
 
 /* --- Slide-out menu / overlay --- */
@@ -654,13 +679,14 @@
   box-shadow: none;             /* 🔹 remove drop shadow */
 }
 .suite-detail-image-wrap {
-  width: 320px;
+ width: min(720px, 96vw);
   max-width: 90vw;
   margin: 24px auto 32px;
   border-radius: 24px;
   overflow: hidden;
   background: #fff;
   box-shadow: 0 18px 40px rgba(0, 0, 0, 0.12);
+    height: 420px;   
 }
 
 .suite-detail-img {
@@ -942,4 +968,280 @@
 .suite-app-success {
   font-size: 12px;
   color: #15803d;
+}
+/* the white image block */
+.suite-card .suite-img-wrap {
+  width: 100%;
+  height: 220px;           /* pick the height you want */
+  border-radius: 16px;
+  overflow: hidden;
+  background: #f3f4f6;
+}
+
+/* the image itself */
+.suite-card .suite-img-wrap img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;       /* cover = fill block (may crop) */
+  /* object-fit: contain;  // contain = no crop (may show empty space) */
+}
+.suite-img-wrap{
+  position: relative;   /* required for fill */
+  width: 100%;
+  height: 220px;
+  border-radius: 16px;
+  overflow: hidden;
+}
+/* ✅ The grey image area */
+.suite-card-img-placeholder{
+  width: 100%;
+  height: 220px;            /* adjust if you want taller */
+  overflow: hidden;
+  border-radius: 16px;
+  background: #f3f4f6;
+
+  /* IMPORTANT: stop flex from shrinking/centering the image */
+  display: block !important;
+  padding: 0 !important;
+}
+
+/* ✅ Force anything inside to fill the container */
+.suite-card-img-placeholder img,
+.suite-card-img-placeholder picture,
+.suite-card-img-placeholder picture img {
+  width: 100% !important;
+  height: 100% !important;
+  display: block !important;
+  object-fit: cover !important;
+
+  /* these two are usually what causes the “small centered image” */
+  max-width: none !important;
+  max-height: none !important;
+}
+.suite-detail-meta{
+ padding-top:20px;
+ padding-bottom:20px;
+padding-right:20px;
+padding-left:20px;
+  background: #f3f4f6d0;
+  border-radius: 10px;
+
+}
+
+.suite-page{
+  background-color: #f2f2f2;
+  background-image: var(--bg-url);
+  background-repeat: no-repeat;
+  background-position: center top;
+  background-size: 1600px auto;  /* desktop default */
+}
+
+/* tablets */
+@media (max-width: 900px){
+  .suite-page{
+    background-size: 1100px auto;
+    background-position: center 40px;
+  }
+}
+
+/* phones */
+@media (max-width: 600px){
+  .suite-page{
+    background-size: 800px auto;
+    background-position: center 120px;
+  }
+}
+
+
+/* ✅ allow hero to truly be full width */
+.suite-detail-main .suite-hero-card{
+  max-width: none !important;
+  width: 100vw !important;
+  margin-left: calc(50% - 50vw) !important;
+}
+
+/* ===== Force suite cards to stack on small screens ===== */
+@media (max-width: 780px) {
+  .suite-cards-row {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 24px !important;
+  }
+
+  .suite-card {
+    width: min(360px, 92vw) !important;  /* keeps your styling but fits phone */
+  }
+
+  .suite-card-img-placeholder {
+    width: 100% !important;
+  }
+}
+
+.suite-details-section { margin-top: 14px; }
+.suite-details-title { font-size: 16px; margin: 0 0 8px; }
+.suite-details-desc { margin: 0 0 10px; line-height: 1.4; }
+
+.suite-details-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.suite-details-item {
+  border: 1px solid rgba(0,0,0,.08);
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+
+.suite-details-label { font-size: 12px; opacity: .7; margin-bottom: 4px; }
+.suite-details-value { font-size: 14px; }
+
+/* ===== Suite detail info card (Available/Rate/Application/Details) ===== */
+.suite-detail-meta{
+  width: min(560px, 92vw);
+  margin: 18px auto 0;
+  padding: 18px 18px 16px;
+
+  background: rgba(255,255,255,.78);
+  border: 1px solid rgba(255,255,255,.55);
+  border-radius: 18px;
+
+  box-shadow: 0 16px 40px rgba(0,0,0,.14);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+
+  color: #111;
+}
+
+/* nicer vertical rhythm */
+.suite-detail-line{
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  font-size: 14px;
+}
+
+/* label + value look */
+.suite-detail-label{
+  font-weight: 700;
+  color: rgba(17,24,39,.85);
+}
+
+/* gives the values a softer look */
+.suite-detail-line span:last-child{
+  color: rgba(17,24,39,.92);
+}
+
+.suite-app-open-btn{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 10px 16px;
+  border-radius: 999px;
+
+  font-weight: 700;
+  font-size: 13px;
+
+  background: #111827;
+  color: #fff;
+
+  box-shadow: 0 10px 22px rgba(17,24,39,.25);
+  transition: transform .12s ease, box-shadow .12s ease, opacity .12s ease;
+}
+
+.suite-app-open-btn:hover{
+  transform: translateY(-1px);
+  box-shadow: 0 14px 28px rgba(17,24,39,.30);
+}
+
+.suite-app-open-btn:active{
+  transform: translateY(0px);
+  box-shadow: 0 10px 18px rgba(17,24,39,.22);
+}
+.suite-details-section{
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(17,24,39,.08);
+}
+
+.suite-details-title{
+  font-size: 15px;
+  font-weight: 800;
+  margin: 0 0 10px;
+  letter-spacing: .2px;
+}
+
+/* Make the grid feel like “chips” not big boxes */
+.suite-details-grid{
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+@media (min-width: 520px){
+  .suite-details-grid{
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.suite-details-item{
+  background: rgba(255,255,255,.75);
+  border: 1px solid rgba(17,24,39,.08);
+  border-radius: 14px;
+  padding: 10px 12px;
+}
+
+.suite-details-label{
+  font-size: 11px;
+  font-weight: 700;
+  opacity: .7;
+  margin-bottom: 4px;
+}
+
+.suite-details-value{
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.suite-details-rich{
+  text-align: left;
+  line-height: 1.6;
+  font-size: 14px;
+  color: rgba(17,24,39,.92);
+  margin: 10px 0 12px;
+}
+
+.suite-details-rich p{ margin: 0 0 10px; }
+.suite-details-rich ul,
+.suite-details-rich ol{ padding-left: 18px; margin: 8px 0; }
+.suite-details-rich a{ text-decoration: underline; }
+
+/* ✅ Force ALL application modal text to black */
+.suite-app-modal,
+.suite-app-modal * {
+  color: #111 !important;
+}
+
+/* ✅ Inputs/textarea text + placeholders */
+.suite-app-modal input,
+.suite-app-modal textarea,
+.suite-app-modal select {
+  color: #111 !important;
+}
+
+.suite-app-modal input::placeholder,
+.suite-app-modal textarea::placeholder {
+  color: rgba(17, 17, 17, 0.55) !important;
+}
+
+/* Optional: labels + section titles */
+.suite-app-modal label,
+.suite-app-modal .suite-app-section-title,
+.suite-app-modal .suite-app-question-label {
+  color: #111 !important;
 }

@@ -1,7 +1,18 @@
-console.log('[client-dashboard] using /check-login');
-const API_BASE =
-  (window.API_BASE) ||
-  "https://live-353x.onrender.com"; // <-- your real API domain
+// ✅ MUST be first (before any API_BASE usage)
+const host = window.location.hostname;
+const isProdHost = host === "suiteseat.io" || host === "www.suiteseat.io";
+
+const API_BASE = isProdHost
+  ? "https://suiteseat-app1.onrender.com"
+  : "http://localhost:8400";
+
+console.log("[client-dashboard] API_BASE:", API_BASE);
+
+// ✅ init caches used later
+window.serviceCache = window.serviceCache || new Map();
+window._serviceCacheLoadedPromise = window._serviceCacheLoadedPromise || null;
+
+
 
 // ---- detect if user came from link page ----
 const urlParams = new URLSearchParams(window.location.search);
@@ -12,12 +23,176 @@ let hasAnyAppointments = false;
 let hasAnyOrders = false;
 let userSelectedMainTab = null; // "appointments-tab" | "orders-tab" | null
 
+function pickServiceNameFromAny(obj) {
+  const v = (obj && (obj.values || obj)) || {};
+
+  const name =
+    v.serviceName ||
+    v["Service Name"] ||
+    v["Name"] ||
+    v.Name ||
+    v.title ||
+    v.Title ||
+    v.name ||
+    "";
+
+  // guard against weird accidental strings
+  if (!name) return "";
+  if (String(name).toLowerCase() === "values") return ""; // <-- stops "values"
+  return String(name);
+}
+function pickServiceNameFromRecord(rec) {
+  const v = (rec && (rec.values || rec)) || {};
+  return String(
+    v.Name || v.name || v["Service Name"] || v.serviceName || v.title || ""
+  ).trim();
+}
+
+function idVal(x) {
+  if (!x) return "";
+  if (typeof x === "string") return x;
+  return String(x.recordId || x.refId || x._id || x.id || x.value || "").trim();
+}
+
+function extractServiceIdsFromAppt(appt) {
+  const v = appt?.values || {};
+  const out = [];
+
+  const multi = v["Service(s)"] || v.Services || v.services;
+  if (Array.isArray(multi)) {
+    for (const s of multi) {
+      const sid = idVal(s);
+      if (sid) out.push(sid);
+    }
+  }
+
+  // just in case single service exists in some older appts
+  const single = v.Service || v.serviceId || v["Service Id"];
+  const sid = idVal(single);
+  if (sid) out.push(sid);
+
+  return Array.from(new Set(out)).filter(Boolean);
+}
+
+function firstRecordFromResponse(data) {
+  if (!data) return null;
+
+  // your API sometimes returns { items: [...] } or { records: [...] }
+  if (Array.isArray(data.items) && data.items.length) return data.items[0];
+  if (Array.isArray(data.records) && data.records.length) return data.records[0];
+
+  // sometimes direct array
+  if (Array.isArray(data) && data.length) return data[0];
+
+  // sometimes { data: [...] }
+  if (Array.isArray(data.data) && data.data.length) return data.data[0];
+
+  // sometimes single record
+  if (data._id || data.id || data.values) return data;
+
+  return null;
+}
+
+
+// Fetch a single Service by id and cache it
+async function fetchServiceById(serviceId) {
+  const id = String(serviceId || "").trim();
+  if (!id) return null;
+
+  if (window.serviceCache.has(id)) return window.serviceCache.get(id);
+
+  // Use where JSON so server ALWAYS treats _id as a real record filter
+  const where = encodeURIComponent(JSON.stringify({ _id: id }));
+  const url = `${API_BASE}/public/records?dataType=Service&where=${where}&limit=1&ts=${Date.now()}`;
+
+  console.log("[svc] fetching:", url);
+
+  const r = await fetch(url, {
+    credentials: "include",
+    headers: { Accept: "application/json" },
+    cache: "no-store",
+  });
+
+  const data = await r.json().catch(() => null);
+  const rec = (data && (data.items?.[0] || data.records?.[0])) || (Array.isArray(data) ? data[0] : null);
+
+  window.serviceCache.set(id, rec || null);
+  return rec || null;
+}
+
+
+// ================================
+// Service cache loader (define it!)
+// ================================
+// ================================
+// Service cache loader (SAFE for your server)
+// ================================
+window._serviceCacheLoadedPromise = window._serviceCacheLoadedPromise || null;
+
+async function loadServiceCache() {
+  // Your server.js doesn't expose /api/me/records, so preloading can't work reliably here.
+  // We'll lazy-load services by id with fetchServiceById() instead.
+  if (!window._serviceCacheLoadedPromise) {
+    window._serviceCacheLoadedPromise = Promise.resolve();
+  }
+  return window._serviceCacheLoadedPromise;
+}
+
+
 
 
 // Default avatar served by the backend (or move file to Next /public)
-const DEFAULT_AVATAR = `${API_BASE}/uploads/default-avatar.png`;
+const DEFAULT_AVATAR =
+  "data:image/svg+xml;utf8," +
+  encodeURIComponent(`
+    <svg xmlns="http://www.w3.org/2000/svg" width="200" height="200">
+      <rect width="100%" height="100%" fill="#eee"/>
+      <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle"
+            font-family="sans-serif" font-size="18" fill="#999">
+        No Photo
+      </text>
+    </svg>
+  `);
 
 
+function pickDateISO(appt) {
+  const v = appt?.values || appt || {};
+  const raw =
+    v.Date ||
+    v.date ||
+    v.dateISO ||
+    v["Date (ISO)"] ||
+    null;
+
+  return raw ? String(raw).slice(0, 10) : null;
+}
+
+function pickStartHHMM(appt) {
+  const v = appt?.values || appt || {};
+  return (
+    v.StartTime ||
+    v["Start Time"] ||
+    v.Time ||
+    v.time ||
+    v.start ||
+    v.Start ||
+    null
+  );
+}
+
+function pickDurationMin(appt) {
+  const v = appt?.values || appt || {};
+  const raw =
+    v.DurationMin ||
+    v["Duration (min)"] ||
+    v.Duration ||
+    v.duration ||
+    v.Minutes ||
+    0;
+
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? Math.round(n) : 0;
+}
 
 function resolveImageUrl(img) {
   if (!img) return "";
@@ -135,7 +310,7 @@ window.closeLoginPopup = closeLoginPopup;
 
 async function checkLogin() {
   try {
-    const res = await fetch(`${API_BASE}/check-login`, {
+    const res = await fetch(`${API_BASE}/api/whoami`, {
       method: "GET",
       credentials: "include",
       headers: { Accept: "application/json" },
@@ -143,7 +318,18 @@ async function checkLogin() {
     });
 
     if (!res.ok) return { loggedIn: false };
-    return await res.json();
+    const data = await res.json().catch(() => ({}));
+
+    const userId = data.userId || data.user?._id || null;
+    if (!userId) return { loggedIn: false };
+
+    return {
+      loggedIn: true,
+      userId,
+      email: data.user?.email,
+      firstName: data.user?.firstName,
+      user: data.user,
+    };
   } catch (e) {
     console.error("[client-dashboard] checkLogin failed:", e);
     return { loggedIn: false };
@@ -151,6 +337,7 @@ async function checkLogin() {
 }
 
 
+ 
 function renderAuthUI(data) {
   const loggedIn = !!data?.loggedIn;
 
@@ -185,21 +372,30 @@ function renderAuthUI(data) {
   }
 
   // profile photo (optional)
-  if (els.profileImg) {
-    const src = loggedIn && (data.profilePhoto || data?.user?.profilePhoto);
+// profile photo (optional)
+if (els.profileImg) {
+  const raw = loggedIn && (data.profilePhoto || data?.user?.profilePhoto);
+  const resolved = raw ? resolveImageUrl(raw) : "";
+
   els.profileImg.onerror = () => { els.profileImg.src = DEFAULT_AVATAR; };
-   els.profileImg.src = src ? `${src}${src.includes("?") ? "&" : "?"}t=${Date.now()}` : DEFAULT_AVATAR;
-  }
+  els.profileImg.src = resolved
+    ? `${resolved}${resolved.includes("?") ? "&" : "?"}t=${Date.now()}`
+    : DEFAULT_AVATAR;
+}
+
 }
 
 async function doLogout() {
-  const try1 = fetch(`${API_BASE}/auth/logout`, { method: "POST", credentials: "include" }).catch(()=>{});
-  const res1 = await try1;
-  if (!res1 || !res1.ok) {
-    await fetch("/logout", { method: "POST", credentials: "include" }).catch(()=>{});
+  const tries = ["/api/logout", "/auth/logout", "/logout"];
+  for (const path of tries) {
+    try {
+      const r = await fetch(`${API_BASE}${path}`, { method: "POST", credentials: "include" });
+      if (r.ok) break;
+    } catch {}
   }
   location.reload();
 }
+
 
 // login form submit (uses your existing /login route)
 $("#login-form")?.addEventListener("submit", async (e) => {
@@ -208,21 +404,30 @@ $("#login-form")?.addEventListener("submit", async (e) => {
   const password = $("#login-password").value.trim();
   if (!email || !password) return alert("Please enter both email and password.");
 
-  const res = await fetch("/login", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",          // IMPORTANT for session cookie
-    body: JSON.stringify({ email, password })
-  });
-  const body = await res.json().catch(()=> ({}));
+  const tries = ["/api/login", "/login"];
 
-  if (res.ok) {
+  let res, body;
+  for (const path of tries) {
+    try {
+      res = await fetch(`${API_BASE}${path}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ email, password }),
+      });
+      body = await res.json().catch(() => ({}));
+      if (res.ok) break;
+    } catch (e) {}
+  }
+
+  if (res && res.ok) {
     closeLoginPopup();
     location.reload();
   } else {
-    alert(body.message || "Login failed.");
+    alert(body?.message || "Login failed.");
   }
 });
+
 
 // wire top-right Login button (if present)
 els.loginBtn?.addEventListener("click", openLoginPopup);
@@ -267,6 +472,27 @@ document.addEventListener('DOMContentLoaded', () => {
   showSubTab('upcoming');
 });
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 // ================================
 // Client Appointments – renderer
 // ================================
@@ -300,17 +526,27 @@ function safe(v, fb='') { return v ?? fb; }
 // ---- get current user (client) via your /check-login
 async function getSignedInUser() {
   try {
-    const r = await fetch('/check-login', { credentials: 'include' });
+    const r = await fetch(`${API_BASE}/api/whoami`, {
+      credentials: "include",
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+    });
     if (!r.ok) return null;
-    const d = await r.json();
-    if (!d?.loggedIn) return null;
+
+    const d = await r.json().catch(() => ({}));
+    const id = d.userId || d?.user?._id || d?.user?.id || null;
+    if (!id) return null;
+
     return {
-      id: d.userId || d?.user?._id || d?.user?.id || null,
-      email: d.email || d?.user?.email || '',
-      firstName: d.firstName || d?.user?.firstName || '',
+      id,
+      email: d?.user?.email || "",
+      firstName: d?.user?.firstName || "",
     };
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }
+
 
 // Try to find the right key automatically and remember it
 let _apptClientKey = null;   // e.g., "Client", "clientId", "clientUserId", "Email", "clientEmail"
@@ -324,47 +560,129 @@ let _apptClientKey = null;   // e.g., "Client", "clientId", "clientUserId", "Ema
  */
 // replace your fetchClientAppointments with this temporary name-based filter
 // fetch ONLY the current client's appointments
+function rowsFromAnyPayload(data) {
+  if (!data) return [];
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data.items)) return data.items;
+  if (Array.isArray(data.records)) return data.records;
+  if (Array.isArray(data.data)) return data.data;
+  return [];
+}
+
+// Pull an id out of many ref shapes
+function refIdAny(x) {
+  if (!x) return "";
+  if (typeof x === "string") return x.trim();
+  if (Array.isArray(x)) return refIdAny(x[0]);
+  if (typeof x === "object") {
+    return String(
+      x.recordId || x.refId || x._id || x.id || x.value ||
+      x.values?._id || x.values?.id || ""
+    ).trim();
+  }
+  return "";
+}
+
+// Pull an email out of many shapes
+function emailAny(x) {
+  if (!x) return "";
+  if (typeof x === "string" && x.includes("@")) return x.trim().toLowerCase();
+  if (Array.isArray(x)) return emailAny(x[0]);
+  if (typeof x === "object") {
+    const v = x.values || x;
+    const e = v.email || v.Email || v["Client Email"] || v.clientEmail || "";
+    return String(e || "").trim().toLowerCase();
+  }
+  return "";
+}
+
+function appointmentMatchesClient(row, myId, myEmailLow) {
+  const v = row?.values || row || {};
+
+  // Check MANY possible client fields (string id, ref object, etc.)
+  const idCandidates = [
+    v.clientUserId,
+    v.clientUser,
+    v.clientId,
+    v["Client User Id"],
+    v["ClientUserId"],
+    v["Client User"],
+    v["Client"],
+    v["Client Ref"],
+    v.Client,
+    v.client,
+    v.Customer,
+    v.customer,
+  ]
+    .map(refIdAny)
+    .filter(Boolean)
+    .map(String);
+
+  const emailCandidates = [
+    v.clientEmail,
+    v["Client Email"],
+    v.email,
+    v.Email,
+    v.ClientEmail,
+    v.Client && emailAny(v.Client),
+    v.client && emailAny(v.client),
+    v["Client"] && emailAny(v["Client"]),
+  ]
+    .map(x => String(x || "").trim().toLowerCase())
+    .filter(Boolean);
+
+  // If appointments store AuthUser id anywhere, match it
+  if (myId && idCandidates.includes(String(myId))) return true;
+
+  // If appointments store client email anywhere, match it
+  if (myEmailLow && emailCandidates.includes(myEmailLow)) return true;
+
+  return false;
+}
+
+// Fetch ONLY the current client's appointments (server-compatible)
 async function fetchClientAppointments(clientId, clientEmail) {
-  const r = await fetch(`${API_BASE}/public/records?dataType=Appointment&limit=500`, {
-    credentials: 'include',
-    headers: { Accept: 'application/json' },
-  });
-  if (!r.ok) return [];
+  const myId = String(clientId || "").trim();
+  const myEmailLow = String(clientEmail || "").trim().toLowerCase();
 
-  const data = await r.json();
-  const rows = Array.isArray(data) ? data : (data.records || data.items || []);
-  const myId      = String(clientId || '');
-  const emailLow  = (clientEmail || '').toLowerCase();
+  // Try authenticated endpoint first (if session works)
+  const urls = [
+    `${API_BASE}/api/records/Appointment?limit=500&ts=${Date.now()}`,
+    `${API_BASE}/public/records?dataType=Appointment&limit=500&ts=${Date.now()}`,
+  ];
 
-  const filtered = rows.filter(row => {
-    const v = row.values || row;
+  let rows = [];
+  for (const url of urls) {
+    try {
+      const r = await fetch(url, {
+        credentials: "include",
+        headers: { Accept: "application/json" },
+        cache: "no-store",
+      });
 
-    // collect all possible id fields that might belong to this client
-    const possibleIds = [
-      v.clientUserId,
-      v.clientId,
-      v.Client && v.Client._id,
-      v.createdBy,
-    ]
-      .filter(Boolean)
-      .map(String);
+      if (!r.ok) continue;
 
-    // collect possible email fields
-    const possibleEmails = [
-      v.clientEmail,
-      v.email,
-      v.Client && v.Client.email,
-    ]
-      .filter(Boolean)
-      .map(x => String(x).toLowerCase());
+      const data = await r.json().catch(() => ({}));
+      rows = rowsFromAnyPayload(data);
+      if (rows.length) break;
+    } catch (e) {
+      console.warn("[appt] fetch failed:", url, e);
+    }
+  }
 
-    const idMatch    = myId && possibleIds.includes(myId);
-    const emailMatch = emailLow && possibleEmails.includes(emailLow);
+  if (!rows.length) {
+    console.log("[appt] no rows returned from API");
+    return [];
+  }
 
-    return idMatch || emailMatch;
-  });
+  const filtered = rows.filter(row => appointmentMatchesClient(row, myId, myEmailLow));
 
-  console.log('[appt] local filter →', filtered.length, 'of', rows.length);
+  console.log("[appt] filtered →", filtered.length, "of", rows.length);
+  if (!filtered.length) {
+    console.log("[appt] sample values keys:", Object.keys((rows[0]?.values) || {}));
+    console.log("[appt] sample values:", rows[0]?.values);
+  }
+
   return filtered;
 }
 
@@ -394,57 +712,61 @@ function nameOf(x) {
 // ---- Business name cache (avoid refetching the same id)
 const BizNameCache = new Map();
 
-/**
- * Resolve a Business display name by its _id.
- * Tries several API shapes: public/records, api/records, and (if available) dataTypeId.
- */
 async function getBusinessNameById(bizId) {
   if (!bizId) return "";
   if (BizNameCache.has(bizId)) return BizNameCache.get(bizId);
 
-  // Best guess for API origin (you already define API or API_BASE earlier)
-  const ORIGIN = (typeof API !== "undefined" && API) ||
-                 (typeof API_BASE !== "undefined" && API_BASE) ||
-                 "";
+  const ORIGIN = API_BASE;
 
-  // Try with dataType=Business first
-  const attempts = [
-    `${ORIGIN}/public/records?dataType=Business&_id=${encodeURIComponent(bizId)}`,
-    `${ORIGIN}/api/records?dataType=Business&_id=${encodeURIComponent(bizId)}`
-  ];
+  const url =
+    `${ORIGIN}/public/records?dataType=Business&_id=${encodeURIComponent(bizId)}&limit=1`;
 
-  // Optional: if your server ONLY works with dataTypeId, look it up once
   try {
-    const dt = await fetch(`${ORIGIN}/api/datatypes`, { credentials: "include" }).then(r => r.ok ? r.json() : null);
-    const bizType = Array.isArray(dt) ? dt.find(d => String(d.name || d?.values?.Name || "").toLowerCase() === "business") : null;
-    if (bizType?._id) {
-      attempts.push(`${ORIGIN}/public/records?dataTypeId=${bizType._id}&_id=${encodeURIComponent(bizId)}`);
-      attempts.push(`${ORIGIN}/api/records?dataTypeId=${bizType._id}&_id=${encodeURIComponent(bizId)}`);
+    const r = await fetch(url, {
+      credentials: "include",
+      headers: { Accept: "application/json" },
+    });
+    if (!r.ok) {
+      BizNameCache.set(bizId, "");
+      return "";
     }
-  } catch { /* ignore */ }
 
-  for (const url of attempts) {
-    try {
-      const r = await fetch(url, { credentials: "include", headers: { Accept: "application/json" } });
-      if (!r.ok) continue;
-      const data = await r.json();
+    const data = await r.json().catch(() => ({}));
+    const rec =
+      Array.isArray(data) ? data[0] :
+      (data && (data.items?.[0] || data.records?.[0])) || null;
 
-      const rec =
-        Array.isArray(data) ? data[0] :
-        (data && (data.records?.[0] || data.items?.[0])) || data;
+    const v = rec?.values || rec || {};
+    const name = v.Name || v.name || v.title || v.businessName || v.displayName || "";
 
-      const v = rec?.values || rec || {};
-      const name = v.Name || v.name || v.title || v.businessName || v.displayName || "";
-      if (name) {
-        BizNameCache.set(bizId, String(name));
-        return String(name);
-      }
-    } catch { /* try next */ }
+    BizNameCache.set(bizId, name ? String(name) : "");
+    return BizNameCache.get(bizId);
+  } catch {
+    BizNameCache.set(bizId, "");
+    return "";
   }
+}
 
-  // last resort – keep it a dash
-  BizNameCache.set(bizId, "");
-  return "";
+function getServiceLineFromApptRow(row) {
+  const v = row?.values || row || {};
+
+  // ✅ BEST: already stored on the appointment at booking time
+  const direct =
+    v.ServiceNames ||
+    v["Service Names"] ||
+    v.ServiceName ||
+    v["Service Name"] ||
+    v.serviceName;
+
+  if (direct) return String(direct);
+
+  // Try embedded service refs (if any)
+  const embedded = extractServicesLabel(v);
+  if (embedded) return embedded;
+
+  // Last resort: if only IDs exist, try cache-based resolve
+  const ids = extractServiceIdsFromAppt(row);
+  return ids.length ? "" : "";
 }
 
 
@@ -461,62 +783,149 @@ function pickName(str, ref) {
   return v.Name || v.name || v.title || "";
 }
 
+// Normalize one Appointment helper
+function extractServicesLabel(v) {
+  const raw =
+    v["Service(s)"] ||
+    v["Services"] ||
+    v["Service"] ||
+    v.services ||
+    v.service ||
+    v.Service;
+
+  if (!raw) return "";
+
+  const arr = Array.isArray(raw) ? raw : [raw];
+
+  const names = arr.map((item) => {
+    // If we have an id, check cache
+    const id =
+      typeof item === "string"
+        ? item
+        : item?.recordId || item?.refId || item?._id || item?.id || "";
+
+    if (id && window.serviceCache?.has(String(id))) {
+      const svc = window.serviceCache.get(String(id));
+      const nm = pickServiceNameFromAny(svc);
+      if (nm) return nm;
+    }
+
+    // Otherwise try to read embedded name on the ref object itself
+    const nm = pickServiceNameFromAny(item);
+    return nm || "";
+  });
+
+  return names.filter(Boolean).join(", ");
+}
+
+
+
 // Normalize one Appointment row to a uniform shape
-// Normalize one Appointment row to a uniform shape
-function normalizeAppointment(a) {
-  const v = a.values || a;
+// ✅ helper (you referenced extractRefId but didn’t define it here)
+function extractRefId(ref) {
+  if (!ref) return "";
+  if (typeof ref === "string") return ref;
+  if (Array.isArray(ref)) return extractRefId(ref[0]);
+  return String(ref.recordId || ref.refId || ref._id || ref.id || "").trim();
+}
 
-  // ---- Business reference (read name ONLY from the Business ref or persisted label)
-  const bizRef =
-    v.Business || v.business || (v.values && v.values.Business) || null;
+function buildStartISOFromAppt(v) {
+  const dateISO =
+    v.Date || v.date || v.dateISO || v["Date (ISO)"] || v["Appointment Date"] || "";
 
-  const businessId =
-    (bizRef && (bizRef._id || bizRef.id)) || v.businessId || '';
+  const timeRaw =
+    v.StartTime || v["Start Time"] || v.Time || v.time || v.start || v.Start || "";
 
-  const businessSlug =
-    (bizRef && (bizRef.slug?.current || bizRef.slug)) ||
-    v.businessSlug || v.slug || '';
+  if (!dateISO) return null;
 
-  const businessName =
-    v.businessName ||                      // persisted label we saved at booking
-    (bizRef && (bizRef.name || bizRef.values?.Name)) ||
-    '';
+  if (!timeRaw) return `${String(dateISO).slice(0, 10)}T00:00`;
 
-  // ---- Calendar / Service
-  const calendarName =
-    v.calendarName || v.Calendar?.name || v.Calendar?.values?.Name || '';
+  const dStr = String(dateISO).slice(0, 10);
+  const tStr = String(timeRaw).trim();
 
-  const serviceName =
-    v.serviceName ||
-    (Array.isArray(v['Service(s)']) &&
-      (v['Service(s)'][0]?.name || v['Service(s)'][0]?.values?.Name)) ||
-    '';
-
-  // ---- flags (ONE variable only)
-  const canceled = Boolean(
-    v['is Canceled'] ?? v.isCanceled ?? v.canceled ?? false
-  );
-  const hold = Boolean(v.Hold ?? v.hold ?? false);
-
-  // ---- datetime
-  let start = null;
-  if (v.Date && v.Time) {
-    start = `${v.Date}T${v.Time}`;  // e.g. "2025-11-15T05:30"
-  } else {
-    start = v.start || v.startTime || v.dateTime || v.date || null;
+  if (/am|pm/i.test(tStr)) {
+    const d = new Date(`${dStr} ${tStr}`);
+    return isNaN(d.getTime()) ? `${dStr}T00:00` : d.toISOString();
   }
 
+  const hhmm = tStr.match(/^\d{1,2}:\d{2}/)?.[0];
+  if (hhmm) return `${dStr}T${hhmm}`;
+
+  return `${dStr}T00:00`;
+}
+
+// Normalize one Appointment row to a uniform shape
+function normalizeAppointment(a) {
+  const v = (a && (a.values || a)) || {};
+
+  // ---- Business / Location reference (flexible)
+  const bizRef = v.Business || v.business || v.Location || v.location || null;
+
+  const businessId =
+    (typeof extractRefId === "function" ? extractRefId(bizRef) : "") ||
+    String(v.businessId || v.BusinessId || v.locationId || v.LocationId || "");
+
+  // ---- Service ids
+  const serviceIds = extractServiceIdsFromAppt(a);
+
+  console.log("[appt] extracted serviceIds:", serviceIds);
+  console.log("[appt] raw service value:", v["Service(s)"] || v.Services || v.Service || v.services);
+
+  console.log("[appt] business ref raw:", bizRef);
+  console.log("[appt] businessId:", businessId);
+  console.log("[appt] service ids:", serviceIds);
+
+  console.log("[appt] service fields:",
+    v["Service(s)"], v["Services"], v["Service"], v.services, v.service, v.Service
+  );
+
+  const businessName =
+    v.businessName ||
+    v["Business Name"] ||
+    v.locationName ||
+    (bizRef && (bizRef.values?.["Business Name"] || bizRef.values?.Name || bizRef.name)) ||
+    "";
+
+  const businessSlug =
+    v.businessSlug ||
+    v.slug ||
+    v.bookingSlug ||
+    (bizRef && (bizRef.values?.slug || bizRef.slug?.current || bizRef.slug)) ||
+    "";
+
+  const calendarName =
+    v.calendarName || v.Calendar?.name || v.Calendar?.values?.Name || "";
+
+  // ✅ service line (make sure this helper exists)
+  const serviceName = getServiceLineFromApptRow(a);
+
+  const canceled = Boolean(v["is Canceled"] ?? v.isCanceled ?? v.canceled ?? false);
+  const hold     = Boolean(v.Hold ?? v.hold ?? false);
+
+  // ✅ KEY FIX: compute start reliably
+  const start =
+    buildStartISOFromAppt(v) ||
+    v.start ||
+    v.startTime ||
+    v.dateTime ||
+    v.date ||
+    null;
+
+  // ✅ log BEFORE return
+  console.log("[normalize] start:", start, "id:", a._id || a.id);
+
   return {
-    id: a._id || a.id || '',
+    id: a._id || a.id || "",
     businessId,
     businessSlug,
     businessName,
     calendarName,
     serviceName,
-    durationMin: v.durationMin ?? v.Duration ?? v.duration ?? '',
-    price: v.price ?? v.amount ?? '',
+    serviceIds,
+    durationMin: v.durationMin ?? v.Duration ?? v.duration ?? "",
+    price: v.price ?? v.amount ?? "",
     start,
-    canceled,   // <— single canonical key
+    canceled,
     hold,
   };
 }
@@ -556,12 +965,17 @@ function renderAppointmentCard(appt) {
   if (appt.businessSlug) el.dataset.businessSlug = appt.businessSlug;
 
   el.innerHTML = `
-    <div class="pro-card">
-      <div><div data-biz-label>${safe(appt.businessName) || '—'}</div></div>
-    </div>
+ <div class="pro-card">
+  <div class="biz-name" data-biz-label>${escapeHtml(appt.businessName || "—")}</div>
+</div>
+
 
     <div class="appointment-info">
-      <h3>${safe(appt.serviceName) || 'Service'}</h3>
+   <h3 data-services-title>
+  ${appt.serviceName ? `Services: ${escapeHtml(appt.serviceName)}` : "Services: …"}
+</h3>
+
+
       <p>${when}${dur ? ' • ' + dur : ''}${price ? ' • ' + price : ''}</p>
     </div>
 
@@ -570,6 +984,12 @@ function renderAppointmentCard(appt) {
       <button type="button" class="btn-cancel">Cancel</button>
     </div>
   `;
+// ✅ Fill services title after render (handles service refs that are only {_id})
+const titleEl = el.querySelector("[data-services-title]");
+if (titleEl) {
+  titleEl.textContent = `Services: ${appt.serviceName || "—"}`;
+}
+
 
   // prevent card navigation when clicking actions
   el.querySelector('.appointment-actions')?.addEventListener('click', e => {
@@ -632,6 +1052,21 @@ function renderAppointmentCard(appt) {
 }
 
 
+
+async function resolveServiceNamesByIds(ids) {
+  const uniq = Array.from(new Set((ids || []).map(String))).filter(Boolean);
+  if (!uniq.length) return "";
+
+  await Promise.all(uniq.map((id) => fetchServiceById(id)));
+
+  const names = uniq
+    .map((id) => pickServiceNameFromRecord(window.serviceCache.get(id)))
+    .filter(Boolean);
+
+  return names.join(", ");
+}
+
+
 // ---- Filter and paint
 // Helpers
 const toMillis = (d) => (d instanceof Date ? d : new Date(d)).getTime();
@@ -640,7 +1075,28 @@ const isValid  = (t) => Number.isFinite(t);
 // Split + sort with options
 function splitByTab(list){
   const now = Date.now();
-  const norm = list.map(normalizeAppointment).filter(a => a.start);
+ const norm = list
+  .map((row, i) => {
+    // ✅ log raw appointment once
+    console.groupCollapsed(`[appt raw #${i}] id=${row?._id || row?.id}`);
+    console.log("ROW:", row);
+    console.log("VALUES:", row?.values);
+    console.log("keys(values):", Object.keys(row?.values || {}));
+    console.log("Service(s) field:", row?.values?.["Service(s)"]);
+    console.log("Services field:", row?.values?.Services);
+    console.log("Service field:", row?.values?.Service);
+    console.log("business fields:", {
+      Business: row?.values?.Business,
+      business: row?.values?.business,
+      Location: row?.values?.Location,
+      businessId: row?.values?.businessId,
+    });
+    console.groupEnd();
+
+    return normalizeAppointment(row);
+  })
+  .filter(a => a.start);
+
 
   // drop canceled from “active” views
   const active = norm.filter(a => !a.canceled);
@@ -671,9 +1127,7 @@ function mountList(targetEl, items) {
 }
 
 // ---- Public function you can call after switching sub-tabs
-window.fetchAndRenderClientAppointments = async function ({
-  filter = "upcoming",
-} = {}) {
+window.fetchAndRenderClientAppointments = async function ({ filter = "upcoming" } = {}) {
   const user = await getSignedInUser();
   if (!user) {
     mountList(APPT_SECTIONS.all, []);
@@ -683,6 +1137,16 @@ window.fetchAndRenderClientAppointments = async function ({
     updateMainTabs();
     return;
   }
+
+  // ✅ LOAD SERVICES FIRST so normalizeAppointment can resolve names
+  await loadServiceCache();
+console.log("[dashboard] window.serviceCache size:", window.serviceCache.size);
+console.log("[dashboard] first cached service:", window.serviceCache.values().next().value);
+console.log("[serviceCache] size:", window.serviceCache.size);
+const firstKey = window.serviceCache.keys().next().value;
+console.log("[serviceCache] first key:", firstKey);
+console.log("[serviceCache] first value:", window.serviceCache.get(firstKey));
+console.log("[serviceCache] first name:", pickServiceNameFromRecord(window.serviceCache.get(firstKey)));
 
   const raw = await fetchClientAppointments(user.id, user.email);
   const buckets = splitByTab(raw, {
@@ -734,6 +1198,19 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
 //Navigate to booking page helper
 const BizSlugCache = new Map();
 
@@ -741,50 +1218,35 @@ async function getBusinessSlugById(bizId) {
   if (!bizId) return "";
   if (BizSlugCache.has(bizId)) return BizSlugCache.get(bizId);
 
-  const ORIGIN =
-    (typeof API !== "undefined" && API) ||
-    (typeof API_BASE !== "undefined" && API_BASE) ||
-    "";
+  const ORIGIN = API_BASE;
 
-  const tries = [
-    `${ORIGIN}/public/records?dataType=Business&_id=${encodeURIComponent(bizId)}`,
-    `${ORIGIN}/api/records?dataType=Business&_id=${encodeURIComponent(bizId)}`
-  ];
+  const url =
+    `${ORIGIN}/public/records?dataType=Business&_id=${encodeURIComponent(bizId)}&limit=1`;
 
-  // optionally try by dataTypeId
   try {
-    const dt = await fetch(`${ORIGIN}/api/datatypes`, { credentials: "include" })
-      .then(r => r.ok ? r.json() : null);
-    const bizType = Array.isArray(dt)
-      ? dt.find(d => String(d.name || d?.values?.Name || "").toLowerCase() === "business")
-      : null;
-    if (bizType?._id) {
-      tries.push(`${ORIGIN}/public/records?dataTypeId=${bizType._id}&_id=${encodeURIComponent(bizId)}`);
-      tries.push(`${ORIGIN}/api/records?dataTypeId=${bizType._id}&_id=${encodeURIComponent(bizId)}`);
+    const r = await fetch(url, {
+      credentials: "include",
+      headers: { Accept: "application/json" },
+    });
+    if (!r.ok) {
+      BizSlugCache.set(bizId, "");
+      return "";
     }
-  } catch {}
 
-  for (const url of tries) {
-    try {
-      const r = await fetch(url, { credentials: "include", headers: { Accept: "application/json" }});
-      if (!r.ok) continue;
-      const data = await r.json();
-      const rec =
-        Array.isArray(data) ? data[0] :
-        (data && (data.records?.[0] || data.items?.[0])) || data;
+    const data = await r.json().catch(() => ({}));
+    const rec =
+      Array.isArray(data) ? data[0] :
+      (data && (data.items?.[0] || data.records?.[0])) || null;
 
-      const v = rec?.values || rec || {};
-      // try common slug shapes
-      const slug = v.slug?.current || v.slug || v.Slug?.current || v.Slug || "";
-      if (slug) {
-        BizSlugCache.set(bizId, String(slug));
-        return String(slug);
-      }
-    } catch {}
+    const v = rec?.values || rec || {};
+    const slug = v.slug?.current || v.slug || v.Slug?.current || v.Slug || "";
+
+    BizSlugCache.set(bizId, slug ? String(slug) : "");
+    return BizSlugCache.get(bizId);
+  } catch {
+    BizSlugCache.set(bizId, "");
+    return "";
   }
-
-  BizSlugCache.set(bizId, "");
-  return "";
 }
 
 // ================================
@@ -930,7 +1392,7 @@ async function fetchClientOrders() {
     }
 
     const body = await r.json().catch(() => ({}));
-    const rows = Array.isArray(body.data) ? body.data : [];
+    const rows = Array.isArray(body.data) ? body.data : (Array.isArray(body.items) ? body.items : []);
     console.log("[orders] rows:", rows);
 
     // 🔍 log the latest order's values to inspect Thumbnail

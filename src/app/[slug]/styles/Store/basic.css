@@ -1,0 +1,1176 @@
+/* src/app/[slug]/styles/Store/basic.css */
+html, body {
+  margin: 0;
+  padding: 0;
+}
+
+
+:root{
+  /* Oranges  */
+  --main: #de8830;  /* green */
+  --neutral: #de8830;   /* orange */
+  --fun: #f9a576;
+  --tan: #f6e6be;
+ --brown: #614237;
+ --glass:rgba(232, 191, 142, 0.38);
+ 
+  /* Surfaces */
+  --bg: #ffffff;
+  --surface: #f2f3f7;
+  --line: rgba(0,0,0,.12);
+
+  /* Radius / shadow (optional but handy) */
+  --r-lg: 18px;
+  --shadow: 0 10px 25px rgba(0,0,0,.12);
+}
+
+
+
+
+.storeThemeRoot{
+  min-height:100vh;
+  background:var(--bg);
+  color:var(--text);
+}
+
+.container{
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 20px;
+}
+.topCtaBar,
+.storeHeader{
+  margin: 0 !important;
+}
+
+
+.storeHero{
+  padding: 0;                 /* or 8px 16px */
+}
+.heroGrid{
+  padding: 16px;              /* put padding on inner grid instead */
+}
+
+.storeTitle{
+  margin: 0;
+  font-size: 28px;
+}
+
+.storeSubtitle{
+  color: var(--muted);
+  margin-top: 6px;
+}
+
+.grid{
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.store-card{
+  background: var(--surface);
+  padding: 14px;
+}
+
+.row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.btn{
+  background: var(--brand);
+  color: white;
+  border: 0;
+  border-radius: 12px;
+  padding: 10px 12px;
+  cursor: pointer;
+}
+
+
+
+
+
+
+
+
+
+
+                                   /* TOP CTA BAR 
+                                   CTA SECTION */
+.topCtaBar{
+ border-radius: 0;            /* removes pill look */
+  border-left: 0;
+  border-right: 0;
+  width: 100%;
+ background: var(--main);
+  color: #f85b06;                  /* black text */
+  margin: 0;
+}
+
+.topCtaInner{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap: 10px;
+  text-align:center;
+}
+
+.topCtaText{
+  font-size: 13px;
+  font-weight: 700;
+   color: #111;
+  opacity: .95;
+}
+/* motion mode (marquee) */
+.topCtaBar.isMarquee{
+  overflow:hidden;
+}
+
+.topCtaBar.isMarquee .topCtaInner{
+  justify-content:flex-start;
+}
+
+.topCtaBar.isMarquee .topCtaText{
+  display:inline-block;
+  white-space: nowrap;
+  padding-left: 100%;
+  animation: ctaMarquee 14s linear infinite;
+}
+
+@keyframes ctaMarquee{
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-100%); }
+}
+
+/* kill any default section spacing */
+.topCtaBar { padding: 6px 16px; }
+.storeHeader { padding: 10px 16px; }
+
+/* IMPORTANT: remove any borders if you think it's "space" */
+.topCtaBar { border-bottom: 0; }
+.storeHeader { border-top: 0; }
+.storeHeader, .topCtaBar, .storeHero { display: block; }
+
+
+
+
+
+
+    /* ///////                          HEADER SECTION           */
+.storeHeader{
+  border-radius: 0 !important;
+    margin: 0;
+ 
+}
+
+
+.storeHeaderInner{
+  width: 100%;
+  display: flex;
+  align-items: center;          /* ✅ forces same vertical level */
+  justify-content: space-between;
+  gap: 16px;
+    border-radius: 0 !important;
+  
+}
+.storeHeaderLeft{
+  flex: 0 0 auto;
+  
+}
+
+.storeHeaderRight{
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+}
+
+
+/* Left */
+.storeLogo{
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  text-decoration: none;
+ color: #111;
+}
+
+/* Center tabs */
+.storeHeaderNav{
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  flex: 1;                      /* ✅ takes middle space */
+  
+}
+
+
+.storeTab{
+  text-decoration:none;
+  color: rgba(0,0,0,.65);
+  font-weight: 700;
+  font-size: 13px;
+  padding: 8px 10px;
+  border-radius: 999px;
+  transition: background .15s ease, color .15s ease;
+}
+
+
+/* Right cart */
+.storeHeaderRight{
+  display:flex;
+  justify-content:flex-end;
+}
+
+.cartBtn{
+  display:flex;
+  align-items:center;
+  gap: 10px;
+  background: #fff;
+  border: 1px solid rgba(0,0,0,.12);
+   color: #111;
+  border-radius: 999px;
+  padding: 8px 12px;
+  cursor:pointer;
+  font-weight: 800;
+}
+
+.cartIcon{
+  font-size: 16px;
+}
+
+.cartLabel{
+  font-size: 13px;
+}
+
+.cartCount{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--brand);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+/* Mobile behavior */
+@media (max-width: 700px){
+  .storeHeaderInner{
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      "logo cart"
+      "nav  nav";
+  }
+  .storeHeaderLeft{ grid-area: logo; }
+  .storeHeaderRight{ grid-area: cart; }
+  .storeHeaderNav{ grid-area: nav; justify-content:flex-start; }
+}
+      
+
+
+
+                                                       /* HERO SECTION */
+.heroMediaImg{
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;          /* full width banner look */
+  object-position: 60% 50%;
+}
+                                                
+.storeHero{
+     position: relative;
+  width: 100%;
+  background: #fff;
+  padding: 18px 16px;
+}
+
+.heroGrid{
+  display: grid;
+  grid-template-columns: 1.1fr .9fr;
+  gap: 18px;
+  align-items: center;
+    position: relative;
+ height: 620px;
+}
+
+
+/* small top line */
+.heroKicker{
+  font-size: 18px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.95);
+  margin: 0 0 10px;
+}
+
+/* big stacked headline */
+.heroHeadline{
+  margin: 0;
+  color: #fff;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  line-height: 0.95;
+  font-size: 56px;
+}
+
+.heroHeadline span{
+  display: block;
+}
+
+/* button */
+.heroActions{
+  margin-top: 18px;
+}
+
+
+
+.heroBtn:hover{
+  background: #fff;
+}
+
+/* responsive */
+@media (max-width: 900px){
+  .heroGrid{ height: 420px; }
+  .heroText{ max-width: 100%; padding: 18px; }
+  .heroCard{ padding: 22px; }
+  .heroHeadline{ font-size: 40px; }
+  .heroKicker{ font-size: 14px; }
+  .heroBtn{ font-size: 18px; padding: 10px 20px; }
+}
+
+
+
+
+
+
+
+
+
+.heroTitle{
+  margin: 0;
+  font-size: 34px;
+  line-height: 1.05;
+  font-weight: 900;
+  color: #111;
+}
+
+.heroDesc{
+  margin: 10px 0 14px;
+  font-size: 18px;
+  font-weight: 800;
+  color: #111;
+}
+
+.heroBtn{
+  border: 0;
+  background: #fff;
+  color: var(--main);
+  font-weight: 900;
+  padding: 12px 50px;
+  border-radius: 999px;
+  cursor: pointer;
+  border-radius: 999px;
+
+  font-size: 22px;
+  cursor: pointer;
+  box-shadow: 0 10px 20px rgba(0,0,0,.18);
+}
+
+
+/* image/video fills the whole hero area */
+.heroMedia{
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+/* Right side media placeholder */
+.heroMediaBox{
+  width: 100%;
+  min-height: 20px;
+  border-radius: 18px;
+  background: #dff2ff; /* placeholder sky-ish */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  font-weight: 900;
+  color: #111;
+}
+
+/* text sits on top */
+.heroText{
+  position: relative;
+  z-index: 2;
+  max-width: 520px;
+  padding: 28px;
+}
+
+/* optional: helps text readability on bright images */
+.heroText::before{
+  content: "";
+  position: absolute;
+  inset: 12px;
+  border-radius: 18px;
+  filter: blur(0px);
+  z-index: -1;
+}
+
+/* Mobile: reduce padding */
+@media (max-width: 800px){
+  .heroGrid{ min-height: 260px; }
+  .heroText{ padding: 18px; max-width: 100%; }
+}
+/* HERO OVERLAP (text stays INSIDE the hero background) */
+/* =========================
+   HERO SECTION (clean)
+========================= */
+
+.storeHero{
+  width: 100%;
+  padding: 0;
+}
+
+/* the hero is a full-bleed banner with rounded corners */
+.heroGrid{
+  position: relative;
+  width: 100%;
+  height: 620px;              /* you can change */
+
+  overflow: hidden;
+}
+
+/* background image area */
+.heroMedia{
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+.heroMediaBox{
+  width: 100%;
+  height: 100%;
+  background: #dff2ff;        /* placeholder */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  color: #111;
+}
+
+/* overlay text stays inside with padding */
+/* text overlay */
+.heroText{
+  position: relative;
+  z-index: 2;
+  height: 100%;
+  max-width: 640px;
+  padding: 38px;
+  display: flex;
+  align-items: center;
+}
+/* the inner "card" */
+/* “glass” card like the screenshot */
+.heroCard{
+  width: 100%;
+  padding: 34px 34px 28px;
+  border-radius: 18px;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+/* keep button inside the hero too */
+.heroActions{
+  margin-top: 12px;
+}
+
+/* optional: if you want the card to sit lower/higher */
+.heroText{
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+
+
+                                                       /* CATEGORY STRIP SECTION */
+                                                       /* thin strip under hero */
+.categoryStrip{
+  width: 100%;
+  margin: 0;
+  padding: 10px 16px;
+  background: var(--main) ;       /* light strip */
+  border-top: 1px solid rgba(0,0,0,.08);
+  border-bottom: 1px solid rgba(0,0,0,.08);
+}
+
+.categoryStripInner{
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between; /* spreads them out like your mock */
+  gap: 14px;
+  padding-left:20;
+   padding-right:20;
+}
+
+.categoryPill{
+  color: white;
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 20px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  transition: background .15s ease;
+}
+
+.categoryPill:hover{
+  background: rgba(0,0,0,.06);
+}
+
+
+
+                                                       /*NEW ARRIVAL SECTION */
+                                                       /* thin strip under hero */
+/* ===== Featured Grid Section ===== */
+.featuredSection{
+  width: 100%;
+  padding: 0px ;
+  background: #fff;
+}
+
+
+.featuredInner{
+  width: 100%;
+   
+  margin-bottom: 16px;
+  border-bottom: 2px solid rgba(0,0,0,.15);
+}
+
+.featuredTitle{
+  margin: 12 0 0;
+  font-size: 34px;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  color: #111;
+}
+
+/* green “frame” around the whole grid (like your mock) */
+.featuredGrid{
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0; /* no gaps so the dividers look like one big frame */
+
+  background: #fff;
+}
+
+.featuredCard{
+  display: flex;
+  flex-direction: column;
+  text-decoration: none;
+  color: #111;
+  background: #fff;
+ padding:5px;
+
+   border: 0;
+  padding: 5px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.featuredCard:last-child{
+  border-right: 0;
+}
+
+/* top “image” area */
+.featuredMedia{
+  height: 210px;
+  background: #f3f4f7;
+  overflow: hidden;
+}
+
+.featuredImg{
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  object-position: center;
+}
+
+
+/* bottom text area */
+.featuredMeta{
+  padding: 14px 12px;
+  background: #fff;
+}
+
+.featuredName{
+  font-size: 22px;
+  font-weight: 900;
+  line-height: 1.1;
+}
+
+.featuredSub{
+  font-size: 14px;
+  font-weight: 700;
+  opacity: .8;
+  margin-top: 4px;
+}
+
+/* responsive */
+@media (max-width: 980px){
+  .featuredGrid{ grid-template-columns: repeat(2, 1fr); }
+  .featuredCard:nth-child(2){ border-right: 0; }
+  .featuredCard:nth-child(1),
+  .featuredCard:nth-child(2){
+    border-bottom: 8px ;
+  }
+}
+@media (max-width: 520px){
+  .featuredGrid{ grid-template-columns: 1fr; }
+  .featuredCard{ border-right: 0; }
+  .featuredCard:not(:last-child){ border-bottom: 8px solid #fbfcfa; }
+}
+
+
+
+                                                       /* IMAGE SLIDER */
+
+             /* ===== Full-width image / slider ===== */
+.wideMedia{
+  width: 100%;
+  padding: 0;
+  background: #fff;
+}
+
+.wideMediaFrame{
+  position: relative;
+  width: 100%;
+  height: 619px;             
+  overflow: hidden;
+}
+
+.wideMediaImg{
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: contain; /* no crop */
+  object-position: center;
+}
+
+/* mobile taller */
+@media (max-width: 900px){
+  .wideMediaFrame{ height: 520px !important; }
+  .wideMediaImg{ object-fit: cover; } /* ✅ fills but crops/zooms */
+}
+
+
+
+/* ✅ slider */
+.wideMediaTrack{
+  height: 100%;
+  display: flex;
+  transition: transform .45s ease;
+  will-change: transform;
+}
+
+.wideMediaSlide{
+  flex: 0 0 100%;
+  height: 100%;
+}
+
+/* buttons inside frame */
+.wideMediaBtn{
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  border: 0;
+  cursor: pointer;
+  background: rgba(255,255,255,0.92);
+  color: #111;
+  font-size: 28px;
+  line-height: 1;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 10px 20px rgba(0,0,0,.18);
+}
+
+.wideMediaBtnLeft{ left: 16px; }
+.wideMediaBtnRight{ right: 16px; }
+
+.wideMediaBtn:active{
+  transform: translateY(-50%) scale(0.98);
+}
+
+@media (max-width: 900px){
+  .wideMediaFrame{ height: 260px; }
+}
+                                     
+
+
+
+                                                       /* Footer */
+/* =========================
+   FOOTER
+========================= */
+.storeFooter{
+  width: 100%;
+ background:var(--main); /* green block like your mock */
+  color: #111;
+  padding: 28px 16px;
+}
+
+.storeFooterInner{
+  width: 100%;
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+/* left “logo text” */
+.storeFooterLogoText{
+  font-size: 44px;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+/* right columns */
+.storeFooterCols{
+  display: grid;
+  grid-template-columns: repeat(3, minmax(140px, 1fr));
+  gap: 22px;
+}
+
+.storeFooterCol{
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.storeFooterLink{
+  color: rgba(0,0,0,.9);
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 18px;
+}
+
+.storeFooterLink:hover{
+  text-decoration: underline;
+}
+
+/* mobile */
+@media (max-width: 800px){
+  .storeFooterInner{
+    grid-template-columns: 1fr;
+  }
+  .storeFooterCols{
+    grid-template-columns: repeat(2, minmax(140px, 1fr));
+  }
+}
+
+@media (max-width: 520px){
+  .storeFooterCols{
+    grid-template-columns: 1fr;
+  }
+  .storeFooterLogoText{
+    font-size: 34px;
+  }
+}
+
+
+
+
+
+
+
+
+/* =========================
+   PRODUCT PANEL (hide/show later)
+========================= */
+.productPanel{
+  width: 100%;
+  background: #ffffff;
+  padding: 0;              /* ✅ remove outer padding */
+  margin: 0;               /* ✅ just in case */
+  display: none;
+}
+
+.productPanel.isOpen{
+  display: block;             /* visible for now */
+}
+
+.productPanelInner{
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;                 /* ✅ remove the gap between columns */
+  align-items: stretch;   /* ✅ key for same height */
+}
+
+/* LEFT */
+/* LEFT PANEL background images are in  */
+.productPanelLeft{
+   background: #ffffff;   /* placeholder */
+ 
+  min-height: 320px;
+}
+
+/* 2x2 grid */
+.mediaGrid2x2{
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+/* box the images are in */
+.mediaTile{
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  background: transparent;
+  text-align: left;
+ 
+  overflow: hidden;
+  box-shadow: 0 8px 18px rgba(0,0,0,.12);
+}
+
+/* image area */
+.mediaTileImage{
+  height: 340px;          /* you already have this */
+  overflow: hidden;
+}
+
+.mediaTileImg{
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+/* single image view */
+.mediaSingle{
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 320px; /* same vibe as your panel */
+  overflow: hidden;
+}
+
+.mediaSingleImg{
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: contain; /* use cover if you want it to crop-fill */
+}
+
+.mediaSingleClose{
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  border: 0;
+  cursor: pointer;
+  background: rgba(255,255,255,0.92);
+  font-size: 18px;
+  font-weight: 900;
+  line-height: 1;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 10px 20px rgba(0,0,0,.18);
+}
+
+/* make tiles a bit shorter on small screens */
+@media (max-width: 900px){
+  .mediaTileImage{ height: 120px; }
+}
+
+.productMediaBox{
+  width: 100%;
+  height: 240px;
+    background: #ffffff;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+}
+
+.productThumbRow{
+  margin-top: 14px;
+  display: flex;
+  gap: 10px;
+}
+
+.productThumb{
+  width: 46px;
+  height: 46px;
+  border: 0;
+  background: #ffffff;
+  cursor: pointer;
+}
+
+/* RIGHT */
+/* RIGHT PANEL */
+.productPanelRight{
+  background: #fbfafa;
+  min-height: 320px;
+  display: flex;
+  flex-direction: column;
+  padding: 18px;          /* ✅ adds spacing inside */
+  gap: 8px;               /* ✅ separates stacked blocks */
+}
+
+
+/* top text */
+.panelTitle{
+  margin: 0;
+  font-size: 44px;
+  line-height: 1.1;      /* ✅ gives the title breathing room */
+  font-weight: 950;
+}
+
+.panelSub{
+    
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.panelBody{
+  margin: 10px 0 14px;   /* ✅ more space before buttons */
+  font-size: 13px;
+  line-height: 1.5;
+  font-weight: 600;
+  opacity: .95;
+}
+
+/* buttons */
+.panelButtons{
+  display: grid;
+  gap: 10px;
+  margin: 6px 0 10px;
+}
+
+.addToCrtBtn{
+  width: 100%;
+  height: 38px;
+  border: 2px solid grey;
+  border-radius: 999px;
+  background: rgba(255,255,255,.92);
+  font-weight: 900;
+  font-size: 18px;
+  cursor: pointer;
+  box-shadow: 0 10px 20px rgba(0,0,0,.14);
+}
+
+.addToCrtBtn:active{
+  transform: translateY(1px);
+}
+
+.buyNowBtn{
+  width: 100%;
+  height: 38px;
+  border: 2px solid grey;
+  border-radius: 999px;
+  background: var(--main);
+  font-weight: 900;
+  font-size: 18px;
+  cursor: pointer;
+  box-shadow: 0 10px 20px rgba(0,0,0,.14);
+}
+
+
+.buyNowBtn:active{
+  transform: translateY(1px);
+}
+
+/* product dropdown */
+.panelAccordion{
+  margin-top: 14px;
+  border-top: 2px solid rgba(0,0,0,.75);
+}
+
+.accItem{
+  border-bottom: 2px solid rgba(0,0,0,.75);
+}
+
+.accHeader{
+  width: 100%;
+  background: transparent;
+  border: 0;
+  padding: 16px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+}
+
+.accLeft{
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.accIcon{
+  font-size: 26px;
+  line-height: 1;
+}
+
+.accLabel{
+  font-size: 32px;
+  font-weight: 950;
+  color: #111;
+}
+
+.accChevron{
+  font-size: 26px;
+  color: #111;
+}
+
+.accBody{
+  padding: 0 8px 16px;
+  font-size: 14px;
+  line-height: 1.5;
+  font-weight: 650;
+  color: rgba(0,0,0,.85);
+}
+
+/* =========================
+   MORE PRODUCT INFO (inside productPanel)
+========================= */
+.productInfoSection{
+  width: 100%;
+  margin: 0;
+  padding: 0;                 /* background full width */
+
+background-image: linear-gradient(
+  to right,
+  rgba(222, 136, 48, 0),
+  rgba(222, 136, 48, 1)
+);
+
+}
+
+/* ✅ FULL WIDTH content (no centering / no max-width) */
+.productInfoInner{
+  width: 100%;
+  margin: 0;                  /* ✅ remove auto-centering */
+  padding: 26px 18px;         /* inner spacing */
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 28px;
+}
+
+.infoTitle{
+  margin: 0;
+  font-size: 44px;
+  font-weight: 950;
+  line-height: 1;
+  color: #000;
+}
+
+.infoSub{
+  margin: 10px 0 6px;
+  font-size:25px;
+  font-weight: 700;
+  line-height: 1.05;
+  color: #000;
+}
+
+.infoBody{
+  margin: 0;
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.4;
+  color: #000;
+}
+
+@media (max-width: 1000px){
+  .productInfoInner{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 600px){
+  .productInfoInner{ grid-template-columns: 1fr; }
+}
+
+
+/* =========================
+   ITEMS YOU MAY LIKE
+========================= */
+.recoSection{
+  width: 100%;
+  background: #fff;
+  padding: 18px 18px 26px;
+}
+
+.recoTitle{
+  margin: 0 0 14px;
+  font-size: 34px;
+  font-weight: 950;
+  color: #000;
+  letter-spacing: -0.02em;
+}
+
+.recoGrid{
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+
+.recoCard{
+  display: grid;
+  gap: 12px;
+}
+
+.recoImg{
+  height: 150px;
+  background: #4aa11a; /* green block like your mock */
+  border-radius: 0;    /* sharp corners like the image */
+}
+
+.recoText{
+  text-align: center;
+}
+
+.recoBig{
+  font-size: 28px;
+  font-weight: 950;
+  line-height: 1.05;
+  color: #000;
+}
+
+.recoSmall{
+  margin-top: 4px;
+  font-size: 14px;
+  font-weight: 700;
+  color: rgba(0,0,0,.75);
+}
+
+/* ONLY for "Items You May Like" */
+.recoAsFeatured .featuredGrid{
+  grid-template-columns: repeat(3, minmax(0, 240px));
+  justify-content: center;  /* ✅ centers the columns */
+  gap: 16px;                /* optional spacing */
+}
+
+
+/* responsive */
+@media (max-width: 900px){
+  .recoGrid{ grid-template-columns: 1fr; }
+  .recoImg{ height: 180px; }
+}
+

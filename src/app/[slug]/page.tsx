@@ -1,8 +1,12 @@
 // src/app/[slug]/page.tsx
+//src\app\[slug]\page.tsx
 import "./styles/BookingPage/basic.css";
 import BookingClient from "./BookingClient";
 import LinkClient from "./LinkClient";
 import SuiteClient from "./SuiteClient";
+import CourseClient from "./CourseClient"; 
+
+import ThemeLoader from "./StoreTemplates/ThemeLoader";
 
 const API = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8400";
 export const dynamic = "force-dynamic";
@@ -44,6 +48,85 @@ function pickHeroUrlAny(v: any): string | null {
   return normalizeHeroPath(first);
 }
 
+//Create Store 
+async function fetchStoreBySlug(slug: string) {
+  const qs = new URLSearchParams({ dataType: "Store", limit: "400" });
+
+  const res = await fetch(`${API}/public/records?${qs.toString()}`, {
+    cache: "no-store",
+    next: { revalidate: 0 },
+  });
+  if (!res.ok) return null;
+
+  const data = await res.json();
+  const rows = Array.isArray(data) ? data : data.items || data.records || [];
+
+  const want = slug.trim().toLowerCase();
+  return (
+    rows.find((r: any) => {
+      const v = r?.values || {};
+      const s = String(v.slug || v.Slug || v["Store Slug"] || "").trim().toLowerCase();
+      return s === want;
+    }) || null
+  );
+}
+
+function readRefId(v: any) {
+  if (!v) return "";
+  if (typeof v === "string") return v;
+  if (typeof v === "object") return v._id || v.id || "";
+  return "";
+}
+
+async function fetchStoreThemeById(themeId: string) {
+  if (!themeId) return null;
+
+  const qs = new URLSearchParams({ dataType: "Store Theme", limit: "400" });
+  const res = await fetch(`${API}/public/records?${qs.toString()}`, {
+    cache: "no-store",
+    next: { revalidate: 0 },
+  });
+  if (!res.ok) return null;
+
+  const data = await res.json();
+  const rows = Array.isArray(data) ? data : data.items || data.records || [];
+
+  return rows.find((r: any) => String(r._id || r.id) === String(themeId)) || null;
+}
+
+//Create Course 
+async function fetchCourseBySlug(slug: string) {
+  const qs = new URLSearchParams({ dataType: "Course", limit: "200" });
+
+  const res = await fetch(`${API}/public/records?${qs.toString()}`, {
+    cache: "no-store",
+    next: { revalidate: 0 },
+  });
+
+  if (!res.ok) return null;
+
+  const data = await res.json();
+  const rows = Array.isArray(data) ? data : data.items || data.records || [];
+
+  const want = slug.trim().toLowerCase();
+
+  return (
+    rows.find((r: any) => {
+      const v = r?.values || {};
+      const s = String(
+        v.slug ||
+          v.courseSlug ||
+          v.CourseSlug ||
+          v["Course Slug"] ||
+          ""
+      )
+        .trim()
+        .toLowerCase();
+      return s === want;
+    }) || null
+  );
+}
+
 // ---------- main page ----------
 export default async function Page({
   params,
@@ -59,12 +142,75 @@ export default async function Page({
     return <div style={{ color: "red" }}>Page not found for slug.</div>;
   }
 
+  // 0️⃣ Try COURSE record by slug first
+  try {
+    const courseRec = await fetchCourseBySlug(slug);
+
+    if (courseRec) {
+      const v = courseRec.values || {};
+
+      const course = {
+        _id: courseRec._id || courseRec.id,
+        values: v,
+        name:
+          v["Course Title"] ||
+          v.Title ||
+          v.Name ||
+          v["Course Name"] ||
+          slug,
+        slug: String(v.slug || v.courseSlug || v.CourseSlug || slug),
+        description: v.Description || v["Short description"] || "",
+        heroUrl: pickHeroUrlAny(v),
+      };
+
+      console.log("[page] rendering CourseClient for slug", slug);
+      return <CourseClient course={course} />;
+    }
+  } catch (err) {
+    console.error("[page] error fetching course for slug", slug, err);
+  }
+// ✅ 0.5️⃣ Try STORE record by slug
+try {
+  const storeRec = await fetchStoreBySlug(slug);
+
+  if (storeRec) {
+    const v = storeRec?.values || {};
+
+    // Store must have a Reference field called "Store Theme"
+    const themeId = readRefId(v["Store Theme"]);
+    const themeRec = themeId ? await fetchStoreThemeById(themeId) : null;
+
+    console.log("[page] rendering StoreClient for slug", slug, "themeId:", themeId);
+
+  const tv = themeRec?.values || {};
+const templateKey =
+  tv.templateKey ||
+  tv["Template Key"] ||
+  tv.key ||
+  "basic";
+
+return (
+  <ThemeLoader
+    templateKey={templateKey}
+    store={storeRec}
+    theme={themeRec}
+    slug={slug}
+  />
+);
+
+
+  }
+} catch (err) {
+  console.error("[page] error fetching store for slug", slug, err);
+}
+
+
   // 1️⃣ Try BUSINESS JSON first (old booking behavior)
   try {
-const bizRes = await fetch(`${API}/${encodeURIComponent(slug)}.json`, {
-  cache: "no-store",
-  next: { revalidate: 0 },
-});
+    const bizRes = await fetch(`${API}/${encodeURIComponent(slug)}.json`, {
+      cache: "no-store",
+      next: { revalidate: 0 },
+    });
 
 
     if (bizRes.ok) {
@@ -86,8 +232,6 @@ const bizRes = await fetch(`${API}/${encodeURIComponent(slug)}.json`, {
       const isBookingPage = rawType.includes("booking");
       const isSuitePage =
         rawType.includes("suite") || rawType.includes("location");
-
-      console.log("[page] slug:", slug, "rawType:", rawType);
 
       // 👉 If the record says it's a link page, render link template
       if (isLinkPage && !isBookingPage && !isSuitePage) {
@@ -165,3 +309,4 @@ const bizRes = await fetch(`${API}/${encodeURIComponent(slug)}.json`, {
   console.log("[page] using LinkClient fallback for slug", slug);
   return <LinkClient slug={slug} />;
 }
+

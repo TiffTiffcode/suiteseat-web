@@ -1,53 +1,118 @@
 console.log("[suite-settings] loaded");
-// Use the EXACT DataType name from your admin
-const APPLICATION_TYPE = "Application";
 
-// ---- API base (same pattern as other pages) ----
-const API_BASE =
-  (window.NEXT_PUBLIC_API_BASE_URL ||
-   window.API_BASE_URL ||
-   window.API_BASE ||
-   ''
-  ).replace(/\/+$/,'');
+window.STATE = window.STATE || { locations: [] };
+
+// ✅ Live API (Express) server
+const API_BASE = "http://localhost:8400";
+
+// ✅ Helper to force calls to the Live API server
+function apiUrl(path) {
+  return `${API_BASE}${path.startsWith("/") ? "" : "/"}${path}`;
+}
+
+/**
+ * ✅ IMPORTANT:
+ * - On localhost, your auth routes live on 8400 (Express).
+ * - On production (suiteseat.io), auth is same-origin.
+ */
+const AUTH_BASE =
+  window.location.hostname === "localhost" ? API_BASE : "";
+
+let currentUser = null;
+
+async function readJsonSafe(res) {
+  const text = await res.text().catch(() => "");
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { raw: text };
+  }
+}
+
+// ---- Get signed-in user via /check-login ----
+async function getSignedInUser() {
+  try {
+    const res = await fetch(`${AUTH_BASE}/check-login`, {
+      method: "GET",
+      credentials: "include",
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+    });
+
+    if (!res.ok) return null;
+
+    const data = await res.json().catch(() => ({}));
+    if (!data?.loggedIn) return null;
+
+    return {
+      id: data.userId || data.id,
+      email: data.email,
+      firstName: data.firstName || "",
+      lastName: data.lastName || "",
+      name: data.name || "",
+      roles: data.roles || [],
+    };
+  } catch (err) {
+    console.warn("[suite-settings2] getSignedInUser error", err);
+    return null;
+  }
+}
+
+
+function setLoggedInUI(user) {
+  const loginBtn = document.getElementById("open-login-popup-btn");
+  const logoutBtn = document.getElementById("logout-btn");
+  const loginText = document.getElementById("login-status-text");
+
+  const loggedIn = !!(user && user.id);
+
+  if (loggedIn) {
+    const name =
+      user.firstName || (user.email ? user.email.split("@")[0] : "") || "there";
+
+    if (loginText) loginText.textContent = `Hi, ${name}`;
+    if (loginBtn) loginBtn.style.display = "none";
+    if (logoutBtn) logoutBtn.style.display = "inline-block";
+  } else {
+    if (loginText) loginText.textContent = "Not logged in";
+    if (loginBtn) loginBtn.style.display = "inline-block";
+    if (logoutBtn) logoutBtn.style.display = "none";
+  }
+}
+
+function lockApp(locked) {
+  const app = document.getElementById("app");
+  if (!app) return;
+
+  if (locked) {
+    app.style.pointerEvents = "none";
+    app.style.opacity = "0.5";
+  } else {
+    app.style.pointerEvents = "";
+    app.style.opacity = "";
+  }
+}
 
 // ================================
 // AUTH UI (header + popup)
 // ================================
-function initAuthUI(currentUser) {
-  const loginBtn  = document.getElementById("open-login-popup-btn");
+function initAuthUI() {
+  const loginBtn = document.getElementById("open-login-popup-btn");
   const logoutBtn = document.getElementById("logout-btn");
-  const loginText = document.getElementById("login-status-text");
 
-  const modal     = document.getElementById("authModal");
-  const closeBtn  = document.getElementById("authClose");
-  const form      = document.getElementById("authForm");
-  const emailEl   = document.getElementById("authEmail");
-  const passEl    = document.getElementById("authPass");
-  const errorEl   = document.getElementById("authError");
+  const modal = document.getElementById("authModal");
+  const closeBtn = document.getElementById("authClose");
+  const form = document.getElementById("authForm");
+  const emailEl = document.getElementById("authEmail");
+  const passEl = document.getElementById("authPass");
+  const errorEl = document.getElementById("authError");
   const submitBtn = document.getElementById("authSubmit");
-
-  function setLoggedInUI(user) {
-    const loggedIn = !!(user && user.id);
-    if (loggedIn) {
-      const name =
-        user.firstName ||
-        (user.email ? user.email.split("@")[0] : "") ||
-        "there";
-
-      if (loginText) loginText.textContent = `Hi, ${name}`;
-      if (loginBtn)  loginBtn.style.display  = "none";
-      if (logoutBtn) logoutBtn.style.display = "inline-block";
-    } else {
-      if (loginText) loginText.textContent = "Not logged in";
-      if (loginBtn)  loginBtn.style.display  = "inline-block";
-      if (logoutBtn) logoutBtn.style.display = "none";
-    }
-  }
 
   function openModal() {
     if (!modal) return;
     modal.hidden = false;
     modal.setAttribute("aria-hidden", "false");
+    if (errorEl) errorEl.textContent = "";
     if (emailEl) emailEl.focus();
   }
 
@@ -60,2511 +125,2177 @@ function initAuthUI(currentUser) {
 
   loginBtn?.addEventListener("click", openModal);
   closeBtn?.addEventListener("click", closeModal);
+
   modal?.addEventListener("click", (e) => {
     if (e.target === modal) closeModal();
   });
 
-  // login submit
   form?.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    if (!emailEl || !passEl || !submitBtn) return;
+  e.preventDefault();
+  if (!emailEl || !passEl || !submitBtn) return;
 
-    const email = emailEl.value.trim();
-    const password = passEl.value.trim();
-    if (!email || !password) {
-      if (errorEl) errorEl.textContent = "Enter email and password.";
-      return;
-    }
+  const email = emailEl.value.trim();
+  const password = passEl.value.trim();
 
-    // show "busy" state
-    const idleSpan  = submitBtn.querySelector(".when-idle");
-    const busySpan  = submitBtn.querySelector(".when-busy");
-    submitBtn.disabled = true;
-    if (idleSpan) idleSpan.hidden = true;
-    if (busySpan) busySpan.hidden = false;
-    if (errorEl) errorEl.textContent = "";
+  if (!email || !password) {
+    if (errorEl) errorEl.textContent = "Enter email and password.";
+    return;
+  }
 
-    try {
-      const res = await fetch("/api/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ email, password }),
-      });
-      const body = await res.json().catch(() => ({}));
+  const idleSpan = submitBtn.querySelector(".when-idle");
+  const busySpan = submitBtn.querySelector(".when-busy");
 
-      if (!res.ok || !body.loggedIn) {
-        if (errorEl) errorEl.textContent = body.message || "Login failed.";
-      } else {
-        closeModal();
-        location.reload();
-      }
-    } catch (err) {
-      console.error("[auth] login error", err);
-      if (errorEl) errorEl.textContent = "Something went wrong. Try again.";
-    } finally {
-      submitBtn.disabled = false;
-      if (idleSpan) idleSpan.hidden = false;
-      if (busySpan) busySpan.hidden = true;
-    }
-  });
+  submitBtn.disabled = true;
+  if (idleSpan) idleSpan.hidden = true;
+  if (busySpan) busySpan.hidden = false;
+  if (errorEl) errorEl.textContent = "";
 
-  // logout
-logoutBtn?.addEventListener("click", async () => {
   try {
-    await fetch("/api/logout", {
-      method: "POST",
-      credentials: "include",
-    });
-  } catch {}
-  location.reload();
+    // ✅ login route is same-origin
+  const res = await fetch(`${AUTH_BASE}/api/login`, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  credentials: "include",
+  body: JSON.stringify({ email, password }),
 });
 
-  // initial paint
-  setLoggedInUI(currentUser);
-}
 
+    const body = await res.json().catch(() => ({}));
 
-// ---- Get signed-in user via /check-login ----
-async function getSignedInUser() {
-  try {
-    const res = await fetch('/api/check-login', {
-      credentials: 'include',
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    return data?.user || null;
+    // ✅ your /api/login returns { ok: true, user: {...} }
+    if (!res.ok || !body.ok) {
+      if (errorEl) errorEl.textContent = body.message || "Login failed.";
+      return;
+    }
+
+    currentUser = await getSignedInUser();
+    setLoggedInUI(currentUser);
+    lockApp(false);
+    closeModal();
+
+    bootAppAfterLogin();
   } catch (err) {
-    console.warn('[suite-settings] getSignedInUser error', err);
-    return null;
+    console.error("[auth] login error", err);
+    if (errorEl) errorEl.textContent = "Something went wrong. Try again.";
+  } finally {
+    submitBtn.disabled = false;
+    if (idleSpan) idleSpan.hidden = false;
+    if (busySpan) busySpan.hidden = true;
   }
-}
+});
 
-                                               // ================================
-                                                         // Dashboard
-                                            // ================================
-// Simple shared state (if you don't already have this)
-// ---- Dashboard shared state + updater ----
-window.STATE = window.STATE || {};
-window.STATE.locations = window.STATE.locations || [];
-window.STATE.suities   = window.STATE.suities   || [];
-window.STATE.maintenanceRequests = window.STATE.maintenanceRequests || [];
 
-function updateDashboardCounts() {
-  const locEl   = document.getElementById("dash-locations-count");
-  const suiteEl = document.getElementById("dash-suities-count");
-  const maintEl = document.getElementById("dash-maint-count");
-
-  if (locEl) {
-    const activeLocations = window.STATE.locations.length; // later you can filter "active"
-    locEl.textContent = String(activeLocations);
-  }
-
-  if (suiteEl) {
-    const activeSuities = window.STATE.suities.length;
-    suiteEl.textContent = String(activeSuities);
-  }
-
-  if (maintEl) {
-    const totalRequests = window.STATE.maintenanceRequests.length || 0;
-    maintEl.textContent = String(totalRequests);
-  }
-}
-
-
-
-
-
-
-
-
-
-// =====================
-// Suite Details
-// =====================
-let activeSuite = null;
-
-// 🔹 Layout elements shared by Location + Suite panels
-const locationsSection      = document.getElementById("locations");
-const locationDetailsGrid   = document.querySelector(".location-details-grid");
-const locationsHeader       = document.getElementById("locations-header");
-
-const locationSuitesHeader  = document.querySelector(".location-suites-header");
-const locationSuitesList    = document.getElementById("location-suites-list");
-const locationSuiteFormCard = document.getElementById("location-suite-form-card");
-const locationSuiteBackBtn  = document.getElementById("location-suite-back-btn");
-const locSuiteLocationName  = document.getElementById("loc-suite-location-name");
-
-function showSuiteDetails(suite) {
-  if (!locationSuiteDetailsCard) return;
-
-  // remember which suite is open
-  activeSuite = suite;
-
-  const hasTemplate =
-    !!(suite.applicationTemplate && String(suite.applicationTemplate).trim());
-  const hasFile = !!suite.applicationFileUrl;
-
-  console.log("[suite-details] open for:", {
-    id: suite.id,
-    name: suite.name,
-    hasTemplate,
-    applicationFileUrl: hasFile ? suite.applicationFileUrl : null,
-  });
-
-    // 🔹 If this suite has NO template, reset the modal body
-  if (!hasTemplate) {
-    resetSuiteTemplatePreview();
-  }
-  // hide location layout while viewing suite
-  if (locationsHeader)       locationsHeader.style.display = "none";
-  if (locationDetailsGrid)   locationDetailsGrid.style.display = "none";
-  if (locationSuitesHeader)  locationSuitesHeader.style.display = "none";
-  if (locationSuiteFormCard) locationSuiteFormCard.style.display = "none";
-
-  // basic fields
-  if (locationSuiteDetailsName) {
-    locationSuiteDetailsName.textContent = suite.name || "Suite details";
-  }
-
-  if (locationSuiteDetailsAvail) {
-    locationSuiteDetailsAvail.textContent =
-      suite.dateAvailable || "No date set";
-  }
-
-  if (locationSuiteDetailsRate) {
-    if (suite.rentAmount) {
-      const freqLabel = suite.rentFrequency || "month";
-      locationSuiteDetailsRate.textContent =
-        `$${suite.rentAmount} / ${freqLabel}`;
-    } else {
-      locationSuiteDetailsRate.textContent = "$0.00";
-    }
-  }
-
-  // default image
-  if (locationSuiteDetailsPhoto) {
-    locationSuiteDetailsPhoto.innerHTML = "";
-    if (suite.img) {
-      const imgEl = document.createElement("img");
-      imgEl.src = suite.img;
-      imgEl.alt = "Suite default image";
-      imgEl.style.maxWidth = "220px";
-      imgEl.style.borderRadius = "12px";
-      locationSuiteDetailsPhoto.appendChild(imgEl);
-    } else {
-      locationSuiteDetailsPhoto.textContent = "No default image set.";
-    }
-  }
-
-  // gallery
-  if (locationSuiteDetailsGallery) {
-    locationSuiteDetailsGallery.innerHTML = "";
-    if (Array.isArray(suite.gallery) && suite.gallery.length) {
-      suite.gallery.forEach((url) => {
-        const imgEl = document.createElement("img");
-        imgEl.src = url;
-        imgEl.alt = "Suite gallery image";
-        imgEl.className = "suite-gallery-thumb";
-        locationSuiteDetailsGallery.appendChild(imgEl);
-      });
-    } else {
-      locationSuiteDetailsGallery.textContent = "No gallery images added.";
-    }
-  }
-
-  // ✅ Application section – show that a template exists
-  if (locationSuiteDetailsApp) {
-    if (hasTemplate && hasFile) {
-      locationSuiteDetailsApp.innerHTML = `
-        Online form (template saved) + 
-        <a href="${suite.applicationFileUrl}" target="_blank" rel="noopener">
-          downloadable file
-        </a>
-      `;
-    } else if (hasTemplate) {
-      locationSuiteDetailsApp.textContent =
-        "Online application form (template saved).";
-    } else if (hasFile) {
-      locationSuiteDetailsApp.innerHTML = `
-        <a href="${suite.applicationFileUrl}" target="_blank" rel="noopener">
-          Download application file
-        </a>
-      `;
-    } else {
-      locationSuiteDetailsApp.textContent = "No application added yet.";
-    }
-  }
-
-  // show the details card
-  locationSuiteDetailsCard.style.display = "block";
-  locationSuiteDetailsCard.scrollIntoView({ behavior: "smooth", block: "start" });
-}
-
-function renderSuitesForLocation(listEl, suitesFromLocation) {
-  if (!listEl) return;
-  listEl.innerHTML = "";
-
-  console.log("[renderSuitesForLocation] raw location suites:", suitesFromLocation);
-
-  if (!suitesFromLocation || !suitesFromLocation.length) {
-    listEl.textContent = "No suites in this location yet.";
-    return;
-  }
-
-  // 🔹 Get the full normalized suites that *do* have img, gallery, etc.
-  const allSuites = getAllSuitesForRender
-    ? getAllSuitesForRender()
-    : []; // fallback if that helper exists
-
-  const suiteById = new Map(allSuites.map((s) => [String(s.id), s]));
-
-  // Map each “skinny” row to the full suite
-  const suites = suitesFromLocation.map((row) => {
-    const full = suiteById.get(String(row.id));
-    const out = full || row; // fallback to row if not found
-
-    console.log("[renderSuitesForLocation] merged suite:", {
-      rowId: row.id,
-      fullFound: !!full,
-      id: out.id,
-      name: out.name,
-      img: out.img,
-      gallery: out.gallery,
-    });
-
-    return out;
-  });
-
-  suites.forEach((suite) => {
-    const imgUrl =
-      suite.img ||
-      (Array.isArray(suite.gallery) && suite.gallery[0]) ||
-      "";
-
-    console.log("[renderSuitesForLocation] suite row final:", {
-      id: suite.id,
-      name: suite.name,
-      img: suite.img,
-      gallery: suite.gallery,
-      imgUrl,
-    });
-
-    const row = document.createElement("div");
-    row.className = "location-suite-row";
-    row.innerHTML = `
-      <div class="suite-row-main">
-        ${
-          imgUrl
-            ? `<img class="suite-row-thumb" src="${imgUrl}" alt="${suite.name || "Suite"}" />`
-            : ""
-        }
-        <div class="suite-row-text">
-          <div class="suite-row-name">${suite.name || "Unnamed suite"}</div>
-          <div class="suite-row-sub">
-            ${suite.dateAvailable ? `Available: ${suite.dateAvailable}` : ""}
-            ${
-              suite.rentAmount
-                ? ` • $${suite.rentAmount} / ${suite.rentFrequency || "month"}`
-                : ""
-            }
-          </div>
-        </div>
-      </div>
-    `;
-
-    row.addEventListener("click", () => {
-      showSuiteDetails(suite);
-    });
-
-    listEl.appendChild(row);
-  });
-
-  console.log("[renderSuitesForLocation] final HTML:", listEl.innerHTML);
-}
-
-
-
-
-// 🆕 Suite details panel elements
-const locationSuiteDetailsCard   = document.getElementById("location-suite-details-card");
-const locationSuiteDetailsName   = document.getElementById("location-suite-details-name");
-const locationSuiteDetailsAvail  = document.getElementById("location-suite-details-availability");
-const locationSuiteDetailsNotes  = document.getElementById("location-suite-details-notes");
-const locationSuiteDetailsPhoto  = document.getElementById("location-suite-details-photo");
-const locationSuiteDetailsClose  = document.getElementById("location-suite-details-close");
-
-// 🆕 new elements for details card
-const locationSuiteDetailsGallery = document.getElementById("location-suite-details-gallery");
-const locationSuiteDetailsApp     = document.getElementById("location-suite-details-application");
-const locationSuiteEditBtn        = document.getElementById("location-suite-edit-btn");
-const locationSuiteDeleteBtn      = document.getElementById("location-suite-delete-btn");
-const locationSuiteDetailsRate = document.getElementById("location-suite-details-rate");
-
-// 🆕 back-to-location button
-const locationSuiteDetailsBackBtn =
-  document.getElementById("location-suite-details-back-btn");
-const locationSuiteDetailsLocName =
-  document.getElementById("location-suite-details-location-name");
-
-
-const suiteDetailsAppText   = document.getElementById("suite-details-app-text");
-const suiteDetailsAppPdf    = document.getElementById("suite-details-app-pdf");
-const suiteDetailsAppButton = document.getElementById("suite-details-app-template-btn");
-
-const locationSuiteDetailsDefaultImg =
-  document.getElementById("location-suite-default-img");
-
-const locationSuiteAppTemplateBtn =
-  document.getElementById("location-suite-app-template-btn");
-
-
-
-
-  // 🆕 Suites area inside location details
-
-  const locationAddSuiteBtn    = document.getElementById("location-add-suite-btn");
-
-  const locationSuiteForm      = document.getElementById("location-suite-form");
-  const locSuiteIdInput        = document.getElementById("loc-suite-id");
-  const locSuiteNameInput      = document.getElementById("loc-suite-name");
-  const locSuiteDetailsInput   = document.getElementById("loc-suite-details");
-  const locSuiteAvailableInput = document.getElementById("loc-suite-available");
-  const locSuitePhotoInput     = document.getElementById("loc-suite-photo-file");
-  const locSuiteCancelBtn      = document.getElementById("loc-suite-cancel-btn");
-
-                                             // ================================
-                                            // Locations: save to backend per user
-                                            // ================================
-function initLocationForm(currentUser) {
-  const formCard  = document.getElementById("location-form-card");
-  const addBtn    = document.getElementById("locations-add-btn");
-  const cancelBtn = document.getElementById("location-cancel-btn");
-  const form      = document.getElementById("location-form");
-
-  const idInput      = document.getElementById("loc-id"); 
-  const nameInput    = document.getElementById("loc-name");
-  const addressInput = document.getElementById("loc-address");
-  const phoneInput   = document.getElementById("loc-phone");
-  const listEl       = document.getElementById("locations-list");
-
-     const detailsInput    = document.getElementById("loc-details");
-const photoFileInput = document.getElementById("loc-photo-file");
-const locCurrentPhoto      = document.getElementById("loc-current-photo");
-const locCurrentGallery    = document.getElementById("loc-current-gallery");
-const locNewGalleryPreview = document.getElementById("loc-new-gallery-preview");
-
-
-  const locationEditBtn = document.getElementById("location-edit-btn");
-
-  // 🔹 Details panel elements
-  const locationDetailsCard     = document.getElementById("location-details-card");
-  const locationDetailsName     = document.getElementById("location-details-name");
-  const locationDetailsAddr     = document.getElementById("location-details-address");
-  const locationDetailsAddrFull = document.getElementById("location-details-address-full");
-  const locationDetailsPhone    = document.getElementById("location-details-phone");
-  const locationTotalRentEl     = document.getElementById("location-total-rent");
-  const locationYearRentEl      = document.getElementById("location-year-total-rent"); 
-  const locationDetailsDesc     = document.getElementById("location-details-desc");
-  const locationDetailsPhoto    = document.getElementById("location-details-photo");
-  const locationBackBtn         = document.getElementById("location-back-btn");
-const locationDetailsHeader = document.querySelector(".location-details-header");
-const deleteBtn = document.getElementById("location-delete-btn");
-
-
-
-
-// 🆕 suite form inputs (MOVE THESE UP HERE)
-const locSuiteAppInput       = document.getElementById("loc-suite-app-input"); // or -file, see note below
-const locSuiteGalleryInput   = document.getElementById("loc-suite-gallery-files");
-const locSuiteCurrentGallery = document.getElementById("loc-suite-current-gallery");
-const locSuiteCurrentApp     = document.getElementById("loc-suite-current-app");
-console.log("[init] locSuiteCurrentApp:", locSuiteCurrentApp);
-const locSuiteCurrentPhoto   = document.getElementById("loc-suite-current-photo");
-const locSuiteNewGalleryPrev = document.getElementById("loc-suite-new-gallery-preview");
-
-const locationScrollSuitesBtn = document.getElementById("location-scroll-suites-btn");
-
-
-
-
-let pendingSuiteGalleryFiles = [];
-
-
-// Read-only template preview modal
-// Read-only template preview modal (global)
-const suiteTemplatePreviewModal = document.getElementById("suite-template-preview-modal");
-const suiteTemplatePreviewBody  = document.getElementById("suite-template-preview-body");
-const suiteTemplatePreviewClose = document.getElementById("suite-template-preview-close");
-
-// Default empty state for the template modal
-const EMPTY_SUITE_TEMPLATE_HTML = `
-  <div class="suite-template-empty">
-    <h2>No application template saved</h2>
-    <p class="muted">
-      This suite doesn’t have a saved application template yet.
-      You can create one in the Suite settings.
-    </p>
-  </div>
-`;
-
-function resetSuiteTemplatePreview() {
-  if (!suiteTemplatePreviewBody) return;
-  suiteTemplatePreviewBody.innerHTML = EMPTY_SUITE_TEMPLATE_HTML;
-}
-
-
-resetSuiteTemplatePreview();
-
-// helper: render current suite photo with an X button
-// =====================
-// Suite default photo helper + preview
-// =====================
-function renderSuiteCurrentPhoto(url) {
-  if (!locSuiteCurrentPhoto) return;
-
-  locSuiteCurrentPhoto.innerHTML = "";
-
-  if (!url) {
-    locSuiteCurrentPhoto.textContent = "No photo uploaded yet.";
-    return;
-  }
-
-  const wrapper = document.createElement("div");
-  wrapper.className = "suite-current-photo-wrapper";
-
-  const img = document.createElement("img");
-  img.src = url;
-  img.alt = "Suite default image";
-  img.className = "suite-default-img"; // style in CSS however you want
-
-  const removeBtn = document.createElement("button");
-  removeBtn.type = "button";
-  removeBtn.className = "suite-remove-photo-btn";
-  removeBtn.title = "Remove this photo";
-  removeBtn.textContent = "×";
-
-  removeBtn.addEventListener("click", () => {
-    // mark it so the save handler can clear this field
-    suitePhotoMarkedForRemoval = true;
-    locSuiteCurrentPhoto.textContent =
-      "Photo will be removed when you save.";
-  });
-
-  wrapper.appendChild(img);
-  wrapper.appendChild(removeBtn);
-  locSuiteCurrentPhoto.appendChild(wrapper);
-}
-
-// When user picks a NEW default photo file
-if (locSuitePhotoInput && locSuiteCurrentPhoto) {
-  locSuitePhotoInput.addEventListener("change", () => {
-    const file =
-      locSuitePhotoInput.files && locSuitePhotoInput.files[0];
-
-    // user picked a new image → don't treat it as "removed"
-    suitePhotoMarkedForRemoval = false;
-
-    if (!file) {
-      // no file selected → fallback to "no photo"
-      renderSuiteCurrentPhoto(null);
-      return;
-    }
-
-    const url = URL.createObjectURL(file);
-    renderSuiteCurrentPhoto(url);
-
-    // clean up temp URL once it loads
-    const imgEl = locSuiteCurrentPhoto.querySelector("img");
-    if (imgEl) {
-      imgEl.onload = () => URL.revokeObjectURL(url);
-    }
-  });
-}
-
-
-// Live preview when user picks a default location photo (works for add + edit)
-if (photoFileInput && locCurrentPhoto) {
-  photoFileInput.addEventListener("change", () => {
-    const file = photoFileInput.files && photoFileInput.files[0];
-
-    if (!file) {
-      // No file selected → show empty state again
-      locCurrentPhoto.innerHTML = "No photo uploaded yet.";
-      return;
-    }
-
-    const url = URL.createObjectURL(file);
-
-    // Clear any previous content
-    locCurrentPhoto.innerHTML = "";
-
-    const img = document.createElement("img");
-    img.src = url;
-    img.alt = "Location photo (not saved yet)";
-    img.className = "location-main-photo-preview";
-
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-    };
-
-    locCurrentPhoto.appendChild(img);
-  });
-}
-
-if (suiteTemplatePreviewClose && suiteTemplatePreviewModal) {
-  suiteTemplatePreviewClose.addEventListener("click", () => {
-    suiteTemplatePreviewModal.style.display = "none";
-  });
-}
-
-// 🔹 Hide the modal's built-in title so we only see our custom one
-if (suiteTemplatePreviewModal) {
-  const headerTitle = suiteTemplatePreviewModal.querySelector(
-    ".suite-template-modal-header h2"
-  );
-  if (headerTitle) {
-    headerTitle.style.display = "none";
-  }
-}
-
-// optional: click dimmed background to close
-if (suiteTemplatePreviewModal) {
-  suiteTemplatePreviewModal.addEventListener("click", (e) => {
-    if (e.target === suiteTemplatePreviewModal) {
-      suiteTemplatePreviewModal.style.display = "none";
-    }
-  });
-}
-
-function escapeHtml(str) {
-  if (str == null) return "";
-  return String(str)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
-// =========================
-// Read-only template preview
-// =========================
-function openSuiteTemplatePreview(templateJsonOrObj) {
-  console.log("[suite-template] openSuiteTemplatePreview called with:", templateJsonOrObj);
-
-  const modal = document.getElementById("suite-template-preview-modal");
-  const bodyEl = document.getElementById("suite-template-preview-body");
-
-  if (!modal || !bodyEl) {
-    console.warn("[suite-template] preview modal elements missing");
-    return;
-  }
-
-  // Parse JSON string if needed
-  let tpl = templateJsonOrObj || {};
-  if (typeof tpl === "string") {
+  logoutBtn?.addEventListener("click", async () => {
     try {
-      tpl = JSON.parse(tpl);
-    } catch (e) {
-      console.error("[suite-template] could not parse template JSON", e);
-      tpl = {};
-    }
+ await fetch(`${AUTH_BASE}/api/logout`, {
+  method: "POST",
+  credentials: "include",
+});
+
+    } catch {}
+    location.reload();
+  });
+}
+
+// ================================
+// Sidebar collapse
+// ================================
+function initSidebarCollapse() {
+  const app = document.getElementById("app");
+  const collapseBtn = document.getElementById("collapseBtn");
+
+  collapseBtn?.addEventListener("click", () => {
+    app?.classList.toggle("collapsed");
+  });
+}
+
+// ================================
+// Tab switching
+// ================================
+function initTabSwitching() {
+  const app = document.getElementById("app");
+  const nav = document.getElementById("nav");
+  const navButtons = nav
+    ? Array.from(nav.querySelectorAll("button[data-target]"))
+    : [];
+  const sections = Array.from(document.querySelectorAll("main .section"));
+
+  function showSection(id) {
+    sections.forEach((sec) => {
+      const match = sec.id === id;
+      sec.classList.toggle("active", match);
+      if (sec.hasAttribute("hidden")) sec.hidden = !match;
+    });
+
+    navButtons.forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.target === id);
+    });
+
+    try { localStorage.setItem("suiteSettingsActiveTab", id); } catch {}
+
+    if (window.innerWidth <= 900) app?.classList.add("collapsed");
   }
 
-  const sections = tpl.sections || {};
-  const applicantRows   = sections.applicant   || [];
-  const experienceRows  = sections.experience  || [];
-  const customSections  = sections.custom      || [];
-  const applicantTitle  = sections.applicantTitle?.label   || "Applicant information";
-  const experienceTitle = sections.experienceTitle?.label  || "Professional experience";
+  navButtons.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const target = btn.dataset.target;
+      if (!target) return;
+      showSection(target);
+    });
+  });
 
- const renderRows = (rows) =>
-  rows
-    .map((row) => {
-      const label = escapeHtml(row.label || row.key || "");
-      const input = escapeHtml(row.inputType || "[text input]");
+  const saved = (() => {
+    try { return localStorage.getItem("suiteSettingsActiveTab"); }
+    catch { return null; }
+  })();
+
+  const initial =
+    saved ||
+    navButtons.find((b) => b.classList.contains("active"))?.dataset.target ||
+    "dashboard";
+
+  showSection(initial);
+}
+
+
+
+
+
+
+                  // ================================
+                         // Dashboard Section
+                  // ================================
+
+//Load number of locations 
+function updateDashboardCounts() {
+  // Locations
+  const locCountEl = document.getElementById("dash-locations-count");
+  if (locCountEl) {
+    const locations = Array.isArray(window.STATE.locations) ? window.STATE.locations : [];
+    locCountEl.textContent = String(locations.length);
+  }
+
+  // Suities (if you still want this card elsewhere)
+  const suitiesCountEl = document.getElementById("dash-suities-count");
+  if (suitiesCountEl) {
+    const suities = Array.isArray(window.STATE.suities) ? window.STATE.suities : [];
+    suitiesCountEl.textContent = String(suities.length);
+  }
+
+  // ✅ Applications (dashboard card)
+  const appsCountEl = document.getElementById("dash-applications-count");
+  if (appsCountEl) {
+    const apps = Array.isArray(window.STATE.applications) ? window.STATE.applications : [];
+    appsCountEl.textContent = String(apps.length);
+  }
+}
+//open tabs 
+function openTab(tabId) {
+  // hide all sections
+  document.querySelectorAll(".section").forEach((sec) => {
+    sec.classList.remove("active");
+    sec.hidden = true;
+  });
+
+  // show target
+  const target = document.getElementById(tabId);
+  if (target) {
+    target.hidden = false;
+    target.classList.add("active");
+  }
+
+  // update sidebar active state (optional)
+  document.querySelectorAll("[data-tab]").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.tab === tabId);
+  });
+}
+
+function initDashboardCardNav() {
+  const locCard  = document.getElementById("dash-card-locations");
+  const appsCard = document.getElementById("dash-card-applications");
+
+  locCard?.addEventListener("click", () => openTab("locations"));
+
+  // ✅ Applications card should open Suites section
+  appsCard?.addEventListener("click", () => openTab("suites")); // <-- must match your section id
+}
+
+
+
+
+
+
+
+
+
+                                 // ================================
+                                          // Locations Section
+                                 // ================================
+
+
+// ================================
+// Locations: render helpers
+// ================================
+function safe(v) {
+  return (v ?? "").toString();
+}
+
+function getLocValue(row, keyList) {
+  const v = row?.values || row || {};
+  for (const k of keyList) {
+    if (v[k] != null && String(v[k]).trim() !== "") return v[k];
+  }
+  return "";
+}
+
+function resolveImg(raw) {
+  if (!raw) return "";
+
+  // If DB stored an object like { url: "..." }
+  if (typeof raw === "object" && raw.url) raw = raw.url;
+
+  // If DB stored an array, use first
+  if (Array.isArray(raw)) raw = raw[0];
+
+  const s = String(raw).trim();
+  if (!s) return "";
+
+  // already absolute
+  if (/^https?:\/\//i.test(s)) return s;
+
+  // ✅ if it starts with "/" (ex: /uploads/xyz.png), it MUST come from API server (8400)
+  if (s.startsWith("/")) return apiUrl(s);
+
+  // relative without slash
+  return apiUrl("/" + s);
+}
+
+
+function renderLocations() {
+  const listEl = document.getElementById("locations-list");
+  if (!listEl) return;
+
+  const locations = (window.STATE?.locations || []).slice();
+
+  if (!locations.length) {
+    listEl.innerHTML = `<p class="muted">No locations yet. Click “Add location”.</p>`;
+    return;
+  }
+
+  listEl.innerHTML = locations
+    .map((loc) => {
+      const name = safe(getLocValue(loc, ["Location Name", "name", "Name"]));
+      const address = safe(getLocValue(loc, ["Address", "address", "Location Address"]));
+      const phone = safe(getLocValue(loc, ["Phone Number", "phone", "Phone"]));
+
+      // ✅ match your DataType: Default Image
+      const imgRaw = getLocValue(loc, [
+        "Default Image",
+        "Default Photo",
+        "defaultPhoto",
+        "photoUrl",
+        "heroImageUrl",
+        "heroImage",
+        "image",
+      ]);
+
+      const img = resolveImg(imgRaw);
+      const id = loc?._id || loc?.id || "";
 
       return `
-        <div class="suite-template-row">
-          <div class="suite-template-row-left">
-            <div class="suite-template-bullet"></div>
-            <div class="suite-template-label">${label}</div>
+        <button class="location-card-row" type="button" data-location-id="${id}">
+          <div class="location-card-thumb">
+            ${
+              img
+                ? `<img src="${img}" alt="${name}" />`
+                : `<div class="location-card-thumb--empty"></div>`
+            }
           </div>
-          <div class="suite-template-input">${input}</div>
-        </div>
+
+          <div class="location-card-info">
+            <div class="location-card-title">${name || "Untitled location"}</div>
+            <div class="location-card-line">${address}</div>
+            <div class="location-card-line muted">${phone}</div>
+          </div>
+        </button>
       `;
     })
     .join("");
 
-
-  let html = "";
-
-  // applicant section
-  if (applicantRows.length) {
-    html += `<h3>${applicantTitle}</h3>`;
-    html += renderRows(applicantRows);
-  }
-
-  // experience section
-  if (experienceRows.length) {
-    html += `<h3>${experienceTitle}</h3>`;
-    html += renderRows(experienceRows);
-  }
-
-  // custom sections
-  customSections.forEach((sec) => {
-    if (sec.title) {
-      html += `<h3>${sec.title}</h3>`;
-    }
-    html += renderRows(sec.rows || []);
+      listEl.querySelectorAll("[data-location-id]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const id = btn.getAttribute("data-location-id");
+      const loc = (window.STATE?.locations || []).find((x) => (x._id || x.id) === id);
+      if (!loc) return;
+      showLocationDetails(loc);
+    });
   });
-
-  if (!html) {
-    html = `<p class="muted">This template does not have any questions yet.</p>`;
-  }
-
-  bodyEl.innerHTML = html;
-
-  // 👉 SHOW the modal
-  modal.style.display = "block";
-  modal.setAttribute("aria-hidden", "false");
 }
 
+async function loadLocations() {
+  if (!currentUser?.id) {
+    console.warn("[locations] no currentUser yet");
+    window.STATE.locations = [];
+    renderLocations();
 
-function closeSuiteTemplatePreview() {
-  const modal = document.getElementById("suite-template-preview-modal");
-  if (!modal) return;
-
-  modal.hidden = true;
-  modal.setAttribute("aria-hidden", "true");
-
-  // unlock page scroll if you locked it
-  document.body.classList.remove("modal-open");
-
-  // return focus to the thing that opened the preview (optional but good)
-  const opener = document.querySelector(".suite-template-view-link")
-             || document.getElementById("open-suite-app-builder");
-  if (opener) opener.focus();
-}
-
-suiteTemplatePreviewClose?.addEventListener("click", closeSuiteTemplatePreview);
-
-// click on the dark overlay to close
-suiteTemplatePreviewModal?.addEventListener("click", (e) => {
-  if (e.target === suiteTemplatePreviewModal) {
-    closeSuiteTemplatePreview();
-  }
-});
-
-//scroll to suites when the suite button is pressed 
-locationScrollSuitesBtn?.addEventListener("click", () => {
-  // make sure the suites area is visible (in case something hid it)
-  if (locationSuitesHeader) locationSuitesHeader.style.display = "flex";
-  if (locationSuitesList)   locationSuitesList.style.display   = "block";
-
-  // smooth scroll down to the suites area
-  if (locationSuitesHeader) {
-    locationSuitesHeader.scrollIntoView({
-      behavior: "smooth",
-      block: "start",
-    });
-  } else if (locationSuitesList) {
-    locationSuitesList.scrollIntoView({
-      behavior: "smooth",
-      block: "start",
-    });
-  }
-});
-
-document.addEventListener("DOMContentLoaded", () => {
-  const previewModal = document.getElementById("suite-template-preview-modal");
-  const closeBtn     = document.getElementById("suite-template-preview-close");
-  const overlay      = previewModal?.querySelector(".suite-template-modal-overlay");
-
-  function hidePreview() {
-    if (!previewModal) return;
-    previewModal.style.display = "none";
-    previewModal.setAttribute("aria-hidden", "true");
-  }
-
-  closeBtn?.addEventListener("click", hidePreview);
-  overlay?.addEventListener("click", hidePreview);
-});
-
-//Reset Application template 
-// Global builder state
-let currentTemplate = null;
-let applicantRows  = [];
-let experienceRows = [];
-let customSections = [];
-
-// create a blank template object
-function getEmptyTemplate() {
-  return {
-    sections: {
-      applicantTitle:  { label: "Applicant information" },
-      experienceTitle: { label: "Professional experience" },
-      applicant:  [],
-      experience: [],
-      custom:     [],
-    },
-  };
-}
-
-// completely clear JS + DOM state for the builder
-function resetTemplateBuilder() {
-  currentTemplate  = getEmptyTemplate();
-  applicantRows    = currentTemplate.sections.applicant;
-  experienceRows   = currentTemplate.sections.experience;
-  customSections   = currentTemplate.sections.custom;
-
-  // 🔹 clear the DOM lists/inputs the user sees
-  const appList = document.getElementById("builder-applicant-rows");
-  const expList = document.getElementById("builder-experience-rows");
-  const customList = document.getElementById("builder-custom-sections");
-
-  if (appList)    appList.innerHTML = "";
-  if (expList)    expList.innerHTML = "";
-  if (customList) customList.innerHTML = "";
-
-  // clear any title inputs etc if you have them
-  const appTitleInput = document.getElementById("builder-applicant-title");
-  const expTitleInput = document.getElementById("builder-experience-title");
-
-  if (appTitleInput) appTitleInput.value = currentTemplate.sections.applicantTitle.label;
-  if (expTitleInput) expTitleInput.value = currentTemplate.sections.experienceTitle.label;
-}
-function openSuiteAppBuilder(suite) {
-  activeSuite = suite;
-
-  // ⬇️ always start by clearing old in-memory data
-  resetTemplateBuilder();
-
-  const rawTpl = suite.applicationTemplate;
-
-  if (rawTpl && String(rawTpl).trim() !== "") {
-    // this suite HAS a saved template → load it into the builder
-    try {
-      const tpl = typeof rawTpl === "string" ? JSON.parse(rawTpl) : rawTpl;
-
-      currentTemplate = tpl;
-
-      // re-attach arrays so UI uses them
-      applicantRows  = tpl.sections?.applicant  || [];
-      experienceRows = tpl.sections?.experience || [];
-      customSections = tpl.sections?.custom     || [];
-
-      // TODO: render these rows into your DOM lists
-      renderBuilderFromTemplate(tpl);
-    } catch (e) {
-      console.error("[suite-template] bad JSON, starting empty", e);
-      resetTemplateBuilder();
-    }
-  } else {
-    // ❗ no template saved for this suite → leave it EMPTY
-    // resetTemplateBuilder() already gave you a blank state
-    renderBuilderFromTemplate(currentTemplate);
-  }
-
-  // finally show the modal
-  const modal = document.getElementById("suite-app-builder-modal");
-  if (modal) {
-    modal.style.display = "grid";
-    modal.setAttribute("aria-hidden", "false");
-  }
-}
-
-// =====================
-// Suite gallery – preview new images
-// =====================
-function renderSuitePendingGalleryPreview() {
-  if (!locSuiteNewGalleryPrev) return;
-
-  locSuiteNewGalleryPrev.innerHTML = "";
-
-  if (!pendingSuiteGalleryFiles.length) {
-    locSuiteNewGalleryPrev.textContent = "";
+    populateSuitiesLocationFilter(window.STATE.locations);
     return;
   }
 
-  pendingSuiteGalleryFiles.forEach((file, index) => {
-    const wrapper = document.createElement("div");
-    wrapper.className = "gallery-thumb-wrapper";
+  const url = apiUrl(
+    `/public/records?dataType=Location&limit=200&ownerUserId=${encodeURIComponent(currentUser.id)}`
+  );
 
-    const img = document.createElement("img");
-    img.className = "suite-gallery-thumb";
-    img.src = URL.createObjectURL(file);
-    img.alt = file.name;
-
-    const removeBtn = document.createElement("button");
-    removeBtn.type = "button";
-    removeBtn.className = "gallery-thumb-remove";
-    removeBtn.textContent = "×";
-
-    removeBtn.addEventListener("click", () => {
-      pendingSuiteGalleryFiles.splice(index, 1);
-      renderSuitePendingGalleryPreview();
+  try {
+    const res = await fetch(url, {
+      credentials: "include",
+      headers: { Accept: "application/json" },
+      cache: "no-store",
     });
 
-    wrapper.appendChild(img);
-    wrapper.appendChild(removeBtn);
-    locSuiteNewGalleryPrev.appendChild(wrapper);
-  });
+    if (!res.ok) {
+      const errBody = await readJsonSafe(res);
+      console.warn("[locations] load failed", res.status, errBody);
+
+      window.STATE.locations = [];
+      renderLocations();
+      populateSuitiesLocationFilter(window.STATE.locations);
+      return;
+    }
+
+    const data = await res.json().catch(() => ({}));
+    const rows = Array.isArray(data)
+      ? data
+      : data.records || data.items || data.data || [];
+
+    window.STATE.locations = rows;
+
+    renderLocations();
+
+    // ✅ populate dropdowns
+    populateSuitiesLocationFilter(rows);
+    populateSuitieLocationSelect(rows);
+    populateSuitesLocationFilter(rows); // Suites section filter dropdown
+
+    
+    // ✅ update dashboard
+    updateDashboardCounts();
+
+    // ✅ NOW load applications table (needs currentUser to be set already)
+    await loadSuiteApplications();
+
+  } catch (err) {
+    console.error("[locations] load error", err);
+
+    window.STATE.locations = [];
+    renderLocations();
+    populateSuitiesLocationFilter(window.STATE.locations);
+    updateDashboardCounts();
+
+  }
 }
 
-if (locSuiteGalleryInput) {
-  locSuiteGalleryInput.addEventListener("change", () => {
-    const files = Array.from(locSuiteGalleryInput.files || []);
 
-    files.forEach((file) => {
-      pendingSuiteGalleryFiles.push(file);
-    });
 
-    // clear the native input so you can re-select the same file if needed
-    locSuiteGalleryInput.value = "";
+// ================================
+// Locations: Add button -> show form / hide cards
+// ================================
+function initLocationsUI() {
+  const addBtn   = document.getElementById("locations-add-btn");
+  const formCard = document.getElementById("location-form-card");
+  const listEl   = document.getElementById("locations-list");
+  const form     = document.getElementById("location-form");
+  const idInput  = document.getElementById("loc-id");
+  const cancelBtn = document.getElementById("location-cancel-btn");
 
-    renderSuitePendingGalleryPreview();
-  });
+  const locCurrentPhoto   = document.getElementById("loc-current-photo");
+  const locCurrentGallery = document.getElementById("loc-current-gallery");
+  const locNewGalleryPrev = document.getElementById("loc-new-gallery-preview");
+  const photoFileInput    = document.getElementById("loc-photo-file");
+  const galleryInput      = document.getElementById("loc-gallery-files");
+
+  function openCreateForm() {
+    if (idInput) idInput.value = "";
+    form?.reset();
+
+    if (formCard) formCard.hidden = false;
+    if (listEl) listEl.style.display = "none";
+
+    if (locCurrentPhoto) locCurrentPhoto.textContent = "No photo uploaded yet.";
+    if (locCurrentGallery) locCurrentGallery.innerHTML = "";
+    if (locNewGalleryPrev) locNewGalleryPrev.innerHTML = "";
+    if (photoFileInput) photoFileInput.value = "";
+    if (galleryInput) galleryInput.value = "";
+  }
+
+  function closeFormBackToList() {
+    if (formCard) formCard.hidden = true;
+    if (listEl) listEl.style.display = "block";
+    form?.reset();
+    if (idInput) idInput.value = "";
+  }
+
+  addBtn?.addEventListener("click", openCreateForm);
+  cancelBtn?.addEventListener("click", closeFormBackToList);
+
+  window.openLocationCreateForm = openCreateForm;
+  window.closeLocationForm = closeFormBackToList;
+
+  window._clearLocationMainPreview?.();
+window._clearLocationGalleryPreview?.();
+
 }
-const appModeRadios = document.querySelectorAll(
-  'input[name="loc-suite-app-mode"]'
-);
-
-
-
-  const locAboutInput      = document.getElementById("loc-about");
-  const locGalleryInput    = document.getElementById("loc-gallery-files");
-
-  const locationDetailsAbout   = document.getElementById("location-details-about");
-  const locationDetailsGallery = document.getElementById("location-details-gallery");
-
-
-
-const locationAboutToggleBtn = document.getElementById("location-about-toggle");
-
-
-const aboutToggleBtn        = document.getElementById("location-details-about-toggle");
-const detailsToggleBtn      = document.getElementById("location-details-desc-toggle");
 
 
 
 
-// 🆕 keep track of all gallery files selected (across multiple clicks)
+//Add X and Remove location preview images 
+// ------------------------------
+// Pending files (new uploads)
+// ------------------------------
+let pendingMainPhotoFile = null;
 let pendingGalleryFiles = [];
+// 🆕 existing images for the record (edit mode)
+let existingMainPhotoUrl = "";
+let existingGalleryUrls = [];
+let galleryRemoveSet = new Set(); // urls to remove when saving
+// ------------------------------
+// Main photo preview + remove X
+// ------------------------------
+function initMainPhotoPreview() {
+  const input = document.getElementById("loc-photo-file");
+  const holder = document.getElementById("loc-current-photo");
+  if (!input || !holder) return;
 
+  function render() {
+    if (!pendingMainPhotoFile) {
+      holder.innerHTML = `<span class="muted">No photo uploaded yet.</span>`;
+      return;
+    }
 
+    const url = URL.createObjectURL(pendingMainPhotoFile);
 
-// =====================
-// New gallery preview logic
-// =====================
-if (locGalleryInput && locNewGalleryPreview) {
-  locGalleryInput.addEventListener("change", () => {
-    const files = Array.from(locGalleryInput.files || []);
-    if (!files.length) return;
+    holder.innerHTML = `
+      <div class="gallery-thumb-wrapper">
+        <button type="button" class="gallery-thumb-remove" aria-label="Remove photo">×</button>
+        <img src="${url}" alt="Default photo preview" />
+      </div>
+    `;
 
-    // 👇 APPEND new files instead of replacing
-    pendingGalleryFiles = pendingGalleryFiles.concat(files);
+    // cleanup blob url
+    holder.querySelector("img")?.addEventListener("load", (e) => {
+      try { URL.revokeObjectURL(url); } catch {}
+    });
 
-    // clear the native input so OS lets you pick the same file again if needed
-    locGalleryInput.value = "";
+    holder.querySelector(".gallery-thumb-remove")?.addEventListener("click", () => {
+      pendingMainPhotoFile = null;
+      input.value = "";
+      render();
+    });
+  }
 
-    renderPendingGalleryPreview();
+  input.addEventListener("change", () => {
+    const file = input.files && input.files[0];
+    pendingMainPhotoFile = file || null;
+    render();
   });
+
+  // initial
+  render();
+
+  // optional expose for your openCreateForm reset
+  window._resetMainPhotoPreview = () => {
+    pendingMainPhotoFile = null;
+    input.value = "";
+    render();
+  };
 }
-function autoResizeTextarea(el) {
-  if (!el) return;
-  el.style.height = "auto";              // reset
-  el.style.height = el.scrollHeight + "px"; // grow to fit content
+
+// ------------------------------
+// Gallery preview + remove X
+// ------------------------------
+
+function initGalleryPreview() {
+  const input = document.getElementById("loc-gallery-files");
+  const holder = document.getElementById("loc-new-gallery-preview");
+  if (!input || !holder) return;
+
+  function render() {
+    if (!pendingGalleryFiles.length) {
+      holder.innerHTML = "";
+      return;
+    }
+
+    holder.innerHTML = pendingGalleryFiles
+      .map((file, idx) => {
+        const url = URL.createObjectURL(file);
+        return `
+          <div class="gallery-thumb-wrapper" data-idx="${idx}">
+            <button type="button"
+              class="gallery-thumb-remove"
+              data-remove="${idx}"
+              aria-label="Remove image">×</button>
+            <img src="${url}" alt="${file.name}" />
+          </div>
+        `;
+      })
+      .join("");
+
+    // cleanup blob URLs after load
+    holder.querySelectorAll("img").forEach((img) => {
+      img.addEventListener("load", () => {
+        try { URL.revokeObjectURL(img.src); } catch {}
+      });
+    });
+
+    // X buttons
+    holder.querySelectorAll("[data-remove]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const idx = Number(btn.getAttribute("data-remove"));
+        if (!Number.isFinite(idx)) return;
+
+        // remove just that one image from the pending list
+        pendingGalleryFiles.splice(idx, 1);
+        render();
+      });
+    });
+  }
+
+  input.addEventListener("change", () => {
+    const newFiles = input.files ? Array.from(input.files) : [];
+    if (!newFiles.length) return;
+
+    // ✅ APPEND (do not replace)
+    pendingGalleryFiles.push(...newFiles);
+
+    // ✅ allow selecting same file again later
+    input.value = "";
+
+    render();
+  });
+
+  // optional: reset helper for your "Add Location" button
+  window._resetGalleryPreview = () => {
+    pendingGalleryFiles = [];
+    input.value = "";
+    render();
+  };
+
+  render();
 }
 
-// grow while typing
-detailsInput?.addEventListener("input", () => autoResizeTextarea(detailsInput));
-locAboutInput?.addEventListener("input", () => autoResizeTextarea(locAboutInput));
 
-
-
-
-function slugify(s) {
-  return String(s || "")
-    .trim()
+///////// ================================
+/////////////// Save Location
+//// ///================================
+function slugify(str) {
+  return String(str || "")
     .toLowerCase()
+    .trim()
+    .replace(/['"]/g, "")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
 }
 
-function hideLocationsHeader() {
-  if (locationsHeader) {
-    locationsHeader.style.display = "none";
-  }
-}
 
-function showLocationsHeader() {
-  if (locationsHeader) {
-    // let CSS decide (block/flex/etc)
-    locationsHeader.style.display = "";
-  }
-}
 
-
-
-const locationViewPublicBtn = document.getElementById("location-view-public-btn");
-
-const locationTotalRent = document.getElementById("location-total-rent");
-
-
-  // near the top of the file with other suite/location globals
-
-let suiteGalleryRemoveSet = new Set();    // 🆕 track gallery images to remove
-
-  // suites currently loaded for this location
-  let currentLocationSuites = [];
-
-let selectedLocation = null;
-let suitePhotoMarkedForRemoval = false;
-
-
-// 🎨 Location style controls
-const locationStyleBtn        = document.getElementById("location-style-btn");
-const locationStyleModal      = document.getElementById("location-style-modal");
-const locationStyleCloseBtn   = document.getElementById("location-style-close-btn");
-const locationStyleCancelBtn  = document.getElementById("location-style-cancel-btn");
-const locationStyleSaveBtn    = document.getElementById("location-style-save-btn");
-
-// inputs + preview
-const locStyleBgColorInput    = document.getElementById("location-style-bg-color");
-const locStyleTextColorInput  = document.getElementById("location-style-text-color");
-const locStyleBgImageInput    = document.getElementById("location-style-bg-image");
-const locStyleBgPreview       = document.getElementById("location-style-bg-preview");
-
-// 🔹 Track existing gallery + which ones to remove
-let existingGalleryUrls = [];
-let galleryRemoveSet = new Set();
-
-//Go to location/Suite Dynamic page 
-locationViewPublicBtn?.addEventListener("click", () => {
-  if (!selectedLocation) {
-    alert("Open a location first.");
-    return;
-  }
-
-  // Prefer an explicit slug from the record
-  let slug = selectedLocation.slug;
-
-  // Fallback: build one from the name if needed
-  if (!slug) {
-    slug = slugify(selectedLocation.name || "");
-  }
-
-  if (!slug) {
-    alert("This location doesn’t have a public page yet.");
-    return;
-  }
-
-  // 🔗 CHANGE THIS if your Suite page uses a different route
-  // Right now this opens: /[slug]
-  // If later you make /[slug]/suites, change it to `/${slug}/suites`
-  const url = `/${encodeURIComponent(slug)}`;
-
-  // open in a new tab so you don’t lose the admin page
-  window.open(url, "_blank");
-});
-
-// open / close helpers
-function openLocationStyleModal() {
-  if (!locationStyleModal) return;
-  locationStyleModal.hidden = false;
-  locationStyleModal.style.display = "grid";     // match .auth-modal
-  document.body.classList.add("modal-open");
-}
-
-function closeLocationStyleModal() {
-  if (!locationStyleModal) return;
-  locationStyleModal.hidden = true;
-  locationStyleModal.style.display = "none";
-  document.body.classList.remove("modal-open");
-}
-
-// 🔍 Open button in Location details (🎨 icon)
-locationStyleBtn?.addEventListener("click", () => {
-  if (!selectedLocation) {
-    alert("Open a location first.");
-    return;
-  }
-
-  console.log("[location-style] open panel for:", selectedLocation);
-
-  // prefill bg color
-  if (locStyleBgColorInput) {
-    const val =
-      selectedLocation.bgColor && /^#/.test(selectedLocation.bgColor)
-        ? selectedLocation.bgColor
-        : "#ffffff";
-    locStyleBgColorInput.value = val;
-  }
-
-  // prefill text color
-  if (locStyleTextColorInput) {
-    const val =
-      selectedLocation.textColor && /^#/.test(selectedLocation.textColor)
-        ? selectedLocation.textColor
-        : "#000000";
-    locStyleTextColorInput.value = val;
-  }
-
-  // show current bg image (or default message)
-  if (locStyleBgPreview) {
-    locStyleBgPreview.innerHTML = "";
-    if (selectedLocation.bgImageUrl) {
-      const img = document.createElement("img");
-      img.src = selectedLocation.bgImageUrl;
-      img.alt = "Location background image";
-      img.className = "location-style-bg-thumb";
-      locStyleBgPreview.appendChild(img);
-    } else {
-      locStyleBgPreview.innerHTML =
-        '<p class="muted">No background image yet.</p>';
-    }
-  }
-
-  // clear file input
-  if (locStyleBgImageInput) locStyleBgImageInput.value = "";
-
-  openLocationStyleModal();
-});
-
-// ❌ Close / cancel buttons
-locationStyleCloseBtn?.addEventListener("click", closeLocationStyleModal);
-locationStyleCancelBtn?.addEventListener("click", closeLocationStyleModal);
-
-// click outside card to close
-locationStyleModal?.addEventListener("click", (e) => {
-  if (e.target === locationStyleModal) {
-    closeLocationStyleModal();
-  }
-});
-
-// 🖼 Live preview when user picks a new background image
-locStyleBgImageInput?.addEventListener("change", () => {
-  if (!locStyleBgPreview) return;
-
-  const file = locStyleBgImageInput.files?.[0];
-  if (!file) {
-    locStyleBgPreview.innerHTML =
-      '<p class="muted">No background image yet.</p>';
-    return;
-  }
-
-  // Clear any previous content/text
-  locStyleBgPreview.innerHTML = "";
-
-  // Create a temporary preview image
-  const img = document.createElement("img");
-  img.alt = "Preview background image";
-  img.className = "location-style-bg-thumb";
-  img.src = URL.createObjectURL(file);
-
-  img.onload = () => {
-    URL.revokeObjectURL(img.src);
-  };
-
-  locStyleBgPreview.appendChild(img);
-});
-
-// 💾 Save style
-locationStyleSaveBtn?.addEventListener("click", async () => {
-  console.log("[location-style] Save clicked");
-
-  if (!selectedLocation || !selectedLocation.id) {
-    alert("Open a location first.");
-    return;
-  }
-
-  const recId = selectedLocation.id;
-
-  const bgColor   = locStyleBgColorInput?.value || "";
-  const textColor = locStyleTextColorInput?.value || "";
-
-  let bgImageUrl = selectedLocation.bgImageUrl || "";
-
-  // If user picked a new background image, upload it
-  if (locStyleBgImageInput && locStyleBgImageInput.files[0]) {
-    const fd = new FormData();
-    fd.append("file", locStyleBgImageInput.files[0]);
-
-    try {
-      const uploadRes = await fetch(`${API_BASE}/api/upload`, {
-        method: "POST",
-        credentials: "include",
-        body: fd,
-      });
-
-      if (!uploadRes.ok) {
-        const txt = await uploadRes.text().catch(() => "");
-        console.warn("[location-style] bg upload failed", uploadRes.status, txt);
-        alert("Couldn't upload background image.");
-        return; // stop save if upload failed
-      } else {
-        const body = await uploadRes.json().catch(() => ({}));
-        if (body && body.url) {
-          bgImageUrl = body.url;
-        }
-      }
-    } catch (err) {
-      console.error("[location-style] upload error", err);
-      alert("Something went wrong uploading the background image.");
-      return;
-    }
-  }
-
-// Build only the style fields
-const values = {};
-if (bgColor)    values["Background Color"]  = bgColor;
-if (textColor)  values["Text Color"]        = textColor;
-if (bgImageUrl) values["Background Image"]  = bgImageUrl;
-
-  try {
-    const res = await fetch(
-      `${API_BASE}/api/records/Suite/${encodeURIComponent(recId)}`,
-      {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify({ values }),
-      }
-    );
-
-    if (!res.ok) {
-      const txt = await res.text().catch(() => "");
-      console.warn("[location-style] save failed", res.status, txt);
-      alert("Couldn't save style settings. Check console for details.");
-      return;
-    }
-
-    const saved = await res.json().catch(() => null);
-    console.log("[location-style] saved", saved);
-
-    // Update in-memory copy
-    selectedLocation.bgColor    = bgColor;
-    selectedLocation.textColor  = textColor;
-    selectedLocation.bgImageUrl = bgImageUrl;
-
-    // Refresh preview block with the *saved* image
-    if (locStyleBgPreview) {
-      locStyleBgPreview.innerHTML = "";
-      if (bgImageUrl) {
-        const img = document.createElement("img");
-        img.src = bgImageUrl;
-        img.alt = "Location background image";
-        img.className = "location-style-bg-thumb";
-        locStyleBgPreview.appendChild(img);
-      } else {
-        locStyleBgPreview.innerHTML =
-          '<p class="muted">No background image yet.</p>';
-      }
-    }
-
-    alert("Style saved.");
-    closeLocationStyleModal();
-  } catch (err) {
-    console.error("[location-style] error", err);
-    alert("Something went wrong while saving style.");
-  }
-});
-
-
-
-
-
-  if (!formCard || !addBtn || !form || !nameInput || !addressInput || !listEl) {
-    console.warn("[locations] form or list elements missing");
-    return;
-  }
-
-  // 👇 IMPORTANT: do NOT return early here anymore.
-  // If not logged in, show a note but keep the UI working.
-if (!currentUser || !currentUser.id) {
-  console.warn("[locations] no current user; will require login on save");
-  listEl.innerHTML = `<p class="muted">Log in to add and manage locations.</p>`;
-  addBtn.disabled = true;
-  formCard.hidden = true;
-  return;  // 🔴 important: don't call loadLocations or hook submit
-}
-  let locations = [];
-
-  // Normalize one record from the API
-function normalizeLocation(row) {
-  const v = row.values || row;
-
-  const aboutRaw =
-    v["About"] ||
-    v["About Location"] ||
-    "";
-
-  const galleryRaw =
-    v["Location Gallery"] ||
-    v["Gallery Images"] ||
-    [];
-
-  const gallery = Array.isArray(galleryRaw) ? galleryRaw : [];
-
-  return {
-    id: row._id || row.id || "",
-    slug: v["Slug"] || v.slug || "",   // 🆕 add this
-    name: v["Location Name"] || v.LocationName || "",
-    address: v.Address || v.address || "",
-    phone: v["Phone Number"] || v.PhoneNumber || "",
-    details: v["Details"] || v.Details || "",
-    photoUrl:
-      v["Location Photo"] ||
-      v["Photo URL"] ||
-      v.photoUrl ||
-      null,
-    about: aboutRaw,
-    gallery,
-
-    // 🆕 style fields (pulled from the record)
-    bgColor:
-      v["Background Color"] ||
-      v.bgColor ||
-      "",
-    textColor:
-      v["Text Color"] ||
-      v.textColor ||
-      "",
-    bgImageUrl:
-      v["Background Image"] ||
-      v.bgImageUrl ||
-      "",
-  };
-}
-
-const ABOUT_CHAR_LIMIT = 160;  // change this number if you want more/less
-
-function applyAboutText(fullText) {
-  if (!locationDetailsAbout) return;
-
-  const trimmed = (fullText || "").trim();
-
-  // If nothing, show dash and hide button
-  if (!trimmed) {
-    locationDetailsAbout.textContent = "—";
-    locationDetailsAbout.dataset.full = "";
-    locationDetailsAbout.dataset.short = "";
-    locationDetailsAbout.dataset.expanded = "false";
-    if (locationAboutToggleBtn) {
-      locationAboutToggleBtn.style.display = "none";
-    }
-    return;
-  }
-
-  const isLong = trimmed.length > ABOUT_CHAR_LIMIT;
-  const shortVersion = isLong
-    ? trimmed.slice(0, ABOUT_CHAR_LIMIT) + "…"
-    : trimmed;
-
-  // Store both versions + state on the element
-  locationDetailsAbout.dataset.full = trimmed;
-  locationDetailsAbout.dataset.short = shortVersion;
-  locationDetailsAbout.dataset.expanded = "false";
-
-  // Show short by default
-  locationDetailsAbout.textContent = shortVersion;
-
-  // Show/hide button
-  if (locationAboutToggleBtn) {
-    locationAboutToggleBtn.style.display = isLong ? "inline-block" : "none";
-    locationAboutToggleBtn.textContent = "Show more";
-  }
-}
-
-locationAboutToggleBtn?.addEventListener("click", () => {
-  if (!locationDetailsAbout) return;
-
-  const expanded = locationDetailsAbout.dataset.expanded === "true";
-  const full  = locationDetailsAbout.dataset.full || "";
-  const short = locationDetailsAbout.dataset.short || full;
-
-  if (expanded) {
-    // Go back to short
-    locationDetailsAbout.textContent = short;
-    locationDetailsAbout.dataset.expanded = "false";
-    locationAboutToggleBtn.textContent = "Show more";
-  } else {
-    // Show full text
-    locationDetailsAbout.textContent = full;
-    locationDetailsAbout.dataset.expanded = "true";
-    locationAboutToggleBtn.textContent = "Show less";
-  }
-});
-
-  // Render the list in the DOM
-  function renderLocations() {
-    listEl.innerHTML = "";
-
-    if (!locations.length) {
-      listEl.innerHTML = `<p class="muted">No locations yet. Click “Add location” to create one.</p>`;
-      return;
-    }
-
-    locations.forEach((loc) => {
-    const card = document.createElement("div");
-    card.className = "location-item";
-
-   card.innerHTML = `
-  <div class="location-main-row">
-    <div class="location-main-inline">
-      ${
-        loc.photoUrl
-          ? `<img class="location-thumb" src="${loc.photoUrl}" alt="${loc.name}" />`
-          : ""
-      }
-      <div class="location-main-text">
-        <h3>${loc.name}</h3>
-        <p>${loc.address}</p>
-        ${loc.phone ? `<p class="muted">${loc.phone}</p>` : ""}
-      </div>
-    </div>
-  </div>
-`;
-
-
-
-      // 🔹 click → open details view
-    // ✅ when you click a LOCATION card, show LOCATION details
-    card.addEventListener("click", () => {
-      showLocationDetails(loc);
-    });
-
-      listEl.appendChild(card);
-    });
-  }
-
-
-// Load saved locations for this user from the backend
-async function loadLocations() {
-  const ownerFilter =
-    currentUser && currentUser.id
-      ? `&ownerUserId=${encodeURIComponent(currentUser.id)}`
-      : "";
-
-  // 👈 use the Suite DataType again (where your locations are stored)
-  const url =
-    `${API_BASE}/public/records` +
-    `?dataType=Suite${ownerFilter}&limit=200`;
-
-  try {
-    const res = await fetch(url, {
-      credentials: "include",
-      headers: { Accept: "application/json" },
-    });
-
-    if (!res.ok) {
-      console.warn("[locations] load failed", res.status);
-      locations = [];
-      window.STATE.locations = locations;
-      renderLocations();
-      updateDashboardCounts();
-      return;
-    }
-
-    const data = await res.json();
-    const rows = Array.isArray(data)
-      ? data
-      : data.records || data.items || [];
-
-    // ✅ keep ONLY top-level "locations", NOT child suites
-    const topLevelLocationRows = rows.filter((row) => {
-      const v = row.values || row;
-
-      // if this record has a Location reference, it's a *Suite*, not a top-level location
-      const locRef =
-        v.Location ||
-        v["Location"] ||
-        v.location ||
-        null;
-
-      if (locRef) return false; // child suite ⇒ skip
-
-      // bonus: make sure it actually looks like a location
-      const hasLocationName =
-        v["Location Name"] ||
-        v.LocationName ||
-        "";
-      return !!hasLocationName;
-    });
-
- 
-  locations = topLevelLocationRows.map(normalizeLocation);
-  window.STATE.locations = locations;
-
-  renderLocations();
-  updateDashboardCounts();
-
-  if (window.refreshSuitieLocationDropdown) {
-    window.refreshSuitieLocationDropdown();
-  }
-
-  // 👇 this keeps the Suites dropdown in sync with Locations
-  if (window.refreshSuitesLocationDropdown) {
-    window.refreshSuitesLocationDropdown();
-  }
-
-  } catch (err) {
-    console.error("[locations] load error", err);
-    locations = [];
-    window.STATE.locations = locations;
-    renderLocations();
-    updateDashboardCounts();
-  }
-}
-
-// Start state
-formCard.hidden = true;
-loadLocations();
-
-// Load Suites (rooms) so the Suites tab + Applications table can work
-loadSuitesForUser();        // ✅ fills Suite data + dropdown
-renderSuitesList();         // ✅ renders the Suites list
-loadAllSuiteApplications(); // ✅ populates the Applications table
-
-
-
-  // Open the form when "Add location" is clicked
-  addBtn.addEventListener("click", () => {
-  formCard.hidden = false;
-  form.reset();
-  idInput.value = "";          // new create
-  selectedLocation = null;     // not editing any existing one
-
-  // hide details while adding
-  if (locationDetailsCard) {
-    locationDetailsCard.style.display = "none";
-  }
-  listEl.style.display = "block"; // or keep as you prefer
-
-  // 🔹 RESET IMAGE STUFF 🔹
-  // clear current main photo preview
-  if (locCurrentPhoto) {
-    locCurrentPhoto.textContent = "No photo uploaded yet.";
-    locCurrentPhoto.innerHTML = locCurrentPhoto.textContent;
-  }
-
-  // clear current gallery preview
-  if (locCurrentGallery) {
-    locCurrentGallery.textContent = "No gallery images yet.";
-    locCurrentGallery.innerHTML = locCurrentGallery.textContent;
-  }
-
-  // clear “new images” preview + array
-  pendingGalleryFiles = [];
-  if (locNewGalleryPreview) {
-    locNewGalleryPreview.textContent = "";
-    locNewGalleryPreview.innerHTML = locNewGalleryPreview.textContent;
-  }
-
-  // clear file inputs so nothing is pre-selected
-// clear file inputs so nothing is pre-selected
-if (photoFileInput)  photoFileInput.value  = "";
-if (locGalleryInput) locGalleryInput.value = "";
-
-});
-
-
-  // Cancel button closes + clears form
- if (cancelBtn) {
-  cancelBtn.addEventListener("click", () => {
-    form.reset();
-    formCard.hidden = true;
-
-    // If we have a selectedLocation, we were editing → go back to details
-    if (selectedLocation) {
-      // show details, hide list
-      if (locationDetailsCard) locationDetailsCard.style.display = "block";
-      if (listEl)              listEl.style.display              = "none";
-
-      // re-render details so they’re fresh
-      showLocationDetails(selectedLocation);
-    } else {
-      // no selectedLocation = we were adding a new location → go back to list
-      if (listEl)              listEl.style.display              = "block";
-      if (locationDetailsCard) locationDetailsCard.style.display = "none";
-    }
+// ✅ Try your Live endpoint first, then fallback
+// ✅ CREATE Location (your server does NOT support POST /public/records)
+async function createLocationRecord(values) {
+  const res = await fetch(apiUrl(`/api/records/Location`), {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify({ values }),
   });
-}
 
-
-  function applyExpandableText(el, btn, fullText, limit = 160) {
-  if (!el || !btn) return;
-
-  const text = String(fullText || "").trim();
-  if (!text) {
-    el.textContent = "—";
-    btn.style.display = "none";
-    el.dataset.full = "";
-    return;
+  const data = await readJsonSafe(res);
+  if (!res.ok) {
+    console.warn("[locations] create failed", res.status, data);
+    throw new Error(data?.message || "Failed to create location");
   }
-
-  el.dataset.full = text;
-
-  if (text.length <= limit) {
-    el.textContent = text;
-    btn.style.display = "none";
-    btn.dataset.state = "collapsed";
-    return;
-  }
-
-  el.textContent = text.slice(0, limit) + "…";
-  btn.style.display = "";
-  btn.textContent = "Show more";
-  btn.dataset.state = "collapsed";
-}
-
-function toggleExpandableText(el, btn, limit = 160) {
-  if (!el || !btn) return;
-
-  const full  = el.dataset.full || "";
-  const state = btn.dataset.state || "collapsed";
-
-  if (state === "collapsed") {
-    el.textContent = full;
-    btn.textContent = "Show less";
-    btn.dataset.state = "expanded";
-  } else {
-    el.textContent = full.length > limit ? full.slice(0, limit) + "…" : full;
-    btn.textContent = "Show more";
-    btn.dataset.state = "collapsed";
-  }
-}
-aboutToggleBtn?.addEventListener("click", () => {
-  toggleExpandableText(locationDetailsAbout, aboutToggleBtn, 160);
-});
-
-detailsToggleBtn?.addEventListener("click", () => {
-  toggleExpandableText(locationDetailsDesc, detailsToggleBtn, 160);
-});
-
-async function showLocationDetails(loc) {
-  if (!locationDetailsCard) return;
-
-  selectedLocation = loc;
-
-  // 🆕 update the “Go to …” button label
-  const publicNameSpan = document.getElementById("location-view-public-name");
-  if (publicNameSpan) {
-    publicNameSpan.textContent = loc.name || "Location";
-  }
-
-
-  // 🆕 normalized about + gallery (define FIRST)
-  const aboutRaw = loc.about || "";
-  const gallery  = Array.isArray(loc.gallery) ? loc.gallery : [];
-
-  // Basic info
-  if (locationDetailsName) {
-    locationDetailsName.textContent = loc.name || "Location details";
-  }
-
-  // also show the name inside the suite form label
-  if (locSuiteLocationName) {
-    locSuiteLocationName.textContent = loc.name || "";
-  }
-
-  if (locationDetailsAddr) {
-    locationDetailsAddr.textContent = loc.address || "";
-  }
-
-  if (locationDetailsAddrFull) {
-    locationDetailsAddrFull.textContent = loc.address || "—";
-  }
-
-  if (locationDetailsPhone) {
-    locationDetailsPhone.textContent = loc.phone || "—";
-  }
-
-  // Details (short + show more)
-  applyExpandableText(
-    locationDetailsDesc,
-    detailsToggleBtn,
-    loc.details,
-    200
-  );
-
-  // About (short + show more)
-  applyExpandableText(
-    locationDetailsAbout,
-    aboutToggleBtn,
-    aboutRaw,
-    200
-  );
-
-  // About text with truncation + toggle (your helper)
-  applyAboutText(aboutRaw);
-
-  // Photo
-  if (locationDetailsPhoto) {
-    if (loc.photoUrl) {
-      locationDetailsPhoto.src = loc.photoUrl;
-      locationDetailsPhoto.style.display = "block";
-    } else {
-      locationDetailsPhoto.src = "";
-      locationDetailsPhoto.style.display = "none";
-    }
-  }
-
-  // Gallery
-  if (locationDetailsGallery) {
-    locationDetailsGallery.innerHTML = "";
-    if (gallery.length) {
-      gallery.forEach((url) => {
-        const img = document.createElement("img");
-        img.src = url;
-        img.className = "location-gallery-thumb";
-        locationDetailsGallery.appendChild(img);
-      });
-    } else {
-      locationDetailsGallery.innerHTML =
-        `<p class="muted">No gallery images yet.</p>`;
-    }
-  }
-
-  // Start by showing "Loading…" while we calculate total rent
-   // Start by showing "Loading…" while we calculate total rent
-  if (locationTotalRentEl) locationTotalRentEl.textContent = "Loading…";
-  if (locationYearRentEl)  locationYearRentEl.textContent  = "Loading…";
-
-  // Load suites for this location into the list
-  if (loc.id) {
-    await loadSuitesForLocation(loc.id);
-  }
-
-  // Fetch all Suitie records where Location = this location.id
-  try {
-    const url =
-      `${API_BASE}/public/records` +
-      `?dataType=Suitie&Location=${encodeURIComponent(loc.id)}&limit=500`;
-
-    const res = await fetch(url, {
-      credentials: "include",
-      headers: { Accept: "application/json" },
-    });
-
-    if (!res.ok) {
-      console.warn("[locations] total rent fetch failed", res.status);
-      if (locationTotalRentEl) locationTotalRentEl.textContent = "—";
-      if (locationYearRentEl)  locationYearRentEl.textContent  = "—";
-    } else {
-      const data = await res.json();
-      const rows = Array.isArray(data)
-        ? data
-        : data.records || data.items || [];
-
-      let monthlyTotal = 0;      // sum of suite rent (per month)
-      let paidThisYear = 0;      // sum of rent where rent has been PAID this year
-      const currentYear = new Date().getFullYear();
-
-      rows.forEach((row) => {
-        const v = row.values || row;
-
-    // 🔹 Only include Suities whose Location matches THIS location
-  const locRef = v["Location"] || v.Location || v.location;
-  const locRefId =
-    locRef && (locRef._id || locRef.id || locRef); // handles { _id }, { id }, or plain string
-
-  if (!locRefId || String(locRefId) !== String(loc.id)) {
-    // this Suitie belongs to some other location → skip
-    return;
-  }
-      
-        // ----- Get rent amount -----
-        const rentRaw = v["Suite Rent"];
-        let rent = 0;
-
-        if (typeof rentRaw === "number") {
-          rent = rentRaw;
-        } else if (typeof rentRaw === "string" && rentRaw.trim() !== "") {
-          const num = Number(rentRaw);
-          if (!Number.isNaN(num)) rent = num;
-        }
-
-        if (!rent) return; // nothing to add
-
-        // Always count into "total suite rent (per month)"
-        monthlyTotal += rent;
-
-        // ----- Only count PAID rent into yearly total -----
-        const paidRaw =
-          v["Rent Paid Date"] ||
-          v["Rent Paid"] ||
-          v.rentPaid ||
-          null;
-
-        if (!paidRaw) return;
-
-        const paidDate = new Date(paidRaw);
-        if (
-          !Number.isNaN(paidDate.getTime()) &&
-          paidDate.getFullYear() === currentYear
-        ) {
-          paidThisYear += rent;
-        }
-      });
-
-      // Monthly total (keeps your existing $690.00 line)
-      if (locationTotalRentEl) {
-        locationTotalRentEl.textContent =
-          "$" +
-          monthlyTotal.toLocaleString(undefined, {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-          });
-      }
-
-      // 🔹 New: only show amount actually PAID this year
-      if (locationYearRentEl) {
-        locationYearRentEl.textContent =
-          "$" +
-          paidThisYear.toLocaleString(undefined, {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-          });
-      }
-    }
-  } catch (err) {
-    console.error("[locations] total rent error", err);
-    if (locationTotalRentEl) locationTotalRentEl.textContent = "—";
-    if (locationYearRentEl)  locationYearRentEl.textContent  = "—";
-  }
-
-  // ✅ ALWAYS reset layout to "location details" mode
-  if (locationDetailsGrid)      locationDetailsGrid.style.display      = "grid";
-  if (locationSuitesHeader)     locationSuitesHeader.style.display     = "flex";
-  if (locationSuitesList)       locationSuitesList.style.display       = "block";
-  if (locationSuiteDetailsCard) locationSuiteDetailsCard.style.display = "none";
-  if (locationSuiteFormCard)    locationSuiteFormCard.style.display    = "none";
-
-  // Show details card, hide list + form
-  listEl.style.display = "none";
-  formCard.hidden = true;
-  locationDetailsCard.style.display = "block";
-  
+  return data;
 }
 
 
 
+function closeLocationFormBackToList() {
+  const formCard = document.getElementById("location-form-card");
+  const listEl = document.getElementById("locations-list");
+  const form = document.getElementById("location-form");
+  const idInput = document.getElementById("loc-id");
 
-
-
-
-
-
-
-
-
-
-
-
-
-////////////////////////////////Suite Details 
-
-function openSuiteDetails(suite) {
-  if (!suite) return;
-  activeSuite = suite;
-
-  // hide the location layout while suite details are open
-  if (locationDetailsGrid)  locationDetailsGrid.style.display  = "none";
-  if (locationSuitesHeader) locationSuitesHeader.style.display = "none";
-  if (locationSuitesList)   locationSuitesList.style.display   = "none";
-
-    // 👇 HIDE location Edit / Delete buttons while suite details are open
-  if (locationEditBtn) locationEditBtn.style.display = "none";
-  if (deleteBtn)       deleteBtn.style.display       = "none";
-  if (locationScrollSuitesBtn) locationScrollSuitesBtn.style.display = "none";
-
-  // 🔹 fill your existing suite detail fields (you probably already do this somewhere):
-  if (locationSuiteDetailsName) {
-    locationSuiteDetailsName.textContent = suite.name || "Suite details";
-  }
-  if (locationSuiteDetailsAvail) {
-    locationSuiteDetailsAvail.textContent =
-      suite.availableText || suite.available || "—";
-  }
-  if (locationSuiteDetailsNotes) {
-    locationSuiteDetailsNotes.textContent = suite.details || suite.notes || "—";
-  }
-
-  // 🔹 Show Rate (Rent Amount + Frequency)
-if (locationSuiteDetailsRate) {
-  // read from normalized suite OR raw values
-  const v = suite.values || suite;
-
-  const rawAmount =
-    suite.rentAmount ??
-    v["Rent Amount"] ??
-    v["Suite Rent Amount"] ??
-    v.rentAmount ??
-    null;
-
-  const rawFrequency =
-    suite.rentFrequency ||
-    v["Rent Frequency"] ||
-    v["Rent Schedule"] ||
-    v.rentFrequency ||
-    "";
-
-  let rateText = "Contact for rate";
-
-  if (rawAmount !== null && rawAmount !== "") {
-    const num = Number(rawAmount);
-    const amountStr = Number.isFinite(num)
-      ? num.toLocaleString(undefined, {
-          minimumFractionDigits: 0,
-          maximumFractionDigits: 2,
-        })
-      : String(rawAmount);
-
-    const freqStr = String(rawFrequency || "").trim();
-
-    rateText = freqStr
-      ? `$${amountStr} / ${freqStr}`
-      : `$${amountStr}`;
-  }
-
-  locationSuiteDetailsRate.textContent = rateText;
+  if (formCard) formCard.hidden = true;
+  if (listEl) listEl.style.display = "block";
+  form?.reset();
+  if (idInput) idInput.value = "";
 }
 
-  // default photo
-  if (locationSuiteDetailsPhoto) {
-    if (suite.photoUrl) {
-      locationSuiteDetailsPhoto.src = suite.photoUrl;
-      locationSuiteDetailsPhoto.style.display = "block";
-    } else {
-      locationSuiteDetailsPhoto.src = "";
-      locationSuiteDetailsPhoto.style.display = "none";
-    }
-  }
-
-  // gallery
-  if (locationSuiteDetailsGallery) {
-    locationSuiteDetailsGallery.innerHTML = "";
-    const gallery = Array.isArray(suite.gallery) ? suite.gallery : [];
-    if (gallery.length) {
-      gallery.forEach((url) => {
-        const img = document.createElement("img");
-        img.src = url;
-        img.className = "suite-gallery-thumb";
-        locationSuiteDetailsGallery.appendChild(img);
-      });
-    } else {
-      locationSuiteDetailsGallery.innerHTML =
-        `<p class="muted">No gallery images yet.</p>`;
-    }
-  }
-
-  // label the back button with the current location name
-  if (locationSuiteDetailsLocName && selectedLocation) {
-    locationSuiteDetailsLocName.textContent =
-      selectedLocation.name || "location";
-  }
-
-
-  // 🔹 Application template + PDF (NOW INSIDE THE FUNCTION)
-// 🔹 Application template + PDF – show TEMPLATE instead of PDF if present
-if (suiteDetailsAppText && suiteDetailsAppPdf && suiteDetailsAppButton) {
-  // reset view
-  suiteDetailsAppText.textContent = "No application added yet.";
-  suiteDetailsAppPdf.style.display = "none";
-  suiteDetailsAppButton.style.display = "none";
-  suiteDetailsAppPdf.href = "#";
-  suiteDetailsAppButton.onclick = null;
-
-  // read values from the suite record (use values or direct)
-  const v = suite.values || suite;
-
-  const templateRaw =
-    v.applicationTemplate ||
-    v["Application Template"] ||
-    "";
-
-  const pdfUrl =
-    v.applicationFileUrl ||
-    v.applicationPdf ||
-    v["Application File"] ||
-    v["Application PDF"] ||
-    v["Application PDF URL"] ||
-    "";
-  console.log("[suite-details] template/PDF block:", {
-    templateRaw,
-    templateRawType: typeof templateRaw,
-    templateTrimmed: String(templateRaw || "").slice(0, 80),
-    pdfUrl,
-  });
-const hasTemplate = !!(templateRaw && String(templateRaw).trim());
-const hasFile     = !!pdfUrl;
-
-console.log("[suite-details] open for suite:", {
-  id: suite.id,
-  name: suite.name,
-  hasTemplate,
-  hasFile,          // ✅ use hasFile instead of hasPdf
-  templatePreview:
-    typeof templateRaw === "string"     // ✅ log the same thing you read
-      ? String(templateRaw).slice(0, 120)
-      : templateRaw,
-  pdfUrl,                                // ✅ clearer key name
-});
-
-
-  if (hasTemplate) {
-    // ✅ We prefer the TEMPLATE preview here
-    suiteDetailsAppText.textContent = hasFile
-      ? "Template (and PDF) attached."
-      : "Application form template";
-
-    // hide the PDF link in the details card
-    suiteDetailsAppPdf.style.display = "none";
-
-    // show the "View application" button
-    suiteDetailsAppButton.style.display = "inline-block";
-    suiteDetailsAppButton.textContent = "View application";
-
-    // when clicked → open read-only preview modal
-    suiteDetailsAppButton.onclick = () => {
-      // pass the raw JSON string (or object) into the preview helper
-      openSuiteTemplatePreview(templateRaw);
-    };
-
-    // keep hidden input in sync so the builder can still edit it
-    if (templateInput) {
-      templateInput.value =
-        typeof templateRaw === "string"
-          ? templateRaw
-          : JSON.stringify(templateRaw || {});
-    }
-  } else if (hasFile) {
-    // 🤷 No template, but there *is* a PDF → just show link
-    suiteDetailsAppText.textContent = "Application PDF:";
-    suiteDetailsAppPdf.href = pdfUrl;
-    suiteDetailsAppPdf.style.display = "inline-block";
-    suiteDetailsAppButton.style.display = "none";
-  } else {
-    // nothing
-    suiteDetailsAppText.textContent = "No application added yet.";
-    suiteDetailsAppPdf.style.display = "none";
-    suiteDetailsAppButton.style.display = "none";
-  }
-}
-
-
-  // 🔹 load submitted applications for this suite
-  if (typeof showSuiteApplications === "function") {
-    showSuiteApplications(suite);
-  }
-
-  // finally show the suite details card
-  if (locationSuiteDetailsCard) {
-    locationSuiteDetailsCard.style.display = "block";
-  }
-}
-
-
-// Back button in location details (← Back to locations)
-// Back button in location details (← Back to locations)
-locationBackBtn?.addEventListener("click", () => {
-  selectedLocation = null;
-  activeSuite = null;
-
-  if (locationSuiteDetailsCard) locationSuiteDetailsCard.style.display = "none";
-  if (locationSuiteFormCard)    locationSuiteFormCard.style.display    = "none";
-  if (locationDetailsCard)      locationDetailsCard.style.display      = "none";
-
-  if (listEl)          listEl.style.display          = "block";
-  if (locationsHeader) locationsHeader.style.display = "flex";
-});
-
-// Back button inside the suite form (← Back to location details)
-locationSuiteBackBtn?.addEventListener("click", () => {
-  if (locationSuiteFormCard) locationSuiteFormCard.style.display = "none";
-
-  if (locationDetailsCard)  locationDetailsCard.style.display  = "block";
-  if (locationDetailsGrid)  locationDetailsGrid.style.display  = "grid";
-  if (locationSuitesList)   locationSuitesList.style.display   = "block";
-});
-
-// 🆕 Back button inside the suite *details* card
-locationSuiteDetailsBackBtn?.addEventListener("click", () => {
-  if (locationSuiteDetailsCard) locationSuiteDetailsCard.style.display = "none";
-
-  if (locationDetailsCard)  locationDetailsCard.style.display  = "block";
-  if (locationDetailsGrid)  locationDetailsGrid.style.display  = "grid";
-  if (locationSuitesHeader) locationSuitesHeader.style.display = "flex";
-  if (locationSuitesList)   locationSuitesList.style.display   = "block";
-    
-  // 👇 SHOW location Edit / Delete again
-  if (locationEditBtn) locationEditBtn.style.display = "";
-  if (deleteBtn)       deleteBtn.style.display       = "";
-   if (locationScrollSuitesBtn) locationScrollSuitesBtn.style.display = "";
-});
-
-
-// =====================
-// Edit Location
-// =====================
-locationEditBtn?.addEventListener("click", () => {
-  if (!selectedLocation) return;
-
-  // Prefill form
-  idInput.value      = selectedLocation.id || "";
-  nameInput.value    = selectedLocation.name || "";
-  addressInput.value = selectedLocation.address || "";
-  phoneInput.value   = selectedLocation.phone || "";
-  detailsInput.value = selectedLocation.details || "";
-locAboutInput.value = selectedLocation.about || ""; 
-
-  autoResizeTextarea(detailsInput);
-autoResizeTextarea(locAboutInput);
-
-   // 🆕 prefill About field
-  if (locAboutInput) {
-    locAboutInput.value = selectedLocation.about || "";
-  }
-
-  // 🔹 Show existing main photo
-  if (locCurrentPhoto) {
-    locCurrentPhoto.innerHTML = "";
-    if (selectedLocation.photoUrl) {
-      const img = document.createElement("img");
-      img.src = selectedLocation.photoUrl;
-      img.alt = "Current location photo";
-      img.className = "location-main-photo-preview";
-      locCurrentPhoto.appendChild(img);
-    } else {
-      locCurrentPhoto.textContent = "No photo uploaded yet.";
-    }
-  }
-
-  // 🔹 Show existing gallery images
-  // 🔹 Show existing gallery images with X buttons
-  renderExistingGalleryForEdit(selectedLocation.gallery || []);
-
-  // 🔹 Reset “new images” preview
-  if (locNewGalleryPreview) {
-    locNewGalleryPreview.textContent = "";
-  }
-// reset pending gallery for this edit
-pendingGalleryFiles = [];
-renderPendingGalleryPreview();
-
-  // clear file inputs (browser won't allow prefilling)
-  if (photoFileInput) photoFileInput.value = "";
-  if (locGalleryInput) locGalleryInput.value = "";
-
-
-
-  // Show form, hide others
-  formCard.hidden = false;
-  locationDetailsCard.style.display = "none";
-  listEl.style.display = "none";
-
-  form.scrollIntoView({ behavior: "smooth" });
-});
-
-
-// Handle submit: save to backend, then reload
-form.addEventListener("submit", async (e) => {
-  e.preventDefault();
-
-  const name    = nameInput.value.trim();
-  const slug = slugify(name);
-
-  const address = addressInput.value.trim();
-  const phone   = phoneInput ? phoneInput.value.trim() : "";
-  const extraDetails = detailsInput ? detailsInput.value.trim() : "";
- const about   = locAboutInput   ? locAboutInput.value.trim()   : "";
-
-  if (!name || !address) {
-    alert("Please enter at least a location name and address.");
-    return;
-  }
-
-  // 🔹 Base values
-  const values = {
-    // match your DataType fields exactly
-    "Location Name": name,
-    Address: address,
-    "Phone Number": phone,
-  Details: extraDetails,
-
-      // 👇 NEW — both lowercase + capitalized so the API can match either
-  slug,
-  Slug: slug,
-
-    ownerUserId: currentUser.id,           // your text field
-    "Suitie(s)": [{ _id: currentUser.id }], // optional: tie to user ref
-    "Created By": { _id: currentUser.id },  // matches your Created By reference
-  };
-
-  if (about) {
-    values["About"] = about;           // 👈 match your DataType field name
-  }
-
-// 🔹 Upload main photo (existing code)
-let mainPhotoUrl = "";
-if (photoFileInput && photoFileInput.files[0]) {
+//Upload image helper
+async function uploadOneImage(file) {
   const fd = new FormData();
-  fd.append("file", photoFileInput.files[0]);   // ✅ same variable
+  fd.append("file", file);
 
-  const uploadRes = await fetch(`${API_BASE}/api/upload`, {
+  // ✅ MUST hit the live server upload route
+  const res = await fetch(apiUrl(`/api/upload`), {
     method: "POST",
     credentials: "include",
     body: fd,
   });
 
-  if (uploadRes.ok) {
-    const body = await uploadRes.json().catch(() => ({}));
-    if (body && body.url) {
-      mainPhotoUrl = body.url;
-      values["Location Photo"] = mainPhotoUrl;
-    }
+  const data = await readJsonSafe(res);
+  if (!res.ok || !data?.url) {
+    console.warn("[upload] failed", res.status, data);
+    throw new Error(data?.message || "Image upload failed");
   }
-}
 
-  // 🆕 Upload gallery images (multiple)
-// 🆕 Upload gallery images (multiple)
-let galleryUrls = [];
-
-// Use pendingGalleryFiles if we have them; fall back to the input as backup
-const gallerySource =
-  pendingGalleryFiles.length
-    ? pendingGalleryFiles
-    : (locGalleryInput && locGalleryInput.files
-        ? Array.from(locGalleryInput.files)
-        : []);
-
-if (gallerySource.length) {
-  for (const file of gallerySource) {
-    const fd = new FormData();
-    fd.append("file", file);
-
-    try {
-      const uploadRes = await fetch(`${API_BASE}/api/upload`, {
-        method: "POST",
-        credentials: "include",
-        body: fd,
-      });
-
-      if (!uploadRes.ok) {
-        const txt = await uploadRes.text().catch(() => "");
-        console.warn("[locations] gallery upload failed", uploadRes.status, txt);
-        continue;
-      }
-
-      const body = await uploadRes.json().catch(() => ({}));
-      if (body && body.url) {
-        galleryUrls.push(body.url);
-      }
-    } catch (err) {
-      console.error("[locations] gallery upload error", err);
-    }
-  }
-}
-
-// Start from old gallery, but drop any the user X’d out
-const keptOld = existingGalleryUrls.filter(
-  (url) => !galleryRemoveSet.has(url)
-);
-
-// Add new uploads on top
-const finalGallery = [...keptOld, ...galleryUrls];
-
-if (finalGallery.length) {
-  values["Location Gallery"] = finalGallery;
-} else {
-  // Optional: explicitly clear if you want
-  values["Location Gallery"] = [];
+  return data.url;
 }
 
 
-  try {
-    // Is this an edit or a new location?
-    const locId = idInput.value.trim();
-    const isEditing = !!locId;
+function initLocationSave() {
+  const form = document.getElementById("location-form");
+  if (!form) return;
 
-    const endpoint = isEditing
-      ? `${API_BASE}/api/records/Suite/${encodeURIComponent(locId)}`
-      : `${API_BASE}/api/records/Suite`;
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
 
-    const method = isEditing ? "PATCH" : "POST";
+    if (!currentUser?.id) return alert("You must be logged in.");
 
-    const res = await fetch(endpoint, {
-      method,
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-      credentials: "include",
-      body: JSON.stringify({ values }),
-    });
+    const nameEl = document.getElementById("loc-name");
+    const addrEl = document.getElementById("loc-address");
+    const phoneEl = document.getElementById("loc-phone");
+    const detailsEl = document.getElementById("loc-details");
+    const aboutEl = document.getElementById("loc-about");
 
-    // ⬇️ Read body ONCE
-    const body = await res.json().catch(() => null);
+    const locationName = nameEl?.value?.trim() || "";
+    const address = addrEl?.value?.trim() || "";
+    const phone = phoneEl?.value?.trim() || "";
+    const details = detailsEl?.value?.trim() || "";
+    const about = aboutEl?.value?.trim() || "";
 
-    if (!res.ok || !body) {
-      console.warn("[locations] save failed", res.status, body);
-      alert(`Couldn't save location (${res.status}). Check console for details.`);
-      return;
-    }
+const locId = document.getElementById("loc-id")?.value?.trim();
+const isEditing = !!locId;
 
-    console.log(
-      isEditing ? "[locations] updated" : "[locations] created",
-      body
-    );
+    if (!locationName) return alert("Location name is required.");
+    if (!address) return alert("Address is required.");
 
-    // 1️⃣ Re-load the locations array from the server
-    await loadLocations();
+    const baseSlug = slugify(locationName);
+    const slug =
+      baseSlug || `location-${Math.random().toString(36).slice(2, 8)}`;
 
-    // 2️⃣ Find the saved/updated location in the in-memory list
-    const savedId = body._id || body.id || locId;
+    // ✅ MATCH your DataType field names
+    const values = {
+      "Location Name": locationName,
+      "Address": address,
+      "Phone Number": phone,
+      "Details": details,
+      "About Me": about,
 
-    const updatedLoc = locations.find(
-      (loc) => String(loc.id) === String(savedId)
-    );
+      // ✅ slug for dynamic page
+      slug,
 
-    // 3️⃣ Hide form and show the details for that location
-    formCard.hidden = true;
-
-    if (updatedLoc) {
-      selectedLocation = updatedLoc;
-
-      // hide list, show details card
-      if (listEl) listEl.style.display = "none";
-      if (locationDetailsCard)
-        locationDetailsCard.style.display = "block";
-
-      // reuse your existing helper
-      showLocationDetails(updatedLoc);
-    } else {
-      // fallback: just go back to list if we didn’t find it
-      if (listEl) listEl.style.display = "block";
-      if (locationDetailsCard)
-        locationDetailsCard.style.display = "none";
-    }
-  } catch (err) {
-    console.error("[locations] save error", err);
-    alert("Something went wrong while saving. Please try again.");
-  }
-});
-
-
-
-// 🔹 Show existing gallery images with X buttons
-function renderExistingGalleryForEdit(urls) {
-  if (!locCurrentGallery) return;
-
-  existingGalleryUrls = Array.isArray(urls) ? urls.slice() : [];
-  galleryRemoveSet = new Set();
-
-  if (!existingGalleryUrls.length) {
-    locCurrentGallery.innerHTML = "No gallery images yet.";
-    return;
-  }
-
-  locCurrentGallery.innerHTML = "";
-
-  existingGalleryUrls.forEach((url) => {
-    const wrap = document.createElement("div");
-    wrap.className = "loc-gallery-thumb-wrap";
-
-    const img = document.createElement("img");
-    img.src = url;
-    img.alt = "Gallery image";
-    img.className = "location-gallery-thumb";
-
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "gallery-remove-btn";
-    btn.textContent = "×";
-
-    btn.addEventListener("click", () => {
-      // mark this URL as “removed”
-      galleryRemoveSet.add(url);
-      wrap.remove();
-
-      // if nothing left, show empty state
-      const anyLeft = existingGalleryUrls.some(
-        (u) => !galleryRemoveSet.has(u)
-      );
-      if (!anyLeft) {
-        locCurrentGallery.innerHTML = "No gallery images yet.";
-      }
-    });
-
-    wrap.appendChild(img);
-    wrap.appendChild(btn);
-    locCurrentGallery.appendChild(wrap);
-  });
-}
-
-
-// =====================
-// Delete Location
-// =====================
-deleteBtn?.addEventListener("click", async () => {
-  if (!selectedLocation) return;
-
-  // Use the same id you use for editing
-  const recId = selectedLocation.id;
-
-  if (!recId) {
-    console.warn("[locations] no id on selectedLocation", selectedLocation);
-    alert("Cannot delete this location because it has no record id.");
-    return;
-  }
-
-  const ok = confirm(
-    `Delete location "${selectedLocation.name || selectedLocation.locationName || ""}"?`
-  );
-  if (!ok) return;
-
-  try {
-    const res = await fetch(
-      `${API_BASE}/api/records/Suite/${encodeURIComponent(recId)}`, // ✅ same pattern as edit
-      {
-        method: "DELETE",
-        credentials: "include",
-        headers: { Accept: "application/json" },
-      }
-    );
-
-    if (!res.ok) {
-      console.error("[locations] delete failed", res.status);
-      alert("Could not delete this location. Please try again.");
-      return;
-    }
-
-    console.log("[locations] deleted", recId);
-
-    // ✅ Reload from backend instead of manual filter
-    await loadLocations();
-pendingGalleryFiles = [];
-renderPendingGalleryPreview();
-
-    // Reset UI state
-    selectedLocation = null;
-    if (locationDetailsCard) {
-      locationDetailsCard.style.display = "none";
-    }
-    if (listEl) {
-      listEl.style.display = "block";
-    }
-    if (locationsHeader) {
-      locationsHeader.style.display = "flex"; // or block, whatever you use
-    }
-
-    alert("Location deleted.");
-  } catch (err) {
-    console.error("[locations] delete error", err);
-    alert("Something went wrong deleting this location.");
-  }
-});
-
-function renderPendingGalleryPreview() {
-  if (!locNewGalleryPreview) return;
-
-  // No files selected → show default text
-  if (!pendingGalleryFiles.length) {
-    locNewGalleryPreview.innerHTML = "";
-    return;
-  }
-
-  // Clear previous content
-  locNewGalleryPreview.innerHTML = "";
-
-  // Show a thumbnail for each newly picked file
-  pendingGalleryFiles.forEach((file) => {
-    const url = URL.createObjectURL(file);
-    const img = document.createElement("img");
-    img.src = url;
-    img.alt = file.name || "New gallery image";
-    img.className = "location-gallery-thumb";
-
-    // Clean up the temp URL once it’s loaded
-    img.onload = () => {
-      URL.revokeObjectURL(url);
+      // ✅ ownership
+      ownerUserId: currentUser.id,
+      "Created By": currentUser.id, // if your API expects { _id: id } we can swap later
     };
 
-    locNewGalleryPreview.appendChild(img);
+    try {
+      // =========================================================
+      // ✅ MAIN PHOTO UPLOAD (Default Image)
+      // =========================================================
+    if (pendingMainPhotoFile) {
+  const mainUrl = await uploadOneImage(pendingMainPhotoFile);
+  values["Default Image"] = mainUrl;
+} else {
+  // keep existing (or empty if removed)
+  values["Default Image"] = existingMainPhotoUrl || "";
+}
+
+      // =========================================================
+      // ✅ GALLERY UPLOAD (Gallery Images)
+      // =========================================================
+      // ✅ THIS is where it goes:
+       const keptOldGallery = (existingGalleryUrls || []).filter(
+      (url) => !galleryRemoveSet.has(url)
+    );
+
+    const newGalleryUrls = [];
+    for (const file of pendingGalleryFiles) {
+      const url = await uploadOneImage(file);
+      newGalleryUrls.push(url);
+    }
+
+    values["Gallery Images"] = [...keptOldGallery, ...newGalleryUrls];
+
+
+      // =========================================================
+      // ✅ CREATE SAVE LOCATION RECORD
+      // =========================================================
+    if (isEditing) {
+  await updateLocationRecord(locId, values);
+} else {
+  await createLocationRecord(values);
+}
+
+
+      // refresh list
+      await loadLocations();
+
+
+
+  // reset state
+pendingMainPhotoFile = null;
+pendingGalleryFiles = [];
+existingMainPhotoUrl = "";
+existingGalleryUrls = [];
+galleryRemoveSet = new Set();
+
+const idEl = document.getElementById("loc-id");
+if (idEl) idEl.value = "";
+
+
+      // hide form
+      closeLocationFormBackToList();
+    } catch (err) {
+      console.error("[locations] save error", err);
+      alert(err?.message || "Failed to save location");
+    }
   });
 }
 
-// =====================
-// Suite Application Builder
-// =====================
 
-// 🔹 Shared hidden input that stores the JSON template
-const templateInput = document.getElementById("loc-suite-application-template");
 
-// 🔹 Status text next to "Create / edit application"
-const suiteAppStatusSpan = document.getElementById("suite-app-status");
+///////// ================================
+/////////////// Edit Location
+//// ///================================
 
-function refreshSuiteAppStatus() {
-  if (!suiteAppStatusSpan || !templateInput) return;
+//Render existing main photo (with optional remove)
+function renderExistingMainPhoto() {
+  const holder = document.getElementById("loc-current-photo");
+  const input  = document.getElementById("loc-photo-file");
+  if (!holder) return;
 
-  const val = (templateInput.value || "").trim();
-  const hasTemplate = val && val !== "{}";
+  // If user picked a NEW file, let the "pending main photo preview" handle it
+  if (pendingMainPhotoFile) return;
 
-  suiteAppStatusSpan.textContent = hasTemplate
-    ? "Template saved"
-    : "No template yet";
+  if (!existingMainPhotoUrl) {
+    holder.innerHTML = `<span class="muted">No photo uploaded yet.</span>`;
+    return;
+  }
+
+  holder.innerHTML = `
+    <div class="gallery-thumb-wrapper">
+      <button type="button" class="gallery-thumb-remove" aria-label="Remove photo">×</button>
+      <img src="${existingMainPhotoUrl}" alt="Current default photo" />
+    </div>
+  `;
+
+  holder.querySelector(".gallery-thumb-remove")?.addEventListener("click", () => {
+    // “remove existing” means: clear url (and we simply won’t save it)
+    existingMainPhotoUrl = "";
+    if (input) input.value = "";
+    renderExistingMainPhoto();
+  });
+}
+//Render existing gallery (with X buttons)
+function renderExistingGallery() {
+  const holder = document.getElementById("loc-current-gallery");
+  if (!holder) return;
+
+  if (!existingGalleryUrls.length) {
+    holder.innerHTML = `<span class="muted">No gallery images yet.</span>`;
+    return;
+  }
+
+  holder.innerHTML = existingGalleryUrls
+    .map((url) => {
+      const removed = galleryRemoveSet.has(url);
+      return `
+        <div class="gallery-thumb-wrapper" data-url="${url}" style="${removed ? "opacity:.35;" : ""}">
+          <button type="button" class="gallery-thumb-remove" aria-label="Remove image">×</button>
+          <img src="${url}" alt="Gallery image" />
+        </div>
+      `;
+    })
+    .join("");
+
+  holder.querySelectorAll(".gallery-thumb-wrapper").forEach((wrap) => {
+    const url = wrap.getAttribute("data-url");
+    const btn = wrap.querySelector(".gallery-thumb-remove");
+    btn?.addEventListener("click", () => {
+      if (!url) return;
+      // mark for removal (toggle)
+      if (galleryRemoveSet.has(url)) galleryRemoveSet.delete(url);
+      else galleryRemoveSet.add(url);
+
+      renderExistingGallery();
+    });
+  });
+}
+//opens the location form in edit mode
+function openEditLocationForm(loc) {
+  selectedLocation = loc;
+
+  const formCard = document.getElementById("location-form-card");
+  const listEl   = document.getElementById("locations-list");
+  const form     = document.getElementById("location-form");
+
+  // if you have a details wrapper/card, hide it here:
+  const detailsCard = document.getElementById("location-details-card"); 
+  // ^ if your details section has a different id, change it
+
+  // inputs
+  const idInput     = document.getElementById("loc-id");
+  const nameEl      = document.getElementById("loc-name");
+  const addrEl      = document.getElementById("loc-address");
+  const phoneEl     = document.getElementById("loc-phone");
+  const detailsEl   = document.getElementById("loc-details");
+  const aboutEl     = document.getElementById("loc-about");
+
+  // ✅ put ID in hidden field so save knows it’s an edit later
+  const locId = loc?._id || loc?.id || "";
+  if (idInput) idInput.value = locId;
+
+  // pull values (works whether it’s {values:{}} or top-level)
+  const v = loc?.values || loc || {};
+
+  // ✅ prefill text fields
+  if (nameEl)    nameEl.value    = v["Location Name"] || v.name || "";
+  if (addrEl)    addrEl.value    = v["Address"] || v.address || "";
+  if (phoneEl)   phoneEl.value   = v["Phone Number"] || v.phone || "";
+  if (detailsEl) detailsEl.value = v["Details"] || "";
+  if (aboutEl)   aboutEl.value   = v["About Me"] || v["About"] || "";
+
+  // ✅ reset pending new uploads (fresh start for this edit session)
+  pendingMainPhotoFile = null;
+  pendingGalleryFiles = [];
+
+  // ✅ load existing images into “existing” variables
+  existingMainPhotoUrl =
+    v["Default Image"] ||
+    v["Default Photo"] ||
+    v.photoUrl ||
+    v.heroImageUrl ||
+    v.heroImage ||
+    "";
+
+  existingGalleryUrls =
+    v["Gallery Images"] ||
+    v["Location Gallery"] ||
+    [];
+
+  if (!Array.isArray(existingGalleryUrls)) existingGalleryUrls = [];
+
+  galleryRemoveSet = new Set(); // clear removals for new edit session
+
+  // ✅ show form / hide list + details
+  if (formCard) formCard.hidden = false;
+  if (listEl) listEl.style.display = "none";
+  if (detailsCard) detailsCard.style.display = "none";
+
+  // ✅ render existing previews
+  renderExistingMainPhoto();
+  renderExistingGallery();
+
+  // ✅ clear “new gallery preview” area (new picks will appear there)
+  const newPrev = document.getElementById("loc-new-gallery-preview");
+  if (newPrev) newPrev.innerHTML = "";
+
+  // optional: scroll to form
+  formCard?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
-(function setupSuiteAppBuilder() {
-  const appModal = document.getElementById("suite-app-builder");
-  if (!appModal) return;
+//open modal in edit mode 
+function initLocationEditButton() {
+  const editBtn = document.getElementById("location-edit-btn");
+  if (!editBtn) return;
 
+  editBtn.addEventListener("click", () => {
+    if (!selectedLocation) return alert("Open a location first.");
+    openEditLocationForm(selectedLocation);
+  });
+}
+
+//update location
+async function updateLocationRecord(id, values) {
+  const res = await fetch(apiUrl(`/api/records/Location/${encodeURIComponent(id)}`), {
+    method: "PATCH",
+    credentials: "include",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify({ values }),
+  });
+
+  const data = await readJsonSafe(res);
+  if (!res.ok) throw new Error(data?.message || "Failed to update location");
+  return data;
+}
+
+
+
+///////// ================================
+/////////////// Delete Location
+//// ///================================
+//delete location helper 
+async function deleteLocationRecord(id) {
+  let res = await fetch(apiUrl(`/api/records/Location/${encodeURIComponent(id)}`), {
+    method: "DELETE",
+    credentials: "include",
+    headers: { Accept: "application/json" },
+  });
+
+  if (res.status === 404) {
+    res = await fetch(apiUrl(`/api/records/Location?id=${encodeURIComponent(id)}`), {
+      method: "DELETE",
+      credentials: "include",
+      headers: { Accept: "application/json" },
+    });
+  }
+
+  const data = await readJsonSafe(res);
+  if (!res.ok) throw new Error(data?.message || "Failed to delete location");
+  return data;
+}
+
+
+function initLocationDeleteButton() {
+  const delBtn = document.getElementById("location-delete-btn");
+  if (!delBtn) return;
+
+  delBtn.addEventListener("click", async () => {
+    if (!selectedLocation) return alert("Open a location first.");
+
+    const id = selectedLocation?._id || selectedLocation?.id;
+    if (!id) return alert("Missing location id.");
+
+    const v = selectedLocation?.values || selectedLocation || {};
+    const name = v["Location Name"] || v.name || "this location";
+
+    const ok = window.confirm(`Are you sure you want to delete "${name}"?`);
+    if (!ok) return;
+
+    try {
+      await deleteLocationRecord(id);
+
+      // ✅ refresh + back to list UI
+      await loadLocations();
+      backToLocationsList();
+
+      alert("Location deleted.");
+    } catch (err) {
+      console.error("[locations] delete error", err);
+      alert(err?.message || "Failed to delete location");
+    }
+  });
+}
+
+///////// ================================
+/////////////// Style Location
+//// ///================================
+
+// background image state
+let pendingBgImageFile = null;
+let existingBgImageUrl = "";
+
+// Open modal + preload values
+function openLocationStyleModal() {
+  const modal = document.getElementById("location-style-modal");
+  const bgColorEl = document.getElementById("location-style-bg-color");
+  const textColorEl = document.getElementById("location-style-text-color");
+  const bgFileEl = document.getElementById("location-style-bg-image");
+  const previewEl = document.getElementById("location-style-bg-preview");
+
+  if (!selectedLocation) return alert("Open a location first.");
+  const v = selectedLocation.values || selectedLocation || {};
+
+  // preload fields (these match your DataType fields)
+  const bgColor = v["Background Color"] || "#ffffff";
+  const textColor = v["Text Color"] || "#111111";
+
+  if (bgColorEl) bgColorEl.value = bgColor;
+  if (textColorEl) textColorEl.value = textColor;
+
+  // preload existing bg image url
+  existingBgImageUrl = v["Background Image"] || "";
+  pendingBgImageFile = null;
+
+  if (bgFileEl) bgFileEl.value = "";
+
+  if (previewEl) {
+    previewEl.innerHTML = existingBgImageUrl
+      ? `<img src="${existingBgImageUrl}" style="width:100%; max-height:140px; object-fit:cover; border-radius:12px;" />`
+      : `<p class="muted">No background image yet.</p>`;
+  }
+
+  if (modal) {
+    modal.hidden = false;
+    modal.setAttribute("aria-hidden", "false");
+  }
+}
+
+// close modal safely (avoid aria-hidden focus warning)
+function closeLocationStyleModal() {
+  const modal = document.getElementById("location-style-modal");
+  if (!modal) return;
+
+  // ✅ remove focus from anything inside the modal first
+  if (document.activeElement && modal.contains(document.activeElement)) {
+    document.activeElement.blur();
+  }
+
+  modal.hidden = true;
+  modal.setAttribute("aria-hidden", "true");
+}
+
+function initLocationStyleModal() {
+  const openBtn = document.getElementById("location-style-btn");
+  const modal = document.getElementById("location-style-modal");
+  const closeBtn = document.getElementById("location-style-close-btn");
+  const cancelBtn = document.getElementById("location-style-cancel-btn");
+  const saveBtn = document.getElementById("location-style-save-btn");
+
+  const bgFileEl = document.getElementById("location-style-bg-image");
+  const previewEl = document.getElementById("location-style-bg-preview");
+
+  const bgColorEl = document.getElementById("location-style-bg-color");
+  const textColorEl = document.getElementById("location-style-text-color");
+
+  // open
+  openBtn?.addEventListener("click", openLocationStyleModal);
+
+  // close
+  closeBtn?.addEventListener("click", closeLocationStyleModal);
+  cancelBtn?.addEventListener("click", closeLocationStyleModal);
+
+  // click backdrop
+  modal?.addEventListener("click", (e) => {
+    if (e.target === modal) closeLocationStyleModal();
+  });
+
+  // Esc
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && modal && !modal.hidden) closeLocationStyleModal();
+  });
+
+  // background preview
+  bgFileEl?.addEventListener("change", () => {
+    const file = bgFileEl.files?.[0];
+    if (!file) return;
+
+    pendingBgImageFile = file;
+
+    const url = URL.createObjectURL(file);
+    if (previewEl) {
+      previewEl.innerHTML = `
+        <img src="${url}" style="width:100%; max-height:140px; object-fit:cover; border-radius:12px;" />
+        <div class="muted" style="margin-top:6px;">${file.name}</div>
+      `;
+    }
+  });
+
+  // ✅ SAVE (this is the only save listener)
+  saveBtn?.addEventListener("click", async () => {
+    try {
+      if (!selectedLocation) return alert("Open a location first.");
+
+      const locId = selectedLocation._id || selectedLocation.id;
+      if (!locId) return alert("Missing location id.");
+
+      const values = {
+        "Background Color": bgColorEl?.value || "#ffffff",
+        "Text Color": textColorEl?.value || "#111111",
+      };
+
+      // upload new bg image if selected, else keep existing
+      if (pendingBgImageFile) {
+        const url = await uploadOneImage(pendingBgImageFile);
+        values["Background Image"] = url;
+        existingBgImageUrl = url;
+        pendingBgImageFile = null;
+      } else {
+        values["Background Image"] = existingBgImageUrl || "";
+      }
+
+      await updateLocationRecord(locId, values);
+
+      // update selectedLocation locally
+      const v = selectedLocation.values || {};
+      selectedLocation = { ...selectedLocation, values: { ...v, ...values } };
+
+      // update in STATE list too
+      window.STATE.locations = (window.STATE.locations || []).map((x) => {
+        const id = x._id || x.id;
+        if (id !== locId) return x;
+        const xv = x.values || {};
+        return { ...x, values: { ...xv, ...values } };
+      });
+
+      alert("Style saved!");
+      closeLocationStyleModal();
+
+      // optional: refresh details view if open
+      // showLocationDetails(selectedLocation);
+    } catch (err) {
+      console.error("[style] save error", err);
+      alert(err?.message || "Failed to save style.");
+    }
+  });
+}
+
+
+function initLocationStyleSave(closeModalFn) {
+  const saveBtn = document.getElementById("location-style-save-btn");
+  const bgColorEl = document.getElementById("location-style-bg-color");
+  const textColorEl = document.getElementById("location-style-text-color");
+
+  saveBtn?.addEventListener("click", async () => {
+    try {
+      if (!selectedLocation) return alert("Open a location first.");
+
+      const locId = selectedLocation._id || selectedLocation.id;
+      if (!locId) return alert("Missing location id.");
+
+      const values = {
+        "Background Color": bgColorEl?.value || "#ffffff",
+        "Text Color": textColorEl?.value || "#111111",
+      };
+
+      // background image: upload if new file chosen, else keep existing
+      if (pendingBgImageFile) {
+        const url = await uploadOneImage(pendingBgImageFile);
+        values["Background Image"] = url;
+        existingBgImageUrl = url;
+        pendingBgImageFile = null;
+      } else {
+        values["Background Image"] = existingBgImageUrl || "";
+      }
+
+      await updateLocationRecord(locId, values);
+
+      // ✅ update selectedLocation locally
+      const v = selectedLocation.values || {};
+      selectedLocation = { ...selectedLocation, values: { ...v, ...values } };
+
+      // ✅ update in STATE list too
+      window.STATE.locations = (window.STATE.locations || []).map((x) => {
+        const id = x._id || x.id;
+        if (id !== locId) return x;
+        const xv = x.values || {};
+        return { ...x, values: { ...xv, ...values } };
+      });
+
+      alert("Style saved!");
+      closeModalFn?.();
+
+      // optional: refresh details view if you're showing it
+      // showLocationDetails(selectedLocation);
+
+    } catch (err) {
+      console.error("[style] save error", err);
+      alert(err?.message || "Failed to save style.");
+    }
+  });
+}
+
+  // =========================================================
+      // ✅ SHOW LOCATION DETAILS SECTION
+      // =========================================================
+let selectedLocation = null;
+
+function resolveAnyImg(raw) {
+  if (!raw) return "";
+  const s = String(raw).trim();
+  if (/^https?:\/\//i.test(s)) return s;
+  if (s.startsWith("/")) return s;
+  return `/${s}`;
+}
+
+function showLocationDetails(loc) {
+  selectedLocation = loc;
+
+  const listEl = document.getElementById("locations-list");
+  const detailsCard = document.getElementById("location-details-card");
+  const header = document.querySelector("#locations .section-head"); // your header row
+
+  // ✅ hide list + header
+  if (listEl) listEl.style.display = "none";
+  if (header) header.style.display = "none";
+
+  // ✅ show details
+  if (detailsCard) detailsCard.style.display = "block";
+
+  // --- pull values safely ---
+  const v = loc?.values || loc || {};
+  const name =
+    v["Location Name"] || v.name || v.Name || "Location";
+  const address =
+    v["Address"] || v.address || "";
+  const phone =
+    v["Phone Number"] || v.phone || "";
+  const details =
+    v["Details"] || "";
+  const about =
+    v["About Me"] || v["About"] || "";
+  const slug =
+    v["slug"] || v["Slug"] || "";
+
+  // Default image field
+  const defaultImgRaw =
+    v["Default Image"] || v["Default Photo"] || v.photoUrl || "";
+  const defaultImg = resolveAnyImg(defaultImgRaw);
+
+  // Gallery field
+  const galleryRaw =
+    v["Gallery Images"] || v["Location Gallery"] || [];
+  const gallery = Array.isArray(galleryRaw) ? galleryRaw : [];
+
+  // --- fill UI ---
+  const setText = (id, text) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = text || "—";
+  };
+
+  setText("location-details-name", name);
+  setText("location-details-address", address);
+  setText("location-details-address-full", address);
+  setText("location-details-phone", phone);
+  setText("location-details-desc", details);
+  setText("location-details-about", about);
+
+  // Set the "Go to Location ↗" button label
+  const pubName = document.getElementById("location-view-public-name");
+  if (pubName) pubName.textContent = name;
+
+  // Photo
+  const photoEl = document.getElementById("location-details-photo");
+  if (photoEl) {
+    if (defaultImg) {
+      photoEl.src = defaultImg;
+      photoEl.style.display = "block";
+    } else {
+      photoEl.src = "";
+      photoEl.style.display = "none";
+    }
+  }
+
+  // Gallery
+  const galEl = document.getElementById("location-details-gallery");
+  if (galEl) {
+    if (!gallery.length) {
+      galEl.innerHTML = `<p class="muted">No gallery images yet.</p>`;
+    } else {
+      galEl.innerHTML = gallery
+        .map((url) => {
+          const u = resolveAnyImg(url);
+          return `<img class="location-gallery-thumb" src="${u}" alt="Gallery image" />`;
+        })
+        .join("");
+    }
+  }
+
+  // Public page button
+  const publicBtn = document.getElementById("location-view-public-btn");
+  publicBtn?.addEventListener("click", () => {
+    if (!slug) return alert("This location doesn’t have a slug yet.");
+    window.open(`/${encodeURIComponent(slug)}`, "_blank");
+  }, { once: true }); // prevents stacking listeners each time
+  
+  const locId = loc?._id || loc?.id;
+if (locId) loadSuitesForLocation(locId);
+
+}
+
+function backToLocationsList() {
+  const listEl = document.getElementById("locations-list");
+  const detailsCard = document.getElementById("location-details-card");
+  const header = document.querySelector("#locations .section-head");
+
+  if (detailsCard) detailsCard.style.display = "none";
+  if (header) header.style.display = ""; // let CSS handle it
+  if (listEl) listEl.style.display = "block";
+
+  selectedLocation = null;
+}
+
+function initLocationDetailsUI() {
+  document
+    .getElementById("location-back-btn")
+    ?.addEventListener("click", backToLocationsList);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                   // ------------------------------
+                              //Suites Card
+                // ------------------------------
+//Helper to only show suites in that specific Location 
+function getSuiteLocationId(suite) {
+  const v = suite?.values || suite || {};
+
+  // most common: you save it as values["Location"] = locationId
+  let loc = v["Location"] ?? v.locationId ?? v.suiteLocationId ?? v.parentLocationId ?? "";
+
+  // sometimes APIs store refs as objects
+  if (loc && typeof loc === "object") {
+    loc = loc._id || loc.id || loc.value || "";
+  }
+
+  return String(loc || "").trim();
+}
+
+// Show suites in Location Details section
+async function loadSuitesForLocation(locationId) {
+  const listEl = document.getElementById("location-suites-list");
+  if (!listEl) return;
+
+  listEl.innerHTML = `<p class="muted">Loading suites…</p>`;
+
+  const url = apiUrl(
+    `/public/records?dataType=Suite&limit=500&ownerUserId=${encodeURIComponent(currentUser.id)}`
+  );
+
+  try {
+    const res = await fetch(url, {
+      credentials: "include",
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+    });
+
+    if (!res.ok) {
+      listEl.innerHTML = `<p class="muted">Failed to load suites.</p>`;
+      return;
+    }
+
+    const data = await res.json().catch(() => ({}));
+    const rows = Array.isArray(data) ? data : data.records || data.items || data.data || [];
+
+    const locIdStr = String(locationId).trim();
+
+    // ✅ filter suites that belong to THIS location
+    const filtered = rows.filter((s) => getSuiteLocationId(s) === locIdStr);
+
+    renderSuitesList(filtered);
+  } catch (err) {
+    console.error("[suites] load error", err);
+    listEl.innerHTML = `<p class="muted">Error loading suites.</p>`;
+  }
+}
+
+
+
+//helper for available in suite card 
+function fmtDateNice(val) {
+  if (!val) return "";
+  const s = String(val).trim();
+  if (!s) return "";
+
+  // If it's an ISO date or "2025-12-25", format to "Dec 25, 2025"
+  const d = new Date(s);
+  if (!isNaN(d.getTime())) {
+    return d.toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  }
+
+  // Otherwise return as-is
+  return s;
+}
+
+
+function renderSuitesList(suites) {
+  const listEl = document.getElementById("location-suites-list");
+  if (!listEl) return;
+
+  if (!Array.isArray(suites) || !suites.length) {
+    listEl.innerHTML = `<p class="muted">No suites added yet for this location.</p>`;
+    return;
+  }
+
+  listEl.innerHTML = suites
+    .map((suite) => {
+      const v = suite.values || suite || {};
+      const id = suite._id || suite.id || "";
+
+      const name =
+        v["Suite Name"] || v.name || v.Name || "Untitled suite";
+
+     const availRaw =
+  v["Date Available"] ||
+  v["Available Date"] ||
+  v["Availability Date"] ||
+  v.availableDate ||
+  v.dateAvailable ||
+  "";
+
+const avail = fmtDateNice(availRaw);
+
+      const rate =
+        v["Suite Rent"] || v["Rate"] || v.rate || "";
+
+      const freq =
+        v["Rate Frequency"] || v["Frequency"] || v.frequency || "";
+
+   const imgRaw = getLocValue(suite, [
+  "Default Image",
+  "Default Photo",
+  "Suite Default Image",
+  "Suite Default Photo",
+  "Photo",
+  "Image",
+  "photoUrl",
+  "heroImageUrl",
+  "heroImage",
+]);
+
+const img = resolveImg(imgRaw);
+
+
+
+      return `
+        <button class="suite-card" type="button" data-suite-id="${id}">
+          <div class="suite-card-thumb">
+            ${
+              img
+                ? `<img src="${img}" alt="${name}" />`
+                : `<div class="suite-card-thumb--empty"></div>`
+            }
+          </div>
+
+          <div class="suite-card-info">
+            <div class="suite-card-title">${name}</div>
+
+            ${
+              avail
+                ? `<div class="suite-card-line muted">Available: ${avail}</div>`
+                : `<div class="suite-card-line muted">Available: —</div>`
+            }
+
+         
+          </div>
+        </button>
+      `;
+    })
+    .join("");
+
+  // Optional: click -> open edit suite popup later
+listEl.querySelectorAll("[data-suite-id]").forEach((btn) => {
+  btn.addEventListener("click", async () => {
+    const id = btn.getAttribute("data-suite-id");
+    const suite = suites.find((s) => (s._id || s.id) === id);
+    if (!suite) return;
+
+    await showSuiteDetails(suite); // ✅ now showSuiteDetails can be async
+  });
+});
+
+
+}
+
+
+// ------------------------------
+//Open Suite Section when the suite is clicked
+// ------------------------------
+
+//helpers to hide location details section 
+// helpers to hide location details section when suite details opens
+function enterSuiteDetailsMode() {
+  const detailsCard = document.getElementById("location-details-card");
+  const suiteDetailsCard = document.getElementById("location-suite-details-card");
+  if (!detailsCard || !suiteDetailsCard) return;
+
+  // show suite details
+  suiteDetailsCard.style.display = "block";
+
+  // hide everything else inside location details card
+  Array.from(detailsCard.children).forEach((child) => {
+    if (child === suiteDetailsCard) return;
+    child.dataset.prevDisplay = child.style.display || "";
+    child.style.display = "none";
+  });
+}
+
+function exitSuiteDetailsMode() {
+  const detailsCard = document.getElementById("location-details-card");
+  const suiteDetailsCard = document.getElementById("location-suite-details-card");
+  if (!detailsCard || !suiteDetailsCard) return;
+
+  // hide suite details
+  suiteDetailsCard.style.display = "none";
+
+  // restore everything else
+  Array.from(detailsCard.children).forEach((child) => {
+    if (child === suiteDetailsCard) return;
+    child.style.display = child.dataset.prevDisplay ?? "";
+    delete child.dataset.prevDisplay;
+  });
+}
+
+
+//Back / Close buttons to restore the location details
+function initSuiteDetailsBackButtons() {
+  document
+    .getElementById("location-suite-details-back-btn")
+    ?.addEventListener("click", exitSuiteDetailsMode);
+
+  document
+    .getElementById("location-suite-details-close")
+    ?.addEventListener("click", exitSuiteDetailsMode);
+}
+
+let selectedSuite = null;
+
+
+async function showSuiteDetails(suite) {
+  enterSuiteDetailsMode();
+
+  const id = suite?._id || suite?.id;
+  if (!id) return;
+
+  const fresh = await fetchSuiteById(id);
+  selectedSuite = fresh;
+
+  const v = fresh?.values || fresh || {};
+console.log("[suite details] v keys:", Object.keys(v));
+console.log("[suite details] Suite Rent:", v["Suite Rent"]);
+console.log("[suite details] Rate:", v["Rate"]);
+console.log("[suite details] Rate Frequency:", v["Rate Frequency"]);
+console.log("[suite details] Frequency:", v["Frequency"]);
+console.log("[suite details] raw v:", v);
+
+  // Sections
+  const suitesHeader = document.querySelector(".location-suites-header");
+  const suitesList   = document.getElementById("location-suites-list");
+  const suiteCard    = document.getElementById("location-suite-details-card");
+
+ 
+  // Fill text fields
+  const name =
+    v["Suite Name"] || v.name || v.Name || "Suite";
+
+const availableRaw =
+  v["Date Available"] || v["Available Date"] || v.availableDate || "";
+
+const available = fmtDateNice(availableRaw); // ✅ add this
+
+document.getElementById("location-suite-details-availability").textContent =
+  available ? `Available: ${available}` : "—";
+
+
+const rentRaw =
+  v["Rent Amount"] ?? v["Suite Rent"] ?? v["Rate"] ?? v.rate ?? "";
+
+const freqRaw =
+  v["Rent Frequency"] ?? v["Rate Frequency"] ?? v["Frequency"] ?? v.frequency ?? "";
+
+const rent = String(rentRaw ?? "").trim();
+const freq = String(freqRaw ?? "").trim();
+
+document.getElementById("location-suite-details-rate").textContent =
+  rent ? `$${rent}${freq ? ` / ${freq}` : ""}` : "Contact for rate";
+
+
+
+
+  // Default image
+const defaultImgRaw =
+  v["Default Photo"] || v["Default Image"] || v.photoUrl || "";
+
+const defaultImg = resolveImg(defaultImgRaw);
+
+
+  const defaultImgHolder = document.getElementById("location-suite-default-img");
+  if (defaultImgHolder) {
+    defaultImgHolder.innerHTML = defaultImg
+      ? `<img src="${defaultImg}" alt="${name}" style="width:140px;height:140px;object-fit:cover;border-radius:14px;" />`
+      : `<span class="muted">No default image.</span>`;
+  }
+
+  // Gallery
+  const galleryRaw = v["Gallery Images"] || v["Suite Gallery"] || v.gallery || [];
+const gallery = Array.isArray(galleryRaw) ? galleryRaw : [];
+
+
+  const galEl = document.getElementById("location-suite-details-gallery");
+  if (galEl) {
+    galEl.innerHTML = gallery.length
+      ? gallery
+          .map((url) => {
+            const u = resolveAnyImg(url);
+            return `<img src="${u}" alt="Gallery image" style="width:90px;height:90px;object-fit:cover;border-radius:12px;" />`;
+          })
+          .join("")
+      : `<p class="muted">No gallery images.</p>`;
+  }
+
+    // ✅ Details under the rate
+  const detailsEl = document.getElementById("suite-details-details");
+  if (detailsEl) {
+    const html = v["Details"] || v.details || "";
+    detailsEl.innerHTML = html || `<span class="muted">No details added yet.</span>`;
+  }
+
+    // ✅ Application status
+renderSuiteApplicationStatus(selectedSuite);
+renderSuiteApplicationLink(selectedSuite);
+
+
+
+
+
+  // Show location name inside "Back to ___"
+  const locName = (selectedLocation?.values || selectedLocation || {})["Location Name"]
+    || selectedLocation?.name
+    || "";
+
+  const locNameSpan = document.getElementById("location-suite-details-location-name");
+  if (locNameSpan) locNameSpan.textContent = locName || "location";
+}
+
+
+
+
+
+function initSuiteDetailsUI() {
+  document
+    .getElementById("location-suite-details-back-btn")
+    ?.addEventListener("click", exitSuiteDetailsMode);
+
+  document
+    .getElementById("location-suite-details-close")
+    ?.addEventListener("click", exitSuiteDetailsMode);
+}
+
+
+
+
+
+//Edit and Delete Suite 
+
+
+document.getElementById("location-suite-edit-btn")?.addEventListener("click", () => {
+  if (!selectedSuite) return;
+
+  // ✅ just use the suite object you already have
+  activeSuite = selectedSuite;
+
+  openSuiteEditModeFromDetails();
+});
+
+
+document.getElementById("location-suite-delete-btn")?.addEventListener("click", async () => {
+  if (!selectedSuite) return;
+  // deleteSuiteRecord(selectedSuite._id || selectedSuite.id)
+});
+
+function openSuiteEditForm(suite) {
+  console.log("Edit suite:", suite);
+  // later: open your suite popup + prefill fields
+}
+
+
+           // =========================================================
+             // ✅ suites section
+            // =========================================================
+  async function fetchSuiteById(id) {
+  const base = getApiBase();
+  const res = await fetch(`${base}/api/records/Suite/${encodeURIComponent(id)}`, {
+    credentials: "include",
+    headers: { Accept: "application/json" },
+  });
+  const data = await readJsonSafe(res);
+  if (!res.ok) throw new Error(data?.error || data?.message || "Fetch suite failed");
+  return data;
+}
+
+
+ //Helper to hide location details section 
+function enterSuiteMode() {
+    
+  const detailsCard = document.getElementById("location-details-card");
+  const suiteFormCard = document.getElementById("location-suite-form-card");
+  if (!detailsCard || !suiteFormCard) return;
+
+  // hide every direct child of the details card except the suite form
+  Array.from(detailsCard.children).forEach((child) => {
+    if (child === suiteFormCard) return;
+
+    // remember previous inline display so we can restore it
+    child.dataset.prevDisplay = child.style.display || "";
+    child.style.display = "none";
+  });
+
+  // show suite form
+  suiteFormCard.style.display = "block";
+}
+
+function exitSuiteMode() {
+  const detailsCard = document.getElementById("location-details-card");
+  const suiteFormCard = document.getElementById("location-suite-form-card");
+  if (!detailsCard || !suiteFormCard) return;
+
+  // hide suite form
+  suiteFormCard.style.display = "none";
+
+  // restore everything else
+  Array.from(detailsCard.children).forEach((child) => {
+    if (child === suiteFormCard) return;
+    child.style.display = child.dataset.prevDisplay ?? "";
+    delete child.dataset.prevDisplay;
+  });
+}
+
+//go back to location
+function backToLocationDetailsFromSuite() {
+  const suiteCard = document.getElementById("location-suite-form-card");
+  if (suiteCard) suiteCard.style.display = "none";
+
+  // show the location details pieces again
+  const detailsHeader =
+    document.querySelector("#location-details-card .location-details-header") ||
+    document.getElementById("location-details-header");
+
+  const detailsGrid = document.getElementById("location-details-grid");
+  const detailsActions = document.getElementById("location-details-actions");
+  const suitesHeader = document.getElementById("location-suites-header");
+  const suitesList = document.getElementById("location-suites-list");
+  const suiteDetailsCard = document.getElementById("location-suite-details-card");
+
+  if (detailsHeader) detailsHeader.style.display = "";
+  if (detailsGrid) detailsGrid.style.display = "";
+  if (detailsActions) detailsActions.style.display = "";
+  if (suitesHeader) suitesHeader.style.display = "";
+  if (suitesList) suitesList.style.display = "";
+  if (suiteDetailsCard) suiteDetailsCard.style.display = "none";
+
+  // IMPORTANT: keep list hidden (we are still inside this location)
+  const listEl = document.getElementById("locations-list");
+  if (listEl) listEl.style.display = "none";
+
+  // Make sure details card is visible
+  const detailsCard = document.getElementById("location-details-card");
+  if (detailsCard) detailsCard.style.display = "block";
+}
+
+//helper for rich text editor
+let suiteDetailsQuill = null;
+
+function initSuiteDetailsEditor() {
+  const editorEl  = document.getElementById("loc-suite-details-editor");
+  const toolbarEl = document.getElementById("suite-details-toolbar");
+  const hiddenEl  = document.getElementById("loc-suite-details");
+
+  console.log("[quill] init called", {
+    editorEl: !!editorEl,
+    toolbarEl: !!toolbarEl,
+    hiddenEl: !!hiddenEl,
+    quillType: typeof Quill,
+    already: !!suiteDetailsQuill
+  });
+
+  if (!editorEl || !toolbarEl || !hiddenEl) return;
+  if (typeof Quill !== "function") return;
+
+  // ✅ If already initialized, just enable + return
+  if (suiteDetailsQuill) {
+    suiteDetailsQuill.enable(true);
+    return;
+  }
+
+  suiteDetailsQuill = new Quill(editorEl, {
+    theme: "snow",
+    modules: { toolbar: toolbarEl },
+  });
+
+  suiteDetailsQuill.enable(true);
+
+  suiteDetailsQuill.on("text-change", () => {
+    hiddenEl.value = suiteDetailsQuill.root.innerHTML;
+  });
+
+  // start empty
+  hiddenEl.value = "";
+  suiteDetailsQuill.root.innerHTML = "";
+
+  console.log("[quill] initialized OK");
+}
+
+function setSuiteDetailsHTML(html) {
+  const hiddenEl = document.getElementById("loc-suite-details");
+  if (hiddenEl) hiddenEl.value = html || "";
+  if (suiteDetailsQuill) suiteDetailsQuill.root.innerHTML = html || "";
+}
+
+
+//show add suite section 
+         function initLocationAddSuiteButton() {
+  const btn = document.getElementById("location-add-suite-btn");
+  const suiteCard = document.getElementById("location-suite-form-card");
+  const suiteForm = document.getElementById("location-suite-form");
+
+  const backBtn = document.getElementById("location-suite-back-btn");
+  const cancelBtn = document.getElementById("loc-suite-cancel-btn");
+  const locNameLabel = document.getElementById("loc-suite-location-name");
+
+  // ✅ these are the parts INSIDE location-details-card that we hide
+  const detailsHeader = document.querySelector("#location-details-card .location-details-header")
+    || document.getElementById("location-details-header");
+
+  const detailsGrid = document.getElementById("location-details-grid"); // if you have it
+  const detailsActions = document.getElementById("location-details-actions"); // if you have it
+  const suitesHeader = document.getElementById("location-suites-header"); // if you have it
+  const suitesList = document.getElementById("location-suites-list"); // if you have it
+  const suiteDetailsCard = document.getElementById("location-suite-details-card");
+
+  if (!btn || !suiteCard || !suiteForm) return;
+
+function openSuiteCreateForm() {
+  if (!selectedLocation) return alert("Open a location first, then add a suite.");
+
+  enterSuiteMode();
+  suiteCard.style.display = "block";
+suiteForm.reset();
+
+  // ✅ reset suite photo preview (create mode = no existing photo)
+  window._resetSuiteMainPhotoPreview?.("");
+
+  // ✅ reset gallery preview too if you have a reset helper (optional)
+  // window._resetSuiteGalleryPreview?.([], new Set());
+
+  // ✅ Initialize Quill AFTER the form is visible
+  initSuiteDetailsEditor();
+  setSuiteDetailsHTML("");
+
+
+  suiteForm.reset();
+  document.getElementById("loc-suite-name")?.focus();
+
+}
+
+
+  function closeSuiteFormBackToDetails() {
+    // hide suite form
+    suiteCard.style.display = "none";
+
+    // show details pieces back
+    if (detailsHeader) detailsHeader.style.display = "";
+    if (detailsGrid) detailsGrid.style.display = "";
+    if (detailsActions) detailsActions.style.display = "";
+    if (suitesHeader) suitesHeader.style.display = "";
+    if (suitesList) suitesList.style.display = "";
+  }
+
+btn.addEventListener("click", openSuiteCreateForm);
+
+backBtn?.addEventListener("click", () => {
+  exitSuiteMode();               // ✅ show location details again
+  // DO NOT call backToLocationsList()
+});
+
+cancelBtn?.addEventListener("click", () => {
+  exitSuiteMode();               // ✅ same behavior
+});
+
+}
+
+//Add suite default image preview 
+let pendingSuiteMainPhotoFile = null;   // new file chosen
+let existingSuiteMainPhotoUrl = "";     // already saved url
+let suitePhotoMarkedForRemoval = false; // user clicked X on existing photo
+
+function initSuiteMainPhotoPreview() {
+  const input = document.getElementById("loc-suite-photo-file");
+  const holder = document.getElementById("loc-suite-current-photo");
+  if (!input || !holder) return;
+
+  function render() {
+    // If user marked existing photo for removal
+    if (suitePhotoMarkedForRemoval) {
+      holder.innerHTML = `<span class="muted">Photo will be removed when you save.</span>`;
+      return;
+    }
+
+    // If user picked a new file
+    if (pendingSuiteMainPhotoFile) {
+      const url = URL.createObjectURL(pendingSuiteMainPhotoFile);
+
+      holder.innerHTML = `
+        <div class="gallery-thumb-wrapper">
+          <button type="button" class="gallery-thumb-remove" aria-label="Remove photo">×</button>
+          <img src="${url}" alt="Suite default photo preview" />
+        </div>
+      `;
+
+      holder.querySelector("img")?.addEventListener("load", () => {
+        try { URL.revokeObjectURL(url); } catch {}
+      });
+
+      holder.querySelector(".gallery-thumb-remove")?.addEventListener("click", () => {
+        pendingSuiteMainPhotoFile = null;
+        input.value = "";
+        render();
+      });
+
+      return;
+    }
+
+    // Otherwise show existing saved url (if any)
+    if (existingSuiteMainPhotoUrl) {
+      holder.innerHTML = `
+        <div class="gallery-thumb-wrapper">
+          <button type="button" class="gallery-thumb-remove" aria-label="Remove photo">×</button>
+          <img src="${existingSuiteMainPhotoUrl}" alt="Current suite default photo" />
+        </div>
+      `;
+
+      holder.querySelector(".gallery-thumb-remove")?.addEventListener("click", () => {
+        suitePhotoMarkedForRemoval = true;
+        existingSuiteMainPhotoUrl = "";  // clear it locally
+        input.value = "";
+        render();
+      });
+
+      return;
+    }
+
+    // No photo
+    holder.innerHTML = `<span class="muted">No photo uploaded yet.</span>`;
+  }
+
+  input.addEventListener("change", () => {
+    const file = input.files?.[0] || null;
+    pendingSuiteMainPhotoFile = file;
+    suitePhotoMarkedForRemoval = false; // they picked a new photo, so not removing now
+    render();
+  });
+
+  // Expose a reset helper for when opening the form
+  window._resetSuiteMainPhotoPreview = (existingUrl = "") => {
+    pendingSuiteMainPhotoFile = null;
+    existingSuiteMainPhotoUrl = existingUrl || "";
+    suitePhotoMarkedForRemoval = false;
+    input.value = "";
+    render();
+  };
+
+  render();
+}
+
+//Add suite gallery image preview 
+let pendingSuiteGalleryFiles = [];
+let existingSuiteGalleryUrls = [];
+let suiteGalleryRemoveSet = new Set();
+
+function initSuiteGalleryPreview() {
+  const input  = document.getElementById("loc-suite-gallery-files");
+  const holder = document.getElementById("loc-suite-new-gallery-preview");
+  if (!input || !holder) return;
+
+  function render() {
+    if (!pendingSuiteGalleryFiles.length) {
+      holder.innerHTML = "";
+      return;
+    }
+
+    holder.innerHTML = pendingSuiteGalleryFiles
+      .map((file, idx) => {
+        const url = URL.createObjectURL(file);
+        return `
+          <div class="gallery-thumb-wrapper" data-idx="${idx}">
+            <button type="button"
+              class="gallery-thumb-remove"
+              data-remove="${idx}"
+              aria-label="Remove image">×</button>
+            <img src="${url}" alt="${file.name}" />
+          </div>
+        `;
+      })
+      .join("");
+
+    holder.querySelectorAll("img").forEach((img) => {
+      img.addEventListener("load", () => {
+        try { URL.revokeObjectURL(img.src); } catch {}
+      });
+    });
+
+    holder.querySelectorAll("[data-remove]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const idx = Number(btn.getAttribute("data-remove"));
+        if (!Number.isFinite(idx)) return;
+        pendingSuiteGalleryFiles.splice(idx, 1);
+        render();
+      });
+    });
+  }
+
+  input.addEventListener("change", () => {
+    const newFiles = input.files ? Array.from(input.files) : [];
+    if (!newFiles.length) return;
+
+    // ✅ append (don’t replace)
+    pendingSuiteGalleryFiles.push(...newFiles);
+
+    // ✅ allow re-picking same file later
+    input.value = "";
+
+    render();
+  });
+
+  // expose reset helper so create/edit mode can re-init cleanly
+  window._resetSuiteGalleryPreview = (existingUrls = [], removeSet = new Set()) => {
+    pendingSuiteGalleryFiles = [];
+    input.value = "";
+
+    // existing gallery state
+    existingSuiteGalleryUrls = Array.isArray(existingUrls) ? existingUrls : [];
+    suiteGalleryRemoveSet = removeSet instanceof Set ? removeSet : new Set();
+
+    render();                 // refresh “new uploads” preview area
+    renderExistingSuiteGallery(); // refresh “existing gallery” area
+  };
+
+  render();
+}
+function renderExistingSuiteGallery() {
+  const holder = document.getElementById("loc-suite-current-gallery");
+  if (!holder) return;
+
+  if (!existingSuiteGalleryUrls.length) {
+    holder.innerHTML = `<span class="muted">No gallery images uploaded yet.</span>`;
+    return;
+  }
+
+  holder.innerHTML = existingSuiteGalleryUrls
+    .map((url) => {
+      const removed = suiteGalleryRemoveSet.has(url);
+      return `
+        <div class="gallery-thumb-wrapper" data-url="${url}" style="${removed ? "opacity:.35;" : ""}">
+          <button type="button" class="gallery-thumb-remove" aria-label="Remove image">×</button>
+          <img src="${url}" alt="Gallery image" />
+        </div>
+      `;
+    })
+    .join("");
+
+  holder.querySelectorAll(".gallery-thumb-wrapper").forEach((wrap) => {
+    const url = wrap.getAttribute("data-url");
+    const btn = wrap.querySelector(".gallery-thumb-remove");
+
+    btn?.addEventListener("click", () => {
+      if (!url) return;
+
+      // toggle remove
+      if (suiteGalleryRemoveSet.has(url)) suiteGalleryRemoveSet.delete(url);
+      else suiteGalleryRemoveSet.add(url);
+
+      renderExistingSuiteGallery();
+    });
+  });
+}
+
+
+///////// ================================
+/////////////// Suite Application 
+//// ///================================
+
+//Open Application Template Builder
+function openSuiteAppBuilderModal() {
+  const modal = document.getElementById("suite-app-builder");
+  if (!modal) {
+    console.warn("[app builder] #suite-app-builder not found");
+    return;
+  }
+
+  modal.hidden = false;
+  modal.setAttribute("aria-hidden", "false");
+  console.log("[app builder] modal opened");
+}
+
+//Close Application Builder
+function closeSuiteAppBuilderModal() {
+  const modal = document.getElementById("suite-app-builder");
+  if (!modal) return;
+
+  // avoid “aria-hidden focus” warnings
+  if (document.activeElement && modal.contains(document.activeElement)) {
+    document.activeElement.blur();
+  }
+
+  modal.hidden = true;
+  modal.setAttribute("aria-hidden", "true");
+  console.log("[app builder] modal closed");
+}
+
+
+function initSuiteAppBuilderCloseButtons() {
+  document
+    .getElementById("suite-app-builder-close")
+    ?.addEventListener("click", closeSuiteAppBuilderModal);
+
+  document
+    .getElementById("suite-app-builder-cancel")
+    ?.addEventListener("click", closeSuiteAppBuilderModal);
+
+  // optional: Esc key closes it
+  document.addEventListener("keydown", (e) => {
+    const modal = document.getElementById("suite-app-builder");
+    if (e.key === "Escape" && modal && !modal.hidden) {
+      closeSuiteAppBuilderModal();
+    }
+  });
+
+  // optional: click outside card closes it (only if you want)
+  const modal = document.getElementById("suite-app-builder");
+  modal?.addEventListener("click", (e) => {
+    if (e.target === modal) closeSuiteAppBuilderModal();
+  });
+}
+
+//Suite Application
+function initSuiteAppBuilder() {
+  const appModal     = document.getElementById("suite-app-builder");
   const openAppBtn   = document.getElementById("open-suite-app-builder");
   const closeAppBtn  = document.getElementById("suite-app-builder-close");
   const cancelAppBtn = document.getElementById("suite-app-builder-cancel");
   const saveAppBtn   = document.getElementById("suite-app-builder-save");
+  const templateInput = document.getElementById("loc-suite-application-template"); // hidden input
 
-  // button in the Suitie card
-const suiteDetailsAppButton = document.getElementById("suite-details-app-template-btn");
-// button in the Location suite details card
-const locationSuiteAppTemplateBtn =
-  document.getElementById("location-suite-app-template-btn");
-
-
-  appModal.addEventListener("click", (e) => {
-  // if you clicked directly on the overlay (not inside the card), close
-  if (e.target === appModal) {
-    closeAppBuilder();
-  }
-});
-
-function handleOpenTemplateClick() {
-  if (!activeSuite) return;
-
-  if (templateInput) {
-    const tmpl =
-      activeSuite.applicationTemplate ||
-      activeSuite["Application Template"] ||
-      "";
-    templateInput.value =
-      typeof tmpl === "string" ? tmpl : JSON.stringify(tmpl || {});
-  }
-
-  openAppBuilder();
-}
-
-suiteDetailsAppButton?.addEventListener("click", handleOpenTemplateClick);
-locationSuiteAppTemplateBtn?.addEventListener("click", handleOpenTemplateClick);
-
-  // =====================
+    // =====================
   // "Add question" for Applicant + Experience sections
   // =====================
-
   function wireQuestionAdder(sectionId, buttonId, keyPrefix) {
     const section = document.getElementById(sectionId);
     const button  = document.getElementById(buttonId);
@@ -2579,40 +2310,33 @@ locationSuiteAppTemplateBtn?.addEventListener("click", handleOpenTemplateClick);
       row.className = "suite-app-row";
       row.innerHTML = `
         <div class="suite-app-bullet suite-app-drag-handle"></div>
-        <div
-          class="suite-app-label"
-          contenteditable="true"
-          data-app-field="${keyPrefix}${counter}"
-        >
+        <div class="suite-app-label"
+             contenteditable="true"
+             data-app-field="${keyPrefix}${counter}">
           New question
         </div>
-        <div class="suite-app-input-box">
-          [text input]
-        </div>
+        <div class="suite-app-input-box">[text input]</div>
       `;
 
-      // insert new row right above the button we clicked
       section.insertBefore(row, button);
     });
   }
 
-  // Applicant section extra questions
   wireQuestionAdder(
     "suite-app-section-applicant",
     "suite-app-add-applicant-question",
     "customApplicantQ_"
   );
 
-  // Experience section extra questions
   wireQuestionAdder(
     "suite-app-section-experience",
     "suite-app-add-experience-question",
     "experienceCustomQ_"
   );
 
-  //////////////////////////////////////////////
+  // =====================
   // Professional Experience – Add rows
-  //////////////////////////////////////////////
+  // =====================
   const experienceSection = document.getElementById("suite-app-section-experience");
   const addExperienceBtn  = document.getElementById("suite-app-add-experience");
   let experienceCounter = 0;
@@ -2625,25 +2349,21 @@ locationSuiteAppTemplateBtn?.addEventListener("click", handleOpenTemplateClick);
       row.className = "suite-app-row";
       row.innerHTML = `
         <div class="suite-app-bullet suite-app-drag-handle"></div>
-        <div
-          class="suite-app-label"
-          contenteditable="true"
-          data-app-field="experienceCustom_${experienceCounter}"
-        >
+        <div class="suite-app-label"
+             contenteditable="true"
+             data-app-field="experienceCustom_${experienceCounter}">
           New experience question
         </div>
-        <div class="suite-app-input-box">
-          [text input]
-        </div>
+        <div class="suite-app-input-box">[text input]</div>
       `;
 
       experienceSection.insertBefore(row, addExperienceBtn);
     });
   }
 
-  //////////////////////////////////////////////
+  // =====================
   // "Add new section" – whole custom block
-  //////////////////////////////////////////////
+  // =====================
   const addSectionBtn = document.getElementById("suite-app-add-section");
   let customSectionCount = 0;
 
@@ -2652,85 +2372,70 @@ locationSuiteAppTemplateBtn?.addEventListener("click", handleOpenTemplateClick);
       customSectionCount += 1;
       const sectionKey = `customSection_${customSectionCount}`;
 
-      // Create a new section container
       const section = document.createElement("div");
       section.className = "suite-app-section suite-app-section-custom";
       section.dataset.sectionKey = sectionKey;
 
       section.innerHTML = `
         <div class="suite-app-section-title">
-          <span
-            contenteditable="true"
-            data-app-field="${sectionKey}_title"
-          >
+          <span contenteditable="true" data-app-field="${sectionKey}_title">
             New section
           </span>
         </div>
 
         <div class="suite-app-row">
           <div class="suite-app-bullet suite-app-drag-handle"></div>
-          <div
-            class="suite-app-label"
-            contenteditable="true"
-            data-app-field="${sectionKey}_q1"
-          >
+          <div class="suite-app-label"
+               contenteditable="true"
+               data-app-field="${sectionKey}_q1">
             New question
           </div>
-          <div class="suite-app-input-box">
-            [text input]
-          </div>
+          <div class="suite-app-input-box">[text input]</div>
         </div>
 
-        <button
-          type="button"
-          class="btn ghost suite-app-add-more"
-          data-add-question-for="${sectionKey}"
-        >
+        <button type="button"
+                class="btn ghost suite-app-add-more"
+                data-add-question-for="${sectionKey}">
           + Add question
         </button>
       `;
 
-      // Insert this new section right AFTER the experience section
-      const experienceSection = document.getElementById("suite-app-section-experience");
-      if (experienceSection && experienceSection.parentNode) {
-        experienceSection.parentNode.insertBefore(
-          section,
-          experienceSection.nextSibling
-        );
+      // insert after experience section if possible
+      const expSec = document.getElementById("suite-app-section-experience");
+      if (expSec && expSec.parentNode) {
+        expSec.parentNode.insertBefore(section, expSec.nextSibling);
       } else {
-        // fallback: put it after the "Add new section" button
         addSectionBtn.parentNode.insertBefore(section, addSectionBtn.nextSibling);
       }
 
-      // Wire up the "Add question" button inside this new section
+      // wire "+ Add question" inside this new section
       const sectionAddBtn = section.querySelector(
         `button[data-add-question-for="${sectionKey}"]`
       );
+
       if (sectionAddBtn) {
         let qCounter = 1;
+
         sectionAddBtn.addEventListener("click", () => {
           qCounter += 1;
+
           const row = document.createElement("div");
           row.className = "suite-app-row";
           row.innerHTML = `
             <div class="suite-app-bullet suite-app-drag-handle"></div>
-            <div
-              class="suite-app-label"
-              contenteditable="true"
-              data-app-field="${sectionKey}_q${qCounter}"
-            >
+            <div class="suite-app-label"
+                 contenteditable="true"
+                 data-app-field="${sectionKey}_q${qCounter}">
               New question
             </div>
-            <div class="suite-app-input-box">
-              [text input]
-            </div>
+            <div class="suite-app-input-box">[text input]</div>
           `;
-          // insert above the "+ Add question" button
+
           section.insertBefore(row, sectionAddBtn);
         });
       }
 
-      // Make its rows draggable too
+      // make the custom section sortable too
       if (window.Sortable) {
         new Sortable(section, {
           animation: 150,
@@ -2741,3269 +2446,3901 @@ locationSuiteAppTemplateBtn?.addEventListener("click", handleOpenTemplateClick);
     });
   }
 
-  // 🔹 Location / suite name wiring
-  const suiteNameSubtitle = appModal.querySelector(".suite-app-subtitle");
-  const locationNameLeft  = appModal.querySelector('[data-app-field="locationName"]');
-  const locationNameRight = appModal.querySelector('[data-app-field="locationNameRight"]');
-
-  // All editable pieces inside the builder (for save/load)
-  function collectTemplateFromBuilder() {
-    if (!appModal) return {};
-
-    // generic helper: collects rows inside a section element
-    function collectRowsFromSection(sectionEl, fallbackPrefix) {
-      if (!sectionEl) return [];
-
-      const rows = sectionEl.querySelectorAll(".suite-app-row");
-      const out = [];
-
-      rows.forEach((row, idx) => {
-        const labelEl = row.querySelector(".suite-app-label");
-        const inputEl = row.querySelector(".suite-app-input-box");
-        if (!labelEl || !inputEl) return;
-
-        const key =
-          labelEl.dataset.appField ||
-          `${fallbackPrefix || "field"}_${idx + 1}`;
-
-        out.push({
-          key,
-          label: (labelEl.textContent || "").trim(),
-          inputType: (inputEl.textContent || "").trim(),
-        });
-      });
-
-      return out;
-    }
-
-    // 🔹 Built-in sections
-    const applicantSection  = document.getElementById("suite-app-section-applicant");
-    const experienceSection = document.getElementById("suite-app-section-experience");
-
-    const applicantRows  = collectRowsFromSection(applicantSection,  "applicant");
-    const experienceRows = collectRowsFromSection(experienceSection, "experience");
-
-    // 🔹 Built-in titles
-    const applicantTitleSpan = applicantSection
-      ? applicantSection.querySelector(".suite-app-section-title [data-app-field]")
-      : null;
-    const experienceTitleSpan = experienceSection
-      ? experienceSection.querySelector(".suite-app-section-title [data-app-field]")
-      : null;
-
-    const applicantTitleCfg = applicantTitleSpan
-      ? {
-          key:
-            applicantTitleSpan.getAttribute("data-app-field") ||
-            "applicant_title",
-          label: (applicantTitleSpan.textContent || "").trim() || "Application",
-        }
-      : null;
-
-    const experienceTitleCfg = experienceTitleSpan
-      ? {
-          key:
-            experienceTitleSpan.getAttribute("data-app-field") ||
-            "experience_title",
-          label:
-            (experienceTitleSpan.textContent || "").trim() ||
-            "Professional Experience",
-        }
-      : null;
-
-    // 🔹 Custom sections
-    const custom = [];
-    const customSections = appModal.querySelectorAll(".suite-app-section-custom");
-
-    customSections.forEach((sec) => {
-      const sectionKey = sec.dataset.sectionKey || "";
-
-      const titleSpan = sec.querySelector(".suite-app-section-title [data-app-field]");
-      const titleKey =
-        (titleSpan && titleSpan.getAttribute("data-app-field")) ||
-        (sectionKey ? sectionKey + "_title" : "");
-      const titleText = (titleSpan && titleSpan.textContent || "").trim() || "New section";
-
-      const rows = collectRowsFromSection(sec, sectionKey || "customSection");
-
-      custom.push({
-        sectionKey,
-        titleKey,
-        title: titleText,
-        rows,
-      });
-    });
-
-    return {
-      sections: {
-        applicant: applicantRows,
-        experience: experienceRows,
-        custom,
-        applicantTitle:   applicantTitleCfg,
-        experienceTitle:  experienceTitleCfg,
-      },
-    };
+  if (!appModal || !openAppBtn) {
+    console.warn("[suite-app] modal/button missing");
+    return;
   }
 
-  function rebuildSectionFromConfig(sectionId, configs) {
-    const section = document.getElementById(sectionId);
-    if (!section || !configs) return;
+  // ---------- helpers ----------
+function collectTemplateFromBuilder() {
+  function collectRows(sectionEl, fallbackPrefix) {
+    if (!sectionEl) return [];
 
-    // keep any buttons (Add question, Add more experience)
-    const buttons = Array.from(
-      section.querySelectorAll("button")
+    const rows = Array.from(sectionEl.querySelectorAll(".suite-app-row"));
+    return rows.map((row, idx) => {
+      const labelEl = row.querySelector(".suite-app-label");
+      const inputEl = row.querySelector(".suite-app-input-box");
+
+      const key =
+        labelEl?.dataset.appField || `${fallbackPrefix}_${idx + 1}`;
+
+      return {
+        key,
+        label: (labelEl?.textContent || "").trim(),
+        inputType: (inputEl?.textContent || "").trim(),
+      };
+    });
+  }
+
+  const applicantSection = document.getElementById("suite-app-section-applicant");
+  const experienceSection = document.getElementById("suite-app-section-experience");
+
+  // custom sections
+  const customSections = Array.from(
+    appModal.querySelectorAll(".suite-app-section-custom")
+  ).map((sec) => {
+    const sectionKey = sec.dataset.sectionKey || "";
+    const titleSpan = sec.querySelector(".suite-app-section-title [data-app-field]");
+    const titleKey =
+      titleSpan?.getAttribute("data-app-field") || `${sectionKey}_title`;
+
+    return {
+      sectionKey,
+      titleKey,
+      title: (titleSpan?.textContent || "").trim(),
+      rows: collectRows(sec, sectionKey || "customSection"),
+    };
+  });
+
+  return {
+    sections: {
+      applicant: collectRows(applicantSection, "applicant"),
+      experience: collectRows(experienceSection, "experience"),
+      custom: customSections,
+    },
+  };
+}
+
+function applyTemplateToBuilder(jsonStr) {
+  if (!jsonStr) return;
+
+  let data;
+  try {
+    data = JSON.parse(jsonStr);
+  } catch (e) {
+    console.warn("[suite-app] bad template JSON", e);
+    return;
+  }
+
+  // ✅ New structured format
+  if (data?.sections) {
+    rebuildSectionFromConfig(
+      "suite-app-section-applicant",
+      data.sections.applicant || []
     );
 
-    // remove existing rows
-    section.querySelectorAll(".suite-app-row").forEach((row) => {
-      row.remove();
-    });
+    rebuildSectionFromConfig(
+      "suite-app-section-experience",
+      data.sections.experience || []
+    );
 
-    // recreate rows in saved order
-    configs.forEach((cfg) => {
+    rebuildCustomSections(data.sections.custom || []);
+    return;
+  }
+
+  // 🔙 fallback: old key/value format
+  appModal.querySelectorAll("[data-app-field]").forEach((el) => {
+    const key = el.getAttribute("data-app-field");
+    if (key && data[key] != null) el.textContent = String(data[key]);
+  });
+}
+
+function rebuildSectionFromConfig(sectionId, configs) {
+  const section = document.getElementById(sectionId);
+  if (!section) return;
+
+  const buttons = Array.from(section.querySelectorAll("button"));
+
+  // remove existing rows
+  section.querySelectorAll(".suite-app-row").forEach((row) => row.remove());
+
+  // recreate rows
+  (configs || []).forEach((cfg) => {
+    const row = document.createElement("div");
+    row.className = "suite-app-row";
+    row.innerHTML = `
+      <div class="suite-app-bullet suite-app-drag-handle"></div>
+      <div class="suite-app-label"
+           contenteditable="true"
+           data-app-field="${cfg.key}">
+        ${cfg.label || ""}
+      </div>
+      <div class="suite-app-input-box">
+        ${cfg.inputType || "[text input]"}
+      </div>
+    `;
+
+    if (buttons[0]) section.insertBefore(row, buttons[0]);
+    else section.appendChild(row);
+  });
+}
+
+function rebuildCustomSections(customConfigs) {
+  // remove old custom sections
+  appModal.querySelectorAll(".suite-app-section-custom").forEach((sec) => sec.remove());
+
+  const addSectionBtn = document.getElementById("suite-app-add-section");
+  if (!addSectionBtn) return;
+
+  (customConfigs || []).forEach((cfg) => {
+    const sectionKey = cfg.sectionKey || `customSection_1`;
+    const titleKey = cfg.titleKey || `${sectionKey}_title`;
+
+    const section = document.createElement("div");
+    section.className = "suite-app-section suite-app-section-custom";
+    section.dataset.sectionKey = sectionKey;
+
+    section.innerHTML = `
+      <div class="suite-app-section-title">
+        <span contenteditable="true" data-app-field="${titleKey}">
+          ${cfg.title || "New section"}
+        </span>
+      </div>
+    `;
+
+    (cfg.rows || []).forEach((rowCfg, idx) => {
       const row = document.createElement("div");
       row.className = "suite-app-row";
       row.innerHTML = `
         <div class="suite-app-bullet suite-app-drag-handle"></div>
-        <div
-          class="suite-app-label"
-          contenteditable="true"
-          data-app-field="${cfg.key}"
-        >
-          ${cfg.label || ""}
+        <div class="suite-app-label"
+             contenteditable="true"
+             data-app-field="${rowCfg.key || `${sectionKey}_q${idx + 1}`}">
+          ${rowCfg.label || "New question"}
         </div>
         <div class="suite-app-input-box">
-          ${cfg.inputType || "[text input]"}
+          ${rowCfg.inputType || "[text input]"}
         </div>
       `;
-
-      if (buttons[0]) {
-        section.insertBefore(row, buttons[0]);
-      } else {
-        section.appendChild(row);
-      }
-    });
-  }
-
-  function rebuildCustomSections(customConfigs) {
-    const addSectionBtn = document.getElementById("suite-app-add-section");
-    if (!addSectionBtn) return;
-
-    // remove any existing custom sections
-    appModal.querySelectorAll(".suite-app-section-custom").forEach((sec) => {
-      sec.remove();
+      section.appendChild(row);
     });
 
-    if (!customConfigs || !customConfigs.length) return;
+    // add button for more questions
+    const addBtn = document.createElement("button");
+    addBtn.type = "button";
+    addBtn.className = "btn ghost suite-app-add-more";
+    addBtn.dataset.addQuestionFor = sectionKey;
+    addBtn.textContent = "+ Add question";
+    section.appendChild(addBtn);
 
-    let maxIndex = 0;
+    // insert after experience, else after addSectionBtn
+    const expSec = document.getElementById("suite-app-section-experience");
+    if (expSec?.parentNode) expSec.parentNode.insertBefore(section, expSec.nextSibling);
+    else addSectionBtn.parentNode.insertBefore(section, addSectionBtn.nextSibling);
 
-    customConfigs.forEach((cfg) => {
-      const sectionKey = cfg.sectionKey || `customSection_1`;
-      const titleKey   = cfg.titleKey   || `${sectionKey}_title`;
-      const titleText  = cfg.title      || "New section";
-      const rowsCfg    = Array.isArray(cfg.rows) ? cfg.rows : [];
-
-      // 🧱 create the wrapper section
-      const section = document.createElement("div");
-      section.className = "suite-app-section suite-app-section-custom";
-      section.dataset.sectionKey = sectionKey;
-
-      section.innerHTML = `
-        <div class="suite-app-section-title">
-          <span
-            contenteditable="true"
-            data-app-field="${titleKey}"
-          >
-            ${titleText}
-          </span>
+    // wire add question
+    let qCounter = (cfg.rows || []).length || 1;
+    addBtn.addEventListener("click", () => {
+      qCounter += 1;
+      const row = document.createElement("div");
+      row.className = "suite-app-row";
+      row.innerHTML = `
+        <div class="suite-app-bullet suite-app-drag-handle"></div>
+        <div class="suite-app-label"
+             contenteditable="true"
+             data-app-field="${sectionKey}_q${qCounter}">
+          New question
         </div>
+        <div class="suite-app-input-box">[text input]</div>
       `;
-
-      // add rows from config
-      rowsCfg.forEach((rowCfg, idx) => {
-        const row = document.createElement("div");
-        row.className = "suite-app-row";
-        const rowKey = rowCfg.key || `${sectionKey}_q${idx + 1}`;
-
-        row.innerHTML = `
-          <div class="suite-app-bullet suite-app-drag-handle"></div>
-          <div
-            class="suite-app-label"
-            contenteditable="true"
-            data-app-field="${rowKey}"
-          >
-            ${rowCfg.label || "New question"}
-          </div>
-          <div class="suite-app-input-box">
-            ${rowCfg.inputType || "[text input]"}
-          </div>
-        `;
-
-        section.appendChild(row);
-      });
-
-      // "+ Add question" button
-      const addBtn = document.createElement("button");
-      addBtn.type = "button";
-      addBtn.className = "btn ghost suite-app-add-more";
-      addBtn.dataset.addQuestionFor = sectionKey;
-      addBtn.textContent = "+ Add question";
-
-      section.appendChild(addBtn);
-
-      // insert after Experience section if possible, otherwise after the main "Add new section" button
-      const experienceSection = document.getElementById("suite-app-section-experience");
-      if (experienceSection && experienceSection.parentNode) {
-        experienceSection.parentNode.insertBefore(
-          section,
-          experienceSection.nextSibling
-        );
-      } else {
-        addSectionBtn.parentNode.insertBefore(section, addSectionBtn.nextSibling);
-      }
-
-      // wire internal "Add question" button
-      let qCounter = rowsCfg.length || 1;
-      addBtn.addEventListener("click", () => {
-        qCounter += 1;
-        const row = document.createElement("div");
-        row.className = "suite-app-row";
-        const rowKey = `${sectionKey}_q${qCounter}`;
-
-        row.innerHTML = `
-          <div class="suite-app-bullet suite-app-drag-handle"></div>
-          <div
-            class="suite-app-label"
-            contenteditable="true"
-            data-app-field="${rowKey}"
-          >
-            New question
-          </div>
-          <div class="suite-app-input-box">
-            [text input]
-          </div>
-        `;
-        section.insertBefore(row, addBtn);
-      });
-
-      // make this section sortable
-      if (window.Sortable) {
-        new Sortable(section, {
-          animation: 150,
-          handle: ".suite-app-drag-handle",
-          draggable: ".suite-app-row",
-        });
-      }
-
-      // track highest index so future "Add section" keeps counting up
-      const m = sectionKey.match(/customSection_(\d+)/);
-      if (m) {
-        const n = parseInt(m[1], 10);
-        if (!Number.isNaN(n) && n > maxIndex) {
-          maxIndex = n;
-        }
-      }
+      section.insertBefore(row, addBtn);
     });
 
-    // keep your existing counter in sync so new sections get fresh ids
-    try {
-      if (typeof customSectionCount !== "undefined") {
-        customSectionCount = Math.max(customSectionCount, maxIndex);
-      }
-    } catch (e) {
-      // ignore if not in scope
-    }
-  }
-
-  function applyTemplateToBuilder(jsonStr) {
-    if (!jsonStr) return;
-    let data;
-    try {
-      data = JSON.parse(jsonStr);
-    } catch (e) {
-      console.warn("[suite-app] bad template JSON", e);
-      return;
-    }
-
-    // ✅ New format with sections + rows
-    if (data.sections) {
-      // rows
-      rebuildSectionFromConfig(
-        "suite-app-section-applicant",
-        data.sections.applicant || []
-      );
-      rebuildSectionFromConfig(
-        "suite-app-section-experience",
-        data.sections.experience || []
-      );
-
-      // 🔹 restore built-in titles
-      if (data.sections.applicantTitle) {
-        const cfg = data.sections.applicantTitle;
-        const span = document.querySelector(
-          "#suite-app-section-applicant .suite-app-section-title [data-app-field]"
-        );
-        if (span) {
-          if (cfg.key) {
-            span.setAttribute("data-app-field", cfg.key);
-          }
-          if (cfg.label) {
-            span.textContent = cfg.label;
-          }
-        }
-      }
-
-      if (data.sections.experienceTitle) {
-        const cfg = data.sections.experienceTitle;
-        const span = document.querySelector(
-          "#suite-app-section-experience .suite-app-section-title [data-app-field]"
-        );
-        if (span) {
-          if (cfg.key) {
-            span.setAttribute("data-app-field", cfg.key);
-          }
-          if (cfg.label) {
-            span.textContent = cfg.label;
-          }
-        }
-      }
-
-      // 🔹 restore custom sections
-      rebuildCustomSections(data.sections.custom || []);
-      return;
-    }
-
-    // 🔙 Fallback for old simple { key: label } format
-    const fields = appModal
-      ? appModal.querySelectorAll("[data-app-field]")
-      : [];
-    fields.forEach((el) => {
-      const key = el.getAttribute("data-app-field");
-      if (key && data[key]) {
-        el.textContent = data[key];
-      }
-    });
-  }
-
-  function openAppBuilder() {
-    // location name (left + right)
-    if (typeof selectedLocation !== "undefined" && selectedLocation) {
-      const locName = selectedLocation.name || "";
-      if (locationNameLeft)  locationNameLeft.textContent  = locName || "Location Name";
-      if (locationNameRight) locationNameRight.textContent = locName || "Location Name";
-    }
-
-    // suite name subtitle
-    let suiteName = "";
-    if (typeof locSuiteNameInput !== "undefined" &&
-        locSuiteNameInput &&
-        locSuiteNameInput.value.trim()) {
-      suiteName = locSuiteNameInput.value.trim();
-    } else if (typeof activeSuite !== "undefined" && activeSuite) {
-      suiteName = activeSuite["Suite Name"] || activeSuite.name || "";
-    }
-    if (suiteNameSubtitle) {
-      suiteNameSubtitle.textContent = suiteName || "Suite Name";
-    }
-
-    // 🔹 load saved template (hidden input OR activeSuite)
-    if (templateInput) {
-      const fromHidden = templateInput.value && templateInput.value.trim();
-      const fromSuite =
-        (!fromHidden && typeof activeSuite !== "undefined" && activeSuite)
-          ? (activeSuite.applicationTemplate ||
-            activeSuite["Application Template"] ||
-            "")
-          : "";
-
-      const jsonToUse = fromHidden || fromSuite;
-
-      if (jsonToUse) {
-        templateInput.value = jsonToUse;
-        applyTemplateToBuilder(jsonToUse);
-      }
-    }
-
-    appModal.hidden = false;
-    appModal.setAttribute("aria-hidden", "false");
-
-      document.body.classList.add("modal-open");
-  }
-
-function closeAppBuilder() {
-  // hide the modal
-  appModal.hidden = true;
-  appModal.setAttribute("aria-hidden", "true");
-
-  // 🔓 unlock scroll again
-  document.body.classList.remove("modal-open");
-
-  // ✅ If we’re editing a suite, go back to its details view
-  if (typeof activeSuite !== "undefined" && activeSuite && typeof openSuiteDetails === "function") {
-    openSuiteDetails(activeSuite);
-  }
-
-  // Optional: move focus back to the open button
-  const openAppBtn = document.getElementById("open-suite-app-builder");
-  if (openAppBtn) openAppBtn.focus();
-}
-
-
-  openAppBtn?.addEventListener("click", openAppBuilder);
-  closeAppBtn?.addEventListener("click", closeAppBuilder);
-  cancelAppBtn?.addEventListener("click", closeAppBuilder);
-
-// ===========================
-// Save Application Template as an Application record
-// ===========================
-async function saveSuiteApplicationTemplate(suiteId, templateJson) {
-  if (!templateJson) return;
-
-  const values = {
-    // 👇 match the DataType field name EXACTLY
-    "Template Json": templateJson,
-  };
-
-  // optional but recommended
-  if (suiteId) {
-    values["Name"] = `Suite Application for ${suiteId}`;
-    // (later you can add a "Suite" reference field here if you want)
-  }
-
-  const res = await fetch(`${API_BASE}/api/records/Application`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json",
-    },
-    credentials: "include",
-    body: JSON.stringify({ values }),
-  });
-
-  if (!res.ok) {
-    const txt = await res.text().catch(() => "");
-    console.warn(
-      "[suite-app] saveSuiteApplicationTemplate failed",
-      res.status,
-      txt
-    );
-    throw new Error("HTTP " + res.status);
-  }
-
-  const body = await res.json().catch(() => null);
-  console.log("[suite-app] template saved to Application", body);
-  return body;
-}
-
-
-  if (saveAppBtn) {
-    saveAppBtn.addEventListener("click", async () => {
-      if (!templateInput) return;
-
-      const data = collectTemplateFromBuilder();
-      const json = JSON.stringify(data);
-
-      templateInput.value = json;
-
-      try {
-        if (window.activeSuite && activeSuite.id) {
-          await saveSuiteApplicationTemplate(activeSuite.id, json);
-          activeSuite.applicationTemplate = json;
-        }
-      } catch (err) {
-        console.error("[suite-app] error saving to server", err);
-        alert(
-          "The application layout was updated, but we couldn’t save it to the server yet. " +
-          "Please click “Save suite” before leaving this page."
-        );
-      }
-
-      // 🔹 update the little status text next to the button
-      refreshSuiteAppStatus();
-
-      closeAppBuilder();
-    });
-  }
-
-  // 🔹 Sortable drag–reorder
-  if (window.Sortable) {
-    const sections = appModal.querySelectorAll(".suite-app-section");
-    sections.forEach((section) => {
+    if (window.Sortable) {
       new Sortable(section, {
         animation: 150,
         handle: ".suite-app-drag-handle",
         draggable: ".suite-app-row",
       });
-    });
-  }
-
-  // initial status on load
-  refreshSuiteAppStatus();
-})();
-
-//Add Suite 
-// When "+ Add suite" is clicked in the location details card
-if (locationAddSuiteBtn) {
-  locationAddSuiteBtn.addEventListener("click", () => {
-    if (!selectedLocation) {
-      alert("Open a location first, then add a suite.");
-      return;
     }
-
-    if (!locationSuiteFormCard || !locationSuiteForm) return;
-
-    // 🆕 reset removal flags whenever we start a brand-new suite
-    suitePhotoMarkedForRemoval = false;
-    suiteGalleryRemoveSet = new Set();
-
-    // reset form for new suite
-    locationSuiteForm.reset();
-    if (locSuiteIdInput)        locSuiteIdInput.value = "";
-    if (locSuitePhotoInput)     locSuitePhotoInput.value = "";
-    if (locSuiteGalleryInput)   locSuiteGalleryInput.value = "";
-    if (locSuiteAppInput)       locSuiteAppInput.value = "";
-    
-    // 🔹 brand-new suite → no stored application template yet
-    if (templateInput) templateInput.value = "";
-
-    // hide the top of the location card while adding a suite
-    if (locationDetailsHeader) locationDetailsHeader.style.display = "none";
-    if (locationSuitesHeader)  locationSuitesHeader.style.display  = "none";
-    if (locationSuitesList)    locationSuitesList.style.display    = "none";
-
-    // clear previews
-    if (locSuiteCurrentGallery) {
-      locSuiteCurrentGallery.textContent = "";
-    }
-    if (locSuiteCurrentApp) {
-      locSuiteCurrentApp.textContent = "";
-    }
-    if (locSuiteCurrentPhoto) {
-      locSuiteCurrentPhoto.textContent = "";
-    }
-
-    // 🔹 clear *new* gallery preview too
-    if (typeof pendingSuiteGalleryFiles !== "undefined") {
-      pendingSuiteGalleryFiles = [];
-      renderSuitePendingGalleryPreview();
-    } else if (locSuiteNewGalleryPrev) {
-      // fallback if helper is in a different scope
-      locSuiteNewGalleryPrev.textContent = "";
-    }
-
-    // 🔹 HIDE location header + details while in suite-edit mode
-    if (locationsHeader)        locationsHeader.style.display = "none";
-    if (locationDetailsGrid)    locationDetailsGrid.style.display = "none";
-    if (locationSuitesList)     locationSuitesList.style.display = "none";
-    if (locationSuiteDetailsCard) locationSuiteDetailsCard.style.display = "none";
-
-    // 🔹 SHOW suite form
-    locationSuiteFormCard.style.display = "block";
-    if (locSuiteNameInput) locSuiteNameInput.focus();
-
-    // (optional) show location name in the suite form
-    const locLabel = document.getElementById("loc-suite-location-name");
-    if (locLabel && selectedLocation) {
-      locLabel.textContent = selectedLocation.name || "";
-    }
-
-    if (locationEditBtn) locationEditBtn.style.display = "none";
-    if (deleteBtn)       deleteBtn.style.display       = "none";
   });
 }
 
+  function openAppBuilder() {
+    // require an open suite first
+    const suite =
+      window.selectedSuite || window.activeSuite || null;
+
+    if (!suite) {
+      alert("Open a suite first.");
+      return;
+    }
+
+    // Set suite + location name in header if you want (optional)
+    const locName =
+      (window.selectedLocation?.values || window.selectedLocation || {})["Location Name"] ||
+      window.selectedLocation?.name ||
+      "Location Name";
+
+    const left = appModal.querySelector('[data-app-field="locationName"]');
+    const right = appModal.querySelector('[data-app-field="locationNameRight"]');
+    if (left) left.textContent = locName;
+    if (right) right.textContent = locName;
+
+    // suite subtitle (auto)
+    const v = suite.values || suite || {};
+    const suiteName = v["Suite Name"] || v.name || "Suite Name";
+    const subtitle = appModal.querySelector(".suite-app-subtitle");
+    if (subtitle) subtitle.textContent = suiteName;
+
+    // load saved json into builder (hidden input first, else from suite values)
+    const fromHidden = (templateInput?.value || "").trim();
+    const fromSuite =
+      (v["Application Template"] ||
+        v["Application Template JSON"] ||
+        v["Application Json"] ||
+        v["Application"] ||
+        "").trim?.() || "";
+
+    const jsonToUse = fromHidden || fromSuite;
+    if (templateInput && jsonToUse) templateInput.value = jsonToUse;
+
+    if (jsonToUse) applyTemplateToBuilder(jsonToUse);
+
+    appModal.hidden = false;
+    appModal.setAttribute("aria-hidden", "false");
+    document.body.classList.add("modal-open");
+
+    console.log("[suite-app] opened");
+  }
+
+  function closeAppBuilder() {
+    if (document.activeElement && appModal.contains(document.activeElement)) {
+      document.activeElement.blur();
+    }
+    appModal.hidden = true;
+    appModal.setAttribute("aria-hidden", "true");
+    document.body.classList.remove("modal-open");
+    console.log("[suite-app] closed");
+  }
+
+  // ---------- wire buttons ----------
+  openAppBtn.addEventListener("click", openAppBuilder);
+  closeAppBtn?.addEventListener("click", closeAppBuilder);
+  cancelAppBtn?.addEventListener("click", closeAppBuilder);
+
+  // Save template -> hidden input (so Suite save can store it)
+  saveAppBtn?.addEventListener("click", () => {
+    if (!templateInput) {
+      alert("Missing hidden template input.");
+      return;
+    }
+
+    const data = collectTemplateFromBuilder();
+    const json = JSON.stringify(data);
+
+    templateInput.value = json;
+
+    // ALSO keep it on the suite object in memory (helpful for UI)
+    const suite = window.selectedSuite || window.activeSuite;
+    if (suite) {
+      suite.values = suite.values || {};
+      suite.values["Application Template"] = json; // pick ONE field name and be consistent
+    }
 
 
-  // Cancel suite form
-// Cancel suite form
-if (locSuiteCancelBtn && locationSuiteFormCard && locationSuiteForm) {
-  locSuiteCancelBtn.addEventListener("click", () => {
-    locationSuiteForm.reset();
-    if (locSuiteAppInput)     locSuiteAppInput.value = "";
-    if (locSuitePhotoInput)   locSuitePhotoInput.value = "";
-    if (locSuiteGalleryInput) locSuiteGalleryInput.value = "";
-    if (locSuiteIdInput)      locSuiteIdInput.value = "";
+     renderSuiteApplicationStatus(suite);
 
-    // 🆕 reset removal flags when cancelling
-    suitePhotoMarkedForRemoval = false;
-    suiteGalleryRemoveSet = new Set();
-
-    activeSuite = null;
-    locationSuiteFormCard.style.display = "none";
-
-    // back to location view
-    if (locationDetailsCard)  locationDetailsCard.style.display  = "block";
-    if (locationDetailsGrid)  locationDetailsGrid.style.display  = "grid";
-
-    showLocationsHeader();   // 👈 bring header back
-
-    if (locationDetailsCard)  locationDetailsCard.style.display  = "block";
-    if (locationDetailsGrid)  locationDetailsGrid.style.display  = "grid";
-    if (locationSuitesHeader) locationSuitesHeader.style.display = "flex";
-    if (locationSuitesList)   locationSuitesList.style.display   = "block";
-
-    activeSuite = null;
+    console.log("[suite-app] saved template JSON:", data);
+    closeAppBuilder();
   });
 }
 
-  // Save suite (create or edit)
-if (locationSuiteForm && locSuiteNameInput) {
-  locationSuiteForm.addEventListener("submit", async (e) => {
-    e.preventDefault();
+///////// ================================
+/////////////// Save Suite 
+//// ///================================
 
-    if (!selectedLocation || !selectedLocation.id) {
-      alert("No location selected for this suite.");
-      return;
-    }
-
-    const suiteName   = locSuiteNameInput.value.trim();
-    
-    const suiteDetail = locSuiteDetailsInput
-      ? locSuiteDetailsInput.value.trim()
-      : "";
-    const dateAvail   = locSuiteAvailableInput
-      ? locSuiteAvailableInput.value
-      : "";
-
-    if (!suiteName) {
-      alert("Please enter a suite name or number.");
-      return;
-    }
-
-    // 🔹 base values for the Suite record
-// 🔹 base values for the Suite record
-const values = {
-  "Suite Name": suiteName,
-  Details: suiteDetail,
-  "Date Available": dateAvail || null,
-  Location: { _id: selectedLocation.id },  // reference to Location
-
-    // 🎨 style fields (example names – match what’s in your DataType)
-  "Suite Background Color": document.getElementById("suite-bg-color")?.value || "",
-  "Suite Text Color":       document.getElementById("suite-text-color")?.value || "",
-  "Suite Accent Color":     document.getElementById("suite-accent-color")?.value || "",
-  "Suite Button Color":     document.getElementById("suite-button-color")?.value || "",
-
-  // 🧡 builder JSON – keep old one if the hidden input is empty
-  "Application Template":
-    (templateInput && templateInput.value.trim()) ||
-    (activeSuite && activeSuite.applicationTemplate) ||
-    "",
-
-  // extra questions text area
-  "Application Questions": (
-    document.getElementById("loc-suite-app-questions")?.value || ""
-  ).trim(),
-};
-
-// 🔹 Rent fields from the form
-const rentAmountInput   = document.getElementById("suite-rent-amount");
-const rentFrequencySel  = document.getElementById("suite-rent-frequency");
-
-const rentAmountVal = rentAmountInput
-  ? parseFloat(rentAmountInput.value || "")
-  : NaN;
-const rentFrequencyVal = rentFrequencySel
-  ? rentFrequencySel.value
-  : "";
-
-if (!Number.isNaN(rentAmountVal)) {
-  values["Rent Amount"] = rentAmountVal;
-}
-if (rentFrequencyVal) {
-  values["Rent Frequency"] = rentFrequencyVal; // "daily" / "weekly" / "bi weekly" / "monthly"
+//helpers
+//helpers
+function getApiBase() {
+  return (window.API_BASE || window.API || "http://localhost:8400").replace(/\/$/, "");
 }
 
-// 🔹 which application type to use on the public site
-let appMode = "template"; // default
-if (appModeRadios && appModeRadios.length) {
-  const checked = Array.from(appModeRadios).find((r) => r.checked);
-  if (checked && checked.value) {
-    appMode = checked.value;  // "template" or "file"
-  }
-}
-values["Application Mode"] = appMode;
+async function createSuiteRecord(values) {
+  const base = getApiBase();
 
- // 🔹 save the current builder template JSON with this suite **only if present**
-const templateRaw = (templateInput?.value || "").trim();
-if (templateRaw) {
-  values["Application Template"] = templateRaw;
-}
-// if templateRaw is empty, we don't send the key at all – backend keeps the old one
-
-    // 🔹 default image upload
-// 🆕 Application file upload
-if (locSuiteAppInput && locSuiteAppInput.files && locSuiteAppInput.files[0]) {
-  const appFile = locSuiteAppInput.files[0];
-  const fd = new FormData();
-  fd.append("file", appFile);
-
-  try {
-    const uploadRes = await fetch(`${API_BASE}/api/upload`, {
-      method: "POST",
-      credentials: "include",
-      body: fd,
-    });
-
-    if (!uploadRes.ok) {
-      const txt = await uploadRes.text().catch(() => "");
-      console.warn("[locations] suite application upload failed", uploadRes.status, txt);
-      alert(`Couldn't upload application file (${uploadRes.status}). Check console for details.`);
-    } else {
-      const uploadJson = await uploadRes.json().catch(() => ({}));
-      if (uploadJson && uploadJson.url) {
-        values["Application File"] = uploadJson.url;
-      }
-    }
-  } catch (err) {
-    console.error("[locations] suite application upload error", err);
-    alert("Something went wrong while uploading the application file.");
-  }
-} else if (activeSuite && activeSuite.applicationFileUrl) {
-  // 👈 preserve existing file if user didn't upload a new one
-  values["Application File"] = activeSuite.applicationFileUrl;
-}
-
-        // If user clicked the X and did NOT upload a new photo,
-    // explicitly clear the Default Image field.
-    if (
-      suitePhotoMarkedForRemoval &&
-      !(locSuitePhotoInput && locSuitePhotoInput.files && locSuitePhotoInput.files[0])
-    ) {
-      values["Default Image"] = "";   // clears the default image
-    }
-
-    // 🆕 Suite gallery upload (multiple images)
-    let galleryUrls = [];
-
-    // Use pendingSuiteGalleryFiles if we have them; fallback to input as backup
-    const suiteGallerySource =
-      pendingSuiteGalleryFiles && pendingSuiteGalleryFiles.length
-        ? pendingSuiteGalleryFiles
-        : (locSuiteGalleryInput && locSuiteGalleryInput.files
-            ? Array.from(locSuiteGalleryInput.files)
-            : []);
-
-    if (suiteGallerySource.length) {
-      for (const file of suiteGallerySource) {
-        const fd = new FormData();
-        fd.append("file", file);
-
-        try {
-          const uploadRes = await fetch(`${API_BASE}/api/upload`, {
-            method: "POST",
-            credentials: "include",
-            body: fd,
-          });
-
-          if (!uploadRes.ok) {
-            const txt = await uploadRes.text().catch(() => "");
-            console.warn(
-              "[locations] suite gallery upload failed",
-              uploadRes.status,
-              txt
-            );
-            continue; // skip this file, keep going
-          }
-
-          const uploadJson = await uploadRes.json().catch(() => ({}));
-          if (uploadJson && uploadJson.url) {
-            galleryUrls.push(uploadJson.url);
-          }
-        } catch (err) {
-          console.error("[locations] suite gallery upload error", err);
-          // skip this file and keep going
-        }
-      }
-    }
-
-// 🆕 Suite gallery: merge existing (minus removed) + new uploads
-const suiteId = locSuiteIdInput ? locSuiteIdInput.value.trim() : "";
-let finalGallery = [];
-
-// 1) start with existing gallery, minus any that were X'd out
-if (suiteId && activeSuite && Array.isArray(activeSuite.gallery)) {
-  const toRemove = suiteGalleryRemoveSet || new Set();
-  finalGallery = activeSuite.gallery.filter((url) => !toRemove.has(url));
-}
-
-// 2) add any newly-uploaded gallery URLs
-if (galleryUrls.length) {
-  finalGallery = finalGallery.concat(galleryUrls);
-}
-
-// 3) save to values – if empty, clear the field
-if (finalGallery.length) {
-  values["Suite Gallery"] = finalGallery;
-} else if (suiteId) {
-  // explicitly clear on edit if everything was removed
-  values["Suite Gallery"] = [];
-}
-
-
-    // 🆕 Application file upload
-    if (locSuiteAppInput && locSuiteAppInput.files && locSuiteAppInput.files[0]) {
-      const appFile = locSuiteAppInput.files[0];
-      const fd = new FormData();
-      fd.append("file", appFile);
-
-      try {
-        const uploadRes = await fetch(`${API_BASE}/api/upload`, {
-          method: "POST",
-          credentials: "include",
-          body: fd,
-        });
-
-        if (!uploadRes.ok) {
-          const txt = await uploadRes.text().catch(() => "");
-          console.warn("[locations] suite application upload failed", uploadRes.status, txt);
-          alert(`Couldn't upload application file (${uploadRes.status}). Check console for details.`);
-        } else {
-          const uploadJson = await uploadRes.json().catch(() => ({}));
-          if (uploadJson && uploadJson.url) {
-            values["Application File"] = uploadJson.url;
-          }
-        }
-      } catch (err) {
-        console.error("[locations] suite application upload error", err);
-        alert("Something went wrong while uploading the application file.");
-      }
-    }
-
-// 🔹 Save Suite record
-try {
-  const suiteId = locSuiteIdInput ? locSuiteIdInput.value.trim() : "";
-
-  const endpoint = suiteId
-    ? `${API_BASE}/api/records/Suite/${encodeURIComponent(suiteId)}`
-    : `${API_BASE}/api/records/Suite`;
-
-  const method = suiteId ? "PATCH" : "POST";
-
-  const res = await fetch(endpoint, {
-    method,
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json",
-    },
+  const res = await fetch(`${base}/api/records/Suite`, {
+    method: "POST",
     credentials: "include",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify({ values }),
   });
 
-  if (!res.ok) {
-    const txt = await res.text().catch(() => "");
-    console.warn("[locations] save suite failed", res.status, txt);
-    alert(`Couldn't save suite (${res.status}). Check console for details.`);
-    return;
-  }
-
-  const saved = await res.json().catch(() => null);
-  console.log("[locations] suite saved", saved);
-
-  // 🔹 pull record + id from response
-  const rawRecord =
-    (saved && (saved.data || saved.record || saved)) || null;
-
-  const savedId =
-    suiteId ||                // if we were editing, keep the same id
-    rawRecord?._id ||
-    rawRecord?.id ||
-    null;
-
-  const suiteValues =
-    (rawRecord && (rawRecord.values || rawRecord.record?.values)) ||
-    (saved && (saved.values || saved.record?.values)) ||
-    values ||
-    {};
-
-  // build the suite object we keep in memory
-    // build the suite object we keep in memory
-  const newSuite = {
-    id: savedId,
-    name: suiteValues["Suite Name"] || suiteValues.name || "",
-
-    dateAvail:
-      suiteValues["Date Available"] ||
-      suiteValues["Available Date"] ||
-      "",
-
-    availableText:
-      suiteValues["Available Text"] ||
-      suiteValues["Availability"] ||
-      (suiteValues["Date Available"] || suiteValues["Available Date"]
-        ? `Available: ${String(
-            suiteValues["Date Available"] || suiteValues["Available Date"]
-          ).slice(0, 10)}`
-        : ""),
-
-    details:
-      suiteValues["Suite Notes"] ||
-      suiteValues["Details"] ||
-      "",
-
-    // main photo
-    photoUrl:
-      suiteValues["Default image"] ||
-      suiteValues["Default Image"] ||
-      suiteValues["Default Photo"] ||
-      suiteValues["Suite Default Image"] ||
-      suiteValues["Suite Photo"] ||
-      suiteValues["Photo"] ||
-      "",
-
-    // gallery
-    gallery: Array.isArray(suiteValues["Suite Gallery"])
-      ? suiteValues["Suite Gallery"]
-      : [],
-
-    // ✅ rent fields
-    rentAmount:
-      suiteValues["Rent Amount"] ??
-      suiteValues["Suite Rent Amount"] ??
-      null,
-    rentFrequency:
-      suiteValues["Rent Frequency"] ||
-      suiteValues["Rent Schedule"] ||
-      "",
-
-    // ✅ application fields
-    applicationTemplate:
-      suiteValues["Application Template"] ||
-      suiteValues.applicationTemplate ||
-      (activeSuite && activeSuite.applicationTemplate) ||
-      "",
-
-    applicationFileUrl:
-      suiteValues["Application File"] ||
-      suiteValues["Application PDF"] ||
-      suiteValues.applicationFileUrl ||
-      (activeSuite && activeSuite.applicationFileUrl) ||
-      "",
-  };
-
-  // alias for old code that used .img
-  newSuite.img = newSuite.photoUrl;
-  activeSuite  = newSuite;
-
-
-  // refresh the list so the left side is up to date
-  if (selectedLocation && selectedLocation.id) {
-    await loadSuitesForLocation(selectedLocation.id);
-  }
-
-  // reset form + state
-  locationSuiteForm.reset();
-  if (locSuiteIdInput && savedId) locSuiteIdInput.value = savedId;
-
-  pendingSuiteGalleryFiles = [];
-  if (typeof renderSuitePendingGalleryPreview === "function") {
-    renderSuitePendingGalleryPreview();
-  }
-
-  // hide the form
-  if (locationSuiteFormCard) {
-    locationSuiteFormCard.style.display = "none";
-  }
-
-  // ✅ show the suite details card instead of going back to location details
-  if (typeof openSuiteDetails === "function") {
-    openSuiteDetails(newSuite);
-  }
-} catch (err) {
-  console.error("[locations] create suite error", err);
-  alert("Something went wrong while saving this suite. Please try again.");
+  const data = await readJsonSafe(res);
+  if (!res.ok) throw new Error(data?.error || data?.message || "Failed to create suite");
+  return data;
 }
 
+async function updateSuiteRecord(id, values) {
+  const base = getApiBase();
+
+  const res = await fetch(`${base}/api/records/Suite/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    credentials: "include",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify({ values }),
   });
+
+  const data = await readJsonSafe(res);
+  if (!res.ok) throw new Error(data?.error || data?.message || "Failed to update suite");
+  return data;
 }
 
 
 
-// Load all Suite records for a specific location
-
-
-async function loadSuitesForLocation(locationId) {
-  if (!locationSuitesList) return;
-  locationSuitesList.innerHTML = `<p class="muted">Loading suites…</p>`;
-
-  try {
-    const params = new URLSearchParams();
-    params.set("dataType", "Suite");
-    if (locationId) params.set("Location", locationId); // backend filter
-    params.set("limit", "200");
-
-    const res = await fetch(
-      `${API_BASE}/public/records?` + params.toString(),
-      {
-        credentials: "include",
-        headers: { Accept: "application/json" },
-      }
-    );
-
-    if (!res.ok) {
-      console.warn("[locations] loadSuitesForLocation HTTP", res.status);
-      locationSuitesList.innerHTML =
-        `<p class="muted">Couldn’t load suites for this location.</p>`;
-      return;
-    }
-
-    const body = await res.json();
-    const rows = Array.isArray(body)
-      ? body
-      : body.records || body.items || [];
-
-    const locIdStr = String(locationId || "");
-
-    // 🔹 Normalize each suite and add availability + rent info
-    let normalizedSuites = rows.map((row) => {
-      const base = normalizeSuite(row);        // 👈 has img + gallery
-      const v    = row.values || row;
-
-      // Availability
-      const availableDate =
-        v["Date Available"] || v["Available Date"] || null;
-
-      let availableText = "";
-      if (availableDate) {
-        availableText = `Available: ${String(availableDate).slice(0, 10)}`;
-      }
-
-      // Rent fields
-      const rentAmount =
-        v["Rent Amount"] ??
-        v["Suite Rent Amount"] ??
-        null;
-
-      const rentFrequency =
-        v["Rent Frequency"] ||
-        v["Rent Schedule"] ||
-        "";
-
-      const out = {
-        ...base,
-        availableDate,
-        availableText,
-        rentAmount,
-        rentFrequency,
-      };
-
-      console.log("[loadSuitesForLocation] normalized suite:", out);
-      return out;
-    });
-
-    // 🔹 Filter to this location on the front-end too
-    normalizedSuites = normalizedSuites.filter((s) =>
-      locIdStr ? String(s.locationId) === locIdStr : true
-    );
-
-    currentLocationSuites = normalizedSuites;
-
-    console.log("[loadSuitesForLocation] suites for location:", {
-      locationId: locIdStr,
-      count: currentLocationSuites.length,
-      currentLocationSuites,
-    });
-
-    if (!currentLocationSuites.length) {
-      locationSuitesList.innerHTML =
-        `<p class="muted">No suites added yet for this location.</p>`;
-      return;
-    }
-
-    locationSuitesList.innerHTML = "";
-
-    function formatSuiteRate(suite) {
-      const rawAmount = suite.rentAmount;
-      const rawFreq   = suite.rentFrequency || "";
-
-      if (rawAmount == null || rawAmount === "") return "";
-
-      const num = Number(rawAmount);
-      const amountStr = Number.isFinite(num)
-        ? num.toLocaleString(undefined, {
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 2,
-          })
-        : String(rawAmount);
-
-      const freqStr = String(rawFreq || "").trim();
-      return freqStr ? `$${amountStr} / ${freqStr}` : `$${amountStr}`;
-    }
-
-    currentLocationSuites.forEach((suite) => {
-      const card = document.createElement("div");
-      card.className = "location-suite-item";
-
-      const rateText = formatSuiteRate(suite);
-
-      // 👇 this uses normalizeSuite's img / gallery
-      const imgUrl =
-        suite.img ||
-        (Array.isArray(suite.gallery) && suite.gallery[0]) ||
-        "";
-
-      card.innerHTML = `
-        <div class="location-suite-main-row">
-          ${
-            imgUrl
-              ? `<img class="location-suite-thumb" src="${imgUrl}" alt="${suite.name || "Suite"}">`
-              : ""
-          }
-          <div class="location-suite-text">
-            <strong>${suite.name || "Untitled suite"}</strong>
-            ${
-              suite.availableText
-                ? `<div class="muted">${suite.availableText}</div>`
-                : ""
-            }
-            ${
-              rateText
-                ? `<div class="muted">${rateText}</div>`
-                : ""
-            }
-          </div>
-        </div>
-      `;
-
-      // open suite details when clicked
-      card.addEventListener("click", () => {
-        openSuiteDetails(suite);
-      });
-
-      locationSuitesList.appendChild(card);
-    });
-  } catch (err) {
-    console.error("[locations] loadSuitesForLocation error", err);
-    if (locationSuitesList) {
-      locationSuitesList.innerHTML =
-        `<p class="muted">Error loading suites for this location.</p>`;
-    }
-  }
-}
-
-
-
-// Close suite details
-locationSuiteDetailsClose?.addEventListener("click", () => {
-  // hide the suite details card
-  if (locationSuiteDetailsCard) {
-    locationSuiteDetailsCard.style.display = "none";
-  }
-
-  // show the location view again
-  if (locationDetailsGrid)  locationDetailsGrid.style.display = "grid";  // or "block"
-  if (locationSuitesHeader) locationSuitesHeader.style.display = "flex";
-  if (locationSuitesList)   locationSuitesList.style.display   = "block";
-
-  // OPTIONAL: if you hid the main Locations header above, re-show it here:
-  // if (locationsHeader) locationsHeader.style.display = "flex";
-});
-
-
-// =====================
-// Edit Suite button
-// =====================
-if (locationSuiteEditBtn) {
-  locationSuiteEditBtn.addEventListener("click", () => {
-    if (!activeSuite) return;
-    if (!locationSuiteFormCard || !locationSuiteForm) return;
-
-    // 👇 add this line here
-    console.log("[edit-suite] file url:", activeSuite.applicationFileUrl);
-// show existing application file text/link
-if (locSuiteCurrentApp) {
-  if (activeSuite.applicationFileUrl) {
-    locSuiteCurrentApp.innerHTML = `
-      <a href="${activeSuite.applicationFileUrl}"
-         target="_blank"
-         rel="noopener">
-        View current application
-      </a>
-    `;
-  } else {
-    locSuiteCurrentApp.textContent = "No application uploaded yet.";
-  }
-}
-
-    // Put suite ID in hidden input so we know it's an edit
-    if (locSuiteIdInput) {
-      locSuiteIdInput.value = activeSuite.id || "";
-    }
-
-    if (locSuiteNameInput) {
-      locSuiteNameInput.value = activeSuite.name || "";
-    }
-
-    if (locSuiteDetailsInput) {
-      locSuiteDetailsInput.value = activeSuite.details || "";
-    }
-
-    if (locSuiteAvailableInput) {
-      locSuiteAvailableInput.value = activeSuite.dateAvail || "";
-    }
-
-    // 🔹 load any saved application template JSON into the hidden input
-    const templateInput =
-      document.getElementById("loc-suite-application-template");
-    if (templateInput) {
-      templateInput.value =
-        activeSuite.applicationTemplate ||
-        activeSuite["Application Template"] ||
-        "";
-      refreshSuiteAppStatus();
-    }
-
-    // 🔹 restore which application mode is selected
-    if (appModeRadios && appModeRadios.length) {
-      const mode =
-        activeSuite.applicationMode ||
-        activeSuite["Application Mode"] ||
-        "template";
-
-      appModeRadios.forEach((r) => {
-        r.checked = (r.value === mode);
-      });
-    }
-
-
-
-function refreshSuiteAppStatus() {
-  if (!suiteAppStatusSpan) return;
-
-  // look at hidden input AND activeSuite’s values
-  const raw =
-    (templateInput && templateInput.value && templateInput.value.trim()) ||
-    (activeSuite &&
-      (activeSuite.applicationTemplate ||
-        activeSuite["Application Template"])) ||
-    "";
-
-  const hasTemplate = !!raw && raw !== "{}";
-
-  if (!hasTemplate) {
-    suiteAppStatusSpan.textContent = "No template yet";
-    suiteAppStatusSpan.classList.remove("suite-app-clickable");
-    suiteAppStatusSpan.onclick = null;
-    return;
-  }
-
-  // ✅ show clickable status
-  suiteAppStatusSpan.textContent = "Template saved – click to preview";
-  suiteAppStatusSpan.classList.add("suite-app-clickable");
-
-  suiteAppStatusSpan.onclick = () => {
-    const tmplJson =
-      (templateInput && templateInput.value && templateInput.value.trim()) ||
-      (activeSuite &&
-        (activeSuite.applicationTemplate ||
-          activeSuite["Application Template"])) ||
-      "";
-
-    openSuiteTemplatePreview(tmplJson);
-  };
-}
-
-
-    // if you added the "Location: ___" text inside the suite form
-    if (locSuiteLocationName && selectedLocation) {
-      locSuiteLocationName.textContent = selectedLocation.name || "";
-    }
-
-   // ✅ show existing default image with X button
-suitePhotoMarkedForRemoval = false;   // reset each time we enter edit mode
-
-if (locSuiteCurrentPhoto) {
-  locSuiteCurrentPhoto.innerHTML = "";
-
-  if (activeSuite.img) {
-    locSuiteCurrentPhoto.innerHTML = `
-      <div class="suite-current-photo-wrapper">
-        <img
-          src="${activeSuite.img}"
-          alt="Current default image"
-          style="max-width: 220px; border-radius: 12px;"
-        />
-        <button
-          type="button"
-          class="suite-remove-photo-btn"
-          title="Remove this photo"
-        >
-          ×
-        </button>
-      </div>
-    `;
-
-    const removeBtn = locSuiteCurrentPhoto.querySelector(".suite-remove-photo-btn");
-    if (removeBtn) {
-      removeBtn.addEventListener("click", () => {
-        suitePhotoMarkedForRemoval = true;
-        locSuiteCurrentPhoto.textContent =
-          "Photo will be removed when you save.";
-      });
-    }
-  } else {
-    locSuiteCurrentPhoto.textContent = "No photo uploaded yet.";
-  }
-}
-
-    // clear file inputs (browser won't allow prefilling)
-    if (locSuitePhotoInput)   locSuitePhotoInput.value = "";
-    if (locSuiteGalleryInput) locSuiteGalleryInput.value = "";
-    if (locSuiteAppInput)     locSuiteAppInput.value = "";
-
-// 🆕 reset removal set each time we enter edit mode
-suiteGalleryRemoveSet = new Set();
-
-// show existing gallery with X buttons
-if (locSuiteCurrentGallery) {
-  locSuiteCurrentGallery.innerHTML = "";
-
-  if (activeSuite.gallery && activeSuite.gallery.length) {
-    activeSuite.gallery.forEach((url) => {
-      const wrapper = document.createElement("div");
-      wrapper.className = "suite-gallery-item";
-
-      wrapper.innerHTML = `
-        <img
-          src="${url}"
-          class="suite-gallery-thumb"
-          alt="Suite gallery image"
-        />
-        <button
-          type="button"
-          class="suite-gallery-remove-btn"
-          title="Remove this image"
-        >
-          ×
-        </button>
-      `;
-
-      const removeBtn = wrapper.querySelector(".suite-gallery-remove-btn");
-      if (removeBtn) {
-        removeBtn.addEventListener("click", () => {
-          suiteGalleryRemoveSet.add(url);  // mark this URL for removal
-          wrapper.remove();                // remove from the UI
-        });
-      }
-
-      locSuiteCurrentGallery.appendChild(wrapper);
-    });
-  } else {
-    locSuiteCurrentGallery.textContent = "No gallery images uploaded yet.";
-  }
-}
-
-
-    // show existing application file
-    if (locSuiteCurrentApp) {
-      if (activeSuite.applicationFileUrl) {
-        locSuiteCurrentApp.innerHTML = `
-          <a href="${activeSuite.applicationFileUrl}" target="_blank" rel="noopener">
-            View current application
-          </a>
-        `;
-      } else {
-        locSuiteCurrentApp.textContent = "No application uploaded yet.";
-      }
-    }
-
-    // 👇 keep the outer location card visible,
-    // but hide the header + grid + suites list so the form feels clean
-    if (locationDetailsCard)  locationDetailsCard.style.display = "block";
-   if (locationsHeader)      locationsHeader.style.display = "none";
-    if (locationSuitesHeader) locationSuitesHeader.style.display = "none";
-    if (locationDetailsGrid)  locationDetailsGrid.style.display = "none";
-    if (locationSuitesList)   locationSuitesList.style.display = "none";
-
-    // show suite form, hide suite-details panel
-    locationSuiteFormCard.style.display   = "block";
-    locationSuiteDetailsCard.style.display = "none";
-
-    locationSuiteFormCard.scrollIntoView({ behavior: "smooth", block: "start" });
-  });
-}
-
-// =====================
-// Delete Suite button
-// =====================
-if (locationSuiteDeleteBtn) {
-  locationSuiteDeleteBtn.addEventListener("click", async () => {
-    if (!activeSuite || !activeSuite.id) return;
-    if (!selectedLocation || !selectedLocation.id) return;
-
-    const ok = confirm(
-      `Are you sure you want to delete "${activeSuite.name || "this suite"}"?`
-    );
-    if (!ok) return;
+//Save Suite
+function initSuiteSave() {
+  const suiteForm = document.getElementById("location-suite-form");
+  if (!suiteForm) return;
+
+  suiteForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    if (!currentUser?.id) return alert("You must be logged in.");
+    if (!selectedLocation) return alert("Open a location first.");
+
+    const locationId = selectedLocation._id || selectedLocation.id;
+    if (!locationId) return alert("Missing location id.");
+
+    // detect create vs edit
+    const suiteId = document.getElementById("loc-suite-id")?.value?.trim();
+    const isEditing = !!suiteId;
+
+// read inputs
+const name = document.getElementById("loc-suite-name")?.value?.trim() || "";
+
+// ✅ FIX: use the REAL input id from your HTML
+const rent = document.getElementById("suite-rent-amount")?.value?.trim() || "";
+const freq = document.getElementById("suite-rent-frequency")?.value?.trim() || "";
+
+const detailsHtml = document.getElementById("loc-suite-details")?.value || "";
+const availableDate =
+  document.getElementById("loc-suite-available")?.value?.trim() || "";
+
+if (!name) return alert("Suite name is required.");
+
+// ✅ ADD THIS RIGHT HERE
+const rentNum = rent === "" ? null : Number(rent);
+
+// ✅ build values AFTER rent+freq exist
+const values = {
+  "Suite Name": name,
+  "Date Available": availableDate,
+  "Details": detailsHtml,
+
+  // ✅ REAL fields (your DataType fields)
+  "Rent Amount": Number.isFinite(rentNum) ? rentNum : null,
+  "Rent Frequency": freq || "",
+
+  // ✅ compatibility fields (older code paths)
+  "Suite Rent": rent,
+  "Rate": rent,
+  "Rate Frequency": freq,
+  "Frequency": freq,
+
+  // ✅ link suite -> location
+  "Location": locationId,
+
+  ownerUserId: currentUser.id,
+  "Created By": currentUser.id,
+};
+// ✅ Application template JSON (saved from the builder modal)
+const tpl =
+  document.getElementById("loc-suite-application-template")?.value?.trim() || "";
+
+console.log("[suite save] tpl len:", tpl.length, "tpl preview:", tpl.slice(0, 80));
+
+values["Application Template"] = tpl; // pick ONE field name and keep it consistent
+
+
+console.log("[suite save] isEditing:", isEditing);
+console.log("[suite save] suiteId:", suiteId);
+console.log("[suite save] locationId:", locationId);
+console.log("[suite save] values BEFORE uploads:", JSON.parse(JSON.stringify(values)));
+
 
     try {
-      const endpoint = `${API_BASE}/api/records/Suite/${encodeURIComponent(
-        activeSuite.id
-      )}`;
+      // ✅ save images (if you’re doing default photo + gallery)
+      // Example for gallery (you already have this pattern):
+      // values["Gallery Images"] = [...keptOld, ...newUrls];
+      // values["Default Photo"] = mainUrl;
 
-      const nowIso = new Date().toISOString();
+// default photo
+if (pendingSuiteMainPhotoFile) {
+  const url = await uploadOneImage(pendingSuiteMainPhotoFile);
+  values["Default Photo"] = url;
+} else if (suitePhotoMarkedForRemoval) {
+  values["Default Photo"] = "";
+} else {
+  values["Default Photo"] = existingSuiteMainPhotoUrl || "";
+}
 
-      const res = await fetch(endpoint, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify({
-          deletedAt: nowIso,
-          values: {
-            deletedAt: nowIso,
-            "Deleted At": nowIso,
-            isDeleted: true,
-          },
-        }),
-      });
+// gallery
+const keptOld = (existingSuiteGalleryUrls || []).filter(
+  (u) => !suiteGalleryRemoveSet.has(u)
+);
 
-      if (!res.ok) {
-        const txt = await res.text().catch(() => "");
-        console.warn("[locations] delete suite failed", res.status, txt);
-        alert(`Couldn't delete suite (${res.status}). Check console for details.`);
-        return;
+const newUrls = [];
+for (const file of pendingSuiteGalleryFiles) {
+  const url = await uploadOneImage(file);
+  newUrls.push(url);
+}
+
+values["Gallery Images"] = [...keptOld, ...newUrls];
+console.log("[suite save] values AFTER uploads:", JSON.parse(JSON.stringify(values)));
+
+    let saved;
+if (isEditing) {
+  saved = await updateSuiteRecord(suiteId, values);
+} else {
+  saved = await createSuiteRecord(values);
+}
+
+console.log("[suite save] server returned:", saved);
+console.log("[suite save] server returned values:", saved?.values || saved?.record?.values);
+
+const savedId =
+  saved?._id ||
+  saved?.id ||
+  saved?.record?._id ||
+  saved?.record?.id ||
+  suiteId;
+
+if (savedId) {
+  const fresh = await fetchSuiteById(savedId);
+  console.log("[suite save] fresh from DB:", fresh);
+  console.log("[suite save] fresh values:", fresh?.values || fresh?.record?.values);
+}
+
+
+      // ✅ refresh the location details view & suites list
+      // If you have loadSuitesForLocation:
+      if (typeof loadSuitesForLocation === "function") {
+        await loadSuitesForLocation(locationId);
       }
 
-      console.log("[locations] suite deleted");
+      // ✅ go back to location details (NOT the locations list)
+      exitSuiteMode();
+      if (selectedLocation) showLocationDetails(selectedLocation);
 
-      // Hide details + refresh the list of suites
-      activeSuite = null;
-      if (locationSuiteDetailsCard) {
-        locationSuiteDetailsCard.style.display = "none";
-      }
-
-      await loadSuitesForLocation(selectedLocation.id);
+      alert("Suite saved!");
     } catch (err) {
-      console.error("[locations] delete suite error", err);
-      alert("Something went wrong while deleting this suite. Please try again.");
+      console.error("[suite] save error", err);
+      alert(err?.message || "Failed to save suite.");
     }
   });
 }
 
-// Go back to locations from Suite
-// Go back from the Suite *form* to this Location's details
-locationSuiteBackBtn?.addEventListener("click", () => {
-  // hide the add/edit suite form
-  if (locationSuiteFormCard) {
-    locationSuiteFormCard.style.display = "none";
-  }
-
-  // show the location details again (same location)
-  if (locationDetailsCard)   locationDetailsCard.style.display = "block";
-  if (locationDetailsGrid)   locationDetailsGrid.style.display = "grid";
-  if (locationSuitesHeader)  locationSuitesHeader.style.display = "flex";
-  if (locationSuitesList)    locationSuitesList.style.display = "block";
-
-  // IMPORTANT: do NOT clear selectedLocation
-  // IMPORTANT: do NOT show the main locations list here
-});
 
 
+///////// ================================
+/////////////// Edit Suite 
+//// ///================================
+
+function openSuiteCreateForm(location) {
+  selectedSuite = null;
+
+  const popup = document.getElementById("popup-add-suite"); // change to your popup id
+  const form  = document.getElementById("popup-add-suite-form"); // change to your form id
+
+  // hidden fields
+  document.getElementById("suite-id").value = "";
+  document.getElementById("suite-location-id").value = location?._id || location?.id || "";
+
+  // reset fields
+  form?.reset();
+
+  // UI labels/buttons
+  document.getElementById("suite-form-title").textContent = "Add suite";
+  document.getElementById("suite-save-btn").textContent = "Save suite";
+  document.getElementById("suite-delete-btn")?.classList.add("hidden"); // hide delete in create
+
+  popup.style.display = "block";
+}
+
+
+function openSuiteEditForm(suite) {
+  selectedSuite = suite;
+
+  const popup = document.getElementById("popup-add-suite");      // change to your popup id
+  const form  = document.getElementById("popup-add-suite-form"); // change to your form id
+  if (!popup || !form) return;
+
+  const v = suite?.values || suite || {};
+const suiteId =
+  selectedSuite?._id ||
+  selectedSuite?.id ||
+  document.getElementById("loc-suite-id")?.value?.trim();
+
+
+  // IMPORTANT: store location reference too (whatever your field is)
+  const locId =
+    v.locationId ||
+    v.suiteLocationId ||
+    v.parentLocationId ||
+    v["locationId"] ||
+    v["Location"] || // if you store Location field as an id
+    "";
+
+  document.getElementById("suite-location-id").value = locId || "";
+
+  // prefill inputs (match your exact input ids)
+  document.getElementById("suite-name").value =
+    v["Suite Name"] || v.name || "";
+
+  document.getElementById("suite-available-date").value =
+    v["Date Available"] || v.availableDate || "";
+
+  document.getElementById("suite-rent").value =
+    v["Suite Rent"] || v.rate || "";
+
+  document.getElementById("suite-frequency").value =
+    v["Rate Frequency"] || v.frequency || "weekly";
+
+  // UI labels/buttons
+  document.getElementById("suite-form-title").textContent = "Edit suite";
+  document.getElementById("suite-save-btn").textContent = "Update suite";
+  document.getElementById("suite-delete-btn")?.classList.remove("hidden");
+
+  popup.style.display = "block";
 }
 
 
 
 
+function openSuiteEditModeFromDetails() {
+  const suite = selectedSuite;
+  if (!suite) return;
+
+   enterSuiteMode();
+  const v = suite.values || suite || {};
+
+  const locationSuiteFormCard    = document.getElementById("location-suite-form-card");
+  const locationSuiteDetailsCard = document.getElementById("location-suite-details-card");
+  const locationDetailsHeader    =
+    document.querySelector("#location-details-card .location-details-header") ||
+    document.getElementById("location-details-header");
+  const locationDetailsGrid      = document.getElementById("location-details-grid");
+  const locationSuitesHeader     = document.getElementById("location-suites-header");
+  const locationSuitesList       = document.getElementById("location-suites-list");
+
+  const locSuiteIdInput        = document.getElementById("loc-suite-id");
+  const locSuiteNameInput      = document.getElementById("loc-suite-name");
+  const locSuiteAvailableInput = document.getElementById("loc-suite-available"); // ✅ your id
+ const locSuiteRentInput = document.getElementById("suite-rent-amount");       // ✅ if you have it
+const locSuiteFreqInput = document.getElementById("suite-rent-frequency");
+
+  // show form / hide details
+  if (locationSuiteFormCard) locationSuiteFormCard.style.display = "block";
+  if (locationSuiteDetailsCard) locationSuiteDetailsCard.style.display = "none";
+
+  // hide rest of location UI while editing
+  if (locationDetailsHeader) locationDetailsHeader.style.display = "none";
+  if (locationDetailsGrid) locationDetailsGrid.style.display = "none";
+  if (locationSuitesHeader) locationSuitesHeader.style.display = "none";
+  if (locationSuitesList) locationSuitesList.style.display = "none";
+
+  // mark edit mode
+  const suiteId = suite._id || suite.id || "";
+  if (locSuiteIdInput) locSuiteIdInput.value = suiteId;
+
+  // prefill inputs
+  if (locSuiteNameInput) locSuiteNameInput.value = v["Suite Name"] || v.name || "";
+
+  if (locSuiteAvailableInput)
+    locSuiteAvailableInput.value = v["Date Available"] || v["Available Date"] || v.availableDate || "";
+
+// ---- prefill rent + freq ----
+if (locSuiteRentInput)
+  locSuiteRentInput.value =
+    v["Rent Amount"] ??
+    v["Suite Rent"] ??
+    v["Rate"] ??
+    v.rent ??
+    v.rate ??
+    "";
+
+if (locSuiteFreqInput)
+  locSuiteFreqInput.value =
+    v["Rent Frequency"] ??
+    v["Rate Frequency"] ??
+    v["Frequency"] ??
+    v.frequency ??
+    "";
 
 
+// ---- restore existing images into the preview system ----
+const existingMain =
+  v["Default Photo"] ||
+  v["Default Image"] ||
+  v.photoUrl ||
+  v.heroImageUrl ||
+  v.heroImage ||
+  "";
+
+const existingGalleryRaw =
+  v["Gallery Images"] ||
+  v["Suite Gallery"] ||
+  v.gallery ||
+  [];
+
+const existingGallery = Array.isArray(existingGalleryRaw) ? existingGalleryRaw : [];
+
+// reset preview state using your helpers
+window._resetSuiteMainPhotoPreview?.(existingMain);
+window._resetSuiteGalleryPreview?.(existingGallery, new Set());
+
+// also make sure your globals match (so Save works correctly)
+existingSuiteMainPhotoUrl = existingMain || "";
+existingSuiteGalleryUrls = existingGallery;
+suiteGalleryRemoveSet = new Set();
+pendingSuiteMainPhotoFile = null;
+pendingSuiteGalleryFiles = [];
+suitePhotoMarkedForRemoval = false;
+
+// re-render existing gallery area
+renderExistingSuiteGallery?.();
 
 
+  // quill details
+  initSuiteDetailsEditor();
+  setSuiteDetailsHTML(v["Details"] || "");
 
-// ================================
-// MAIN INIT (auth + sidebar + tabs + locations)
-// ================================
-document.addEventListener("DOMContentLoaded", async () => {
-  console.log("[suite-settings] DOM ready");
+  // switch UI mode (if you have this helper)
+  if (typeof setSuiteFormMode === "function") setSuiteFormMode(true);
 
-  // 1) figure out the current user
-  const user = await getSignedInUser();
-  console.log("[suite-settings] currentUser:", user);
-
-  currentUser = user || null;   // ✅ keep it in a global
-
-  // 2) auth header + login popup
-  initAuthUI(user);
-
-  // 3) sidebar collapse + tab switching
-  const app        = document.getElementById("app");
-  const collapseBtn = document.getElementById("collapseBtn");
-  const nav        = document.getElementById("nav");
-  const sections   = document.querySelectorAll(".section");
-  // collapse / expand
-  collapseBtn?.addEventListener("click", () => {
-    app.classList.toggle("collapsed");
-  });
-
-  function applyInitialCollapse() {
-    if (window.innerWidth <= 900) {
-      app.classList.add("collapsed");
-    }
-  }
-  applyInitialCollapse();
-  window.addEventListener("resize", () => {
-    if (window.innerWidth <= 900) {
-      app.classList.add("collapsed");
-    }
-  });
-
-  // tab switching
-let suitesTabInitialized = false; // put this near your other top-level vars
-
-nav?.addEventListener("click", (e) => {
-  const btn = e.target.closest("button[data-target]");
-  if (!btn) return;
-
-  const targetId = btn.dataset.target;
-
-  nav.querySelectorAll("button").forEach((b) => {
-    b.classList.toggle("active", b === btn);
-  });
-
-  sections.forEach((sec) => {
-    sec.classList.toggle("active", sec.id === targetId);
-  });
-
-  // 👇 NEW: when Suites tab is opened, load apps (All locations)
-  if (targetId === "suites") {
-    suitesCurrentLocationFilter = suitesLocationFilter?.value || "";
-
-    if (!suiteApplications.length) {
-      // first time → fetch from server then render
-      loadAllSuiteApplications();
-    } else {
-      // already loaded once → just re-render with current filter
-      renderSuiteApplications();
-    }
-  }
-});
-
-
-  // 4) locations (uses the same user we just fetched)
-  initLocationForm(user);
-
-    // 5) Suities UI (no backend yet)
-  initSuitieForm(user);
-});
-
-// helper: click a sidebar nav button by its data-target
-function openSection(targetId) {
-  const btn = document.querySelector(
-    `#nav button[data-target="${targetId}"]`
-  );
-  if (btn) btn.click();
+  locationSuiteFormCard?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
-// Dashboard card shortcuts
-const dashCardLocations  = document.getElementById("dash-card-locations");
-const dashCardSuities    = document.getElementById("dash-card-suities");
-const dashCardMaint      = document.getElementById("dash-card-maint");
-
-dashCardLocations?.addEventListener("click", () => {
-  openSection("locations");
-});
-
-dashCardSuities?.addEventListener("click", () => {
-  openSection("suities");
-});
-
-dashCardMaint?.addEventListener("click", () => {
-  openSection("maintenance");
-});
 
 
 
+///////// ================================
+/////////////// Delete Suite 
+//// ///================================
+async function deleteSuiteRecord(id) {
+  const base = (window.API_BASE || API_BASE || "http://localhost:8400").replace(/\/$/, "");
 
+  // IMPORTANT: this "Suite" must match your DataType name in Mongo
+  const typeName = "Suite";
 
-
-
-
-
-
-
-// ================================
-// Suities: save to backend (DataType "Suitie")
-// ================================
-function initSuitieForm(currentUser) {
-  const addBtn     = document.getElementById("suities-add-btn");
-  const formCard   = document.getElementById("suities-form-card");
-  const cancelBtn  = document.getElementById("suitie-cancel-btn");
-  const form       = document.getElementById("suitie-form");
-
-  const suiteSelect = document.getElementById("suitie-suite-select");
-
-  const firstInput  = document.getElementById("suitie-first");
-  const lastInput   = document.getElementById("suitie-last");
-  const emailInput  = document.getElementById("suitie-email");
-  const phoneInput  = document.getElementById("suitie-phone");
-  const noteInput   = document.getElementById("suitie-note");
-  const listEl      = document.getElementById("suities-list");
-  const appFileInput = document.getElementById("suitie-app-file");
-  const appDisplay   = document.getElementById("suitie-details-app");
-
-  const photoFileInput = document.getElementById("suitie-photo-file");
-const photoDisplay   = document.getElementById("suitie-details-photo");
-
-
-  const detailsCard   = document.getElementById("suitie-details-card");
-  const detailsTitle  = document.getElementById("suitie-details-title");
-  const detailsSuite  = document.getElementById("suitie-details-suite");
-  const detailsName   = document.getElementById("suitie-details-name");
-  const detailsEmail  = document.getElementById("suitie-details-email");
-  const detailsPhone  = document.getElementById("suitie-details-phone");
-  const detailsNote   = document.getElementById("suitie-details-note");
-
-  const rentAmountEl  = document.getElementById("rent-amount-display");
-  const rentDueEl     = document.getElementById("rent-due-display");
-  const rentPaidEl    = document.getElementById("rent-paid-display");
-  const rentLateEl    = document.getElementById("rent-late-display");
-  const rentInput     = document.getElementById("suitie-rent");
-  const rentDueInput  = document.getElementById("suitie-rent-due");
-  const editBtn       = document.getElementById("suitie-edit-btn");
-  const backBtn       = document.getElementById("suitie-back-btn");
-const deleteBtn     = document.getElementById("suitie-delete-btn");
-
-const suitieFilterRow  = document.getElementById("suitie-filter-row");
-const suitieIntroText  = document.getElementById("suitie-intro-text");
-const suitieFormCard   = document.getElementById("suitie-form-card"); // your Add Suitie form
-const suitieCancelBtn  = document.getElementById("suitie-cancel-btn");
-const suitieAddBtn     = document.getElementById("suitie-add-btn");
-
-
-let suities = [];
-let currentLocationFilter = "";   // "" means "All locations"
-
-const suitieLocationFilter = document.getElementById("suities-location-filter");
-
-let suites = [];                  // 👈 keep all loaded Suite records here
-
-
-
-
-
-
-  //Delete Suitie
-  deleteBtn?.addEventListener("click", async () => {
-  if (!selectedSuitie || !selectedSuitie.id) return;
-
-  const sure = confirm(
-    "Are you sure you want to delete this suitie? This will remove it from your list."
-  );
-  if (!sure) return;
-
-  try {
-    const endpoint = `${API_BASE}/api/records/Suitie/${encodeURIComponent(
-      selectedSuitie.id
-    )}`;
-
-    const res = await fetch(endpoint, {
+  const res = await fetch(
+    `${base}/api/records/${encodeURIComponent(typeName)}/${encodeURIComponent(id)}`,
+    {
       method: "DELETE",
       credentials: "include",
       headers: { Accept: "application/json" },
-    });
-
-    if (!res.ok) {
-      const txt = await res.text().catch(() => "");
-      console.warn("[suities] delete failed", res.status, txt);
-      alert(`Couldn't delete suitie (${res.status}). Check console for details.`);
-      return;
     }
+  );
 
-    console.log("[suities] deleted", selectedSuitie.id);
+const data = await readJsonSafe(res);
+if (!res.ok) throw new Error(data?.error || data?.message || `Failed (${res.status})`);
 
-    // reload list + reset UI
-    await loadSuities();
-    selectedSuitie = null;
-    if (detailsCard) detailsCard.style.display = "none";
-    if (listEl) listEl.style.display = "block";
-  } catch (err) {
-    console.error("[suities] delete error", err);
-    alert("Something went wrong while deleting this suitie. Please try again.");
-  }
-});
+  return data;
+}
 
-  // helper: safely read a text field from row.values
-  function getText(v, label) {
-    const raw = v[label];
-    if (raw == null) return "";
-    if (typeof raw === "string") return raw;
-    if (typeof raw === "object") {
-      // handle shapes like { value: "..."} or { text: "..." }
-      return raw.value || raw.text || raw.label || raw.name || "";
+
+function initSuiteDeleteButton() {
+  const delBtn = document.getElementById("location-suite-delete-btn");
+  if (!delBtn) return;
+
+  delBtn.addEventListener("click", async () => {
+    const suiteId =
+  selectedSuite?._id ||
+  selectedSuite?.id ||
+  document.getElementById("loc-suite-id")?.value?.trim();
+
+    if (!suiteId) return alert("No suite selected to delete.");
+
+    const v = selectedSuite?.values || selectedSuite || {};
+    const name = v["Suite Name"] || v.name || "this suite";
+
+    const ok = window.confirm(`Delete "${name}"? This cannot be undone.`);
+    if (!ok) return;
+
+    try {
+        console.log("[delete] suiteId from hidden input:", suiteId);
+console.log("[delete] selectedSuite:", selectedSuite);
+
+      await deleteSuiteRecord(suiteId);
+
+      // refresh list
+      const locationId = selectedLocation?._id || selectedLocation?.id;
+      if (locationId) await loadSuitesForLocation(locationId);
+
+      // close suite form and return to location details
+      exitSuiteMode();
+      if (selectedLocation) showLocationDetails(selectedLocation);
+
+      // clear selection
+      selectedSuite = null;
+      document.getElementById("loc-suite-id").value = "";
+setSuiteFormMode(false);
+
+      alert("Suite deleted.");
+    } catch (err) {
+      console.error("[suite] delete error", err);
+      alert(err?.message || "Failed to delete suite.");
     }
-    return "";
-  }
+  });
+}
+
+function setSuiteFormMode(isEditing) {
+  const delBtn = document.getElementById("location-suite-delete-btn");
+  if (delBtn) delBtn.style.display = isEditing ? "inline-flex" : "none";
+}
 
 
-  // ---- Normalize one Suitie record from API → simple object ----
-function normalizeSuitie(row) {
-  const v = row.values || row;
+///////// ================================
+/////////////// Show if there is a application in suite details section 
+//// ///================================
 
-  // --- Location reference ---
-  const locRef = v.Location || v["Location"] || null;
-  const locVals = (locRef && (locRef.values || locRef)) || {};
-  const locationId =
-    (locRef && (locRef._id || locRef.id)) ||
-    v.locationId ||
-    "";
-  const locationLabel =
-    getText(locVals, "Location Name") ||
-    getText(locVals, "Name") ||
-    "";
 
-  // --- Suite reference (what you already had) ---
-  const suiteRef   = v.Suite || v.suite || null;
-  const suiteVals  = (suiteRef && (suiteRef.values || suiteRef)) || {};
-  const suiteId    =
-    (suiteRef && (suiteRef._id || suiteRef.id)) ||
-    v.suiteId ||
-    "";
+function getSuiteTemplateJson(suite) {
+  const v = suite?.values || suite || {};
 
-  const suiteLabel =
-    getText(suiteVals, "Suite Number/Name") ||
-    getText(suiteVals, "Suite Name") ||
-    suiteVals.name ||
-    "";
+  const fromSuite =
+    (v["Application Template"] ||
+      v["Application Template JSON"] ||
+      v["Template Json"] ||
+      suite?.applicationTemplate ||
+      "") + "";
 
-  const suiteName =
-    getText(v, "Suite Number/Name") ||
-    getText(v, "Suite Name") ||
-    getText(v, "Location Name") ||
-    getText(v, "Name");
-
-  const firstName = getText(v, "First Name");
-  const lastName  = getText(v, "Last Name");
-  const email     = getText(v, "Email");
-  const phone     = getText(v, "Phone Number");
-  const note      = getText(v, "Note");
-
-  console.log("[suities] normalizeSuitie debug", {
-    row,
-    values: v,
-    keys: Object.keys(v || {}),
-    suiteName,
-    suiteLabel,
-    locationId,
-    locationLabel,
-    firstName,
-    lastName,
+  console.log("[app status] fromSuite:", {
+    suiteId: suite?._id || suite?.id,
+    fromSuiteLen: fromSuite.length,
+    fromSuitePreview: fromSuite.slice(0, 120),
+    keys: Object.keys(v || {}).slice(0, 30),
   });
 
-  return {
-    id: row._id || row.id || "",
-    suiteId,
-    suiteName,
-    suiteLabel,
-    locationId,    // 👈 important
-    locationLabel, // 👈 optional, for display later
-
-    firstName,
-    lastName,
-    email,
-    phone,
-    note,
-
-    rentAmount: v["Suite Rent"]     || null,
-    rentDue:    v["Rent Due Date"]  || v["Rent Due"] || null,
-    rentPaid:   v["Rent Paid Date"] || null,
-    lateFee:    v["Late Fee"]       || null,
-
-    appFileUrl:
-      v["Application File"] ||
-      v["Application URL"] ||
-      null,
-
-    photoUrl:
-      v["Suitie Photo"] ||
-      v["Photo URL"] ||
-      v["Photo"] ||
-      v.photoUrl ||
-      null,
-
-    applicationTemplate:
-      v.applicationTemplate || v["Application Template"] || "",
-    applicationPdf:
-      v.applicationPdf ||
-      v["Application PDF URL"] ||
-      v["Application PDF"] ||
-      "",
-
-    values: v,
-  };
+  return fromSuite.trim();
 }
-function refreshSuitieLocationDropdown() {
-  if (!suitieLocationFilter) return;
 
-  // reset dropdown
-  suitieLocationFilter.innerHTML = `<option value="">All locations</option>`;
 
-  // pull locations that the Locations section loaded
-  const locs =
-    window.STATE && Array.isArray(window.STATE.locations)
-      ? window.STATE.locations
-      : [];
+function suiteHasTemplate(suite) {
+  const raw = getSuiteTemplateJson(suite);
+  if (!raw) return false;
 
-  const seen = new Set();
+  try {
+    const obj = JSON.parse(raw);
 
-  locs.forEach((loc) => {
-    const v = loc.values || loc;
+    // structured format
+    if (obj?.sections) {
+      const a = obj.sections.applicant?.length || 0;
+      const e = obj.sections.experience?.length || 0;
+      const c = obj.sections.custom?.length || 0;
+      console.log("[app status] sections counts:", { a, e, c });
+      return a + e + c > 0;
+    }
 
-    const id =
-      loc.id ||
-      loc._id ||
-      v._id ||
-      "";
+    // simple key/value format
+    const count = obj ? Object.keys(obj).length : 0;
+    console.log("[app status] simple object keys:", count);
+    return count > 0;
+  } catch (err) {
+    console.warn("[app status] JSON parse failed, treating as text:", err);
+    return raw.length > 2;
+  }
+}
 
+function renderSuiteApplicationStatus(suite) {
+  const el = document.getElementById("location-suite-details-application");
+
+  console.log("[app status] renderSuiteApplicationStatus called:", {
+    hasEl: !!el,
+    suiteId: suite?._id || suite?.id,
+    suiteName: (suite?.values || suite || {})["Suite Name"] || suite?.name,
+  });
+
+  if (!el) return;
+
+  const has = suiteHasTemplate(suite);
+
+  el.textContent = has ? "Application template saved." : "No application added yet.";
+  el.classList.toggle("muted", !has);
+
+  console.log("[app status] final:", { has, text: el.textContent });
+}
+
+// =========================================================
+// ✅ Suite Application Template Preview (Modal Renderer)
+// =========================================================
+
+function closeSuiteTemplatePreview() {
+  const modal = document.getElementById("suite-template-preview-modal");
+  if (!modal) return;
+  modal.hidden = true;
+  modal.setAttribute("aria-hidden", "true");
+}
+
+function openSuiteTemplatePreview(rawJson) {
+  const modal = document.getElementById("suite-template-preview-modal");
+  const body  = document.getElementById("suite-template-preview-body");
+
+  if (!modal || !body) {
+    console.warn("[template preview] modal/body missing", { modal: !!modal, body: !!body });
+    return;
+  }
+
+  body.innerHTML = "";
+
+  let data = null;
+  try {
+    data = rawJson ? JSON.parse(rawJson) : null;
+  } catch (e) {
+    body.innerHTML = `<p class="muted">Invalid template JSON.</p>`;
+    // show modal even for error
+    modal.hidden = false;
+    modal.style.display = "flex";
+    modal.setAttribute("aria-hidden", "false");
+    return;
+  }
+
+  if (!data) {
+    body.innerHTML = `<p class="muted">No template data.</p>`;
+    modal.hidden = false;
+    modal.style.display = "flex";
+    modal.setAttribute("aria-hidden", "false");
+    return;
+  }
+
+  // ✅ TOP HEADER
+  const loc = window.selectedLocation || {};
+  const locV = loc.values || loc || {};
+  const locationName =
+    locV["Location Name"] || locV.name || loc.name || "Location Name";
+
+  const suite = window.selectedSuite || window.activeSuite || {};
+  const suiteV = suite.values || suite || {};
+  const suiteName =
+    suiteV["Suite Name"] || suiteV.name || suite.name || "Suite Name";
+
+  body.innerHTML += `
+    <div class="suite-template-top">
+      <div class="suite-template-top-left">
+        <div class="suite-template-avatar">LN</div>
+        <div class="suite-template-locname">${escapeHtml(locationName)}</div>
+      </div>
+
+      <div class="suite-template-top-right">
+        <div class="suite-template-locname">${escapeHtml(locationName)}</div>
+      </div>
+
+      <div class="suite-template-titleblock">
+        <div class="suite-template-title">Application for Lease</div>
+        <div class="suite-template-subtitle">${escapeHtml(suiteName)}</div>
+      </div>
+
+      <div class="suite-template-divider"></div>
+    </div>
+  `;
+
+  function renderSectionBar(title) {
+    return `<div class="suite-template-sectionbar">${escapeHtml(title)}</div>`;
+  }
+
+  function renderRows(rows) {
+    if (!rows || !rows.length) return "";
+    return rows.map((r) => `
+      <div class="suite-template-row">
+        <div class="suite-template-row-left">
+          <span class="suite-template-bullet"></span>
+          <span class="suite-template-label">${escapeHtml(r.label || "")}</span>
+        </div>
+        <div class="suite-template-input">${escapeHtml(r.inputType || "")}</div>
+      </div>
+    `).join("");
+  }
+
+  // ✅ STRUCTURED FORMAT
+  if (data.sections) {
+    const applicant  = data.sections.applicant || [];
+    const experience = data.sections.experience || [];
+    const custom     = data.sections.custom || [];
+
+    body.innerHTML += renderSectionBar("APPLICANT INFORMATION");
+    body.innerHTML += renderRows(applicant);
+
+    body.innerHTML += `<button type="button" class="suite-template-add">+ Add question</button>`;
+
+    body.innerHTML += renderSectionBar("PROFESSIONAL EXPERIENCE");
+    body.innerHTML += renderRows(experience);
+
+    (custom || []).forEach((sec) => {
+      body.innerHTML += renderSectionBar(sec.title || "NEW SECTION");
+      body.innerHTML += renderRows(sec.rows || []);
+    });
+  } else {
+    // fallback
+    const keys = Object.keys(data || {});
+    if (!keys.length) {
+      body.innerHTML += `<p class="muted">Template is empty.</p>`;
+    } else {
+      body.innerHTML += renderSectionBar("TEMPLATE");
+      body.innerHTML += keys.map((k) => `
+        <div class="suite-template-row">
+          <div class="suite-template-row-left">
+            <span class="suite-template-bullet"></span>
+            <span class="suite-template-label">${escapeHtml(k)}</span>
+          </div>
+          <div class="suite-template-input">${escapeHtml(String(data[k] ?? ""))}</div>
+        </div>
+      `).join("");
+    }
+  }
+
+  // ✅ show modal (force-visible regardless of CSS) — MUST be inside the function
+  modal.hidden = false;
+  modal.style.display = "flex";
+  modal.style.visibility = "visible";
+  modal.style.opacity = "1";
+  modal.style.zIndex = "99999";
+  modal.setAttribute("aria-hidden", "false");
+
+  console.log("[template preview] opened", {
+    hidden: modal.hidden,
+    display: getComputedStyle(modal).display,
+    bodyHTMLLen: body.innerHTML.length,
+  });
+}
+
+
+
+// tiny helper (prevents HTML injection + broken layout)
+function escapeHtml(str) {
+  return String(str || "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function normalizeRentFrequency(v) {
+  const s = String(v || "").trim().toLowerCase();
+  if (!s) return "";
+
+  if (["weekly", "biweekly", "monthly", "quarterly", "yearly"].includes(s)) return s;
+
+  if (s.includes("bi") && s.includes("week")) return "biweekly";
+  if (s.includes("week")) return "weekly";
+  if (s.includes("month")) return "monthly";
+  if (s.includes("quarter")) return "quarterly";
+  if (s.includes("year") || s.includes("annual")) return "yearly";
+
+  return "";
+}
+
+
+///////// ================================
+/////////////// show application template preview 
+//// ///================================
+function renderSuiteApplicationLink(suite) {
+  const el = document.getElementById("location-suite-details-application");
+  if (!el) return;
+
+  const raw = getSuiteTemplateJson(suite); // ✅ you already have this helper
+  const has = suiteHasTemplate(suite);     // ✅ you already have this helper
+
+  if (!has) {
+    el.textContent = "No application added yet.";
+    el.classList.add("suite-app-muted");
+    return;
+  }
+
+  // render as a clickable link button
+  el.classList.remove("suite-app-muted");
+  el.innerHTML = `
+    <button type="button" class="suite-app-link" id="suite-app-preview-link">
+      Template saved — click to preview
+    </button>
+  `;
+
+el.querySelector("#suite-app-preview-link")?.addEventListener("click", () => {
+  console.log("[preview click] clicked", {
+    suiteId: suite?._id || suite?.id,
+    rawLen: raw?.length || 0,
+    rawPreview: (raw || "").slice(0, 120),
+    modalExists: !!document.getElementById("suite-template-preview-modal"),
+    bodyExists: !!document.getElementById("suite-template-preview-body"),
+  });
+
+  openSuiteTemplatePreview(raw);
+});
+
+}
+
+
+function initSuiteTemplatePreviewModal() {
+  const modal = document.getElementById("suite-template-preview-modal");
+  const close = document.getElementById("suite-template-preview-close");
+  if (!modal) return;
+
+function hide() {
+  if (document.activeElement && modal.contains(document.activeElement)) {
+    document.activeElement.blur();
+  }
+  modal.hidden = true;
+  modal.style.display = "none";            // ✅ add this
+  modal.setAttribute("aria-hidden", "true");
+}
+
+
+  close?.addEventListener("click", hide);
+
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal) hide();
+  });
+}
+
+
+
+
+
+
+
+
+                  // ================================
+                         // Applications Section
+                  // ================================
+
+
+//Load Locations List 
+function populateSuitesLocationFilter(locationsList) {
+  const sel = document.getElementById("suites-location-filter");
+  if (!sel) return;
+
+  sel.innerHTML = `<option value="">All Locations</option>`;
+
+  (locationsList || []).forEach((loc) => {
+    const v = loc.values || loc || {};
+    const id = loc._id || loc.id;
     const name =
-      loc.name ||
       v["Location Name"] ||
       v.LocationName ||
-      "";
+      v.name ||
+      loc.name ||
+      "Untitled location";
 
-    if (!id || !name || seen.has(id)) return;
-    seen.add(id);
+    if (!id) return;
 
     const opt = document.createElement("option");
     opt.value = String(id);
     opt.textContent = name;
-    suitieLocationFilter.appendChild(opt);
+    sel.appendChild(opt);
   });
-
-  console.log(
-    "[suities-filter] options from locations:",
-    Array.from(suitieLocationFilter.options).map((o) => ({
-      value: o.value,
-      label: o.textContent,
-    }))
-  );
 }
 
-// make it callable from the Locations code
-window.refreshSuitieLocationDropdown = refreshSuitieLocationDropdown;
+function initSuitesLocationFilter() {
+  const sel = document.getElementById("suites-location-filter");
+  if (!sel) return;
+
+  sel.addEventListener("change", () => {
+    window.selectedSuiteLocationId = sel.value || "";
+    console.log("[suites] filter changed:", window.selectedSuiteLocationId);
+
+    // ✅ later: call your suites render here
+    // renderSuites();
+  });
+}
+
+function initSuitesWithLocations() {
+  const locs = window.STATE?.locations || [];
+  populateSuitesLocationFilter(locs);
+}
+
+//Change Applications Table based on what location is selected 
+const suitesLocationFilter = document.getElementById("suites-location-filter");
+
+if (suitesLocationFilter) {
+  suitesLocationFilter.addEventListener("change", async () => {
+    // save selected location globally if you want
+    window.STATE.selectedLocationId = suitesLocationFilter.value || "";
+    await loadSuiteApplications(); // re-render table
+  });
+}
 
 
-function renderSuities() {
-  listEl.innerHTML = "";
+//Applications Table 
+function fmtDateTime(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleString();
+}
 
-  const visibleSuities = currentLocationFilter
-    ? suities.filter((s) => s.locationId === currentLocationFilter)
-    : suities;
+function pickVal(v, keys) {
+  for (const k of keys) {
+    const val = v?.[k];
+    if (val != null && String(val).trim() !== "") return val;
+  }
+  return "";
+}
 
-  if (!visibleSuities.length) {
-    listEl.innerHTML =
-      `<p class="muted">No suities found for this filter.</p>`;
+async function loadSuiteApplications() {
+  const tbody = document.getElementById("suite-applications-tbody");
+  const countEl = document.getElementById("suite-applications-count");
+  if (!tbody) return;
+
+  // selected location from dropdown
+  const selectedLocationId =
+    document.getElementById("suites-location-filter")?.value || "";
+
+  tbody.innerHTML = `<tr><td colspan="6" class="muted">Loading…</td></tr>`;
+
+  // 1) fetch applications for this owner
+  const ownerFilter =
+    currentUser?.id ? `&ownerUserId=${encodeURIComponent(currentUser.id)}` : "";
+
+  const appsUrl =
+    apiUrl(`/public/records?dataType=Application&limit=500${ownerFilter}`);
+
+  const res = await fetch(appsUrl, {
+    credentials: "include",
+    headers: { Accept: "application/json" },
+    cache: "no-store",
+  });
+
+  if (!res.ok) {
+    tbody.innerHTML = `<tr><td colspan="6" class="muted">No applications found.</td></tr>`;
+    if (countEl) countEl.textContent = `0 applications`;
     return;
   }
 
-  visibleSuities.forEach((s) => {
-    const card = document.createElement("div");
-    card.className = "suitie-item";
+  const data = await res.json().catch(() => ({}));
+  const apps = Array.isArray(data) ? data : data.records || data.items || [];
 
-    const occupier =
-      [s.firstName, s.lastName].filter(Boolean).join(" ") || "";
-    const contactBits = [];
-    if (s.email) contactBits.push(s.email);
-    if (s.phone) contactBits.push(s.phone);
+  // 2) build a lookup: suiteId -> locationId
+  const suites = window.STATE.suites || [];
+  const suiteIdToLocationId = new Map();
 
-    const title =
-      s.suiteName ||
-      (s.suiteLabel ? s.suiteLabel : "") ||
-      occupier ||
-      "Untitled suitie";
+  suites.forEach((s) => {
+    const v = s.values || s;
+    const suiteId = String(s._id || s.id || "");
+    const locRef = v.Location || v["Location"] || null;
 
-    const rentAmountText =
-      s.rentAmount != null && s.rentAmount !== ""
-        ? `$${Number(s.rentAmount).toFixed(2)}`
+    let locId = "";
+    if (typeof locRef === "string") locId = locRef;
+    else if (locRef && typeof locRef === "object") locId = String(locRef._id || locRef.id || "");
+
+    if (suiteId && locId) suiteIdToLocationId.set(suiteId, locId);
+  });
+
+  // 3) filter apps by location (based on app.Suite -> suite.Location)
+  const filtered = apps.filter((app) => {
+    if (!selectedLocationId) return true; // "All Locations"
+
+    const av = app.values || app;
+
+    const suiteRef = av.Suite || av["Suite"] || null;
+    const suiteId =
+      typeof suiteRef === "string"
+        ? suiteRef
+        : suiteRef && typeof suiteRef === "object"
+        ? String(suiteRef._id || suiteRef.id || "")
+        : "";
+
+    const locId = suiteIdToLocationId.get(suiteId) || "";
+    return locId === selectedLocationId;
+  });
+
+  // 4) render rows
+  if (countEl) countEl.textContent = `${filtered.length} applications`;
+
+  // ✅ store counts for dashboard
+window.STATE.applications = apps;      // all apps for owner (dashboard card)
+window.STATE.filteredApplications = filtered; // optional, if you want to debug/filter later
+updateDashboardCounts();
+
+  if (!filtered.length) {
+    tbody.innerHTML = `<tr><td colspan="6" class="muted">No applications for this location.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = filtered
+    .map((app) => {
+      const v = app.values || app;
+
+      const applicant = v["Applicant Name"] || v.ApplicantName || "—";
+      const email = v["Applicant Email"] || v.ApplicantEmail || "—";
+      const status = v.Status || "—";
+      const submitted = v["Submitted At"]
+        ? new Date(v["Submitted At"]).toLocaleString()
         : "—";
 
-    const isPaid = !!s.rentPaid;
-    const rentStatusText  = isPaid ? "Paid" : "Not paid";
-    const rentStatusClass = isPaid ? "is-paid" : "is-unpaid";
+      // suite column (show suite name if you can find it)
+      const suiteRef = v.Suite || null;
+      const suiteId =
+        typeof suiteRef === "string"
+          ? suiteRef
+          : suiteRef && typeof suiteRef === "object"
+          ? String(suiteRef._id || suiteRef.id || "")
+          : "";
 
-    card.innerHTML = `
-      <div class="suitie-main-row">
-        <div class="suitie-main-left">
-          <div class="suitie-main-left-inner">
-            ${
-              s.photoUrl
-                ? `<div class="suitie-avatar">
-                     <img src="${s.photoUrl}" alt="${title}" />
-                   </div>`
-                : `<div class="suitie-avatar suitie-avatar--placeholder">
-                     <span>${(title || "?").charAt(0).toUpperCase()}</span>
-                   </div>`
-            }
-            <div class="suitie-text">
-              <h3>${title}</h3>
-              ${
-                s.locationLabel
-                  ? `<p class="suitie-meta">Location: ${s.locationLabel}</p>`
-                  : ""
-              }
-              ${
-                s.suiteLabel && s.suiteLabel !== title
-                  ? `<p class="suitie-meta">Suite: ${s.suiteLabel}</p>`
-                  : ""
-              }
-              ${occupier ? `<p>${occupier}</p>` : ""}
-              ${
-                contactBits.length
-                  ? `<p class="suitie-meta">${contactBits.join(" • ")}</p>`
-                  : ""
-              }
-              ${s.note ? `<p class="suitie-meta">${s.note}</p>` : ""}
+      const suite = (window.STATE.suites || []).find(
+        (s) => String(s._id || s.id) === suiteId
+      );
+      const suiteName =
+        (suite?.values?.["Suite Name"] ||
+          suite?.values?.Name ||
+          suite?.values?.["Suite Number/Name"] ||
+          suite?.values?.name ||
+          suite?.Name ||
+          suite?.name ||
+          suiteId ||
+          "—");
+
+      const id = app._id || app.id;
+
+      return `
+        <tr>
+          <td>${escapeHtml(applicant)}</td>
+          <td>${escapeHtml(email)}</td>
+          <td>${escapeHtml(suiteName)}</td>
+          <td><span class="pill">${escapeHtml(status)}</span></td>
+          <td>${escapeHtml(submitted)}</td>
+          <td><button class="btn-small" data-app-view="${id}">View</button></td>
+        </tr>
+      `;
+    })
+    .join("");
+    // ✅ Hook up View buttons after render
+tbody.querySelectorAll("[data-app-view]").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const id = btn.getAttribute("data-app-view");
+    const row = filtered.find((a) => String(a._id || a.id) === String(id));
+    if (row) openSuiteApplicationModal(row);
+  });
+});
+
+}
+
+
+
+// ================================
+// Application View Modal (shared)
+// ================================
+//Application Answer helper
+function humanizeKey(key) {
+  // dateOfApplication -> Date of application
+  // customApplicantQ_1 -> Custom applicant q 1 (fallback)
+  const s = String(key || "").trim();
+  if (!s) return "";
+
+  const withSpaces = s
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")     // camelCase
+    .replace(/[_\-]+/g, " ")                    // snake_case / kebab-case
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return withSpaces.charAt(0).toUpperCase() + withSpaces.slice(1);
+}
+
+function normalizeKey(s) {
+  return String(s || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "") // remove spaces/punct
+    .trim();
+}
+
+function getAnswerSmart(answersObj, q) {
+  if (!answersObj) return "";
+
+  const id = q?.id ? String(q.id) : "";
+  const label = q?.label ? String(q.label) : "";
+
+  // 1) exact id
+  if (id && answersObj[id] != null) return answersObj[id];
+
+  // 2) exact label
+  if (label && answersObj[label] != null) return answersObj[label];
+
+  // 3) normalized match (handles "Date of application" vs "dateOfApplication")
+  const nid = normalizeKey(id);
+  const nlabel = normalizeKey(label);
+
+  for (const [k, v] of Object.entries(answersObj)) {
+    const nk = normalizeKey(k);
+    if ((nid && nk === nid) || (nlabel && nk === nlabel)) return v;
+  }
+
+  return "";
+}
+
+const suiteTemplatePreviewModal = document.getElementById("suite-template-preview-modal");
+const suiteTemplatePreviewBody  = document.getElementById("suite-template-preview-body");
+const suiteTemplatePreviewClose = document.getElementById("suite-template-preview-close");
+const suiteTemplatePreviewOverlay = document.getElementById("suite-template-preview-overlay");
+
+function openPreviewModal() {
+  if (suiteTemplatePreviewModal) suiteTemplatePreviewModal.style.display = "block";
+}
+function closePreviewModal() {
+  if (suiteTemplatePreviewModal) suiteTemplatePreviewModal.style.display = "none";
+}
+suiteTemplatePreviewOverlay?.addEventListener("click", closePreviewModal);
+
+suiteTemplatePreviewClose?.addEventListener("click", closePreviewModal);
+
+// ✅ THIS is what your click handler is calling
+// ✅ UPDATED: no duplicates + “extras” only shows when a real template exists
+// ---------- helper: fetch ONE record by id (tries a couple common filter styles) ----------
+async function fetchOneById(dataType, id) {
+  if (!id) return null;
+
+  const tries = [
+    `/public/records?dataType=${encodeURIComponent(dataType)}&limit=1&_id=${encodeURIComponent(id)}`,
+    `/public/records?dataType=${encodeURIComponent(dataType)}&limit=1&id=${encodeURIComponent(id)}`,
+  ];
+
+  for (const path of tries) {
+    try {
+      const res = await fetch(apiUrl(path), {
+        credentials: "include",
+        headers: { Accept: "application/json" },
+        cache: "no-store",
+      });
+      if (!res.ok) continue;
+
+      const raw = await res.json().catch(() => ({}));
+      const rows = Array.isArray(raw) ? raw : raw.records || raw.items || [];
+      if (rows[0]) return rows[0];
+    } catch (e) {
+      // keep trying
+    }
+  }
+  return null;
+}
+
+// ✅ THIS is what your click handler is calling
+async function openSuiteApplicationModal(appRow) {
+  if (!suiteTemplatePreviewModal || !suiteTemplatePreviewBody) {
+    console.warn("[apps] modal missing");
+    return;
+  }
+
+  const v = appRow.values || appRow;
+
+  const applicantName =
+    v["Applicant Name"] || v.applicantName || "Unknown applicant";
+
+  const applicantEmail =
+    v["Applicant Email"] || v.applicantEmail || v["Email"] || v.email || "";
+
+  // answers JSON
+  const answersObj =
+    safeParseJson(v["Answers Json"] || v["Answers JSON"] || v.answersJson) || {};
+
+  // ✅ Auto "Your details"
+  const autoName =
+    v["Applicant Name"] ||
+    v.applicantName ||
+    getAnswerSmart(answersObj, { id: "applicantName", label: "Full name" }) ||
+    getAnswerSmart(answersObj, { id: "fullName", label: "Full name" }) ||
+    getAnswerSmart(answersObj, { id: "name", label: "Full name" }) ||
+    "";
+
+  const autoEmail =
+    v["Applicant Email"] ||
+    v.applicantEmail ||
+    getAnswerSmart(answersObj, { id: "applicantEmail", label: "Email address" }) ||
+    getAnswerSmart(answersObj, { id: "email", label: "Email address" }) ||
+    "";
+
+  // ---------- find suite id ----------
+  const suiteRef = v.Suite || v["Suite"] || null;
+  const suiteId =
+    typeof suiteRef === "string"
+      ? suiteRef
+      : suiteRef && typeof suiteRef === "object"
+      ? String(suiteRef._id || suiteRef.id || "")
+      : "";
+
+  // ---------- IMPORTANT: fetch suite fresh so we definitely get Application Template ----------
+  const suiteRowFresh = await fetchOneById("Suite", suiteId);
+  const suiteFreshV = suiteRowFresh?.values || suiteRowFresh || {};
+
+  // fallback to whatever you already had in STATE (if fresh fetch fails)
+  const suiteFromState = (window.STATE.suites || []).find(
+    (s) => String(s._id || s.id) === String(suiteId)
+  );
+  const suiteStateV = suiteFromState?.values || suiteFromState || {};
+
+  const suiteV = Object.keys(suiteFreshV).length ? suiteFreshV : suiteStateV;
+
+  const suiteNameFromRecord =
+    suiteV["Suite Name"] ||
+    suiteV["Suite Number/Name"] ||
+    suiteV.Name ||
+    suiteV.name ||
+    "Suite";
+
+  // ---------- template: try Suite.Application Template first ----------
+  const suiteTemplateStr =
+    suiteV["Application Template"] ||
+    suiteV.applicationTemplate ||
+    "";
+
+  let templateJson = safeParseJson(suiteTemplateStr);
+
+  // ---------- fallback: shared Application template ----------
+  if (!templateJson) {
+    try {
+      const res = await fetch(apiUrl(`/public/records?dataType=Application&limit=1`), {
+        credentials: "include",
+        headers: { Accept: "application/json" },
+        cache: "no-store",
+      });
+
+      if (res.ok) {
+        const raw = await res.json().catch(() => ({}));
+        const rows = Array.isArray(raw) ? raw : raw.records || raw.items || [];
+        const first = rows[0];
+        const vals = first?.values || first || {};
+        templateJson = safeParseJson(
+          vals["Template Json"] || vals["Sections Json"] || vals["Application Json"] || ""
+        );
+      }
+    } catch (e) {
+      console.warn("[apps] template fallback failed", e);
+    }
+  }
+
+  const sections = normalizeTemplateToSections(templateJson);
+
+  // track keys already shown
+  const usedKeys = new Set();
+  ["full name", "email address", "name", "email", "applicantname", "applicantemail"].forEach((k) =>
+    usedKeys.add(normalizeKey(k))
+  );
+
+  // ---------- template sections html ----------
+  const sectionsHtml = sections.length
+    ? sections
+        .map((sec) => {
+          const qHtml = (sec.questions || [])
+            .map((q) => {
+              const rawVal = getAnswerSmart(answersObj, q);
+
+              usedKeys.add(normalizeKey(q.id));
+              usedKeys.add(normalizeKey(q.label));
+
+              const value = rawVal == null ? "" : String(rawVal);
+
+              const inputType = String(q.inputType || "").toLowerCase();
+              const isTextarea = inputType.includes("textarea");
+              const isDate = inputType.includes("date");
+
+              const inputHtml = isTextarea
+                ? `<textarea class="suite-app-input suite-app-textarea" disabled>${escapeHtml(value)}</textarea>`
+                : `<input class="suite-app-input" type="${isDate ? "date" : "text"}" value="${escapeHtml(value)}" disabled />`;
+
+              return `
+                <div class="suite-app-question-row">
+                  <div class="suite-app-question-label">${escapeHtml(q.label)}</div>
+                  <div class="suite-app-question-input">${inputHtml}</div>
+                </div>
+              `;
+            })
+            .join("");
+
+          return `
+            <div class="suite-app-section">
+              <div class="suite-app-section-title">${escapeHtml(sec.title)}</div>
+              ${qHtml || `<div class="muted">No questions in this section.</div>`}
             </div>
-          </div>
-        </div>
+          `;
+        })
+        .join("")
+    : "";
 
-        <div class="suitie-main-right">
-          <div class="rent-amount">${rentAmountText}</div>
-          <div class="rent-status ${rentStatusClass}">
-            ${rentStatusText}
-          </div>
+  // ✅ ONLY show raw answers if there is truly NO template
+  const rawAnswersHtml = !sections.length
+    ? `
+      <div class="suite-app-section">
+        <div class="muted">No template found for this suite, showing raw answers:</div>
+        <div class="suite-app-section-body">
+          ${Object.entries(answersObj)
+            .map(
+              ([k, val]) => `
+                <div class="suite-app-question-row">
+                  <div class="suite-app-question-label">${escapeHtml(humanizeKey(k))}</div>
+                  <div class="suite-app-question-input">
+                    <input class="suite-app-input" value="${escapeHtml(String(val ?? ""))}" disabled />
+                  </div>
+                </div>
+              `
+            )
+            .join("")}
         </div>
       </div>
-    `;
+    `
+    : "";
 
-    card.addEventListener("click", () => {
-      showSuitieDetails(s);   // (use showSuitieDetails here)
-    });
-    listEl.appendChild(card);
+  const detailsSectionHtml = `
+    <div class="suite-app-section">
+      <div class="suite-app-section-title">Your details</div>
+
+      <div class="suite-app-question-row">
+        <div class="suite-app-question-label">Full name</div>
+        <div class="suite-app-question-input">
+          <input class="suite-app-input" value="${escapeHtml(String(autoName || ""))}" disabled />
+        </div>
+      </div>
+
+      <div class="suite-app-question-row">
+        <div class="suite-app-question-label">Email address</div>
+        <div class="suite-app-question-input">
+          <input class="suite-app-input" value="${escapeHtml(String(autoEmail || ""))}" disabled />
+        </div>
+      </div>
+    </div>
+  `;
+
+  suiteTemplatePreviewBody.innerHTML = `
+    <div class="suite-app-modal suite-app-preview">
+      <div class="suite-app-header">
+        <div class="suite-app-header-main">
+          <div class="suite-app-header-top">
+            <div class="suite-app-avatar">${escapeHtml((applicantName || "A")[0])}</div>
+            <div class="suite-app-header-text">
+              <div class="suite-app-location-name">${escapeHtml("Application")}</div>
+              <div class="suite-app-suite-name">Application for Lease – ${escapeHtml(suiteNameFromRecord)}</div>
+            </div>
+          </div>
+          <p class="suite-app-header-sub">Viewing submitted answers (read-only).</p>
+          <div class="suite-app-meta-email">${escapeHtml(applicantEmail)}</div>
+        </div>
+      </div>
+
+      <div class="suite-app-body">
+        ${detailsSectionHtml}
+        ${sectionsHtml}
+        ${rawAnswersHtml}
+      </div>
+
+      <div class="suite-app-footer">
+        <div class="suite-app-footer-buttons">
+          <button type="button" class="suite-app-secondary-btn" id="apps-preview-close-btn">Close</button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document
+    .getElementById("apps-preview-close-btn")
+    ?.addEventListener("click", closePreviewModal);
+
+  openPreviewModal();
+}
+
+
+
+
+     function safeParseJson(x) {
+  if (!x) return null;
+  try { return typeof x === "string" ? JSON.parse(x) : x; }
+  catch { return null; }
+}
+
+// Convert your template JSON into sections like the public page does
+function rowsToQuestions(rows, prefix) {
+  if (!Array.isArray(rows)) return [];
+
+  return rows.map((row, idx) => {
+    const id = row.key || row.id || `${prefix}_${idx + 1}`;
+
+    // ✅ try multiple possible label fields from your builder
+    const label =
+      (row.label && String(row.label).trim()) ||
+      (row.question && String(row.question).trim()) ||
+      (row.prompt && String(row.prompt).trim()) ||
+      (row.text && String(row.text).trim()) ||
+      (row.title && String(row.title).trim()) ||
+      (row.name && String(row.name).trim()) ||
+      // fallback: turn key into nice text
+      humanizeKey(id);
+
+    const inputType = String(row.inputType || row.type || "text").toLowerCase();
+
+    return {
+      id,
+      label,
+      inputType,
+      placeholder: row.placeholder || "",
+    };
   });
 }
 
-suitieLocationFilter?.addEventListener("change", () => {
-  currentLocationFilter = suitieLocationFilter.value || "";
+function normalizeTemplateToSections(raw) {
+  if (!raw) return [];
 
-  if (!currentLocationFilter) {
-    // back to "all locations" list view
-    if (detailsCard) detailsCard.style.display = "none";
-    if (listEl) listEl.style.display = "block";
-    selectedSuitie = null;
+  // Already array format
+  if (Array.isArray(raw)) {
+    return raw.map((sec, i) => ({
+      id: sec.id || `section_${i + 1}`,
+      title: sec.title || `Section ${i + 1}`,
+      questions: rowsToQuestions(sec.questions || sec.rows || [], sec.id || `section_${i + 1}`),
+    }));
   }
 
-  renderSuities();
-});
+  // Builder format: { sections: { applicant, experience, custom, applicantTitle, experienceTitle } }
+  if (raw.sections) {
+    const out = [];
 
-// 🔹 Helper: how much rent has actually been paid this year for a location
-function getLocationPaidTotalThisYear(locationId) {
-  if (!window.STATE || !Array.isArray(window.STATE.suities)) return 0;
+    const applicantRows = raw.sections.applicant || [];
+    if (applicantRows.length) {
+      out.push({
+        id: "applicant",
+        title: raw.sections.applicantTitle?.label || "Applicant",
+        questions: rowsToQuestions(applicantRows, "applicant"),
+      });
+    }
 
-  const suities = window.STATE.suities;
-  const currentYear = new Date().getFullYear();
+    const experienceRows = raw.sections.experience || [];
+    if (experienceRows.length) {
+      out.push({
+        id: "experience",
+        title: raw.sections.experienceTitle?.label || "Professional Experience",
+        questions: rowsToQuestions(experienceRows, "experience"),
+      });
+    }
 
-  return suities.reduce((sum, s) => {
-    // must belong to this location
-    if (String(s.locationId) !== String(locationId)) return sum;
+    const custom = Array.isArray(raw.sections.custom) ? raw.sections.custom : [];
+    custom.forEach((sec, idx) => {
+      const sid = sec.sectionKey || sec.titleKey || `custom_${idx + 1}`;
+      out.push({
+        id: sid,
+        title: sec.title || "New section",
+        questions: rowsToQuestions(sec.rows || [], sid),
+      });
+    });
 
-    // must have a paid date
-    if (!s.rentPaid) return sum;
+    return out;
+  }
 
-    const paidDate = new Date(s.rentPaid);
-    if (Number.isNaN(paidDate.getTime())) return sum;
-
-    // only count payments from this calendar year
-    if (paidDate.getFullYear() !== currentYear) return sum;
-
-    const amt = Number(s.rentAmount);
-    if (!Number.isFinite(amt)) return sum;
-
-    return sum + amt;
-  }, 0);
+  return [];
 }
 
-async function showSuitieDetails(s) {
-  if (!detailsCard || !listEl) return;
-  selectedSuitie = s;
-
-  // 🔹 hide the list, show the details card
-  listEl.style.display = "none";
-  detailsCard.style.display = "block";
-
-  const fullName = [s.firstName, s.lastName].filter(Boolean).join(" ");
-
-  detailsTitle.textContent =
-    s.suiteName || s.suiteLabel || "Suitie details";
-
-  detailsSuite.textContent = s.suiteLabel
-    ? `Suite: ${s.suiteLabel}`
-    : "";
-
-  detailsName.textContent  = fullName || "—";
-  detailsEmail.textContent = s.email || "—";
-  detailsPhone.textContent = s.phone || "—";
-  detailsNote.textContent  = s.note || "—";
-
-  // Rent display
-  rentAmountEl.textContent =
-    s.rentAmount != null && s.rentAmount !== ""
-      ? `$${Number(s.rentAmount).toFixed(2)}`
-      : "—";
-
-  rentDueEl.textContent = s.rentDue
-    ? new Date(s.rentDue).toLocaleDateString()
-    : "—";
-
-  rentPaidEl.textContent = s.rentPaid
-    ? new Date(s.rentPaid).toLocaleDateString()
-    : "—";
-
-  rentLateEl.textContent =
-    s.lateFee != null && s.lateFee !== ""
-      ? `$${Number(s.lateFee).toFixed(2)}`
-      : "—";
-
-  // 🔹 Application file (from Suitie record)
-  if (appDisplay) {
-    if (s.appFileUrl) {
-      appDisplay.innerHTML = `
-        <a href="${s.appFileUrl}" target="_blank" rel="noopener">
-          View application
-        </a>
-      `;
-    } else {
-      appDisplay.textContent = "No application uploaded.";
-    }
-  }
-
-  // 🔹 Suitie photo
-  if (photoDisplay) {
-    if (s.photoUrl) {
-      photoDisplay.src = s.photoUrl;
-      photoDisplay.style.display = "block";
-    } else {
-      photoDisplay.src = "";
-      photoDisplay.style.display = "none";
-    }
-  }
-
-  // 🔹 NEW: load latest Suite Application Submission (status, answers, etc.)
-  try {
-    const submission = await loadSuitieApplication(s);
-
-    if (submission && appDisplay) {
-      const v = submission.values || submission;
-      const status = v.Status || "Pending";
-      appDisplay.textContent = `Application status: ${status}`;
-      // later you can add a separate "View answers" button / popup
-    } else if (appDisplay && !s.appFileUrl) {
-      // only show this if there's no Suitie-level file either
-      appDisplay.textContent = "No application submitted yet.";
-    }
-  } catch (err) {
-    console.error("[suities] loadSuitieApplication error", err);
-    // optional: don’t override the existing appDisplay text on error
-  }
+function escapeHtml(str) {
+  return String(str ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 }
 
-  
+// Find answer by exact key OR a friendlier match
+function getAnswer(answersObj, questionId, label) {
+  if (!answersObj) return "";
+
+  // exact key first
+  if (answersObj[questionId] != null) return answersObj[questionId];
+
+  // try label-based (some of your keys are label-ish)
+  const target = String(label || "").toLowerCase().trim();
+  if (target) {
+    for (const [k, v] of Object.entries(answersObj)) {
+      if (String(k).toLowerCase().trim() === target) return v;
+    }
+  }
+
+  return "";
+}
+            
 
 
-backBtn?.addEventListener("click", () => {
-  if (listEl) listEl.style.display = "block";
-  if (detailsCard) detailsCard.style.display = "none";
-  selectedSuitie = null;
-
-  // reset dropdown back to "All locations"
-  if (suitieLocationFilter) suitieLocationFilter.value = "";
-  currentLocationFilter = "";
-  renderSuities();
-    showSuitieFilterAndIntro();
-});
 
 
-async function loadSuitieApplication(suitie) {
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                   // ================================
+                         // Suities Section
+                  // ================================
+
+// ================================
+// Suities Section (CLEANED)
+// ================================
+
+// --------------------------------------------------
+// 1) LOCATIONS FILTER DROPDOWN (top of section)
+// --------------------------------------------------
+function populateSuitiesLocationFilter(locationsList) {
+  const sel = document.getElementById("suities-location-filter");
+  if (!sel) return;
+
+  sel.innerHTML = `<option value="">All locations</option>`;
+
+  (locationsList || []).forEach((loc) => {
+    const v = loc.values || loc || {};
+    const id = loc._id || loc.id;
+    const name = v["Location Name"] || v.name || loc.name || "Untitled location";
+    if (!id) return;
+
+    const opt = document.createElement("option");
+    opt.value = id;
+    opt.textContent = name;
+    sel.appendChild(opt);
+  });
+}
+
+function initSuitiesLocationFilter() {
+  const sel = document.getElementById("suities-location-filter");
+  if (!sel) return;
+
+  sel.addEventListener("change", () => {
+    window.selectedSuitieLocationId = sel.value || "";
+    console.log("[suities] filter changed:", window.selectedSuitieLocationId);
+
+    // later: filter your suitie list here:
+    // renderSuitiesList();
+  });
+}
+
+
+
+
+
+// ================================
+// Suities Card list 
+// ================================
+// -------- Suities: filter + card list --------
+let ALL_SUITIES = [];
+let ALL_LOCATIONS = [];
+
+
+// Helpers
+
+
+function escapeHtml(s = "") {
+  return String(s)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+function money(v) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return "";
+  return n.toLocaleString(undefined, { style: "currency", currency: "USD" });
+}
+function getId(row) {
+  return row?._id || row?.id || row?.values?._id || "";
+}
+function getValues(row) {
+  return row?.values || row || {};
+}
+function apiUrl(path) {
+  // Use YOUR existing API_BASE logic if you already have it
+  return `${API_BASE}${path}`;
+}
+
+// 1) Load Locations into the filter dropdown
+async function loadSuitiesLocationFilter() {
+  const select = document.getElementById("suities-location-filter");
+  if (!select) return;
+
+  // ✅ adjust these to match your system
+  const ownerFilter =
+    currentUser?.id ? `&ownerUserId=${encodeURIComponent(currentUser.id)}` : "";
+
   const url =
-    `${API_BASE}/public/records` +
-    `?dataType=Suite Application Submission` +
-    `&Suitie=${encodeURIComponent(suitie.id)}` +
-    `&includeRefField=1` + 
-    `&limit=1`;
+    apiUrl(`/public/records?dataType=Location${ownerFilter}&limit=200`);
 
   const res = await fetch(url, { credentials: "include" });
-  if (!res.ok) return null;
   const data = await res.json();
+
   const rows = Array.isArray(data) ? data : data.records || data.items || [];
-  return rows[0] || null;
+  ALL_LOCATIONS = rows;
+
+  // rebuild dropdown
+  select.innerHTML = `<option value="">All locations</option>`;
+
+  rows.forEach((loc) => {
+    const v = getValues(loc);
+    const id = getId(loc);
+    const name = v.name || v.LocationName || v.title || "Untitled location";
+
+    select.insertAdjacentHTML(
+      "beforeend",
+      `<option value="${escapeHtml(id)}">${escapeHtml(name)}</option>`
+    );
+  });
 }
 
-  // ---- Load existing suities from backend ----
+// 2) Load all suities once
+// 2) Load all suities once
 async function loadSuities() {
-  const url = `${API_BASE}/public/records?dataType=Suitie&limit=200`;
+  if (!currentUser?.id) {
+    ALL_SUITIES = [];
+    window.STATE.suities = [];
+    renderSuities();
+    updateDashboardCounts();
+    return;
+  }
+
+  const ownerFilter = `&ownerUserId=${encodeURIComponent(currentUser.id)}`;
+  const url = apiUrl(`/public/records?dataType=Suitie${ownerFilter}&limit=500`);
 
   try {
     const res = await fetch(url, {
       credentials: "include",
       headers: { Accept: "application/json" },
+      cache: "no-store",
     });
 
     if (!res.ok) {
-      console.warn("[suities] load failed", res.status);
-      suities = [];
-      window.STATE.suities = suities;
+      ALL_SUITIES = [];
+      window.STATE.suities = [];
       renderSuities();
       updateDashboardCounts();
       return;
     }
 
-    const data = await res.json();
-    const rows = Array.isArray(data)
-      ? data
-      : data.records || data.items || [];
+    const data = await res.json().catch(() => ({}));
+    const rows = Array.isArray(data) ? data : data.records || data.items || data.data || [];
 
-    console.log("[suities] raw rows from API:", rows);
-    const nonEmptyRows = rows.filter(
-      (r) => r.values && Object.keys(r.values).length
-    );
-    console.log("[suities] filtered:", nonEmptyRows);
+    // ✅ keep your existing variable
+    ALL_SUITIES = rows;
 
-    suities = nonEmptyRows.map(normalizeSuitie);
-    window.STATE.suities = suities;
-
-    console.log("[suities] loaded", suities.length);
-
-    // 🔹 build the "Filter by location" dropdown from the loaded suities
-    refreshSuitieLocationDropdown();
+    // ✅ add this so dashboard can use it
+    window.STATE.suities = rows;
 
     renderSuities();
-    updateDashboardCounts();
 
+    console.log("[suities] loaded count:", ALL_SUITIES.length);
+    console.log("[suities] first record:", ALL_SUITIES[0]);
+    console.log(
+      "[suities] first record Location:",
+      (ALL_SUITIES[0]?.values || ALL_SUITIES[0])?.Location
+    );
+
+    // ✅ update dashboard counts after load
+    updateDashboardCounts();
   } catch (err) {
     console.error("[suities] load error", err);
-    suities = [];
-    window.STATE.suities = suities;
+    ALL_SUITIES = [];
+    window.STATE.suities = [];
     renderSuities();
     updateDashboardCounts();
   }
 }
 
 
-// ---- Initial state ----
-formCard.hidden = true;
-loadSuitesForUser();  // 🔹 fill dropdown
-loadSuities();        // 🔹 render list + update dashboard
-
-
-    // When "Edit suitie" is clicked, prefill the form from selectedSuitie
-// When "Edit suitie" is clicked, prefill the form from selectedSuitie
-editBtn?.addEventListener("click", () => {
-  if (!selectedSuitie) return;
-  formCard.hidden = false;
-
-  if (suiteSelect && selectedSuitie.suiteId) {
-    suiteSelect.value = selectedSuitie.suiteId;
-  }
-
-  // no suite-name field anymore, so nothing else to set here
-
-  if (firstInput) firstInput.value = selectedSuitie.firstName || "";
-  if (lastInput)  lastInput.value  = selectedSuitie.lastName  || "";
-
-  emailInput.value = selectedSuitie.email || "";
-  phoneInput.value = selectedSuitie.phone || "";
-  noteInput.value  = selectedSuitie.note  || "";
-
-  if (rentInput) {
-    rentInput.value =
-      selectedSuitie.rentAmount != null && selectedSuitie.rentAmount !== ""
-        ? String(selectedSuitie.rentAmount)
-        : "";
-  }
-
-  if (rentDueInput) {
-    rentDueInput.value = selectedSuitie.rentDue
-      ? String(selectedSuitie.rentDue).slice(0, 10)
-      : "";
-  }
-
-  if (appFileInput)   appFileInput.value = "";
-  if (photoFileInput) photoFileInput.value = "";
-
-  formCard.scrollIntoView({ behavior: "smooth", block: "start" });
-});
-
-
-// open form
-addBtn.addEventListener("click", () => {
-  formCard.hidden = false;
-  form.reset();
-
-  // focus first useful field now that suite name input is gone
-  if (suiteSelect) {
-    suiteSelect.focus();
-  } else if (firstInput) {
-    firstInput.focus();
-  }
-
-  if (listEl)      listEl.style.display = "none";
-  if (detailsCard) detailsCard.style.display = "none";
-
-  // hide dropdown + intro text
-  if (suitieFilterRow) suitieFilterRow.style.display = "none";
-  if (suitieIntroText) suitieIntroText.style.display = "none";
-
-  selectedSuitie = null;
-});
-
-
-function showSuitieFilterAndIntro() {
-  if (suitieFilterRow) suitieFilterRow.style.display = "";
-  if (suitieIntroText) suitieIntroText.style.display = "";
+async function initSuitiesSection() {
+  initSuitiesFilterEvents();
+  initSuitieDelete();
+   initSuitieEdit(); 
+  await loadSuities();
 }
 
-  // cancel form
-cancelBtn?.addEventListener("click", () => {
-  form.reset();
-  formCard.hidden = true;
 
-  if (listEl) listEl.style.display = "block";
-  if (detailsCard) detailsCard.style.display = "none";
+// 3) Render card list based on selected location filter
+function getLocationIdFromSuitieRow(row) {
+  const v = getValues(row);
 
-  selectedSuitie = null;
-  showSuitieFilterAndIntro();   // 👈 add this
-});
+  let c = v.Location ?? v["Location"] ?? v.locationId ?? v.location;
+  if (!c) return "";
+
+  // handle "Allow multiple"
+  if (Array.isArray(c)) c = c[0];
+
+  // handle populated object
+  if (typeof c === "object" && (c._id || c.id)) {
+    return String(c._id || c.id);
+  }
+
+  // handle string id
+  return String(c);
+}
 
 
 
-// submit → create OR update suitie
-form.addEventListener("submit", async (e) => {
-  e.preventDefault();
+function renderSuities() {
+  const holder = document.getElementById("suities-list");
+  const select = document.getElementById("suities-location-filter");
+  if (!holder) return;
 
-  const suiteId = suiteSelect ? suiteSelect.value.trim() : "";
+  holder.style.display = "block"; // 🔥 THIS FIXES IT
 
-    // 🔹 NEW: find the selected suite object from the suites array
-  const suite = Array.isArray(suites)
-    ? suites.find((s) => s.id === suiteId)
-    : null;
+  const selectedLocationId = select?.value || "";
 
-  // safely read first/last name from inputs (they might be null)
-  const first = firstInput ? firstInput.value.trim() : "";
-  const last  = lastInput  ? lastInput.value.trim()  : "";
+  const filtered = ALL_SUITIES.filter((row) => {
+    if (!selectedLocationId) return true;
+    const suitieLocId = getLocationIdFromSuitieRow(row);
+    return String(suitieLocId) === String(selectedLocationId);
+  });
 
-  const email   = emailInput.value.trim();
-  const phone   = phoneInput.value.trim();
-  const note    = noteInput.value.trim();
-  const rentStr = rentInput ? rentInput.value.trim() : "";
-  const rentDue = rentDueInput ? rentDueInput.value : "";
-
-  // ✅ we now REQUIRE a suite to be selected instead of a free-text suite name
-  if (!suiteId) {
-    alert("Please select a suite for this suitie.");
+  if (!filtered.length) {
+    holder.innerHTML = `<p class="muted">No suities yet. Click “Add suitie” to create one.</p>`;
     return;
   }
 
-const values = {
-  // "Suite Number/Name": suiteName,   // ❌ still removed
-  "First Name": first,
-  "Last Name": last,
-  Email: email,
-  "Phone Number": phone,
-  Note: note,
-  createdBy: currentUser.id,
-  updatedBy: currentUser.id,
-};
+  console.log("[suities] selectedLocationId:", selectedLocationId);
+console.log("[suities] filtered count:", filtered.length);
 
-  // link to Suite record
-  values.Suite = { _id: suiteId };
+  holder.innerHTML = filtered.map((row) => {
+    const v = getValues(row);
+    const id = getId(row);
 
-    // 🔥 NEW: also link the Location based on the Suite’s location
-  if (suite && suite.locationId) {
-    values.Location = { _id: suite.locationId };
-  }
+    // ✅ use your actual field names
+    const first = v["First Name"] || v.firstName || "";
+    const last  = v["Last Name"] || v.lastName || "";
+    const name  = `${first} ${last}`.trim() || "Unnamed suitie";
 
-  // optional rent fields
-  if (rentStr) {
-    values["Suite Rent"] = Number(rentStr);
-  }
-  if (rentDue) {
-    values["Rent Due Date"] = rentDue;
-  }
+    const email = v["Email"] || v.Email || v.email || "";
+    const phone = v["Phone Number"] || v.phone || "";
+    const suiteName = v["Suite Number/Name"] || "";
 
-  
-  console.log("[suities] saving suitie", { suiteId, values });
+  return `
+  <div class="suitie-card" data-id="${escapeHtml(id)}">
+    <div class="suitie-main-row">
 
-  // 🔹 upload application file (if any)
-  if (appFileInput && appFileInput.files && appFileInput.files[0]) {
-    const file = appFileInput.files[0];
-    const formData = new FormData();
-    formData.append("file", file);
+      <!-- LEFT: avatar + text -->
+      <div class="suitie-main-left">
+        <div class="suitie-main-left-inner">
+
+          ${(() => {
+            const photo =
+              v["Suitie Photo"] ||
+              v.suitiePhoto ||
+              v.photoUrl ||
+              v.photo ||
+              v.imageUrl ||
+              v.image ||
+              "";
+
+            const firstLetter = (first || "S").slice(0, 1).toUpperCase();
+            const lastLetter = (last || "").slice(0, 1).toUpperCase();
+            const initials = `${firstLetter}${lastLetter}`.trim() || "S";
+
+            if (photo) {
+              return `
+                <div class="suitie-avatar">
+                  <img src="${escapeHtml(photo)}" alt="Suitie photo" />
+                </div>
+              `;
+            }
+
+            return `
+              <div class="suitie-avatar suitie-avatar--placeholder">
+                <span>${escapeHtml(initials)}</span>
+              </div>
+            `;
+          })()}
+
+          <div class="suitie-text">
+            <h3>${escapeHtml(name)}</h3>
+            ${suiteName ? `<p class="suitie-meta">${escapeHtml(suiteName)}</p>` : ""}
+            ${email ? `<p class="suitie-meta">${escapeHtml(email)}</p>` : ""}
+            ${phone ? `<p class="suitie-meta">${escapeHtml(phone)}</p>` : ""}
+          </div>
+
+        </div>
+      </div>
+
+      <!-- RIGHT: actions -->
+      <div class="suitie-main-right">
+        <button class="ss-btn ss-btn-outline btn-edit-suitie" type="button">Edit</button>
+        <button class="ss-btn ss-btn-danger btn-delete-suitie" type="button">Delete</button>
+      </div>
+
+    </div>
+  </div>
+`;
+
+  }).join("");
+  console.log("[suities] rendered cards:", holder.children.length);
+
+}
+
+// Hook up filter change
+function initSuitiesFilterEvents() {
+  const select = document.getElementById("suities-location-filter");
+  if (!select) return;
+
+select.addEventListener("change", () => {
+  console.log("[suities] dropdown changed to:", select.value);
+  console.log("[suities] sample suitie location values:", ALL_SUITIES.slice(0,5).map(s => (s.values||s).Location));
+  renderSuities();
+});
+
+}
+
+// --------------------------------------------------
+// 2) ADD SUITIE BUTTON opens/closes the FORM
+//    and hides subtitle + filter row
+// --------------------------------------------------
+function initSuitiesAddButton() {
+  const addBtn = document.getElementById("suities-add-btn");
+  const formCard = document.getElementById("suities-form-card");
+  const list = document.getElementById("suities-list");
+
+  // ✅ these must exist in your HTML
+  const subtitle = document.getElementById("suities-subtitle");
+  const filterRow = document.getElementById("suities-filter-row");
+
+  const cancelBtn = document.getElementById("suitie-cancel-btn");
+
+addBtn?.addEventListener("click", () => {
+  if (formCard) formCard.hidden = false;
+  if (list) list.style.display = "none";
+
+  setSuitiesTopControlsHidden(true); // ✅ hide Add + Filter
+
+  if (subtitle) subtitle.style.display = "none";
+
+  formCard?.scrollIntoView({ behavior: "smooth", block: "start" });
+});
+
+cancelBtn?.addEventListener("click", () => {
+  if (formCard) formCard.hidden = true;
+  if (list) list.style.display = "block";
+
+  setSuitiesTopControlsHidden(false); // ✅ show Add + Filter again
+
+  if (subtitle) subtitle.style.display = "";
+});
+
+}
+
+
+// --------------------------------------------------
+// 3) LOCATION DROPDOWN INSIDE THE FORM
+// --------------------------------------------------
+function populateSuitieLocationSelect(locationsList) {
+  const sel = document.getElementById("suitie-location-select");
+  if (!sel) return;
+
+  sel.innerHTML = `<option value="">Select a location…</option>`;
+
+  (locationsList || []).forEach((loc) => {
+    const v = loc.values || loc || {};
+    const id = loc._id || loc.id;
+    const name = v["Location Name"] || v.name || loc.name || "Untitled location";
+    if (!id) return;
+
+    const opt = document.createElement("option");
+    opt.value = id;
+    opt.textContent = name;
+    sel.appendChild(opt);
+  });
+}
+
+
+// --------------------------------------------------
+// 4) WHEN LOCATION CHANGES → LOAD SUITES → FILL SUITE SELECT
+// --------------------------------------------------
+function initSuitieLocationSelect() {
+  const locSel = document.getElementById("suitie-location-select");
+  const suiteSel = document.getElementById("suitie-suite-select");
+  if (!locSel || !suiteSel) return;
+
+  locSel.addEventListener("change", async () => {
+    const locationId = locSel.value || "";
+
+    suiteSel.innerHTML = `<option value="">Select a suite…</option>`;
+    window.STATE = window.STATE || {};
+    window.STATE.suitesForSuitieForm = []; // reset
+
+    if (!locationId) return;
 
     try {
-      const uploadRes = await fetch(`${API_BASE}/api/upload`, {
-        method: "POST",
-        credentials: "include",
-        body: formData,
-      });
+      const suites = await fetchSuitesForLocation(locationId);
 
-      if (!uploadRes.ok) {
-        const txt = await uploadRes.text().catch(() => "");
-        console.warn("[suities] file upload failed", uploadRes.status, txt);
-        alert(
-          `Couldn't upload application file (${uploadRes.status}). Check console for details.`
-        );
-      } else {
-        const uploadJson = await uploadRes.json().catch(() => ({}));
-        if (uploadJson && uploadJson.url) {
-          values["Application File"] = uploadJson.url;
-        }
-      }
+      // ✅ save them so we can lookup defaults on suite change
+      window.STATE.suitesForSuitieForm = suites;
+
+      populateSuitieSuiteSelect(suites);
     } catch (err) {
-      console.error("[suities] file upload error", err);
-      alert("Something went wrong while uploading the application file.");
+      console.error("[suitie form] load suites error", err);
+      suiteSel.innerHTML = `<option value="">Failed to load suites</option>`;
     }
+  });
+}
+
+//Auto fill suite rent 
+function initSuitieSuiteAutoFill() {
+  const suiteSel = document.getElementById("suitie-suite-select");
+  const rentEl = document.getElementById("suitie-rent");
+  const freqEl = document.getElementById("suitie-rent-frequency");
+  if (!suiteSel || !rentEl || !freqEl) return;
+
+  suiteSel.addEventListener("change", () => {
+    const suiteId = suiteSel.value || "";
+    const suites = window.STATE?.suitesForSuitieForm || [];
+
+    const suite = suites.find((s) => String(s._id || s.id) === String(suiteId));
+    const v = suite?.values || suite || {};
+
+    // ✅ try multiple possible field names (because your DB keys vary)
+    const baseRent =
+      v["Base Rent"] ??
+      v["Suite Rent (base)"] ??
+      v["Suite Rent"] ??
+      v["Rent"] ??
+      v.baseRent ??
+      "";
+
+    const interval =
+      v["Preferred Interval"] ??
+      v["Rent Frequency"] ??
+      v["Interval"] ??
+      v.interval ??
+      v.frequency ??
+      "";
+
+    // Fill the form fields
+    rentEl.value = baseRent !== "" && baseRent != null ? String(baseRent) : "";
+
+    // normalize interval if needed (example: "Monthly" -> "monthly")
+    const normalized = String(interval || "").trim().toLowerCase();
+    freqEl.value = normalized; // must match option values (weekly/monthly/etc.)
+
+    console.log("[suitie] autofill from suite", { suiteId, baseRent, interval });
+  });
+}
+
+
+// --------------------------------------------------
+// 5) FETCH SUITES (then filter to selected location)
+// --------------------------------------------------
+async function fetchSuitesForLocation(locationId) {
+  // ✅ change if your DataType name is different
+  const SUITE_DATATYPE = "Suite";
+
+  const url =
+    apiUrl(`/public/records?dataType=${encodeURIComponent(SUITE_DATATYPE)}&limit=500`) +
+    `&ownerUserId=${encodeURIComponent(currentUser.id)}`;
+
+  const res = await fetch(url, {
+    credentials: "include",
+    headers: { Accept: "application/json" },
+    cache: "no-store",
+  });
+
+  const data = await res.json().catch(() => ({}));
+  const rows = Array.isArray(data) ? data : data.records || data.items || data.data || [];
+
+  return rows.filter((s) => suiteBelongsToLocation(s, locationId));
+}
+
+
+// --------------------------------------------------
+// 6) MATCH a suite to a location (handles many field names)
+// --------------------------------------------------
+function suiteBelongsToLocation(suite, locationId) {
+  const v = suite?.values || suite || {};
+
+  const candidates = [
+    v.locationId,
+    v.LocationId,
+    v["Location Id"],
+    v["locationId"],
+    v["Location"],
+    v.location,
+    v["Parent Location"],
+    v.parentLocationId,
+    v["parentLocationId"],
+    v.locationRecordId,
+    v["Location Record Id"],
+  ];
+
+  for (const c of candidates) {
+    if (!c) continue;
+
+    // object ref
+    if (typeof c === "object" && (c._id || c.id)) {
+      return String(c._id || c.id) === String(locationId);
+    }
+
+    // plain string/id
+    if (String(c) === String(locationId)) return true;
   }
 
-  // 🔹 upload photo (if any)
-  if (photoFileInput && photoFileInput.files && photoFileInput.files[0]) {
-    const photo = photoFileInput.files[0];
-    const photoData = new FormData();
-    photoData.append("file", photo);
+  return false;
+}
 
-    try {
-      const uploadRes = await fetch(`${API_BASE}/api/upload`, {
-        method: "POST",
-        credentials: "include",
-        body: photoData,
-      });
 
-      if (!uploadRes.ok) {
-        const txt = await uploadRes.text().catch(() => "");
-        console.warn("[suities] photo upload failed", uploadRes.status, txt);
-        alert(
-          `Couldn't upload suitie photo (${uploadRes.status}). Check console for details.`
-        );
-      } else {
-        const uploadJson = await uploadRes.json().catch(() => ({}));
-        if (uploadJson && uploadJson.url) {
-          values["Suitie Photo"] = uploadJson.url;
-        }
-      }
-    } catch (err) {
-      console.error("[suities] photo upload error", err);
-      alert("Something went wrong while uploading the suitie photo.");
-    }
+// --------------------------------------------------
+// 7) POPULATE SUITE SELECT
+// --------------------------------------------------
+//Hide add suitie header 
+function hideSuitiesTopControls() {
+  const addBtn = document.getElementById("suities-add-btn");
+  const filterRow = document.getElementById("suities-filter-row");
+
+  if (addBtn) addBtn.style.display = "none";
+
+}
+
+function showSuitiesTopControls() {
+  const addBtn = document.getElementById("suities-add-btn");
+  const filterRow = document.getElementById("suities-filter-row");
+
+  if (addBtn) addBtn.style.display = "";
+  if (filterRow) filterRow.style.display = "";
+}
+
+function populateSuitieSuiteSelect(suites) {
+  const sel = document.getElementById("suitie-suite-select");
+  if (!sel) return;
+
+  sel.innerHTML = `<option value="">Select a suite…</option>`;
+
+  (suites || []).forEach((s) => {
+    const v = s.values || s || {};
+    const id = s._id || s.id;
+
+    const name =
+      v["Suite Name"] ||
+      v["Suite"] ||
+      v.name ||
+      v["Name"] ||
+      "Untitled suite";
+
+    if (!id) return;
+
+    const opt = document.createElement("option");
+    opt.value = id;
+    opt.textContent = name;
+    sel.appendChild(opt);
+  });
+
+  if (!suites || !suites.length) {
+    const opt = document.createElement("option");
+    opt.value = "";
+    opt.textContent = "No suites found for this location";
+    opt.disabled = true;
+    sel.appendChild(opt);
   }
-
-  // 🔹 Are we editing an existing suitie or creating a new one?
-  const isEditing = !!(selectedSuitie && selectedSuitie.id);
-
-  const endpoint = isEditing
-    ? `${API_BASE}/api/records/Suitie/${encodeURIComponent(selectedSuitie.id)}`
-    : `${API_BASE}/api/records/Suitie`;
-
-  const method = isEditing ? "PATCH" : "POST";
-
-  try {
-    const res = await fetch(endpoint, {
-      method,
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-      credentials: "include",
-      body: JSON.stringify({ values }),
-    });
+}
 
 
+// --------------------------------------------------
+// 8) CALL THIS after locations load
+//    Put this right after: window.STATE.locations = rows;
+// --------------------------------------------------
+function initSuitiesWithLocations() {
+  const locs = window.STATE?.locations || [];
 
+  // top filter
+  populateSuitiesLocationFilter(locs);
 
+  // form location dropdown
+  populateSuitieLocationSelect(locs);
+}
 
-    
-    if (!res.ok) {
-      const txt = await res.text().catch(() => "");
-      console.warn("[suities] save failed", res.status, txt);
-      alert(`Couldn't save suitie (${res.status}). Check console for details.`);
+//Show image preview
+function initSuitiePhotoPreview() {
+  const input = document.getElementById("suitie-photo-file");
+  const holder = document.getElementById("suitie-photo-preview");
+  if (!input || !holder) return;
+
+  let pendingSuitiePhotoFile = null;
+
+  function render() {
+    if (!pendingSuitiePhotoFile) {
+      holder.innerHTML = `<span class="muted">No photo selected.</span>`;
       return;
     }
 
-    const saved = await res.json().catch(() => null);
-    console.log("[suities] saved", saved, "editing?", isEditing);
+    const url = URL.createObjectURL(pendingSuitiePhotoFile);
 
-    await loadSuities();
-    form.reset();
-    formCard.hidden = true;
+    holder.innerHTML = `
+      <div class="gallery-thumb-wrapper">
+        <button type="button" class="gallery-thumb-remove" aria-label="Remove photo">×</button>
+        <img src="${url}" alt="Suitie photo preview" />
+      </div>
+    `;
 
-    if (listEl)      listEl.style.display = "block";
-    if (detailsCard) detailsCard.style.display = "none";
-    selectedSuitie = null;
-  } catch (err) {
-    console.error("[suities] save error", err);
-    alert("Something went wrong while saving this suitie. Please try again.");
+    // cleanup blob url after load
+    holder.querySelector("img")?.addEventListener("load", () => {
+      try { URL.revokeObjectURL(url); } catch {}
+    });
+
+    holder.querySelector(".gallery-thumb-remove")?.addEventListener("click", () => {
+      pendingSuitiePhotoFile = null;
+      input.value = "";
+      render();
+    });
   }
-});
 
-
-}
-
-// Global suites array used by getAllSuitesForRender()
-let suites = window.STATE && Array.isArray(window.STATE.suites)
-  ? window.STATE.suites
-  : [];
-
-
-// Normalize a Suite record from the API
-function normalizeSuite(row) {
-  const v = row.values || row;
-
-  const id =
-    row.id ||
-    row._id ||
-    v.id ||
-    v._id ||
-    "";
-
-  const name =
-    v["Suite Name"] ||
-    v["Name"] ||
-    v["Suite Number/Name"] ||
-    "Untitled suite";
-
-  const locationId =
-    (v.Location && (v.Location._id || v.Location.id)) ||
-    v.locationId ||
-    v.LocationId ||
-    "";
-
-  const locationName =
-    v["Location Name"] ||
-    v.LocationName ||
-    v.locationName ||
-    "";
-
-  // 🔹 template + pdf
-  const applicationTemplate =
-    v.applicationTemplate ||
-    v["Application Template"] ||
-    "";
-
-  const applicationPdf =
-    v.applicationPdf ||
-    v["Application PDF URL"] ||
-    v["Application PDF"] ||
-    v["Application File"] ||
-    "";
-
-  // 🔹 gallery + default image  (👈 adjust field names to match your DataType)
-const galleryRaw =
-  v["Suite Gallery"] ||
-  v["Gallery Images"] ||
-  v["Suite Photos"] ||
-  [];
-
-const gallery = Array.isArray(galleryRaw) ? galleryRaw : [];
-
-const img =
-  v["Suite Default Photo"] ||
-  v["Suite Photo"] ||
-  v["Default Image"] ||
-  (gallery.length ? gallery[0] : "") || "";
-
-
-
-  const suiteObj = {
-    id: String(id),
-    name,
-    locationId: locationId ? String(locationId) : "",
-    locationName,
-    applicationTemplate,
-    applicationPdf,
-
-    // 🎨 styles
-    bgColor:
-      v["Suite Background Color"] ||
-      v["Background Color"] ||
-      v.bgColor ||
-      "",
-
-    textColor:
-      v["Suite Text Color"] ||
-      v["Text Color"] ||
-      v.textColor ||
-      "",
-
-    accentColor:
-      v["Suite Accent Color"] ||
-      v.accentColor ||
-      "",
-
-    buttonColor:
-      v["Suite Button Color"] ||
-      v.buttonColor ||
-      "",
-
-    // 🖼 new fields
-    img,
-    gallery
-  };
-
-  console.log("[normalizeSuite] suite loaded:", {
-    id: suiteObj.id,
-    name: suiteObj.name,
-    hasTemplate: !!(
-      suiteObj.applicationTemplate &&
-      String(suiteObj.applicationTemplate).trim()
-    ),
-    hasPdf: !!suiteObj.applicationPdf,
-    img: suiteObj.img,
-    galleryLen: suiteObj.gallery.length,
-    templatePreview:
-      typeof suiteObj.applicationTemplate === "string"
-        ? suiteObj.applicationTemplate.slice(0, 120)
-        : suiteObj.applicationTemplate,
+  input.addEventListener("change", () => {
+    const file = input.files?.[0] || null;
+    pendingSuitiePhotoFile = file;
+    render();
   });
 
-  return suiteObj;
+  // optional helpers so you can reset when canceling the form
+  window._getPendingSuitiePhotoFile = () => pendingSuitiePhotoFile;
+  window._clearSuitiePhotoPreview = () => {
+    pendingSuitiePhotoFile = null;
+    input.value = "";
+    render();
+  };
+
+  render();
 }
 
 
 
-async function loadSuitesForUser() {
-  const url = `${API_BASE}/public/records?dataType=Suite&limit=200`;
+
+
+
+
+
+
+///////// ================================
+/////////////// Save a Suitie
+//// ///================================
+
+async function createRecord(dataTypeName, values) {
+  const res = await fetch(apiUrl(`/api/records/${encodeURIComponent(dataTypeName)}`), {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify({ values }),
+  });
+
+  const data = await readJsonSafe(res);
+  if (!res.ok) throw new Error(data?.message || `Failed to create ${dataTypeName}`);
+  return data;
+}
+
+function initSuitieSave() {
+  const form = document.getElementById("suitie-form");
+  if (!form) return;
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!currentUser?.id) return alert("You must be logged in.");
+
+    // ---------- form values ----------
+    const locationId =
+      document.getElementById("suitie-location-select")?.value || "";
+    const suiteId = document.getElementById("suitie-suite-select")?.value || "";
+
+    const first = document.getElementById("suitie-first")?.value?.trim() || "";
+    const last = document.getElementById("suitie-last")?.value?.trim() || "";
+    const email = document.getElementById("suitie-email")?.value?.trim() || "";
+    const phone = document.getElementById("suitie-phone")?.value?.trim() || "";
+    const note = document.getElementById("suitie-note")?.value?.trim() || "";
+
+    const rentAmountRaw = document.getElementById("suitie-rent")?.value || "";
+    const dueDate = document.getElementById("suitie-rent-due")?.value || ""; // yyyy-mm-dd
+    const rentAmount = rentAmountRaw === "" ? null : Number(rentAmountRaw);
+
+const freqEl = document.getElementById("suitie-rent-frequency");
+const freqValue = (freqEl?.value || "").trim().toLowerCase();
+
+
+    if (!suiteId) return alert("Please select a suite.");
+    if (!first) return alert("First name is required.");
+
+    try {
+      // -------------------------------------------------------
+      // ✅ 0) Upload suitie photo FIRST (optional)
+      // -------------------------------------------------------
+// ✅ 0) Upload suitie photo FIRST (optional)
+// ✅ keep existing photo unless user picks a new one
+let suitiePhotoUrl = existingSuitiePhotoUrl || "";
+
+const file = window._getPendingSuitiePhotoFile?.(); // your existing helper
+if (file) {
+  suitiePhotoUrl = await uploadOneImage(file);
+}
+
+
+      // -------------------------------------------------------
+      // ✅ 1) CREATE SUITIE (NOW we can use suitiePhotoUrl)
+      // -------------------------------------------------------
+      const suitieValues = {
+        ownerUserId: currentUser.id,
+        "Created By": currentUser.id,
+
+        "First Name": first,
+        "Last Name": last,
+        Email: email,
+        "Phone Number": phone,
+
+        // Reference → Location
+        Location: locationId ? [locationId] : [],
+
+        // Reference → Suite
+        Suite: suiteId,
+
+        "Suite Number/Name": getSelectedText("suitie-suite-select"),
+        Note: note,
+
+        "Suitie Photo": suitiePhotoUrl,
+      };
+
+      let suitieRec;
+
+if (editingSuitieId) {
+  // ✅ UPDATE existing suitie
+  suitieRec = await updateRecord("Suitie", editingSuitieId, suitieValues);
+} else {
+  // ✅ CREATE new suitie
+  suitieRec = await createRecord("Suitie", suitieValues);
+}
+
+      console.log("[suitie] created response:", suitieRec);
+      console.log("[suitie] saved values:", suitieValues);
+
+  const suitieId = editingSuitieId
+  ? editingSuitieId
+  : (suitieRec?._id ||
+     suitieRec?.id ||
+     suitieRec?.record?._id ||
+     suitieRec?.record?.id);
+
+if (!suitieId) throw new Error("Suitie saved but id was missing.");
+
+ // -------------------------------------------------------
+// 2) CREATE or UPDATE SUITE RENT
+// -------------------------------------------------------
+let suiteRentId = "";
+
+// ✅ if suitie already has a Suite Rent linked, update it
+let existingRentRef = "";
+if (editingSuitieId) {
+  const suitieRecFresh = await fetchRecordById("Suitie", suitieId);
+  const sv = suitieRecFresh?.values || suitieRecFresh || {};
+  existingRentRef = sv["Suite Rent"] || sv.SuiteRent || "";
+  if (Array.isArray(existingRentRef)) existingRentRef = existingRentRef[0];
+  if (typeof existingRentRef === "object" && existingRentRef) {
+    existingRentRef = existingRentRef._id || existingRentRef.id || "";
+  }
+  existingRentRef = String(existingRentRef || "");
+}
+
+
+
+if (rentAmount != null || dueDate || freqValue) {
+  const suiteRentValues = {
+    ownerUserId: currentUser.id,
+    "Created By": currentUser.id,
+    Amount: rentAmount != null ? rentAmount : 0,
+    "Due Date": dueDate || "",
+   "Perferred Interval": freqValue,
+"Preferred Interval": freqValue,
+
+    Suitie: suitieId,
+  };
+
+  console.log("[rent save] existingRentRef:", existingRentRef);
+  console.log("[rent save] sending:", suiteRentValues);
+
+  let rentSaved;
+
+  if (existingRentRef) {
+    rentSaved = await updateRecord("Suite Rent", existingRentRef, suiteRentValues);
+    suiteRentId = existingRentRef;
+  } else {
+    rentSaved = await createRecord("Suite Rent", suiteRentValues);
+    suiteRentId = rentSaved?._id || rentSaved?.id || rentSaved?.record?._id || rentSaved?.record?.id || "";
+  }
+
+  console.log("[rent save] saved response:", rentSaved);
+}
+
+// -------------------------------------------------------
+// 3) Ensure Suitie points to Suite Rent (only if newly created)
+// -------------------------------------------------------
+if (suiteRentId && !existingRentRef) {
+  await updateRecord("Suitie", suitieId, { "Suite Rent": suiteRentId });
+}
+
+
+editingSuitieId = null;
+existingSuitiePhotoUrl = "";
+
+      alert("Suitie saved!");
+
+      // reset UI
+      form.reset();
+      window._clearSuitiePhotoPreview?.();
+
+      // optionally return to list view
+      const formCard = document.getElementById("suities-form-card");
+      const list = document.getElementById("suities-list");
+      if (formCard) formCard.hidden = true;
+      if (list) list.style.display = "block";
+setSuitiesTopControlsHidden(false);
+
+
+      // show subtitle/filter back on:
+      const sub = document.getElementById("suities-subtitle");
+      const row = document.getElementById("suities-filter-row");
+      if (sub) sub.style.display = "";
+      if (row) row.style.display = "";
+
+      // reload list
+      await loadSuities();
+    } catch (err) {
+      console.error("[suities] save error", err);
+      alert(err?.message || "Failed to save suitie");
+    }
+  });
+}
+
+
+
+///////// ================================
+/////////////// Update Suitie
+//// ///================================
+//hide top of add suitie
+function setSuitiesTopControlsHidden(hidden) {
+  const addBtn = document.getElementById("suities-add-btn");
+  const filterRow = document.getElementById("suities-filter-row");
+
+  if (addBtn) addBtn.classList.toggle("is-hidden", hidden);
+  if (filterRow) filterRow.classList.toggle("is-hidden", hidden);
+}
+
+function wait(ms) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+let editingSuitieId = null;
+let existingSuitiePhotoUrl = "";
+
+function initSuitieEdit() {
+  const holder = document.getElementById("suities-list");
+  console.log("[initSuitieEdit] holder:", holder);
+
+  if (!holder) return;
+
+  holder.addEventListener("click", (e) => {
+    const editBtn = e.target.closest(".btn-edit-suitie");
+    if (!editBtn) return;
+
+    const card = editBtn.closest(".suitie-card");
+    const id = card?.dataset?.id;
+
+    console.log("[edit click] id:", id, "card:", card);
+
+    if (!id) return;
+    openSuitieEditMode(id);
+  });
+}
+
+async function openSuitieEditMode(id) {
+  editingSuitieId = id;
+
+  setSuitiesTopControlsHidden(true);
+
+  const delBtn = document.getElementById("suitie-delete-btn");
+if (delBtn) delBtn.style.display = "inline-flex";
+
+  const row = ALL_SUITIES.find((r) => String(getId(r)) === String(id));
+  if (!row) {
+    console.warn("[suitie edit] not found in ALL_SUITIES", { id, count: ALL_SUITIES.length });
+    return;
+  }
+
+  const v = getValues(row);
+
+  console.log("[suitie edit] opening edit mode", {
+    id,
+    row,          // full record
+    values: v,    // just the values
+    suiteRef: v.Suite,
+    locationRef: v.Location,
+    suiteRentRef: v["Suite Rent"] || v.SuiteRent,
+    photo: v["Suitie Photo"] || v.photoUrl || v.photo || v.imageUrl || v.image
+  });
+
+  // ✅ current saved photo (file inputs cannot be prefilled)
+const photoUrl =
+  v["Suitie Photo"] ||
+  v.suitiePhoto ||
+  v.photoUrl ||
+  v.photo ||
+  v.imageUrl ||
+  v.image ||
+  "";
+
+existingSuitiePhotoUrl = photoUrl || "";
+
+const preview = document.getElementById("suitie-photo-preview");
+if (preview) {
+  preview.innerHTML = photoUrl
+    ? `
+      <div style="display:flex; gap:12px; align-items:center;">
+        <img src="${escapeHtml(photoUrl)}"
+             alt="Current suitie photo"
+             style="width:72px;height:72px;border-radius:12px;object-fit:cover;border:1px solid rgba(0,0,0,.08);" />
+        <div class="muted">Current photo (choose a new file to replace)</div>
+      </div>
+    `
+    : `<span class="muted">No photo saved yet.</span>`;
+}
+
+// ✅ clear the file input visually (browser security)
+const fileInput = document.getElementById("suitie-photo-file");
+if (fileInput) fileInput.value = "";
+
+  // show form, hide list...
+  const formCard = document.getElementById("suities-form-card");
+  const list = document.getElementById("suities-list");
+  if (formCard) formCard.hidden = false;
+  if (list) list.style.display = "none";
+
+  // inputs you already have
+  document.getElementById("suitie-first").value = v["First Name"] || "";
+  document.getElementById("suitie-last").value  = v["Last Name"] || "";
+  document.getElementById("suitie-email").value = v.Email || v["Email"] || "";
+  document.getElementById("suitie-phone").value = v["Phone Number"] || "";
+  document.getElementById("suitie-note").value  = v.Note || "";
+
+  const locSelect = document.getElementById("suitie-location-select");
+  const suiteSelect = document.getElementById("suitie-suite-select");
+
+  // ---- LOCATION ----
+  let loc = v.Location ?? "";
+  if (Array.isArray(loc)) loc = loc[0];
+  if (typeof loc === "object") loc = loc._id || loc.id || "";
+  if (locSelect && loc) {
+    locSelect.value = String(loc);
+
+    // ✅ trigger whatever code you already have that loads suites for that location
+    locSelect.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+
+  // ---- SUITE ----
+  let suite = v.Suite ?? "";
+  if (Array.isArray(suite)) suite = suite[0];
+  if (typeof suite === "object") suite = suite._id || suite.id || "";
+
+  // ✅ wait for suite options to populate, then set
+  await wait(150);            // small delay
+  for (let i = 0; i < 10; i++) {
+    if (suiteSelect?.options?.length > 1) break;  // options loaded
+    await wait(100);
+  }
+  if (suiteSelect && suite) suiteSelect.value = String(suite);
+
+  // ✅ now load Suite Rent fields too (next section)
+  await fillSuiteRentFieldsFromSuitie(v);
+}
+async function fetchRecordById(dataType, id) {
+  const url = apiUrl(
+    `/api/records/${encodeURIComponent(dataType)}/${encodeURIComponent(id)}`
+  );
+
+  const res = await fetch(url, {
+    credentials: "include",
+    headers: { Accept: "application/json" },
+    cache: "no-store",
+  });
+
+  const data = await readJsonSafe(res);
+  if (!res.ok) {
+    console.warn("[fetchRecordById] failed", res.status, data);
+    return null;
+  }
+
+  return data; // should be the record
+}
+
+
+async function fillSuiteRentFieldsFromSuitie(suitieValues) {
+  // ✅ declare FIRST
+  let rentRef = suitieValues["Suite Rent"] || suitieValues.SuiteRent || "";
+
+  // ✅ safe log AFTER declaration
+  console.log("[rent] suitieValues Suite Rent raw:", rentRef);
+
+  if (!rentRef) return;
+
+  if (Array.isArray(rentRef)) rentRef = rentRef[0];
+  if (typeof rentRef === "object" && rentRef) rentRef = rentRef._id || rentRef.id || "";
+
+  rentRef = String(rentRef || "");
+  console.log("[rent] normalized rentRef:", rentRef);
+
+  if (!rentRef) return;
+
+  const rentRec = await fetchRecordById("Suite Rent", rentRef);
+
+  console.log("[rent] fetched rentRec:", rentRec);
+
+  if (!rentRec) return;
+
+  const rv = rentRec.values || rentRec || {};
+  console.log("[rent] rentRec values:", rv);
+
+  const rentInput  = document.getElementById("suitie-rent");
+  const freqSelect = document.getElementById("suitie-rent-frequency");
+  const dueInput   = document.getElementById("suitie-rent-due");
+
+  if (rentInput) rentInput.value = rv.Amount != null ? String(rv.Amount) : "";
+  if (dueInput)  dueInput.value  = rv["Due Date"] || rv.DueDate || "";
+
+  const raw =
+    rv["Perferred Interval"] ||
+    rv["Preferred Interval"] ||
+    rv["Rent Frequency"] ||
+    rv.Interval ||
+    rv.frequency ||
+    "";
+
+  const norm = normalizeRentFrequency(raw);
+
+  console.log("[rent] freq mapping:", {
+    raw,
+    norm,
+    dropdownOptions: freqSelect ? Array.from(freqSelect.options).map(o => o.value) : null
+  });
+
+  if (freqSelect) freqSelect.value = norm || "";
+}
+
+function normalizeRentFrequency(raw) {
+  const s = String(raw || "").trim().toLowerCase();
+  if (!s) return "";
+
+  if (s.includes("bi")) return "biweekly";
+  if (s.includes("week")) return "weekly";
+  if (s.includes("month")) return "monthly";
+  if (s.includes("quart")) return "quarterly";
+  if (s.includes("year") || s.includes("annual")) return "yearly";
+
+  const allowed = ["weekly", "biweekly", "monthly", "quarterly", "yearly"];
+  return allowed.includes(s) ? s : "";
+}
+
+async function saveSuitie(values) {
+  if (editingSuitieId) {
+    // ✅ EDIT MODE (PATCH)
+    const res = await fetch(
+      apiUrl(`/api/records/${encodeURIComponent("Suitie")}/${encodeURIComponent(editingSuitieId)}`),
+      {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ values }),
+      }
+    );
+
+    const data = await readJsonSafe(res);
+    if (!res.ok) throw new Error(data?.message || "Failed to update suitie.");
+
+    // update local cache
+    ALL_SUITIES = ALL_SUITIES.map((r) =>
+      String(getId(r)) === String(editingSuitieId) ? data : r
+    );
+
+    editingSuitieId = null; // clear edit mode
+    renderSuities();
+    return data;
+  } else {
+    // ✅ CREATE MODE (POST)
+    const res = await fetch(apiUrl(`/api/records/${encodeURIComponent("Suitie")}`), {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ values }),
+    });
+
+    const data = await readJsonSafe(res);
+    if (!res.ok) throw new Error(data?.message || "Failed to create suitie.");
+
+    ALL_SUITIES.unshift(data);
+    renderSuities();
+    return data;
+  }
+}
+
+function openSuitieCreateMode() {
+  editingSuitieId = null;
+
+  const form = document.getElementById("popup-add-suitie-form");
+  form?.reset?.();
+
+  const title = document.getElementById("suitie-popup-title");
+  if (title) title.textContent = "Add Suitie";
+
+  existingSuitiePhotoUrl = "";
+const preview = document.getElementById("suitie-photo-preview");
+if (preview) preview.innerHTML = `<span class="muted">No photo selected.</span>`;
+
+const fileInput = document.getElementById("suitie-photo-file");
+if (fileInput) fileInput.value = "";
+
+  const saveBtn = document.getElementById("save-suitie-btn");
+  if (saveBtn) saveBtn.textContent = "Save Suitie";
+
+  const popup = document.getElementById("popup-add-suitie");
+  if (popup) popup.classList.add("is-open");
+}
+
+//update Suitie
+async function updateRecord(dataTypeName, id, values) {
+  const res = await fetch(
+    apiUrl(`/api/records/${encodeURIComponent(dataTypeName)}/${encodeURIComponent(id)}`),
+    {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ values }),
+    }
+  );
+
+  const data = await readJsonSafe(res);
+  if (!res.ok) throw new Error(data?.message || `Failed to update ${dataTypeName}`);
+  return data;
+}
+
+///////// ================================
+/////////////// Delete Suitie 
+//// ///================================
+//Delete from Card
+function initSuitieDelete() {
+  const holder = document.getElementById("suities-list");
+  if (!holder) return;
+
+  holder.addEventListener("click", async (e) => {
+    const delBtn = e.target.closest(".btn-delete-suitie");
+    if (!delBtn) return;
+
+    const card = delBtn.closest(".suitie-card");
+    const id = card?.dataset?.id;
+
+    if (!id) {
+      alert("Couldn’t find this suitie’s id.");
+      return;
+    }
+
+    const ok = confirm("Delete this suitie? This can’t be undone.");
+    if (!ok) return;
+
+    try {
+      // ✅ delete from your API
+      const res = await fetch(
+        apiUrl(`/api/records/${encodeURIComponent("Suitie")}/${encodeURIComponent(id)}`),
+        { method: "DELETE", credentials: "include", headers: { Accept: "application/json" } }
+      );
+
+      const data = await readJsonSafe(res);
+      if (!res.ok) throw new Error(data?.message || "Failed to delete suitie.");
+
+      // ✅ remove locally + re-render so it disappears immediately
+      ALL_SUITIES = ALL_SUITIES.filter((r) => String(getId(r)) !== String(id));
+      renderSuities();
+    } catch (err) {
+      console.error(err);
+      alert(err?.message || "Failed to delete suitie.");
+    }
+  });
+}
+
+//Delete inside add suitie 
+function initSuitieDeleteFromForm() {
+  const btn = document.getElementById("suitie-delete-btn");
+  if (!btn) return;
+
+  btn.addEventListener("click", async () => {
+    if (!editingSuitieId) return; // only valid in edit mode
+
+    const ok = confirm("Delete this suitie? This can’t be undone.");
+    if (!ok) return;
+
+    try {
+      const res = await fetch(
+        apiUrl(`/api/records/${encodeURIComponent("Suitie")}/${encodeURIComponent(editingSuitieId)}`),
+        { method: "DELETE", credentials: "include", headers: { Accept: "application/json" } }
+      );
+
+      const data = await readJsonSafe(res);
+      if (!res.ok) throw new Error(data?.message || "Failed to delete suitie.");
+
+      // remove locally and reset UI
+      ALL_SUITIES = ALL_SUITIES.filter((r) => String(getId(r)) !== String(editingSuitieId));
+      editingSuitieId = null;
+      existingSuitiePhotoUrl = "";
+
+      // hide form / show list
+      document.getElementById("suities-form-card")?.setAttribute("hidden", "true");
+      const list = document.getElementById("suities-list");
+      if (list) list.style.display = "block";
+
+      // show top controls back
+      setSuitiesTopControlsHidden(false);
+      document.getElementById("suities-subtitle").style.display = "";
+
+      renderSuities();
+      alert("Suitie deleted.");
+    } catch (err) {
+      console.error(err);
+      alert(err?.message || "Failed to delete suitie.");
+    }
+  });
+}
+
+
+// helper: get the visible label of selected option
+function getSelectedText(selectId) {
+  const sel = document.getElementById(selectId);
+  if (!sel) return "";
+  const opt = sel.options?.[sel.selectedIndex];
+  return opt?.textContent?.trim() || "";
+}
+
+
+
+//Reset Suities section when clicking outside of tab 
+function resetSuitiesUI() {
+  // clear edit state
+  editingSuitieId = null;
+  existingSuitiePhotoUrl = "";
+
+  // hide form, show list
+  const formCard = document.getElementById("suities-form-card");
+  const list = document.getElementById("suities-list");
+  if (formCard) formCard.hidden = true;
+  if (list) list.style.display = "block";
+
+  // show top controls again
+  setSuitiesTopControlsHidden(false);
+
+  // restore subtitle/filter row (only if you use these IDs)
+  document.getElementById("suities-subtitle")?.style && (document.getElementById("suities-subtitle").style.display = "");
+  document.getElementById("suities-filter-row")?.style && (document.getElementById("suities-filter-row").style.display = "");
+
+  // reset form fields + photo preview
+  document.getElementById("suitie-form")?.reset?.();
+  window._clearSuitiePhotoPreview?.();
+
+  // hide delete button in form (only shows in edit mode)
+  const delBtn = document.getElementById("suitie-delete-btn");
+  if (delBtn) delBtn.style.display = "none";
+}
+
+
+
+
+
+
+
+
+
+                   // ================================
+                         // Invoice Section
+                  // ================================
+//show all suities in dropdown
+async function fetchJSON(url, opts = {}) {
+  const res = await fetch(url, { credentials: "include", ...opts });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data?.error || data?.message || "Request failed");
+  return data;
+}
+
+// Try to get current user id from your existing auth endpoint.
+// If you already have window.currentUser.userId somewhere, use that instead.
+async function getMe() {
+  const out = await fetchJSON("/api/auth/me"); // <-- if yours is different, tell me
+  // expecting: { ok:true, user:{ userId: "...", ... } } OR similar
+  return out?.user || out?.me || out;
+}
+
+function pickSuitieLabel(row) {
+  const v = row?.values || row || {};
+  const first = v["First Name"] || v.firstName || "";
+  const last  = v["Last Name"] || v.lastName || "";
+  const suite = v["Suite Number/Name"] || v.suiteName || "";
+  const email = v["Email"] || v.email || "";
+
+  const name = `${first} ${last}`.trim();
+  const left = name || suite || email || "Suitie";
+  const right = suite && name ? ` • ${suite}` : (email && left !== email ? ` • ${email}` : "");
+  return `${left}${right}`.trim();
+}
+
+async function loadInvoiceSuitieDropdown() {
+  const select = document.getElementById("invoice-suitie-select");
+  const hint = document.getElementById("invoice-suitie-hint");
+  if (!select) return;
+
+  // must be logged in
+  if (!currentUser?.id) {
+    select.innerHTML = `<option value="">Please log in</option>`;
+    if (hint) hint.textContent = "";
+    return;
+  }
+
+  select.innerHTML = `<option value="">Loading suities...</option>`;
+  if (hint) hint.textContent = "";
 
   try {
-    const res = await fetch(url, {
+    const res = await fetch(apiUrl(`/api/records/${encodeURIComponent("Suitie")}?limit=2000`), {
+      method: "GET",
+      credentials: "include",
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+    });
+
+    const data = await res.json().catch(() => ({}));
+    const rows = Array.isArray(data?.items) ? data.items : [];
+
+    // Filter suities where ownerUserId == current user (your universal stamp)
+    const mine = rows.filter((r) => {
+      const v = r?.values || {};
+      const owner = String(v.ownerUserId || "");
+      return owner && owner === String(currentUser.id);
+    });
+
+    if (!mine.length) {
+      select.innerHTML = `<option value="">No suities yet</option>`;
+      if (hint) hint.textContent = "Add/accept a suitie first, then you can create an invoice.";
+      return;
+    }
+
+    select.innerHTML =
+      `<option value="">Select a suitie...</option>` +
+      mine
+        .map((r) => {
+          const v = r.values || {};
+          const first = v["First Name"] || "";
+          const last = v["Last Name"] || "";
+          const suite = v["Suite Number/Name"] || "";
+          const email = v["Email"] || "";
+          const label = `${(first + " " + last).trim() || suite || email || "Suitie"}${suite && (first || last) ? " • " + suite : ""}`;
+          return `<option value="${String(r._id)}">${escapeHtml(label)}</option>`;
+        })
+        .join("");
+
+  } catch (err) {
+    console.error("[invoices] loadInvoiceSuitieDropdown failed:", err);
+    select.innerHTML = `<option value="">Failed to load suities</option>`;
+    if (hint) hint.textContent = "Check console + server logs.";
+  }
+}
+
+function escapeHtml(str) {
+  return String(str || "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+
+///////
+function openInvoiceCreatePanel() {
+  const panel = document.getElementById("invoice-create-panel");
+  const list = document.getElementById("invoices-list");
+  if (panel) panel.hidden = false;
+  if (list) list.style.display = "none";
+}
+
+function closeInvoiceCreatePanel() {
+  const panel = document.getElementById("invoice-create-panel");
+  const list = document.getElementById("invoices-list");
+  if (panel) panel.hidden = true;
+  if (list) list.style.display = "";
+}
+
+function initInvoicesUI() {
+  const addBtn = document.getElementById("add-invoice-btn");
+  const cancelBtn = document.getElementById("invoice-cancel-create-btn");
+  const suitieSelect = document.getElementById("invoice-suitie-select");
+  const totalEl = document.getElementById("invoice-total-display");
+
+  addBtn?.addEventListener("click", () => {
+    openInvoiceCreatePanel();
+  });
+
+  cancelBtn?.addEventListener("click", () => {
+    closeInvoiceCreatePanel();
+  });
+
+ 
+}
+
+//add suite amount when the suitie dropdwon is clicked 
+function money(n) {
+  const num = Number(n || 0);
+  return num.toLocaleString(undefined, { style: "currency", currency: "USD" });
+}
+
+function normalizeRef(ref) {
+  if (!ref) return "";
+  if (Array.isArray(ref)) ref = ref[0];
+  if (typeof ref === "object") return String(ref._id || ref.id || "");
+  return String(ref);
+}
+function initInvoiceSuitieRentAutofill() {
+  const suitieSelect = document.getElementById("invoice-suitie-select");
+  const totalEl = document.getElementById("invoice-total-display");
+  const nameEl = document.getElementById("invoice-suitie-name");
+
+  const dueEl = document.getElementById("invoice-due-date"); // ✅ new
+
+  if (!suitieSelect || !totalEl) {
+    console.warn("[invoices] missing elements", { suitieSelect, totalEl });
+    return;
+  }
+
+  if (suitieSelect.dataset.rentBound === "1") return;
+  suitieSelect.dataset.rentBound = "1";
+
+  suitieSelect.addEventListener("change", async () => {
+    const suitieId = suitieSelect.value || "";
+
+    // reset when nothing selected
+    if (!suitieId) {
+      if (nameEl) nameEl.textContent = "—";
+      if (dueEl) dueEl.textContent = "—";
+      totalEl.dataset.overridden = "0";
+      totalEl.textContent = formatCurrency(0);
+      return;
+    }
+
+    const suities = Array.isArray(window.STATE?.suities) ? window.STATE.suities : [];
+    const suitie = suities.find((s) => String(s._id || s.id) === String(suitieId));
+    const sv = suitie?.values || suitie || {};
+
+    // ✅ Suitie name
+    const first = sv["First Name"] || sv.firstName || "";
+    const last  = sv["Last Name"] || sv.lastName || "";
+    const email = sv["Email"] || sv.email || "";
+    const suite = sv["Suite Number/Name"] || sv.suiteName || "";
+    const baseName = `${first} ${last}`.trim() || email || "Suitie";
+    const displayName = suite ? `${baseName} • ${suite}` : baseName;
+    if (nameEl) nameEl.textContent = displayName;
+
+    // ✅ Suite Rent ref
+    let rentRef = normalizeRef(sv["Suite Rent"] || sv.SuiteRent);
+
+    // fallback if no rent ref
+    if (!rentRef) {
+      const direct =
+        sv["Suite rent (base)"] ??
+        sv["Suite Rent (base)"] ??
+        sv["Suite Rent"] ??
+        sv["Rent"] ??
+        sv.rent ??
+        0;
+
+      if (totalEl.dataset.overridden !== "1") {
+        totalEl.textContent = formatCurrency(direct);
+      }
+
+      // try to show due date if you ever stored it directly on suitie
+      const suitieDue = sv["Due Date"] || sv["Next Due Date"] || sv.dueDate || "";
+      if (dueEl) dueEl.textContent = formatDueDate(suitieDue);
+
+      return;
+    }
+
+    // ✅ fetch Suite Rent record
+    const rentRec = await fetchRecordById("Suite Rent", rentRef);
+    const rv = rentRec?.values || rentRec || {};
+
+    const amount = Number(rv.Amount || 0);
+
+    // due date can be stored in a few keys — we support multiple
+    const dueRaw =
+      rv["Next Due Date"] ||
+      rv["Due Date"] ||
+      rv.DueDate ||
+      rv.dueDate ||
+      "";
+
+  if (dueEl && dueEl.dataset.overridden !== "1") {
+  dueEl.textContent = formatDueDate(dueRaw);
+  window.STATE.invoiceDraft = window.STATE.invoiceDraft || {};
+  window.STATE.invoiceDraft.dueDateYmd = dueRaw ? String(dueRaw).slice(0,10) : "";
+}
+
+    if (totalEl.dataset.overridden !== "1") {
+      totalEl.textContent = formatCurrency(amount);
+    }
+  });
+}
+
+
+
+function getSuitieRent(suitie) {
+  // because your records sometimes are {values:{...}} or flat
+  const v = (suitie && (suitie.values || suitie)) || {};
+
+  // ✅ check a few likely keys — add yours if different
+  const rent =
+    v.rent ??
+    v.suiteRent ??
+    v.rentAmount ??
+    v["Suite rent (base)"] ??
+    0;
+
+  return Number(rent || 0);
+}
+
+//allow changes to suite rent 
+function parseCurrency(text) {
+  // Keep digits + dot only
+  const cleaned = String(text || "").replace(/[^0-9.]/g, "");
+  const n = Number(cleaned);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function formatCurrency(n) {
+  const num = Number(n);
+  const safe = Number.isFinite(num) ? num : 0;
+  return safe.toLocaleString(undefined, { style: "currency", currency: "USD" });
+}
+
+function initEditableInvoiceAmount() {
+  const totalEl = document.getElementById("invoice-total-display");
+  if (!totalEl) return;
+
+   enforceNumericCurrencyEditing(totalEl);
+  // ✅ When they click, make it easy to type (remove $ and commas temporarily)
+  totalEl.addEventListener("focus", () => {
+    const val = parseCurrency(totalEl.textContent);
+    totalEl.textContent = String(val || 0); // plain number while editing
+    placeCaretAtEnd(totalEl);
+  });
+
+  // ✅ Live typing: optional (you can remove if you only want blur formatting)
+  totalEl.addEventListener("input", () => {
+    totalEl.dataset.overridden = "1"; // user manually changed it
+  });
+
+  // ✅ When they leave the field, re-format to $X,XXX.XX
+  totalEl.addEventListener("blur", () => {
+    const val = parseCurrency(totalEl.textContent);
+    totalEl.textContent = formatCurrency(val);
+  });
+
+  // ✅ Press Enter = done (prevents new line)
+  totalEl.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      totalEl.blur();
+    }
+  });
+}
+
+// caret helper
+function placeCaretAtEnd(el) {
+  const range = document.createRange();
+  range.selectNodeContents(el);
+  range.collapse(false);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
+}
+
+//helper to only add numbers
+function enforceNumericCurrencyEditing(el) {
+  if (!el) return;
+
+  // Block non-numeric keys (allow navigation + shortcuts)
+  el.addEventListener("keydown", (e) => {
+    const allowedKeys = new Set([
+      "Backspace", "Delete", "Tab", "Escape", "Enter",
+      "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown",
+      "Home", "End"
+    ]);
+
+    // allow copy/paste/select all
+    if (e.ctrlKey || e.metaKey) return;
+
+    if (allowedKeys.has(e.key)) {
+      if (e.key === "Enter") e.preventDefault(); // no new line
+      return;
+    }
+
+    const isDigit = /^[0-9]$/.test(e.key);
+    const isDot = e.key === ".";
+
+    if (isDigit) return;
+
+    // only allow ONE decimal point
+    if (isDot) {
+      const txt = el.textContent || "";
+      if (txt.includes(".")) e.preventDefault();
+      return;
+    }
+
+    // block everything else
+    e.preventDefault();
+  });
+
+  // Clean pasted content
+  el.addEventListener("paste", (e) => {
+    e.preventDefault();
+    const text = (e.clipboardData || window.clipboardData).getData("text") || "";
+    const cleaned = text.replace(/[^0-9.]/g, "");
+
+    // keep only first dot
+    const parts = cleaned.split(".");
+    const safe = parts.length <= 1 ? cleaned : `${parts[0]}.${parts.slice(1).join("")}`;
+
+    document.execCommand("insertText", false, safe);
+  });
+
+  // Final cleanup if something slips through
+  el.addEventListener("input", () => {
+    let t = el.textContent || "";
+    t = t.replace(/[^0-9.]/g, "");
+
+    // keep only first dot
+    const parts = t.split(".");
+    t = parts.length <= 1 ? t : `${parts[0]}.${parts.slice(1).join("")}`;
+
+    if (el.textContent !== t) el.textContent = t;
+  });
+}
+
+//Payment Schedule 
+function formatDueDate(dateStr) {
+  if (!dateStr) return "—";
+  // supports "YYYY-MM-DD" or ISO
+  const d = new Date(dateStr.includes("T") ? dateStr : `${dateStr}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+}
+
+
+//Add Due Date 
+function initInvoiceDueDatePicker() {
+  const btn = document.getElementById("invoice-due-date-btn");
+  const input = document.getElementById("invoice-due-date-input");
+  const dueEl = document.getElementById("invoice-due-date");
+  if (!btn || !input || !dueEl) return;
+
+  // If you want to remember it for saving later:
+  window.STATE = window.STATE || {};
+  window.STATE.invoiceDraft = window.STATE.invoiceDraft || {};
+
+  // Open calendar when icon clicked
+  btn.addEventListener("click", () => {
+    // set the input value to current shown date (if we have a stored ymd)
+    const currentYmd = window.STATE.invoiceDraft.dueDateYmd || "";
+    if (currentYmd) input.value = currentYmd;
+
+    // open the native date picker
+    if (typeof input.showPicker === "function") input.showPicker();
+    else input.click();
+  });
+
+  // When a date is picked, update the display
+  input.addEventListener("change", () => {
+    const ymd = input.value; // "YYYY-MM-DD"
+    if (!ymd) return;
+
+    // store draft value so autofill won’t overwrite it
+    window.STATE.invoiceDraft.dueDateYmd = ymd;
+    dueEl.dataset.overridden = "1";
+
+    // display nice formatted date
+    dueEl.textContent = formatDueDate(ymd);
+
+    console.log("[invoice] due date set:", ymd);
+  });
+}
+
+
+
+
+
+
+
+
+
+
+
+
+//Save Invoice 
+async function handleCreateInvoiceSubmit() {
+  // ✅ THIS is where it goes:
+  const amount = parseCurrency(
+    document.getElementById("invoice-total-display")?.textContent
+  );
+
+  // now use amount in your invoice record
+  console.log("[invoice] amount to save:", amount);
+
+  // example payload:
+  // await createRecord("Invoice", { Amount: amount, Suitie: suitieId, ... })
+}
+
+function ymdToUnixEndOfDay(ymd) {
+  // ymd = "YYYY-MM-DD"
+  // Force 23:59:59 UTC to avoid timezone “past” problems
+  const dt = new Date(`${ymd}T23:59:59.000Z`);
+  return Math.floor(dt.getTime() / 1000);
+}
+ 
+// =======================
+// Create Invoice (SEND)
+// =======================
+async function createInvoiceFromUI() {
+  const suitieId = document.getElementById("invoice-suitie-select")?.value || "";
+  const amount = parseCurrency(document.getElementById("invoice-total-display")?.textContent);
+  const dueYmd = window.STATE?.invoiceDraft?.dueDateYmd || ""; // "YYYY-MM-DD"
+
+  const amountCents = Math.round(amount * 100);
+  const feeCents = Math.max(30, Math.round(amountCents * 0.03));
+  const processingFee = feeCents / 100;
+
+  if (!suitieId) throw new Error("Please select a suitie.");
+  if (!Number.isFinite(amount) || amount <= 0) throw new Error("Enter a valid amount.");
+
+  const res = await fetch(apiUrl("/api/rent/invoice/send"), {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify({
+      suitieId,
+      amount,
+      processingFee,
+      dueDateYmd: dueYmd || null, // ✅ send YMD only
+      memo: "Suite Rent",
+    }),
+  });
+
+  const data = await res.json().catch(() => ({}));
+  console.log("[invoice/send] response:", res.status, data);
+
+  if (!res.ok) throw new Error(data?.message || data?.error || "Failed to send invoice");
+
+  // ✅ PUT THIS RIGHT HERE (after data, before return)
+  console.log("[invoice] server hostedInvoiceUrl:", data.hostedInvoiceUrl);
+  console.log("[invoice] stripeCustomerEmail:", data.stripeCustomerEmail);
+
+  const hosted =
+    data.hostedInvoiceUrl ||
+    (data?.items?.[0]?.values?.stripeHostedInvoiceUrl || "");
+
+  if (hosted) {
+   // window.open(hosted, "_blank"); // lets you test even if email delays
+  } else {
+    console.warn("No hosted invoice URL returned.");
+  }
+
+  return { item: data?.items?.[0] };
+}
+
+// =======================
+// Save Invoice button (actually SENDS)
+// =======================
+function initInvoiceSaveButton() {
+  const btn = document.getElementById("invoice-save-btn");
+  if (!btn) return;
+
+  if (btn.dataset.bound === "1") return;
+  btn.dataset.bound = "1";
+
+  btn.addEventListener("click", async () => {
+    try {
+      btn.disabled = true;
+
+      const invoice = await createInvoiceFromUI();
+      const v = invoice?.values || invoice || {};
+
+      alert("Invoice sent! ✅");
+
+      // Useful for testing (Stripe hosted URL)
+      if (v.stripeHostedInvoiceUrl) {
+        console.log("Hosted invoice URL:", v.stripeHostedInvoiceUrl);
+      } else {
+        console.log("No hosted invoice URL returned (check server response).");
+      }
+
+      // Optional: close panel + refresh list
+      // closeInvoiceCreatePanel();
+      // await loadInvoices();
+
+    } catch (e) {
+      console.error("[invoice] send failed:", e);
+      alert(e?.message || "Failed to send invoice");
+    } finally {
+      btn.disabled = false;
+    }
+  });
+}
+
+
+
+                
+
+
+
+
+
+
+
+
+
+                  // ================================
+                         // Settings Section
+                  // ================================
+function dbg(label, obj) {
+  console.log(`[DBG] ${label}`, obj || "");
+}
+
+async function refreshStripeStatusUI() {
+  const statusEl = document.getElementById("stripe-status-text");
+  const btn = document.getElementById("stripe-connect-btn");
+  if (!statusEl || !btn) return;
+
+  btn.disabled = true;
+  statusEl.textContent = "Checking Stripe connection...";
+
+  let data = null;
+
+  try {
+    const statusRes = await fetch(apiUrl("/api/connect/status"), {
+      method: "GET",
       credentials: "include",
       headers: { Accept: "application/json" },
     });
 
-    if (!res.ok) {
-      console.warn("[suites] loadSuitesForUser failed", res.status);
-      suites = [];
-      window.STATE.suites = suites;
-      renderSuitesList();
+    data = await statusRes.json().catch(() => ({}));
+    if (!statusRes.ok) {
+      throw new Error(data.message || data.error || "Failed to check Stripe status");
+    }
+
+    console.log("[stripe] status response:", data);
+
+    if (!data.connected) {
+      statusEl.textContent = "⚠️ Connect Stripe to enable payouts.";
+      btn.style.display = "";
+      btn.disabled = false;
       return;
     }
 
-    const data = await res.json();
-    const rows = Array.isArray(data) ? data : data.records || data.items || [];
+   // Connected but not ready
+if (!data.chargesEnabled) {
+  statusEl.textContent = "⚠️ Stripe connected, but payments aren't enabled yet. Click to finish setup.";
+  btn.style.display = "";
+  btn.disabled = false;
+  btn.textContent = "Finish Stripe setup";
+  return;
+}
 
-    suites = rows.map(normalizeSuite);
-    window.STATE = window.STATE || {};
-    window.STATE.suites = suites;
+// Payments enabled, but payouts not enabled yet
+if (!data.payoutsEnabled) {
+  statusEl.textContent = "✅ Payments enabled. Add bank details to enable payouts.";
+  btn.style.display = "";
+  btn.disabled = false;
+  btn.textContent = "Enable payouts";
+  return;
+}
 
-    renderSuitesList(); // show the list
-    if (window.refreshSuitesLocationDropdown) {
-      window.refreshSuitesLocationDropdown();
-    }
-  } catch (err) {
-    console.error("[suites] loadSuitesForUser error", err);
-    suites = [];
-    window.STATE.suites = suites;
-    renderSuitesList();
+// Fully ready
+statusEl.textContent = "✅ Payments enabled. You can send invoices.";
+btn.style.display = "none";
+
+
+    statusEl.textContent = "✅ Payments enabled. You can send invoices.";
+    btn.style.display = "none";
+  } catch (e) {
+    console.error("[stripe] refreshStripeStatusUI error", e);
+    console.log("[stripe] status response (last):", data);
+    statusEl.textContent = e?.message || "Failed to load Stripe status.";
+    btn.disabled = false;
   }
 }
 
 
-///////////////////////////////////////////////////////////////////
-//Suites Section
-///////////////////////////////////////////////////////////////////                       
-// Suites filter + nav
-const suitesLocationFilter = document.getElementById("suites-location-filter");
-const suitesNavBtn = document.querySelector('button[data-target="suites"]');
-
-// ⬇️ hide the Add Suite button in the Suites tab
-const suitesAddBtn = document.getElementById("suites-add-btn");
-if (suitesAddBtn) {
-  suitesAddBtn.style.display = "none";
-}
-
-// New button in location details
-const locationGoSuitesBtn = document.getElementById("location-go-suites-btn");
 
 
-locationGoSuitesBtn?.addEventListener("click", () => {
-  if (!selectedLocation || !selectedLocation.id) {
-    alert("Open a location first.");
-    return;
-  }
 
-  // 1) Switch to the Suites tab by re-using your existing nav logic
-  if (suitesNavBtn) {
-    suitesNavBtn.click(); // uses the same sidebar handler you already have
-  }
+function initStripeConnectButton() {
+  const btn = document.getElementById("stripe-connect-btn");
+  if (!btn) return;
 
-  // 2) Set the Suites filter dropdown to this location
-  if (suitesLocationFilter) {
-    suitesLocationFilter.value = selectedLocation.id;
+  if (btn.dataset.bound === "1") return;
+  btn.dataset.bound = "1";
 
-    // fire change so your existing filter code runs
-    const evt = new Event("change", { bubbles: true });
-    suitesLocationFilter.dispatchEvent(evt);
-  }
-});
-
-function refreshSuitesLocationDropdown() {
-  if (!suitesLocationFilter) return;
-
-  // reset dropdown
-  suitesLocationFilter.innerHTML = `<option value="">All locations</option>`;
-
-  // pull locations that the Locations section loaded
-  const locs =
-    window.STATE && Array.isArray(window.STATE.locations)
-      ? window.STATE.locations
-      : [];
-
-  const seen = new Set();
-
-  locs.forEach((loc) => {
-    const v = loc.values || loc;
-
-    const id =
-      loc.id ||
-      loc._id ||
-      v._id ||
-      "";
-
-    const name =
-      loc.name ||
-      v["Location Name"] ||
-      v.LocationName ||
-      "";
-
-    if (!id || !name || seen.has(id)) return;
-    seen.add(id);
-
-    const opt = document.createElement("option");
-    opt.value = String(id);
-    opt.textContent = name;
-    suitesLocationFilter.appendChild(opt);
-  });
-
-  console.log(
-    "[suites-filter] options from locations:",
-    Array.from(suitesLocationFilter.options).map((o) => ({
-      value: o.value,
-      label: o.textContent,
-    }))
-  );
-}
-
-// make it callable from Locations code if you want
-window.refreshSuitesLocationDropdown = refreshSuitesLocationDropdown;
-refreshSuitesLocationDropdown();
-
-// =====================
-// Suites list in Suites tab
-// =====================
-const suitesListEl = document.getElementById("suites-list");
-let suitesCurrentLocationFilter = "";
-
-// helper: get all suites safely
-function getAllSuitesForRender() {
-  if (window.STATE && Array.isArray(window.STATE.suites)) {
-    return window.STATE.suites;
-  }
-  // fallback if `suites` exists as a global
-  if (typeof suites !== "undefined" && Array.isArray(suites)) {
-    return suites;
-  }
-  return [];
-}
-
-function renderSuitesList() {
-  if (!suitesListEl) return;
-
-  const allSuites = getAllSuitesForRender();
-
-  const visibleSuites = suitesCurrentLocationFilter
-    ? allSuites.filter((s) => s.locationId === suitesCurrentLocationFilter)
-    : allSuites;
-
-  if (!visibleSuites.length) {
-    suitesListEl.innerHTML =
-      `<p class="muted">No suites found for this filter.</p>`;
-    return;
-  }
-
-  suitesListEl.innerHTML = "";
-
-  visibleSuites.forEach((suite) => {
-    const card = document.createElement("div");
-    card.className = "suite-item";
-
-    const locationName = suite.locationName || "Unassigned location";
-
-    card.innerHTML = `
-      <div class="suite-main-row">
-        <div class="suite-main-text">
-          <h3>${suite.name}</h3>
-          <p class="suite-meta">Location: ${locationName}</p>
-        </div>
-      </div>
-    `;
-
-    suitesListEl.appendChild(card);
-  });
-}
-
-// when the Location dropdown in Suites tab changes → filter the suites list
-suitesLocationFilter?.addEventListener("change", () => {
-  suitesCurrentLocationFilter = suitesLocationFilter.value || "";
-  renderSuitesList();
-  renderSuiteApplications();   // 👈 update apps when filter changes
-});
-
-//Show submitted Applications 
-// ========= Applications table under Suites =========
-// ========= Applications table under Suites =========
-let suiteApplications = [];
-
-// helper: read a suite id from the Application values
-function getSuiteIdFromApplicationRow(row) {
-  const v = row.values || row;
-  const ref = v.Suite || v["Suite"] || null;
-
-  if (!ref) return null;
-  if (typeof ref === "string") return ref;
-
-  if (typeof ref === "object") {
-    return String(ref._id || ref.id || "");
-  }
-
-  return null;
-}
-
-async function loadAllSuiteApplications() {
-  if (!suiteApplicationsList) return;
-
-  console.log("[suites] loadAllSuiteApplications: start");
-
-  suiteApplicationsList.innerHTML = `<p class="muted">Loading applications…</p>`;
-
+btn.addEventListener("click", async () => {
   try {
-    const url =
-      `${API_BASE}/public/records` +
-      `?dataType=${encodeURIComponent(APPLICATION_TYPE)}` +
-      `&includeRefField=1` +
-      `&limit=500`;
+    btn.disabled = true;
 
-    console.log("[suites] fetching applications from:", url);
-
-    const res = await fetch(url, { credentials: "include" });
-    const raw = await res.text().catch(() => "");
-
-    console.log("[suites] applications HTTP status:", res.status);
-    console.log("[suites] applications raw body:", raw);
-
-    if (!res.ok) {
-      suiteApplicationsList.innerHTML =
-        `<p class="muted">Couldn’t load applications.</p>`;
-      return;
-    }
-
-    let data;
-    try {
-      data = raw ? JSON.parse(raw) : [];
-    } catch (e) {
-      console.error("[suites] JSON parse error:", e);
-      data = [];
-    }
-
-    const rows = Array.isArray(data) ? data : data.records || data.items || [];
-    console.log("[suites] applications parsed rows:", rows);
-
-    // 🔹 ADD THIS BLOCK HERE
-    console.log("[suites] raw application rows from API:", rows);
-    rows.forEach((row) => {
-      const v = row.values || row;
-      console.log("[suites] raw applicant fields:", {
-        id: row._id || row.id,
-        applicantName: v["Applicant Name"],
-        applicantEmail: v["Applicant Email"],
-        Email: v["Email"],
-        allKeys: Object.keys(v),
-      });
+    const createRes = await fetch(apiUrl("/api/connect/create"), {
+      method: "POST",
+      credentials: "include",
+      headers: { Accept: "application/json" },
     });
-    // 🔹 END EXTRA DEBUG
+    const createData = await createRes.json().catch(() => ({}));
+    if (!createRes.ok || !createData.accountId) {
+      throw new Error(createData.message || createData.error || "Failed to create Stripe account");
+    }
 
-    suiteApplications = rows;
-    renderSuiteApplications();
-  } catch (err) {
-    console.error("[suites] loadAllSuiteApplications error", err);
-    suiteApplicationsList.innerHTML =
-      `<p class="muted">Couldn’t load applications.</p>`;
+    const onboardRes = await fetch(apiUrl("/api/connect/onboard"), {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ accountId: createData.accountId }),
+    });
+
+    const onboardData = await onboardRes.json().catch(() => ({}));
+    if (!onboardRes.ok || !onboardData.url) {
+      throw new Error(onboardData.message || onboardData.error || "Failed to start onboarding");
+    }
+
+    window.location.href = onboardData.url;
+  } catch (e) {
+    console.error("[stripe] connect error", e);
+    alert(e?.message || "Stripe connect failed");
+    btn.disabled = false;
   }
+});
+
 }
-async function deleteSuiteApplication(id) {
-  if (!id) return;
 
-  // APPLICATION_TYPE is the same variable you use when loading them
-  const endpoint = `${API_BASE}/api/records/${encodeURIComponent(
-    APPLICATION_TYPE
-  )}/${encodeURIComponent(id)}`;
-
-  console.log("[suites] deleting application", { endpoint });
-
-  const res = await fetch(endpoint, {
-    method: "DELETE",
-    credentials: "include",
-    headers: {
-      Accept: "application/json",
-    },
-  });
-
-  if (!res.ok) {
-    const txt = await res.text().catch(() => "");
-    console.warn("[suites] delete failed", res.status, txt);
-    throw new Error("HTTP " + res.status);
+// If Stripe sent us back here, refresh status once
+(async () => {
+  const params = new URLSearchParams(window.location.search);
+  const stripeFlag = params.get("stripe");
+  if (stripeFlag === "return" || stripeFlag === "refresh") {
+    await refreshStripeStatusUI();
+    window.history.replaceState({}, "", window.location.pathname);
   }
-}
+})();
+
+
+
+
+
+
+
+
+
+
+
 
 // ================================
-// Shared Suite Template Preview Modal
+// Boot after login
 // ================================
-const suiteTemplatePreviewModal = document.getElementById("suite-template-preview-modal");
-const suiteTemplatePreviewBody  = document.getElementById("suite-template-preview-body");
-const suiteTemplatePreviewClose = document.getElementById("suite-template-preview-close");
+async function bootAppAfterLogin() {
+  console.log("[suite-settings2] bootAppAfterLogin");
 
-// Close button
-if (suiteTemplatePreviewClose && suiteTemplatePreviewModal) {
-  suiteTemplatePreviewClose.addEventListener("click", () => {
-    suiteTemplatePreviewModal.style.display = "none";
-  });
-}
-
-// 🔹 Remove the modal shell's built-in title so we only see our custom one
-if (suiteTemplatePreviewModal) {
-  // Try to find a header, then any heading inside it
-  const header =
-    suiteTemplatePreviewModal.querySelector(".suite-template-modal-header") ||
-    suiteTemplatePreviewModal.querySelector(".suite-template-header") ||
-    suiteTemplatePreviewModal.querySelector(".modal-header");
-
-  if (header) {
-    const builtInTitle =
-      header.querySelector("h1, h2, h3, .suite-template-title, .modal-title") ||
-      header.firstElementChild; // fallback
-
-    if (builtInTitle) {
-      builtInTitle.remove(); // completely delete the extra title
-    }
+  // ✅ Ensure currentUser is actually set
+  if (!currentUser?.id) {
+    currentUser = await getSignedInUser();
+    console.log("[suite-settings2] currentUser:", currentUser);
   }
+
+  if (!currentUser?.id) {
+    console.warn("[suite-settings2] still no currentUser after login check");
+    lockApp(true);
+    return;
+  }
+
+  lockApp(false);
+
+  // ✅ now safe to load data
+  await loadLocations();
 }
+// ================================
+// ONE DOMContentLoaded (in order)
+// ================================
+document.addEventListener("DOMContentLoaded", async () => {
+  initAuthUI();
+  initSidebarCollapse();
+  initTabSwitching();
+
+  // ✅ Get user FIRST (before anything that depends on currentUser)
+  currentUser = await getSignedInUser();
+  console.log("[suite-settings2] currentUser:", currentUser);
+  setLoggedInUI(currentUser);
+
+  // ✅ If not logged in, stop here (don’t load protected data/UI)
+  if (!currentUser?.id) {
+    lockApp(true);
+    const modal = document.getElementById("authModal");
+    if (modal) {
+      modal.hidden = false;
+      modal.setAttribute("aria-hidden", "false");
+    }
+    return;
+  }
+
+  lockApp(false);
+
+  // ================================
+  // Locations + Suites setup
+  // ================================
+  initLocationsUI();
+  initLocationSave();
+  initMainPhotoPreview();
+  initGalleryPreview();
+
+  await loadLocations();
+
+  initLocationDetailsUI();
+  initLocationEditButton();
+  initLocationDeleteButton();
+  initLocationStyleModal();
+  initLocationAddSuiteButton();
+
+  initSuiteMainPhotoPreview();
+  initSuiteGalleryPreview();
+  initSuiteSave();
+  initSuiteDetailsUI();
+  initSuiteDetailsBackButtons();
+  initSuiteDeleteButton();
+
+  initSuiteAppBuilderCloseButtons();
+  initSuiteAppBuilder();
+  initSuiteTemplatePreviewModal();
+
+  // ================================
+  // Suities setup
+  // ================================
+  initSuitiesLocationFilter();
+  initSuitiesAddButton();
+  initSuitieLocationSelect();
+  initSuitiePhotoPreview();
+  initSuitieSave();
+  initSuitieSuiteAutoFill();
+  initSuitieEdit();
+  initSuitieDeleteFromForm();
+
+  initSuitesLocationFilter();
+
+  // ================================
+  // Dashboard + nav
+  // ================================
+  initDashboardCardNav();
+  //initNavLocationGuard();
+
+  // ================================
+  // Invoices (✅ AFTER currentUser exists)
+  // ================================
+  await loadInvoiceSuitieDropdown();
+  initInvoicesUI();
+  initInvoiceSuitieRentAutofill();
+  initEditableInvoiceAmount();
+  initInvoiceDueDatePicker();
+  initInvoiceSaveButton();
 
 
-console.log("[suite-template-modal] modal:", {
-  hasModal: !!suiteTemplatePreviewModal,
-  hasBody: !!suiteTemplatePreviewBody,
-  hasClose: !!suiteTemplatePreviewClose,
+    // ================================
+  // Settings 
+  // ================================
+  // ✅ Stripe setup (runs once)
+  initStripeConnectButton();
+  await refreshStripeStatusUI();
+
+  // ✅ IMPORTANT: also refresh when user clicks Settings tab
+  const settingsBtn = document.querySelector('button[data-target="settings"]');
+  settingsBtn?.addEventListener("click", async () => {
+    dbg("settings tab opened -> refresh stripe status", true);
+    initStripeConnectButton();       // safe (guarded by dataset.bound)
+    await refreshStripeStatusUI();   // updates UI every time
+  });
+
+
+  // ================================
+  // Boot + data loads
+  // ================================
+  await bootAppAfterLogin();
+  await initSuitiesSection();
+  await loadSuities();
+
+  updateDashboardCounts();
 });
-
-
-// ========= View a single Suite Application in the template modal =========
-function openSuiteApplicationModal(row) {
-  // re-use your existing template preview modal
-  if (!suiteTemplatePreviewModal || !suiteTemplatePreviewBody) {
-    console.warn("[suites] no template preview modal found for application view");
-    return;
-  }
-
-  const v = row.values || row;
-
-  // 🔹 applicant meta (pulled from the record, same fields you show in the table)
-  const applicantName =
-    v["Applicant Name"] ||
-    v.applicantName ||
-    "Unknown applicant";
-
-  const applicantEmailRaw =
-    v["Applicant Email"] ||
-    v.applicantEmail ||
-    v["Email"] ||
-    v.email ||
-    "";
-
-  const applicantEmail = applicantEmailRaw || "";
-
-  // 🔹 answers JSON (same as your old working code)
-  const answersRaw =
-    v["Answers Json"] ||
-    v["Answers JSON"] ||
-    v.answersJson ||
-    null;
-
-  let pairs = [];
-
-  if (answersRaw) {
-    try {
-      const parsed =
-        typeof answersRaw === "string" ? JSON.parse(answersRaw) : answersRaw;
-
-      if (Array.isArray(parsed)) {
-        // e.g. [{key:'dateOfApplication', label:'Date of application', value:'...'}, ...]
-        pairs = parsed.map((item, idx) => ({
-          question: item.label || item.question || item.key || `Question ${idx + 1}`,
-          answer: item.answer || item.value || "",
-        }));
-      } else if (parsed && typeof parsed === "object") {
-        // { dateOfApplication: '2025-12-13', applicantName: 'Ash', ... }
-        pairs = Object.entries(parsed).map(([key, val]) => ({
-          question: key,
-          answer: typeof val === "string" ? val : JSON.stringify(val),
-        }));
-      }
-    } catch (e) {
-      console.warn("[suites] openSuiteApplicationModal parse error", e, answersRaw);
-    }
-  }
-
-  // ---------- NO ANSWERS ----------
-  if (!pairs.length) {
-    const html = `
-      <div class="suite-app-view">
-        <div class="suite-app-header">
-          <div class="suite-app-meta">
-            <div class="suite-app-meta-name">${applicantName}</div>
-            <div class="suite-app-meta-email">
-              ${applicantEmail || "No email provided"}
-            </div>
-          </div>
-          <h2 class="suite-app-title">Suite application</h2>
-          <p class="suite-app-subtitle">Submitted answers</p>
-        </div>
-        <p class="muted">No saved answers for this application.</p>
-      </div>
-    `;
-    suiteTemplatePreviewBody.innerHTML = html;
-    suiteTemplatePreviewModal.style.display = "block";
-    return;
-  }
-
-  // ---------- BUILD ROWS (same as before) ----------
-  const rowsHtml = pairs
-    .map(
-      (p) => `
-        <div class="suite-app-row">
-          <div class="suite-app-label">${p.question}</div>
-          <div class="suite-app-value">${p.answer || "—"}</div>
-        </div>
-      `
-    )
-    .join("");
-
-  const html = `
-    <div class="suite-app-view">
-      <div class="suite-app-header">
-        <div class="suite-app-meta">
-          <div class="suite-app-meta-name">${applicantName}</div>
-          <div class="suite-app-meta-email">
-            ${applicantEmail || "No email provided"}
-          </div>
-        </div>
-        <h2 class="suite-app-title">Suite application</h2>
-        <p class="suite-app-subtitle">Submitted answers</p>
-      </div>
-
-      <section class="suite-app-section">
-        <div class="suite-app-section-body">
-          ${rowsHtml}
-        </div>
-      </section>
-    </div>
-  `;
-
-  suiteTemplatePreviewBody.innerHTML = html;
-  suiteTemplatePreviewModal.style.display = "block";
-}
-
-
-// Render the Applications card as a table
-function renderSuiteApplications() {
-  if (!suiteApplicationsList) return;
-
-  const allSuites = getAllSuitesForRender();
-  const suiteById = new Map(allSuites.map((s) => [String(s.id), s]));
-
-  console.log("[suites] renderSuiteApplications: starting", {
-    suitesCurrentLocationFilter,
-    totalSuites: allSuites.length,
-    totalApplications: suiteApplications.length,
-    applicationsSample: suiteApplications.slice(0, 5),
-  });
-
-  // apply location filter using the suite’s locationId
-  const visible = suiteApplications.filter((row) => {
-    const suiteId = getSuiteIdFromApplicationRow(row);
-    const suite = suiteId ? suiteById.get(String(suiteId)) : null;
-    const locId  = suite ? suite.locationId : null;
-
-    console.log("[suites] application row filter check:", {
-      appId: row._id,
-      suiteId,
-      hasSuite: !!suite,
-      suiteLocationId: locId,
-      passesFilter:
-        !suitesCurrentLocationFilter ||
-        String(locId) === String(suitesCurrentLocationFilter),
-    });
-
-    if (!suite) return false;
-    if (!suitesCurrentLocationFilter) return true;
-    return String(locId) === String(suitesCurrentLocationFilter);
-  });
-
-  console.log("[suites] renderSuiteApplications: visible rows", {
-    count: visible.length,
-    visibleSample: visible.slice(0, 5),
-  });
-
-  if (!visible.length) {
-    suiteApplicationsList.innerHTML =
-      `<p class="muted">No applications found for this filter.</p>`;
-    return;
-  }
-
-  const rowsHtml = visible
-  .map((row) => {
-    const v = row.values || row;
-    const suiteId = getSuiteIdFromApplicationRow(row);
-    const suite = suiteId ? suiteById.get(String(suiteId)) : null;
-
-    const suiteName =
-      (suite && suite.name) ||
-      (suite && suite.suiteName) ||
-      "Suite";
-
-    // -------- NAME ----------
-    let applicantName = v["Applicant Name"] || "";
-
-    const answersRaw =
-      v["Answers Json"] ||
-      v["Answers JSON"] ||
-      v.answersJson ||
-      null;
-
-    let answersObj = null;
-    if (answersRaw) {
-      try {
-        answersObj =
-          typeof answersRaw === "string"
-            ? JSON.parse(answersRaw)
-            : answersRaw;
-
-        if (!applicantName && answersObj && typeof answersObj === "object") {
-          applicantName =
-            answersObj["Applicant Name"] ||
-            answersObj["Full Name"] ||
-            answersObj["Name"] ||
-            applicantName;
-        }
-      } catch (e) {
-        console.warn("[suites] Answers Json parse error", e, answersRaw);
-      }
-    }
-
-    if (!applicantName) applicantName = "Unknown applicant";
-
-    // ---------- EMAIL ----------
-    let applicantEmail = v["Applicant Email"] || "";
-
-    if (!applicantEmail && answersObj && typeof answersObj === "object") {
-      applicantEmail =
-        answersObj["Applicant Email"] ||
-        answersObj["Email"] ||
-        answersObj["email"] ||
-        applicantEmail;
-
-      if (!applicantEmail) {
-        for (const val of Object.values(answersObj)) {
-          if (typeof val === "string" && val.includes("@")) {
-            applicantEmail = val;
-            break;
-          }
-        }
-      }
-    }
-    if (!applicantEmail) applicantEmail = "—";
-
-    console.log("[suites] email debug row", {
-      id: row._id,
-      applicantName,
-      applicantEmail,
-      answersObj,
-    });
-
-    const appId = row._id || row.id;
-
-    return `
-      <tr>
-        <td>${suiteName}</td>
-        <td>${applicantName}</td>
-        <td>${applicantEmail}</td>
-        <td>
-          <button
-            type="button"
-            class="link-button suite-app-view-btn"
-            data-app-id="${appId}"
-          >
-            View
-          </button>
-        </td>
-        <td>
-          <button
-            type="button"
-            class="icon-button suite-app-delete-btn"
-            data-app-id="${appId}"
-            title="Delete application"
-          >
-            🗑
-          </button>
-        </td>
-      </tr>
-    `;
-  })
-  .join("");
-
-
- suiteApplicationsList.innerHTML = `
-  <table class="suite-app-table">
-    <thead>
-      <tr>
-        <th>Suite</th>
-        <th>Applicant Name</th>
-        <th>Applicant Email</th>
-        <th>Application</th>
-        <th></th> <!-- trash icon column -->
-      </tr>
-    </thead>
-    <tbody>
-      ${rowsHtml}
-    </tbody>
-  </table>
-`;
-
-  // hook up “View” buttons
-// hook up “View” buttons
-suiteApplicationsList
-  .querySelectorAll(".suite-app-view-btn")
-  .forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const id = btn.getAttribute("data-app-id");
-      const row = suiteApplications.find(
-        (r) => String(r._id || r.id) === String(id)
-      );
-      if (row) {
-        openSuiteApplicationModal(row);
-      }
-    });
-  });
-
-// 🔹 hook up “Delete” buttons
-suiteApplicationsList
-  .querySelectorAll(".suite-app-delete-btn")
-  .forEach((btn) => {
-    btn.addEventListener("click", async () => {
-      const id = btn.getAttribute("data-app-id");
-      if (!id) return;
-
-      const ok = confirm("Delete this application? This cannot be undone.");
-      if (!ok) return;
-
-      try {
-        await deleteSuiteApplication(id);
-        // remove from local array + re-render
-        suiteApplications = suiteApplications.filter(
-          (row) => String(row._id || row.id) !== String(id)
-        );
-        renderSuiteApplications();
-      } catch (err) {
-        console.error("[suites] deleteSuiteApplication error", err);
-        alert("Couldn’t delete this application. Check console for details.");
-      }
-    });
-  });
- }
-
-
-const suiteApplicationsList = document.getElementById("suite-applications-list");
-
-// 🔹 Fetch application submissions for a given suite
-async function loadApplicationsForSuite(suiteId) {
-  if (!suiteId) return [];
-
-  try {
-    const params = new URLSearchParams({
-      dataType: "Suite Application Submission", // 👈 match your DataType name
-      Suite: suiteId,                           // 👈 reference field "Suite"
-      limit: "50",
-    });
-
-    const res = await fetch(
-      `${API_BASE}/api/records?` + params.toString(),
-      {
-        credentials: "include",
-        headers: { Accept: "application/json" },
-      }
-    );
-
-    if (!res.ok) {
-      console.warn("[suite-apps] HTTP", res.status);
-      return [];
-    }
-
-    const body = await res.json().catch(() => ({}));
-    const rows =
-      Array.isArray(body.data)    ? body.data :
-      Array.isArray(body.records) ? body.records :
-      Array.isArray(body.items)   ? body.items :
-      [];
-
-    return rows;
-  } catch (err) {
-    console.error("[suite-apps] loadApplicationsForSuite error:", err);
-    return [];
-  }
-}
-
-async function showSuiteApplications(suite) {
-  if (!suiteApplicationsList) return;
-
-  suiteApplicationsList.innerHTML = `<p class="muted">Loading applications…</p>`;
-
-  const rows = await loadApplicationsForSuite(suite.id);
-
-  if (!rows.length) {
-    suiteApplicationsList.innerHTML =
-      `<p class="muted">No applications submitted for this suite yet.</p>`;
-    return;
-  }
-
-  suiteApplicationsList.innerHTML = "";
-
-  rows.forEach((row) => {
-    const v = row.values || row;
-
-    const name   = v["Applicant Name"]  || "Unknown applicant";
-    const email  = v["Applicant Email"] || "—";
-    const status = v.Status             || "Pending";
-    const submittedAt =
-      v["Submitted At"] || v["Created At"] || v.createdAt || null;
-
-    const card = document.createElement("div");
-    card.className = "suite-app-item";
-    card.innerHTML = `
-      <div class="suite-app-main">
-        <div>
-          <strong>${name}</strong>
-          <p class="muted">${email}</p>
-        </div>
-        <div class="suite-app-meta">
-          <span class="badge">${status}</span>
-          <span class="muted">
-            ${
-              submittedAt
-                ? new Date(submittedAt).toLocaleDateString()
-                : ""
-            }
-          </span>
-        </div>
-      </div>
-    `;
-
-    suiteApplicationsList.appendChild(card);
-  });
-}

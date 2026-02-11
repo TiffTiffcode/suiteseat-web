@@ -7,7 +7,7 @@ html, body {
   height: 100%;
   min-height: 100vh;
   margin: 0;
-  padding: 20;
+ 
   overflow-x: hidden; /* optional: hides sideways scroll */
   
 }
@@ -147,25 +147,36 @@ body {
 }
 
 /* Arrow button */
+/* Arrow button */
 .collapse-btn {
   position: absolute;
   right: 10px;
   top: 10px;
-  width: 32px;
-  height: 32px;
+
+  width: 40px;         /* a little bigger than 32 */
+  height: 40px;
   border-radius: 999px;
   border: none;
   cursor: pointer;
+
   background: #fff;
   box-shadow: var(--shadow);
+
   display: grid;
   place-items: center;
+
+  font-size: 18px;     /* lock arrow size */
+  line-height: 1;      /* prevents glyph “shrinking” */
+  padding: 0;          /* keeps it consistent */
+  transform: rotate(180deg); /* OPEN = points LEFT */
   transition: transform 0.25s ease;
 }
 
+/* Collapsed = arrow points RIGHT */
 .app.collapsed .collapse-btn {
-  transform: rotate(180deg);
+  transform: rotate(0deg);
 }
+
 
 /* Brand row */
 .brand {
@@ -357,6 +368,225 @@ body {
   }
 }
 
+/* ---------- All Text Section ---------- */
+.h4{
+  font-size: 30px;
+}
+/* ---------- All buttons Section ---------- */
+#location-style-btn{
+  font-size: 15px;   /* try 18–22px */
+}
+
+/* ---------- Buttons (base) ---------- */
+.btn{
+  appearance:none;
+  border:1px solid rgba(0,0,0,.12);
+  background:#fff;
+  color:#0b0e12;
+  padding:8px 12px;
+  border-radius:10px;
+  font-size:13px;
+  font-weight:600;
+  line-height:1;
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  cursor:pointer;
+  transition:transform .06s ease, box-shadow .15s ease, background .15s ease, border-color .15s ease;
+}
+.btn:active{ transform: translateY(1px); }
+.btn:focus-visible{
+  outline:0;
+  box-shadow:0 0 0 3px rgba(255,102,0,.25);
+}
+
+/* ---------- Primary (Add location) ---------- */
+.btn-primary{
+  background: linear-gradient(90deg, #efb37c, #ff6600);
+  border-color: transparent;
+  color:#0b0e12;
+  box-shadow: 0 10px 22px rgba(255,102,0,.18);
+}
+.btn-primary:hover{
+  filter: brightness(1.02);
+  box-shadow: 0 12px 26px rgba(255,102,0,.22);
+}
+.btn-ghost{
+  
+  border: none;
+  color: white;
+padding: 10px 20px;
+  text-align: center;
+  text-decoration: none;
+  display: inline-block;
+  font-size: 16px;
+  cursor: pointer;
+   border-radius: 10px;
+   margin:10px;
+}
+.btn-ghost:hover {
+  background-color: #181717;
+  box-shadow: 0 8px 18px rgba(239, 179, 124, 0.45);
+}
+/* ---------- delete button ---------- */
+.btn-danger{
+  background-color: red;
+  border: none;
+  color: white;
+padding: 10px 20px;
+  text-align: center;
+  text-decoration: none;
+  display: inline-block;
+  font-size: 16px;
+  cursor: pointer;
+   border-radius: 10px;
+}
+
+.btn-danger:hover {
+ 
+  box-shadow: 0 8px 18px red;
+}
+.btn-green{
+  background-color: #c5f2da;
+  border: none;
+  color: white;
+padding: 10px 20px;
+  text-align: center;
+  text-decoration: none;
+  display: inline-block;
+  font-size: 16px;
+  cursor: pointer;
+    border-radius: 10px;
+}
+.btn-green:hover {
+  background-color: #181717;
+  box-shadow: #c5f2da;
+}
+
+.btn-grey{
+  background-color: #6b7280;
+  border: none;
+  color: white;
+padding: 10px 20px;
+  text-align: center;
+  text-decoration: none;
+  display: inline-block;
+  font-size: 16px;
+  cursor: pointer;
+    border-radius: 10px;
+    margin:10px;
+}
+.btn-grey:hover {
+  background-color: #181717;
+  box-shadow: 0 8px 18px #6b7280;
+}
+
+.btn-orange{
+  background-color: #EFB37C;
+  border: none;
+  color: white;
+padding: 10px 20px;
+  text-align: center;
+  text-decoration: none;
+  display: inline-block;
+  font-size: 16px;
+  cursor: pointer;
+    transition:
+    background-color 0.2s ease,
+    transform 0.08s ease,
+    box-shadow 0.15s ease;
+      border-radius: 10px;
+      margin-left: 10px;
+}
+.btn-orange:hover {
+  background-color: #181717;
+  box-shadow: 0 8px 18px rgba(239, 179, 124, 0.45);
+}
+.btn-orange:active {
+  transform: translateY(0);
+  box-shadow: 0 4px 10px rgba(239, 179, 124, 0.35);
+}
+
+
+
+.btn-underline {
+  background: none;
+  border: none;
+ padding: 10px 32px;
+  color: #151414;           /* link color (change if needed) */
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 15px;
+    border-radius: 10px;
+}
+.btn-underline:hover {
+  text-decoration: none; 
+  box-shadow: 0 8px 18px #EFB37C;
+}
+.btn-underline:focus-visible {
+  outline: none;
+  text-decoration-thickness: 3px;
+}
+
+
+.btn-border{
+  
+  border: 2px solid #0b0b0b;;
+  color: white;
+ 
+  padding: 10px 32px;
+  text-align: center;
+  text-decoration: none;
+  display: inline-block;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+/* ---------- Back (navigation) ---------- */
+.btn-back{
+  background: rgba(255,255,255,.75);
+  border-color: rgba(0,0,0,.10);
+  color:#111827;
+  margin-bottom: 10px;
+}
+.btn-back:hover{
+  
+  box-shadow: 0 8px 18px #EFB37C;
+}
+/* ---------- Link-out / Go to page ---------- */
+.btn-linkout{
+  background: transparent;
+  border-color: transparent;
+  color:#2563eb;               /* link vibe */
+  font-weight:700;
+  padding:6px 8px;
+  border-radius:10px;
+  margin-bottom: 10px;
+}
+.btn-linkout:hover{
+  background: rgba(37,99,235,.08);
+  border-color: rgba(37,99,235,.18);
+}
+.btn-linkout span{
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* Optional: if you want buttons in header to align clean */
+.location-details-header button{ white-space:nowrap; }
+.nav button.is-locked {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.nav button.is-locked:hover {
+  filter: none;
+}
+#location-suites-section {
+  scroll-margin-top: 90px; /* adjust to your header height */
+}
 
 /* ========= Locations Section  ========= */
 /* Locations header row */
@@ -578,12 +808,7 @@ body {
   gap: 8px;
 }
 
-/* Ghost button style (if you don't already have this) */
-.btn.ghost {
-  background: #fff;
-  color: #111;
-  border: 1px solid #e5e7eb;
-}
+
 
 #locations .section-head {
   display: flex;
@@ -831,6 +1056,43 @@ body {
   max-width: 100%;            /* don't stretch beyond its column */
 }
 
+/* Make the textarea fill its column and start taller */
+#loc-suite-details{
+  width: 100%;
+  min-height: 140px;   /* starting height */
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(0,0,0,.15);
+  box-sizing: border-box;
+
+  resize: none;        /* optional (use vertical if you want drag) */
+  overflow: hidden;    /* needed for auto-grow */
+}
+
+.rte-toolbar {
+  border: 1px solid rgba(0,0,0,.12);
+  border-radius: 12px 12px 0 0;
+  background: #fff;
+}
+
+.rte-editor {
+  border: 1px solid rgba(0,0,0,.12);
+  border-top: 0;
+  border-radius: 0 0 12px 12px;
+  min-height: 120px;
+  background: #fff;
+}
+
+/* Make Quill look less “default” */
+.ql-toolbar.ql-snow,
+.ql-container.ql-snow {
+  border: none;
+}
+
+.ql-editor {
+  font-size: 14px;
+  line-height: 1.5;
+}
 
 /* Keep Details text contained */
 #location-details-desc {
@@ -947,6 +1209,25 @@ body {
   flex-direction: column;
   gap: 12px;
 }
+#suities-list {
+  display: block;
+  width: 100%;
+}
+
+.suitie-list {
+  display: block;
+  padding: 12px 0;
+}
+
+.suitie-card {
+  display: block;
+  width: 100%;
+  margin: 12px 0;
+  padding: 12px;
+  border: 1px solid rgba(0,0,0,.12);
+  border-radius: 12px;
+  background: #fff;
+}
 
 /* each suitie row */
 .suitie-item {
@@ -1011,6 +1292,7 @@ body {
   place-items: center;
   flex-shrink: 0;
 }
+.is-hidden { display: none !important; }
 
 .suitie-avatar img {
   width: 100%;
@@ -1184,6 +1466,196 @@ body {
   object-fit: cover;
 }
 
+
+/* ================================
+   Suitie Form Card (Add Suitie)
+================================== */
+
+#suities-form-card.suitie-form-card {
+  /* card look */
+  max-width: 760px;
+  width: 100%;
+  margin: 24px auto;
+  padding: 22px;
+  border: 1px solid rgba(15, 23, 42, 0.10);
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 16px 50px rgba(2, 6, 23, 0.08);
+}
+
+/* Title */
+#suities-form-card h3 {
+  margin: 0 0 16px;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: #0f172a;
+}
+
+/* Form spacing */
+#suities-form-card form {
+  display: grid;
+  gap: 14px;
+}
+
+/* Field block */
+#suities-form-card .field {
+  display: grid;
+  gap: 8px;
+}
+
+/* Label text */
+#suities-form-card .field > span {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(15, 23, 42, 0.78);
+}
+
+/* Inputs, selects, textareas */
+#suities-form-card input[type="text"],
+#suities-form-card input[type="email"],
+#suities-form-card input[type="tel"],
+#suities-form-card input[type="number"],
+#suities-form-card input[type="date"],
+#suities-form-card select,
+#suities-form-card textarea {
+  width: 100%;
+  padding: 12px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(15, 23, 42, 0.14);
+  background: #fff;
+  color: #0f172a;
+  outline: none;
+  font-size: 14px;
+  transition: border-color .15s ease, box-shadow .15s ease, transform .05s ease;
+}
+
+#suities-form-card textarea {
+  resize: vertical;
+  min-height: 88px;
+}
+
+/* Focus state */
+#suities-form-card input:focus,
+#suities-form-card select:focus,
+#suities-form-card textarea:focus {
+  border-color: rgba(255, 102, 0, 0.55);
+  box-shadow: 0 0 0 4px rgba(255, 102, 0, 0.12);
+}
+
+/* Subtle hover */
+#suities-form-card input:hover,
+#suities-form-card select:hover,
+#suities-form-card textarea:hover {
+  border-color: rgba(15, 23, 42, 0.22);
+}
+
+/* Placeholder */
+#suities-form-card ::placeholder {
+  color: rgba(15, 23, 42, 0.40);
+}
+
+/* 2-col grid helper */
+#suities-form-card .grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  #suities-form-card.suitie-form-card {
+    padding: 18px;
+    border-radius: 16px;
+  }
+
+  #suities-form-card .grid-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ================================
+   File input – make it look nicer
+================================== */
+#suities-form-card input[type="file"] {
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px dashed rgba(15, 23, 42, 0.24);
+  background: rgba(15, 23, 42, 0.02);
+}
+
+#suities-form-card input[type="file"]::file-selector-button {
+  border: 0;
+  padding: 10px 12px;
+  margin-right: 10px;
+  border-radius: 10px;
+  background: rgba(255, 102, 0, 0.14);
+  color: #0f172a;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform .08s ease, background .15s ease;
+}
+
+#suities-form-card input[type="file"]::file-selector-button:hover {
+  background: rgba(255, 102, 0, 0.20);
+}
+
+#suities-form-card input[type="file"]::file-selector-button:active {
+  transform: translateY(1px);
+}
+
+/* ================================
+   Form actions (Cancel / Save)
+================================== */
+#suities-form-card .form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 6px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+/* Base button look inside this card */
+#suities-form-card .btn {
+  appearance: none;
+  border: 0;
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-weight: 800;
+  font-size: 14px;
+  cursor: pointer;
+  transition: transform .08s ease, box-shadow .15s ease, background .15s ease;
+}
+
+#suities-form-card .btn:active {
+  transform: translateY(1px);
+}
+
+/* Cancel button */
+#suities-form-card .btn.ghost {
+  background: rgba(15, 23, 42, 0.06);
+  color: rgba(15, 23, 42, 0.88);
+}
+
+#suities-form-card .btn.ghost:hover {
+  background: rgba(15, 23, 42, 0.10);
+}
+
+/* Save button (peach) */
+#suities-form-card .btn.peach {
+  background: #FF6600;
+  color: #fff;
+  box-shadow: 0 12px 28px rgba(255, 102, 0, 0.22);
+}
+
+#suities-form-card .btn.peach:hover {
+  box-shadow: 0 16px 34px rgba(255, 102, 0, 0.28);
+}
+
+
+
+
 /*Application */
 /* ===========================
    Suite Application Builder
@@ -1198,12 +1670,6 @@ body {
   margin-top: 12px;
 }
 
-.suite-app-header {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-bottom: 8px;
-}
 
 /* Top row: logo left, location right */
 .suite-app-header-row {
@@ -1416,20 +1882,162 @@ body {
   line-height: 1;
 }
 
+/* =========================
+   Application Preview Styles
+   ========================= */
 
+/* ensure the preview content fills the modal */
+.ss-modal__body .suite-app-preview {
+  width: 100%;
+}
 
+/* header layout */
+.suite-app-header {
+  padding: 6px 0 14px;
+  border-bottom: 1px solid rgba(0,0,0,.10);
+  margin-bottom: 14px;
+}
 
+.suite-app-header-top {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
 
-
-/* Full-screen dark overlay */
-.suite-app-modal {
-  position: fixed;
-  inset: 0;                     /* top:0, right:0, bottom:0, left:0 */
+.suite-app-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
   display: grid;
   place-items: center;
-  background: rgba(0, 0, 0, 0.45);  /* dim background */
-  z-index: 9999;
+  font-weight: 700;
+  background: rgba(0,0,0,.06);
+  flex: 0 0 auto;
 }
+
+.suite-app-header-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.suite-app-location-name {
+  font-size: 13px;
+  opacity: .7;
+}
+
+.suite-app-suite-name {
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.suite-app-header-sub {
+  margin: 8px 0 0;
+  font-size: 13px;
+  opacity: .7;
+}
+
+.suite-app-meta-email {
+  margin-top: 6px;
+  font-size: 13px;
+  opacity: .8;
+}
+
+/* body */
+.suite-app-body {
+  padding: 14px 0;
+}
+
+/* section cards like public page */
+.suite-app-section {
+  border: 1px solid rgba(0,0,0,.08);
+  border-radius: 14px;
+  padding: 14px;
+  margin-bottom: 14px;
+  background: rgba(0,0,0,.02);
+}
+
+.suite-app-section-title {
+  font-weight: 800;
+  margin-bottom: 12px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(0,0,0,.06);
+}
+
+/* question rows: label left, input right */
+.suite-app-question-row {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 0;
+  border-top: 1px solid rgba(0,0,0,.08);
+}
+
+.suite-app-question-row:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+
+.suite-app-question-label {
+  font-size: 13px;
+  opacity: .85;
+}
+
+/* input sizing */
+.suite-app-question-input {
+  width: 100%;
+}
+
+.suite-app-input,
+.suite-app-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid rgba(0,0,0,.18);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: #fff;
+}
+
+.suite-app-textarea {
+  min-height: 90px;
+  resize: vertical;
+}
+
+/* footer */
+.suite-app-footer {
+  padding-top: 8px;
+  border-top: 1px solid rgba(0,0,0,.10);
+  margin-top: 10px;
+}
+
+.suite-app-footer-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.suite-app-secondary-btn {
+  border: 1px solid rgba(0,0,0,.2);
+  background: #fff;
+  border-radius: 10px;
+  padding: 10px 14px;
+  cursor: pointer;
+}
+
+/* responsive: stack label above input on small screens */
+@media (max-width: 640px) {
+  .suite-app-question-row {
+    grid-template-columns: 1fr;
+    gap: 6px;
+    align-items: start;
+  }
+}
+
+
+
 
 /* respect [hidden] so JS can toggle it */
 .suite-app-modal[hidden] {
@@ -1620,6 +2228,30 @@ body.modal-open {
 /* ============================
    Suite application PREVIEW
    ============================ */
+/* ===== Suite App Builder Modal (fullscreen) ===== */
+#suite-app-builder {
+  position: fixed;
+  inset: 0;
+  display: none;               /* default hidden */
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0,0,0,0.45);
+  z-index: 999999;             /* above everything */
+}
+
+/* when opened */
+#suite-app-builder.is-open {
+  display: flex;
+}
+
+/* the card inside */
+#suite-app-builder .suite-app-modal-card {
+  width: 100%;
+  max-width: 900px;
+  max-height: 90vh;
+  overflow: auto;
+}
 
 /* === Suite application PREVIEW modal === */
 
@@ -1780,7 +2412,99 @@ body.modal-open {
   padding: 16px 0;
 }
 
+#suite-template-preview-modal {
+  position: fixed !important;
+  inset: 0 !important;
+  background: rgba(0,0,0,.6) !important;
+  display: none; /* ok because JS sets it */
+  align-items: center !important;
+  justify-content: center !important;
+  z-index: 99999 !important;
+}
 
+#suite-template-preview-modal [id="suite-template-preview-body"]{
+  max-height: 70vh !important;
+  overflow: auto !important;
+  background: #fff !important;
+  color: #111 !important;
+  padding: 16px !important;
+  border-radius: 12px !important;
+  width: min(800px, 92vw) !important;
+}
+ /* Top header block */
+.suite-template-top { padding: 18px 18px 0; }
+.suite-template-top-left,
+.suite-template-top-right {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.suite-template-top-left { gap: 10px; }
+.suite-template-avatar {
+  width: 34px; height: 34px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: #f0f2f6;
+  font-weight: 700;
+  font-size: 12px;
+}
+.suite-template-locname { font-weight: 600; font-size: 13px; opacity: .9; }
+.suite-template-titleblock { text-align: center; margin-top: 12px; }
+.suite-template-title { font-weight: 700; font-size: 18px; }
+.suite-template-subtitle { font-size: 13px; opacity: .8; margin-top: 2px; }
+.suite-template-divider { height: 1px; background: rgba(0,0,0,.12); margin: 14px 0; }
+
+/* Section bar like your builder */
+.suite-template-sectionbar{
+  background: #f3f4f6;
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: .02em;
+  margin: 12px 18px;
+}
+
+/* Optional "+ Add question" (visual only) */
+.suite-template-add{
+  margin: 6px 18px 12px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(0,0,0,.12);
+  background: #fff;
+  font-size: 12px;
+}
+
+#suite-details-details {
+  margin-top: 10px;
+  line-height: 1.5;
+}
+#suite-details-details p { margin: 0 0 10px; }
+#suite-details-details ul { margin: 0 0 10px 18px; }
+
+.suitie-photo-preview img{
+  width: 100%;
+  max-width: 220px;
+  height: 140px;
+  object-fit: cover;
+  border-radius: 12px;
+  display: block;
+}
+
+.suitie-photo-preview .gallery-thumb-wrapper{
+  position: relative;
+  display: inline-block;
+}
+
+.suitie-photo-preview .gallery-thumb-remove{
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  border: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  cursor: pointer;
+}
 
 .suite-app-table {
   width: 100%;
@@ -1934,4 +2658,701 @@ body.modal-open {
 .suite-row-sub {
   font-size: 0.85rem;
   color: #666;
+}
+
+
+/* =========================================
+   Location Suite Form Card (Add / Edit Suite)
+========================================= */
+
+#location-suite-form-card.card {
+  max-width: 860px;
+  width: 100%;
+  margin: 24px auto;
+  padding: 22px;
+  border: 1px solid rgba(15, 23, 42, 0.10);
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 16px 50px rgba(2, 6, 23, 0.08);
+}
+
+/* Header row */
+#location-suite-form-card .location-suite-form-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 10px;
+}
+
+#location-suite-form-card .location-suite-form-header h4 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.01em;
+}
+
+/* Back button */
+#location-suite-form-card #location-suite-back-btn.btn-orange {
+  border: 0;
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-weight: 800;
+  font-size: 14px;
+  cursor: pointer;
+  background: rgba(15, 23, 42, 0.06);
+  color: rgba(15, 23, 42, 0.88);
+  transition: transform .08s ease, background .15s ease;
+}
+#location-suite-form-card #location-suite-back-btn.btn-orange:hover {
+  background: rgba(15, 23, 42, 0.10);
+}
+#location-suite-form-card #location-suite-back-btn.btn-orange:active {
+  transform: translateY(1px);
+}
+
+/* Muted helper text */
+#location-suite-form-card .muted {
+  color: rgba(15, 23, 42, 0.58);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+/* Form layout */
+#location-suite-form-card form {
+  display: grid;
+  gap: 14px;
+  margin-top: 10px;
+}
+
+/* Standard field blocks */
+#location-suite-form-card .field {
+  display: grid;
+  gap: 8px;
+}
+
+/* Label text inside your <label class="field"> */
+#location-suite-form-card .field > span {
+  font-size: 13px;
+  font-weight: 700;
+  color: rgba(15, 23, 42, 0.78);
+}
+
+/* Inputs/selects/textarea inside this card */
+#location-suite-form-card input[type="text"],
+#location-suite-form-card input[type="number"],
+#location-suite-form-card input[type="date"],
+#location-suite-form-card input[type="file"],
+#location-suite-form-card select,
+#location-suite-form-card textarea {
+  width: 100%;
+  padding: 12px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(15, 23, 42, 0.14);
+  background: #fff;
+  color: #0f172a;
+  outline: none;
+  font-size: 14px;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+
+#location-suite-form-card ::placeholder {
+  color: rgba(15, 23, 42, 0.40);
+}
+
+#location-suite-form-card input:focus,
+#location-suite-form-card select:focus,
+#location-suite-form-card textarea:focus {
+  border-color: rgba(255, 102, 0, 0.55);
+  box-shadow: 0 0 0 4px rgba(255, 102, 0, 0.12);
+}
+
+/* =========================================
+   Rate row (your .field-row markup)
+========================================= */
+#location-suite-form-card .field-row {
+  display: grid;
+  gap: 8px;
+}
+
+#location-suite-form-card .field-row > label {
+  font-size: 13px;
+  font-weight: 700;
+  color: rgba(15, 23, 42, 0.78);
+}
+
+#location-suite-form-card .field-row-inline {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+@media (max-width: 640px) {
+  #location-suite-form-card .field-row-inline {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* =========================================
+   Quill (RTE) styling
+========================================= */
+
+/* Make your toolbar look like part of the field */
+#location-suite-form-card .rte-toolbar {
+  border: 1px solid rgba(15, 23, 42, 0.14);
+  border-radius: 12px;
+  padding: 8px;
+  background: rgba(15, 23, 42, 0.02);
+}
+
+/* Space Quill buttons nicely */
+#location-suite-form-card .rte-toolbar .ql-formats {
+  margin-right: 10px;
+}
+
+#location-suite-form-card .rte-toolbar button {
+  border-radius: 10px;
+}
+
+#location-suite-form-card .rte-toolbar button:hover {
+  background: rgba(15, 23, 42, 0.06);
+}
+
+/* Editor box */
+#location-suite-form-card .rte-editor {
+  border: 1px solid rgba(15, 23, 42, 0.14);
+  border-radius: 12px;
+  min-height: 140px;
+  padding: 10px;
+  background: #fff;
+}
+
+/* If Quill injects its own borders, this helps keep it clean */
+#location-suite-form-card .ql-container.ql-snow,
+#location-suite-form-card .ql-toolbar.ql-snow {
+  border: none;
+}
+
+/* Quill content typography */
+#location-suite-form-card .ql-editor {
+  font-size: 14px;
+  line-height: 1.5;
+  color: #0f172a;
+}
+
+/* =========================================
+   Gallery + photo preview areas
+========================================= */
+
+#location-suite-form-card .location-current-photo,
+#location-suite-form-card .location-current-gallery,
+#location-suite-form-card .location-new-gallery-preview {
+  border: 1px dashed rgba(15, 23, 42, 0.18);
+  border-radius: 14px;
+  padding: 12px;
+  background: rgba(15, 23, 42, 0.02);
+  min-height: 54px;
+}
+
+/* If you render images inside these containers */
+#location-suite-form-card .location-current-photo img,
+#location-suite-form-card .location-current-gallery img,
+#location-suite-form-card .location-new-gallery-preview img {
+  width: 84px;
+  height: 84px;
+  object-fit: cover;
+  border-radius: 12px;
+  border: 1px solid rgba(15, 23, 42, 0.10);
+}
+
+/* Optional: make multiple preview images wrap nicely */
+#location-suite-form-card .location-current-gallery,
+#location-suite-form-card .location-new-gallery-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+/* =========================================
+   File input nicer look (optional)
+========================================= */
+#location-suite-form-card input[type="file"] {
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px dashed rgba(15, 23, 42, 0.24);
+  background: rgba(15, 23, 42, 0.02);
+}
+
+#location-suite-form-card input[type="file"]::file-selector-button {
+  border: 0;
+  padding: 10px 12px;
+  margin-right: 10px;
+  border-radius: 10px;
+  background: rgba(255, 102, 0, 0.14);
+  color: #0f172a;
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform .08s ease, background .15s ease;
+}
+
+#location-suite-form-card input[type="file"]::file-selector-button:hover {
+  background: rgba(255, 102, 0, 0.20);
+}
+
+#location-suite-form-card input[type="file"]::file-selector-button:active {
+  transform: translateY(1px);
+}
+
+/* =========================================
+   Checkbox / radio rows
+========================================= */
+#location-suite-form-card .checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid rgba(15, 23, 42, 0.10);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.02);
+}
+
+#location-suite-form-card .checkbox-row input {
+  width: 16px;
+  height: 16px;
+}
+
+/* =========================================
+   Application builder button row
+========================================= */
+#location-suite-form-card #open-suite-app-builder.btn.ghost {
+  background: rgba(15, 23, 42, 0.06);
+  color: rgba(15, 23, 42, 0.88);
+  border: 0;
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-weight: 900;
+  cursor: pointer;
+  transition: transform .08s ease, background .15s ease;
+}
+#location-suite-form-card #open-suite-app-builder.btn.ghost:hover {
+  background: rgba(15, 23, 42, 0.10);
+}
+#location-suite-form-card #open-suite-app-builder.btn.ghost:active {
+  transform: translateY(1px);
+}
+
+/* Status text */
+#location-suite-form-card #suite-app-status {
+  font-weight: 700;
+}
+
+/* =========================================
+   Form actions (Cancel / Save suite)
+========================================= */
+#location-suite-form-card .form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 6px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+#location-suite-form-card .btn {
+  appearance: none;
+  border: 0;
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-weight: 900;
+  font-size: 14px;
+  cursor: pointer;
+  transition: transform .08s ease, box-shadow .15s ease, background .15s ease;
+}
+
+#location-suite-form-card .btn:active {
+  transform: translateY(1px);
+}
+
+#location-suite-form-card .btn.ghost {
+  background: rgba(15, 23, 42, 0.06);
+  color: rgba(15, 23, 42, 0.88);
+}
+
+#location-suite-form-card .btn.ghost:hover {
+  background: rgba(15, 23, 42, 0.10);
+}
+
+#location-suite-form-card .btn.peach {
+  background: #FF6600;
+  color: #fff;
+  box-shadow: 0 12px 28px rgba(255, 102, 0, 0.22);
+}
+
+#location-suite-form-card .btn.peach:hover {
+  box-shadow: 0 16px 34px rgba(255, 102, 0, 0.28);
+}
+
+/* Small spacing polish on mobile */
+@media (max-width: 640px) {
+  #location-suite-form-card.card {
+    padding: 18px;
+    border-radius: 16px;
+  }
+
+  #location-suite-form-card .location-suite-form-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+/* Border box around the whole rich text area */
+.rte-box{
+  border: 1px solid rgba(15,23,42,0.18);
+  border-radius: 14px;
+  background: #fff;
+  overflow: hidden; /* makes toolbar corners match */
+}
+
+/* Toolbar looks like the "top" of the input */
+.rte-box .rte-toolbar{
+  border-bottom: 1px solid rgba(15,23,42,0.12);
+  background: rgba(15,23,42,0.03);
+  padding: 10px;
+}
+
+/* The actual editable area */
+.rte-box .rte-editor{
+  min-height: 140px;
+  padding: 10px;
+}
+
+/* Focus ring like your other inputs */
+.rte-box:focus-within{
+  border-color: rgba(255,102,0,0.55);
+  box-shadow: 0 0 0 4px rgba(255,102,0,0.12);
+}
+
+
+/* Remove the dashed/boxed background from these preview sections */
+#loc-suite-current-photo,
+#loc-suite-current-gallery,
+#loc-suite-new-gallery-preview,
+.location-current-photo,
+.location-current-gallery,
+.location-new-gallery-preview {
+  background: transparent !important;
+  border: 0 !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  min-height: 0 !important;
+}
+
+
+
+
+
+
+
+
+/* ✅ Locations list thumbnails must stay small (override global img rules) */
+#locations-list .location-card-thumb {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  overflow: hidden;
+  flex: 0 0 56px;
+  background: rgba(15, 23, 42, 0.04);
+  
+}
+
+#locations-list .location-card-thumb img,
+#locations-list .location-card-thumb--empty {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  max-height: none !important;
+  object-fit: cover;
+  display: block;
+  
+}
+
+/* ✅ Make the row layout match your desired card look */
+#locations-list .location-card-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  box-shadow: var(--shadow, 0 6px 16px rgba(0,0,0,.04));
+  text-align: left;
+  margin-bottom:10px;
+}
+
+/* Optional: nicer text spacing */
+#locations-list .location-card-title { font-weight: 800; margin-bottom: 4px; }
+#locations-list .location-card-line { margin: 2px 0; }
+
+
+.location-suites-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.suite-card {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  gap: 14px;
+  align-items: center;
+
+  padding: 12px;
+  border: 1px solid #ececec;
+  border-radius: 16px;
+  background: #fff;
+  cursor: pointer;
+  text-align: left;
+}
+
+.suite-card-thumb {
+  width: 110px;
+  height: 110px;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #f3f3f3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.suite-card-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.suite-card-thumb--empty {
+  width: 100%;
+  height: 100%;
+  background: #f3f3f3;
+}
+
+.suite-card-title {
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.suite-card-line {
+  font-size: 14px;
+  line-height: 1.25;
+}
+
+.suite-card-line.muted {
+  opacity: 0.7;
+}
+
+
+
+
+
+
+
+.dashboard-card { cursor: pointer; }
+.dashboard-card:hover { transform: translateY(-1px); }
+
+
+
+
+
+
+
+.apps-table-wrap { overflow-x: auto; }
+.apps-table { width: 100%; border-collapse: collapse; }
+.apps-table th, .apps-table td { padding: 10px 12px; border-bottom: 1px solid rgba(0,0,0,.08); text-align: left; }
+.apps-table th { font-weight: 700; }
+.apps-table .muted { color: rgba(0,0,0,.55); }
+.apps-pill { display:inline-block; padding:4px 10px; border-radius: 999px; font-size: 12px; background: rgba(0,0,0,.06); }
+
+
+.ss-modal { position: fixed; inset: 0; z-index: 9999; }
+.ss-modal__overlay { position: absolute; inset: 0; background: rgba(0,0,0,.45); }
+.ss-modal__panel {
+  position: relative;
+  width: min(780px, 92vw);
+  max-height: 85vh;
+  overflow: auto;
+  margin: 6vh auto;
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.2);
+}
+.ss-modal__header{
+  display:flex; align-items:center; justify-content:space-between;
+  padding: 14px 16px; border-bottom:1px solid #eee;
+}
+.ss-modal__body { padding: 16px; }
+.ss-modal__close { font-size: 22px; background:none; border:none; cursor:pointer; }
+/* Force black text in the preview modal */
+.suite-app-preview,
+.suite-app-preview * {
+  color: #000 !important;
+}
+
+/* Inputs/textarea black text too */
+.suite-app-preview input,
+.suite-app-preview textarea {
+  color: #000 !important;
+}
+
+/* Keep placeholders subtle (optional) */
+.suite-app-preview input::placeholder,
+.suite-app-preview textarea::placeholder {
+  color: rgba(0,0,0,.45) !important;
+}
+
+
+
+
+
+
+
+
+
+.apps-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.btn-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid rgba(0,0,0,.08);
+  background: #fff;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-icon.danger:hover {
+  border-color: rgba(255, 0, 0, .25);
+}
+/* Full-screen overlay */
+#suite-template-preview-modal {
+  position: fixed;
+  inset: 0;
+  display: none;              /* JS turns it on */
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0,0,0,.45);
+  z-index: 99999;
+}
+
+/* The application card inside the overlay */
+#suite-template-preview-modal .suite-app-modal.suite-app-preview {
+  width: min(1100px, 100%);
+  max-height: calc(100vh - 48px);
+  background: #fff;
+  border-radius: 16px;
+  overflow: hidden;           /* header stays, body scrolls */
+}
+
+/* Make only the application body scroll */
+#suite-template-preview-modal .suite-app-body {
+  overflow: auto;
+  max-height: calc(100vh - 48px - 180px); /* adjust 180px if header/footer taller */
+  padding-bottom: 24px;
+}
+
+
+
+
+
+
+
+
+
+
+/* =========================================
+  Invoice Section
+========================================= */
+.invoice-create {
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 18px;
+  padding: 18px;
+}
+
+.invoice-create__top {
+  position: relative;
+  padding: 20px 10px 10px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.invoice-create__amount {
+  font-size: 64px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.invoice-create__menu {
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  border: 0;
+  background: transparent;
+  font-size: 26px;
+  cursor: pointer;
+  padding: 8px 10px;
+  border-radius: 10px;
+}
+
+.invoice-create__menu:hover {
+  background: rgba(0,0,0,0.06);
+}
+
+.invoice-create__divider {
+  border: 0;
+  border-top: 1px solid #ddd;
+  margin: 12px 0 0;
+}
+
+.invoice-create__body {
+  padding: 18px 6px 6px;
+  min-height: 260px; /* gives you that “blank space” feel like the screenshot */
+}
+
+.invoice-create__actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 18px;
+}
+.invoice-block__valueWrap{
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+
+.invoice-date-btn{
+  border:none;
+  background:transparent;
+  cursor:pointer;
+  font-size:18px;
+  line-height:1;
+  padding:6px 8px;
+  border-radius:10px;
+}
+
+.invoice-date-btn:hover{
+  background: rgba(0,0,0,0.06);
 }

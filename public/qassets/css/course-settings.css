@@ -262,6 +262,10 @@
 }
 .btn.peach{ background:#EFB37C; }
 
+.outline-section-row.is-hidden { opacity: .55; }
+.outline-section-row.is-section-locked .outline-section-input { opacity: .8; }
+.mini-chapter-row.is-hidden { opacity: .5; }
+
 /* Thumbnail drop area for courses */
 #courses .drop {
   display:grid;
@@ -313,6 +317,20 @@
   align-items:center;
   gap:10px;
   margin-bottom:12px;
+}
+
+.preview--logo{
+  aspect-ratio: 1 / 1;
+  max-width: 160px;   /* adjust */
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+.preview--logo img{
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
 }
 
 /* Little round icon button */
@@ -910,3 +928,542 @@
   outline: 2px dashed #efb37c;
   outline-offset: 2px;
 }
+
+
+
+
+
+
+
+
+/* =========================
+   FORM FIELD ALIGNMENT
+   ========================= */
+
+.field{
+  display:grid;
+  grid-template-columns: 180px 1fr; /* label col + input col */
+  gap: 10px 14px;
+  align-items:center;
+  margin: 12px 0;
+}
+
+/* the label text (your <span> inside .field) */
+.field > span{
+  font-size:13px;
+  font-weight:600;
+  color:#111;
+  line-height:1.2;
+}
+
+/* inputs / textareas in the right column */
+.field input,
+.field textarea,
+.field select{
+  width:100%;
+  padding:10px 12px;
+  border-radius:12px;
+  border:1px solid #e5e7eb;
+  background:#fff;
+  outline:none;
+  font: inherit;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.02);
+}
+
+/* focus glow */
+.field input:focus,
+.field textarea:focus,
+.field select:focus{
+  border-color:#efb37c;
+  box-shadow: 0 0 0 4px rgba(239,179,124,.25);
+}
+
+/* make textareas align to top of label */
+.field textarea{
+  min-height: 90px;
+  resize: vertical;
+  align-self:start;
+}
+
+/* small helper text under the input (your <small>) */
+.field small{
+  grid-column: 2 / 3; /* sit under the input column */
+  margin-top: -6px;
+}
+
+/* make the thumbnail drop span both columns or stay aligned */
+.field .drop{
+  grid-column: 2 / 3;  /* keeps label left and drop zone right */
+}
+
+/* keep your two-column layout, but make spacing consistent */
+.grid-2{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+/* responsive: stack label above input on small screens */
+@media (max-width: 700px){
+  .field{
+    grid-template-columns: 1fr;
+  }
+  .field small,
+  .field .drop{
+    grid-column: auto;
+  }
+}
+
+
+/* =========================
+   RTE alignment inside .field grid
+   ========================= */
+.rte .rte-row{
+  display:flex;
+  gap:12px;
+  flex-wrap:wrap;            /* allows wrapping on small screens */
+  align-items:flex-start;
+}
+
+.rte .rte-row > *{
+  margin:0 !important;       /* kill default p/img spacing */
+}
+
+.rte .rte-row img{
+  max-width:100%;
+  height:auto;
+  display:block;
+}
+
+ /* Add x next to images */
+ /* image wrapper that holds the X */
+.rte-imgwrap{
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+  margin: 10px 0;
+}
+
+/* image itself */
+.rte-imgwrap > img{
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* the X button */
+.rte-imgwrap .rte-img-x{
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  border: 0;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 26px;
+  text-align: center;
+  background: rgba(0,0,0,.65);
+  color: #fff;
+}
+.rte-imgwrap .rte-img-x:hover{
+  background: rgba(0,0,0,.85);
+}
+
+ .rte-row .rte-imgwrap{
+  margin: 0;
+}
+
+/* Force toolbar + editor to sit in the RIGHT column (same as inputs) */
+.field .rte-toolbar,
+.field .rte {
+  grid-column: 2 / 3;
+}
+
+/* Make toolbar match your UI */
+.field .rte-toolbar{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  margin: 0 0 8px;       /* tighter spacing */
+  align-items:center;
+}
+
+/* Toolbar buttons look like your ghost buttons */
+.field .rte-toolbar button{
+  padding:6px 10px;
+  border-radius:12px;
+  border:1px solid #e5e7eb;
+  background:#fff;
+  color:#111;
+  cursor:pointer;
+  font: inherit;
+}
+.field .rte-toolbar button:hover{
+  background:#f3f4f6;
+}
+
+/* Rich editor box should look like your inputs/textarea */
+.field .rte{
+  width:100%;
+  min-height: 110px;          /* a bit taller than textarea default */
+  padding:10px 12px;
+  border-radius:12px;
+  border:1px solid #e5e7eb;
+  background:#fff;
+  font: inherit;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.02);
+}
+
+/* Focus glow like your inputs */
+.field .rte:focus{
+  outline:none;
+  border-color:#efb37c;
+  box-shadow: 0 0 0 4px rgba(239,179,124,.25);
+}
+
+/* Placeholder for empty contenteditable */
+.field .rte:empty:before{
+  content: attr(data-placeholder);
+  opacity: .5;
+  pointer-events: none;
+}
+
+/* Make images inside editor responsive and pretty */
+.field .rte img{
+  max-width:100%;
+  height:auto;
+  display:block;
+  border-radius:12px;
+  margin: 8px 0;
+}
+
+/* Mobile: when fields stack, toolbar/editor should flow normally */
+@media (max-width: 700px){
+  .field .rte-toolbar,
+  .field .rte{
+    grid-column: auto;
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+#courses-details .card-head{
+  display:flex;
+  align-items:center;
+  gap:12px;
+}
+
+#courses-view-page{
+  margin-left:auto;      /* pushes it to the far right */
+  white-space:nowrap;
+}
+
+.btn.ghost{
+  background:#fff;
+  color:#111;
+  border:1px solid #e5e7eb;
+}
+.btn.ghost:hover{ background:#f3f4f6; }
+
+
+
+
+
+
+
+
+.lesson-video-preview {
+  width: 100%;
+  max-height: 240px;
+  margin-top: 10px;
+  border-radius: 12px;
+}
+
+
+.outline-section-imgWrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.outline-section-imgPreview {
+  width: 52px;
+  height: 36px;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid rgba(0,0,0,.08);
+  background: rgba(0,0,0,.03);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.outline-section-imgPreview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+
+
+
+
+
+
+
+
+
+
+.rte:focus { outline: 2px solid rgba(0,0,0,.12); }
+
+.rte-toolbar button { padding:6px 10px; border-radius:10px; border:1px solid rgba(0,0,0,.15); background:#fff; }
+.rte img { max-width:100%; height:auto; display:block; border-radius:12px; }
+.rte:empty:before {
+  content: attr(data-placeholder);
+  opacity: .5;
+  pointer-events: none;
+}
+
+/* make lesson draggable */
+.lesson-drop-item.is-sortable { cursor: grab; }
+.lesson-drop-item.is-dragging { opacity: 0.6; cursor: grabbing; }
+
+/*custom popup */
+ .pill{
+    padding:6px 10px;border-radius:999px;
+    border:1px solid rgba(0,0,0,.08);
+    background:#fff;font-size:12px;
+  }
+  .lead-preview{
+    border:1px solid rgba(0,0,0,.08);
+    border-radius:14px;
+    padding:14px;
+    background:#f7f7f9;
+  }
+  .lead-preview-card{
+    border-radius:14px;
+    padding:14px;
+    max-width:360px;
+    border:1px solid rgba(0,0,0,.08);
+    background:#fff;
+  }
+  .lead-preview-title{font-weight:700; margin-bottom:10px;}
+  .lead-preview-input{
+    width:100%;
+    padding:10px 12px;
+    border-radius:12px;
+    border:1px solid #ddd;
+    margin-bottom:10px;
+    outline:none;
+  }
+  .lead-preview-btn{
+    width:100%;
+    padding:10px 12px;
+    border-radius:12px;
+    border:none;
+    cursor:pointer;
+    background:#111;
+    color:#fff;
+    font-weight:700;
+  }
+  .collect-info-wrap{
+  margin-top: 14px;
+}
+
+.collect-info-label{
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+
+.collect-info-fields{
+  display: grid;
+  gap: 12px;
+  max-width: 520px;
+}
+
+.collect-pill{
+  width: 100%;
+  padding: 16px 18px;
+  border-radius: 12px;
+  background: #eef1f4;
+  border: 1px solid rgba(0,0,0,.06);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.collect-pill-left{
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.collect-pill-title{
+  font-weight: 600;
+}
+
+.collect-pill-meta{
+  font-size: 12px;
+  opacity: .65;
+}
+
+.collect-pill-actions{
+  display: flex;
+  gap: 8px;
+}
+
+.collect-pill-actions button{
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font-size: 16px;
+  opacity: .75;
+}
+
+.collect-pill-actions button:hover{ opacity: 1; }
+
+.collect-info-divider{
+  border: 0;
+  border-top: 1px dashed rgba(0,0,0,.35);
+  margin: 18px 0;
+  max-width: 520px;
+}
+
+.collect-info-subtitle{
+  margin: 0 0 10px 0;
+  opacity: .8;
+}
+
+.btn-outline-plus{
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(0,0,0,.25);
+  background: #fff;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.btn-outline-plus .plus{
+  font-size: 20px;
+  line-height: 1;
+}
+
+.lead-preview-card{
+  padding: 16px;
+  border: 1px solid #ddd;
+  border-radius: 14px;
+  display: grid;
+  gap: 10px;
+
+  /* ✅ background image support */
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.lead-preview-input{
+  width: 100%;
+  padding: 12px 12px;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+}
+
+.lead-preview-btn{
+  padding: 12px 12px;
+  border-radius: 12px;
+  border: 0;
+  cursor: pointer;
+}
+/* Make <input type="color"> look like a real swatch (not a line) */
+input[type="color"]{
+  width: 52px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid #dcdcdc;
+  border-radius: 10px;
+  background: transparent;
+  cursor: pointer;
+
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+/* Chrome/Safari */
+input[type="color"]::-webkit-color-swatch-wrapper{
+  padding: 0;
+  border-radius: 10px;
+}
+input[type="color"]::-webkit-color-swatch{
+  border: none;
+  border-radius: 10px;
+}
+
+/* Firefox */
+input[type="color"]::-moz-color-swatch{
+  border: none;
+  border-radius: 10px;
+}
+.upload-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin-top:6px;
+}
+
+.x-btn{
+  width:28px;
+  height:28px;
+  border-radius:999px;
+  border:1px solid #ddd;
+  background:#fff;
+  cursor:pointer;
+  line-height:1;
+  font-size:18px;
+}
+
+.mini-preview img{
+  max-width:180px;
+  border-radius:10px;
+  display:block;
+  margin-top:8px;
+}
+
+.chapter-detail-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:10px;
+}
+.chapter-detail-head-title{ font-weight:700; }
+.lesson-drop-textarea{
+  resize: none;
+  overflow: hidden;
+  min-height: 90px;
+  line-height: 1.4;
+}
+
+/* Public page: hide editor/admin remove controls if they sneak in */
+.course-public .admin-only,
+.course-public .editor-only,
+.course-public .modalClose,
+.course-public [data-action="remove"],
+.course-public [data-remove]{
+  display: none !important;
+}
+

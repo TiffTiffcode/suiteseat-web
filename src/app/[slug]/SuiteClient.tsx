@@ -7,8 +7,38 @@ import BasicSuiteTemplate, {
   Suite as TemplateSuite,
 } from "./SuiteTemplates/basic/Template";
 
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8400";
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8400";
+const ASSET_BASE = process.env.NEXT_PUBLIC_ASSET_BASE || API_BASE;
+
+function extractSuiteDetails(suite: any) {
+  const v = suite?.values || suite || {};
+
+  return {
+    // ✅ THIS is your Quill field
+    description: v["Details"] || v.details || v.Description || "",
+
+    // optional fields if you add them later
+    sqft: v["Sq Ft"] || v["Square Feet"] || v.sqft || "",
+    deposit: v["Deposit"] || v.deposit || "",
+    amenities: v["Amenities"] || v.amenities || "",
+    availabilityNotes: v["Availability Notes"] || v["Notes"] || v.notes || "",
+  };
+}
+
+function resolveAsset(raw?: string | null) {
+  if (!raw) return null;
+  const s = String(raw).trim();
+  if (!s) return null;
+
+  // already absolute (Cloudinary, S3, etc)
+  if (/^https?:\/\//i.test(s)) return s;
+
+  // relative path from your API server
+  if (s.startsWith("/")) return `${ASSET_BASE}${s}`;
+
+  // plain filename case
+  return `${ASSET_BASE}/${s}`;
+}
 
 // ✅ Reuse the Suite type from the template so both files agree
 type Suite = TemplateSuite;
@@ -100,15 +130,40 @@ export default function SuiteClient({ biz }: { biz: any }) {
                 ? String(availableDateRaw)
                 : null;
 
-            // ✅ Main image
-            const imageUrl =
-              v["Default Image"] ||
-              v["Suite Default Image"] ||
-              v["Suite Photo"] ||
-              v["Photo URL"] ||
-              v.photoUrl ||
-              null;
+         // ✅ Main image (try many possible field names)
+const imageRaw =
+  v["Default Photo"] ||
+  v["Default Photo URL"] ||
+  v["Default Photo Url"] ||
+  v["Default Image"] ||
+  v["Suite Default Image"] ||
+  v["Suite Photo"] ||
+  v["Photo URL"] ||
+  v["Photo Url"] ||
+  v["Photo"] ||
+  v.photoUrl ||
+  v.img || // ✅ from your “merged suite” shape
+  null;
 
+// ✅ Gallery (try many)
+const galleryRaw =
+  v["Suite Gallery"] ||
+  v["Gallery Images"] ||
+  v["Gallery"] ||
+  v.gallery ||
+  [];
+
+const gallery: string[] = Array.isArray(galleryRaw)
+  ? galleryRaw
+      .filter(Boolean)
+      .map((x) => resolveAsset(String(x)))
+      .filter(Boolean) as string[]
+  : [];
+
+// ✅ final main image = imageRaw OR gallery[0]
+const imageUrl =
+  resolveAsset(imageRaw ? String(imageRaw) : null) ||
+  (gallery.length ? gallery[0] : null);
             // ✅ Rent amount
             let rentAmount: number | null = null;
             const rentRaw = v["Suite Rent"] ?? v["Rent Amount"];
@@ -129,15 +184,7 @@ export default function SuiteClient({ biz }: { biz: any }) {
             const rateText: string =
               v["Rate Text"] || "";
 
-            // ✅ Gallery
-            const galleryRaw =
-              v["Suite Gallery"] ||
-              v["Gallery Images"] ||
-              [];
-            const gallery: string[] = Array.isArray(galleryRaw)
-              ? galleryRaw.filter(Boolean)
-              : [];
-
+          
             // ✅ Application template JSON (if stored on Suite)
             const applicationTemplate: string | null =
               v["Application Template"] ||

@@ -1,0 +1,261 @@
+:root{
+  --bg:#f6f7fb;
+  --card:#fff;
+  --text:#0b0e12;
+  --muted:#667085;
+  --line:#e6e8ef;
+  --accent:#efb37c;
+  --shadow: 0 10px 30px rgba(16,24,40,.08);
+  --radius: 16px;
+}
+
+*{ box-sizing:border-box; }
+body{
+  margin:0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+/* Header (simple) */
+.header{
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: linear-gradient(90deg, #EFB37C 0%, #C5F2DA 100%);
+  box-shadow: 0 4px 14px rgba(0,0,0,.08);
+}
+
+.header-group-container{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding: 14px 16px;
+}
+
+.group.left-group{
+  font-weight: 800;
+  letter-spacing: .4px;
+}
+
+#login-container{
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+
+#open-login-popup-btn,
+#logout-btn{
+  border: 1px solid rgba(0,0,0,.15);
+  background: #fff;
+  padding: 8px 12px;
+  border-radius: 12px;
+  cursor: pointer;
+  font-weight: 650;
+}
+#logout-btn{ background:#0b0e12; color:#fff; border-color:#0b0e12; }
+
+#login-status-text{
+  font-weight: 650;
+}
+
+/* Page layout */
+.page{
+  max-width: 980px;
+  margin: 18px auto;
+  padding: 0 16px 40px;
+  display: grid;
+  gap: 14px;
+}
+
+.card{
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 14px;
+}
+
+.label{
+  display:block;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.select{
+  width: 100%;
+  padding: 12px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: #fff;
+  outline: none;
+}
+.select:focus{
+  border-color: rgba(239,179,124,.7);
+  box-shadow: 0 0 0 4px rgba(239,179,124,.22);
+}
+
+.card-head{
+  display:flex;
+  align-items:flex-end;
+  justify-content:space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.card-title{
+  margin: 0;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.muted{
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* Appointment list */
+.appts-grid{
+  display: grid;
+  gap: 10px;
+}
+
+.appt-card{
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 14px;
+  padding: 12px;
+  transition: transform .08s ease, box-shadow .15s ease, border-color .15s ease;
+}
+
+.appt-card:hover{
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px rgba(16,24,40,.10);
+  border-color: rgba(239,179,124,.75);
+}
+
+.appt-top{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.appt-datetime{
+  font-weight: 900;
+  letter-spacing: .2px;
+}
+
+.pill{
+  display:inline-flex;
+  align-items:center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(239,179,124,.22);
+  border: 1px solid rgba(239,179,124,.35);
+  font-weight: 800;
+  font-size: 12px;
+}
+
+.appt-line{
+  color: #111;
+  font-weight: 650;
+  margin: 2px 0;
+}
+
+.appt-services{
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--line);
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+/* Popup overlay & popup (basic) */
+.popup-overlay{
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.5);
+  backdrop-filter: blur(3px);
+  z-index: 999;
+}
+
+.popup-add-business{
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(420px, 92vw);
+  background: #fff;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  box-shadow: 0 20px 60px rgba(0,0,0,.25);
+  z-index: 1000;
+  overflow: hidden;
+}
+
+.business-section-header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding: 12px 14px;
+  background: #fff7f0;
+  border-bottom: 1px solid var(--line);
+}
+
+.section-title{ margin:0; font-weight: 900; }
+
+#login-form{
+  padding: 14px;
+  display:grid;
+  gap: 10px;
+}
+
+#login-form input{
+  width: 100%;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  outline: none;
+}
+#login-form input:focus{
+  border-color: rgba(239,179,124,.7);
+  box-shadow: 0 0 0 4px rgba(239,179,124,.22);
+}
+
+.add-business-button{
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: none;
+  background: #0b0e12;
+  color: #fff;
+  font-weight: 900;
+  cursor:pointer;
+}
+.appt-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+}
+
+.appt-del-btn{
+  border:1px solid #ddd;
+  background:#fff;
+  padding:6px 10px;
+  border-radius:8px;
+  cursor:pointer;
+}
+
+.appt-del-btn:hover{
+  border-color:#999;
+}
+
+.appt-del-btn:disabled{
+  opacity:.6;
+  cursor:not-allowed;
+}

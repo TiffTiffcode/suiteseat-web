@@ -1,0 +1,678 @@
+  /*C:\Users\tiffa\OneDrive\Desktop\suiteseat-web\public\qassets\css\template.css*/
+  :root{
+      --sidebar-w: 180px;
+      --sidebar: #f2b26b; /* orange */
+      --canvas:  #e9e9e9; /* grey */
+    }
+
+    *{ box-sizing: border-box; }
+    html, body{
+      height: 100%;
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    }
+
+    .tpl{
+      height: 100vh;
+      display: grid;
+      grid-template-columns: var(--sidebar-w) 1fr;
+    }
+
+    .tpl__sidebar{
+      background: var(--sidebar);
+      padding: 12px;
+    }
+
+    /* White bar with arrow */
+    .sidebar-topbar{
+      height: 44px;
+      background: #fff;
+      border: 2px solid #000;
+      display: flex;
+      align-items: center;
+      padding: 0 10px;
+    }
+
+    .sidebar-back{
+      width: 0;
+      height: 0;
+      border-top: 10px solid transparent;
+      border-bottom: 10px solid transparent;
+      border-right: 14px solid #000; /* makes the triangle arrow */
+    }
+
+
+.tpl { grid-template-columns: var(--sidebar-w) 1fr; }
+
+/* button reset + sizing */
+.sidebar-toggle{
+  width: 100%;
+  height: 44px;
+  background: #fff;
+  border: 2px solid #000;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 0 10px;
+  cursor: pointer;
+}
+
+/* collapsed state */
+.tpl.is-collapsed{ --sidebar-w: 54px; }
+
+.tpl.is-collapsed .tpl__sidebar{ padding: 12px 8px; }
+.tpl.is-collapsed .sidebar-toggle{
+  width: 44px;           /* becomes just an icon box */
+  padding: 0;
+  justify-content: center;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                        /*Drop Area*/
+ /* draggable section block */
+.da-item{
+  position: absolute;
+  box-sizing: border-box;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+  background: #faf8f8;
+}
+
+.da-item.is-dragging{
+  cursor: grabbing;
+  opacity: 0.9;
+  box-shadow: none;
+  outline: none;
+}
+
+
+
+
+                                        /*All Elements Styling*/
+ .sidebar-panel{
+  margin-top: 10px;
+  border: 2px solid #000;
+  background: #fff;
+  overflow: hidden;
+}
+
+.sidebar-panel__title{
+  padding: 10px 12px;
+  font-weight: 800;
+  font-size: 24px;
+  border-bottom: 2px solid #000;
+}
+
+.sidebar-panel__list{
+  min-height: 520px; /* makes it a long box like your screenshot */
+  padding: 10px 12px;
+}
+
+.elementItem{
+  font-weight: 800;
+  font-size: 20px;
+  cursor: grab;
+}
+
+ .tpl.is-collapsed .sidebar-panel__title,
+.tpl.is-collapsed .sidebar-item{
+  display: none;
+}
+
+.tpl.is-collapsed .sidebar-panel{
+  border: 0;
+  background: transparent;
+}
+ 
+
+/*Label to name element*/
+/* top-left rename label */
+/* top-left rename tab (like your screenshot) */
+.da-item__name{
+  position: absolute;
+  left: 12px;
+  top: -12px;                 /* sits on the top edge */
+  z-index: 10;
+}
+
+
+/* the actual tab */
+.da-item__nameInput{
+  width: 190px;
+  height: 26px;
+  padding: 4px 8px;
+
+  background: #d9d9d9;        /* light grey tab */
+  border: 1px solid #6b6b6b;  /* thin border */
+  border-radius: 2px;
+
+  font-weight: 600;
+  font-size: 13px;
+  color: #111;
+
+  outline: none;
+  box-shadow: 0 1px 0 rgba(0,0,0,.15);
+}
+
+/* subtle focus (not loud) */
+.da-item__nameInput:focus{
+  border-color: #333;
+}
+
+/* optional: hide the input border until hover/focus (cleaner) */
+.da-item__nameInput{
+  border-color: rgba(0,0,0,.35);
+}
+.da-item:hover .da-item__nameInput{
+  border-color: rgba(0,0,0,.55);
+}
+
+.da-item__nameInput{
+  margin-left: 0;
+}
+.da-item__name{ opacity: 0; pointer-events: none; }
+.da-item.is-selected .da-item__name{ opacity: 1; pointer-events: auto; }
+
+/* label bar container (left name + right tools) */
+.da-item__namebar{
+  position: absolute;
+  left: 12px;
+  top: -12px;
+  z-index: 10;
+  pointer-events: auto;
+
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  background: #d9d9d9;
+  border: 1px solid rgba(0,0,0,.45);
+  border-radius: 2px;
+  height: 26px;
+  padding: 0 8px;
+  box-shadow: 0 1px 0 rgba(0,0,0,.15);
+}
+/* hide bar until selected */
+.da-item__namebar { opacity: 0; pointer-events: none; }
+.da-item.is-selected .da-item__namebar { opacity: 1; pointer-events: auto; }
+.da-item__namebar { cursor: grab; }
+.da-item.is-dragging .da-item__namebar { cursor: grabbing; }
+
+/* name input should look embedded (no big box) */
+.da-item__nameInput{
+  height: 22px;
+  border: 0;
+  background: transparent;
+  font-weight: 600;
+  font-size: 13px;
+  outline: none;
+  width: 170px;
+}
+/* make each element a stacking context */
+.da-item{
+  position: absolute;
+}
+
+/* bar sits above the element content */
+.da-item__namebar{
+  position: absolute;
+  z-index: 9999;
+}
+/* ensures z-index works consistently */
+
+.da-item__namebar { position: absolute; z-index: 999999; }
+
+/* your existing show/hide rules */
+.da-item__namebar { opacity: 0; pointer-events: none; }
+.da-item.is-selected .da-item__namebar { opacity: 1; pointer-events: auto; }
+
+/* push tools to the far right inside the bar */
+.da-item__styleRight{
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+}
+
+/* the color “dot” */
+.da-item__color{
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid rgba(0,0,0,.35);
+  border-radius: 999px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.da-item__styleRight{
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+
+.da-layerBtn{
+  width:28px;
+  height:24px;
+  border:1px solid #6b6b6b;
+  background:#eee;
+  border-radius:2px;
+  cursor:pointer;
+  padding:0;
+  line-height:1;
+  font-size:12px;
+}
+
+.da-layerBtn:active{ transform: translateY(1px); }
+
+.da-floatingBar{
+  position: absolute;
+  z-index: 9999999;
+  display: none;
+pointer-events: auto;
+
+  align-items: center;
+  gap: 10px;
+
+  background: #d9d9d9;
+  border: 1px solid rgba(0,0,0,.45);
+  border-radius: 2px;
+  height: 26px;
+  padding: 0 8px;
+  box-shadow: 0 1px 0 rgba(0,0,0,.15);
+}
+.da-floatingBar{ user-select:none; }
+
+/* Floating bar should size to content, not full width */
+.da-floatingBar{
+  display: inline-flex;
+  width: max-content;
+  max-width: calc(100% - 24px);
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+/* Don’t let the name input stretch the bar */
+.da-floatingBar__name{
+  width: 180px;
+  flex: 0 0 auto;
+}
+
+
+/* Keep resize handles visible even without outline */
+.da-item.is-selected .da-resize{
+  display: block;
+}
+
+.da-floatingBar__name{
+  height: 22px;
+  border: 0;
+  background: transparent;
+  font-weight: 600;
+  font-size: 13px;
+  outline: none;
+  width: 170px;
+}
+.da-floatingBar input { pointer-events: auto; }
+.da-floatingBar button { pointer-events: auto; }
+.da-floatingBar { display: none; }
+
+.da-floatingBar__right{
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.da-floatingBar__color{
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid rgba(0,0,0,.35);
+  border-radius: 999px;
+  background: transparent;
+  cursor: pointer;
+}
+/* resize handles */
+.da-resize{
+  position:absolute;
+  width:10px;
+  height:10px;
+  background:#fff;
+  border:2px solid #000;
+  z-index:2;
+}
+
+/* corners */
+.da-resize--nw{ left:-6px; top:-6px; cursor:nwse-resize; }
+.da-resize--ne{ right:-6px; top:-6px; cursor:nesw-resize; }
+.da-resize--sw{ left:-6px; bottom:-6px; cursor:nesw-resize; }
+.da-resize--se{ right:-6px; bottom:-6px; cursor:nwse-resize; }
+
+/* edges */
+.da-resize--n { left:50%; top:-6px; transform:translateX(-50%); cursor:ns-resize; }
+.da-resize--s { left:50%; bottom:-6px; transform:translateX(-50%); cursor:ns-resize; }
+.da-resize--w { left:-6px; top:50%; transform:translateY(-50%); cursor:ew-resize; }
+.da-resize--e { right:-6px; top:50%; transform:translateY(-50%); cursor:ew-resize; }
+
+/* only show handles when selected */
+.da-resize{ display:none; }
+.da-item.is-selected .da-resize{ display:block; }
+
+
+
+/*Elements*/
+/* default: no border */
+.da-item--text{
+  border: 0;
+  background: transparent;
+  padding: 6px 8px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+}
+
+/* show a light border only when selected */
+.da-item--text.is-selected{
+  border: 1px dashed rgba(0,0,0,.25);
+}
+
+.da-item--text .da-text{
+  width: 100%;
+  outline: none;
+  cursor: text;
+  user-select: text;
+  white-space: pre-wrap;
+}
+.da-floatingBar__fontSize{
+  width: 64px;
+  height: 22px;
+  border: 1px solid rgba(0,0,0,.35);
+  background: #fff;
+  border-radius: 6px;
+  padding: 0 6px;
+  font-weight: 700;
+  font-size: 12px;
+  outline: none;
+}
+.da-txtBtn{
+  width: 28px;
+  height: 24px;
+  border: 1px solid rgba(0,0,0,.35);
+  background: #fff;
+  border-radius: 6px;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+
+.da-txtBtn.is-on{
+  background: #eee;
+  border-color: rgba(0,0,0,.6);
+}
+
+/* =======================
+   BUTTON ELEMENT
+   ======================= */
+
+.da-item--button {
+  background: transparent;
+}
+
+/* the actual button inside the draggable box */
+.da-item--button .da-btn {
+  width: 100%;
+  height: 100%;
+  background: #111;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* optional hover */
+.da-item--button .da-btn:hover {
+  filter: brightness(1.06);
+}
+
+/* optional: prevent selecting text while dragging */
+.da-item--button .da-btn {
+  user-select: none;
+}
+
+/* ✅ selection highlight that DOES NOT override element border */
+.da-item.is-selected{
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;     /* puts ring outside the real border */
+}
+
+.da-item--image{
+  overflow: hidden;     /* ✅ clips the image to radius */
+  background: #fff;     /* optional, makes contain look nicer */
+}
+
+.da-item--image .da-img{
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-position: 50% 50%;
+  transform-origin: center;
+}
+
+/* =======================
+   LOCKED HEADER DEFAULTS
+   ======================= */
+
+/* the header “bar” */
+.da-item.da-header{
+  background: #ffffff;        /* default pink */
+  border: none !important;
+  border-radius: 0 !important; /* headers are usually square */
+  overflow: visible;           /* don't clip selection ring */
+ 
+}
+.da-item--image .da-img{
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* if you want the header to have a thin outline like your screenshot */
+.da-item.da-header{
+  outline: 2px solid rgba(0,0,0,.15);
+  outline-offset: -2px; /* sits inside */
+}
+
+/* logo circle image default */
+.da-item.da-headerLogo{
+  border-radius: 999px !important;
+  overflow: hidden !important;
+}
+.da-item.da-headerLogo .da-img{
+  border-radius: 999px !important;
+  object-fit: cover;
+}
+
+/* store name default */
+.da-item.da-headerTitle .da-text{
+  font-weight: 700;
+  font-size: 20px;
+}
+
+/* tabs default */
+.da-item.da-headerTab .da-text{
+  font-weight: 600;
+  font-size: 16px;
+}
+
+/* icons default */
+.da-item.da-headerIcon .da-text{
+  font-size: 22px;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  /* Right-side drag area */
+  .tpl__dropArea{
+  background: var(--canvas);
+  padding: 0;
+  overflow: hidden;
+}
+
+.tpl-dropArea{
+  height: 100%;
+  border: 3px solid #7a52ff; /* purple outline like screenshot */
+  background: #eee;
+  padding: 18px;
+  box-sizing: border-box;
+  position: relative;
+}
+
+/* inner white/grid box */
+.tpl-dropArea__inner{
+  height: 100%;
+  background: #fff;
+  border: 2px solid #cfcfcf;
+  position: relative;
+  overflow: hidden;
+
+  /* grid background */
+  background-image:
+    linear-gradient(to right, rgba(0,0,0,.15) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(0,0,0,.15) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+/* big "Drag Here" text */
+.tpl-dropArea__label{
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 92px;
+  font-weight: 900;
+  color: #000;
+  line-height: 1;
+  user-select: none;
+  pointer-events: none;
+}
+
+.da-delBtn{
+  border: 1px solid rgba(0,0,0,.35);
+  background: #fff;
+  height: 24px;
+  width: 26px;
+  cursor: pointer;
+  line-height: 1;
+  font-weight: 800;
+}
+.da-delBtn:hover{ background: #f3f3f3; }
+
+
+
+/*Image Element */
+.da-item--image{
+  background: transparent;
+  border: 0;
+   overflow: hidden;            /* clips image to the block */
+}
+
+.da-item--image .da-img{
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-position: 50% 50%;
+  transform-origin: center;
+  border-radius: inherit; /* ✅ image corners match wrapper */
+  pointer-events: none;
+  user-select: none;
+}
+/* image control button */
+.da-imgPickBtn{
+  width: 28px;
+  height: 24px;
+  border: 1px solid rgba(0,0,0,.35);
+  background: #fff;
+  border-radius: 6px;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+
+/* image element frame + crop behavior */
+.da-item--image{
+  border: 0;
+  background: transparent;
+  overflow: hidden; /* ✅ important for “crop” */
+}
+
+.da-item--image .da-img{
+  width: 100%;
+  height: 100%;
+  display: block;
+  user-select: none;
+  pointer-events: none; /* drag should be on wrapper */
+  object-fit: cover;
+  object-position: 50% 50%;
+  transform: scale(1);
+  transform-origin: center;
+}
+
+/* preview modal */
+.da-previewModal{
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.7);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 99999999;
+}
+.da-previewModal.is-open{ display:flex; }
+.da-previewModal img{
+  max-width: 92vw;
+  max-height: 92vh;
+  border-radius: 10px;
+  background: #fff;
+}

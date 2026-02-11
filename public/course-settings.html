@@ -98,6 +98,23 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <!-- Courses section -->
       <section id="courses" class="section">
   <h2>Courses</h2>
@@ -124,7 +141,13 @@
     </button>
   </div>
 
+     <div class="form-actions" style="display:flex; justify-content:flex-end; gap:8px; margin-top:16px;">
+      <button id="courses-cancel" class="btn ghost" type="button">Cancel</button>
+      <button id="courses-save"   class="btn peach" type="button">Save Course</button>
+      <button id="courses-delete" class="btn danger" type="button">Delete</button>
+    </div>
 
+    <br>
 <!-- 🔶 COURSE DETAILS CARD -->
 <div id="courses-details" class="card" hidden>
   <div class="card-head">
@@ -145,7 +168,20 @@
       <p class="muted">Title, description, pricing, and thumbnail.</p>
     </div>
 
-   
+     <!-- ✅ NEW: view public course page -->
+  <button
+    id="courses-view-page"
+    class="btn ghost"
+    type="button"
+    title="Open the public course page"
+  >
+    View course page ↗
+  </button>
+  
+  <button id="courses-open-outline" type="button" class="btn ghost">
+  Edit Course Outline
+</button>
+
   </div>
 
   <!-- everything below is the collapsible body -->
@@ -180,22 +216,439 @@
         </label>
       </div>
 
+      <!-- ✅ Course logo  -->
+<div class="field">
+  <span>Course logo</span>
+  <label class="drop" data-preview="courses-logo-preview">
+    <input id="courses-logo" type="file" accept="image/*" hidden />
+    <div id="courses-logo-preview" class="preview preview--logo">
+      <span class="muted">Click to upload logo</span>
+    </div>
+  </label>
+  <small class="muted">Square works best (ex: 512×512). PNG recommended.</small>
+</div>
       <!-- Price -->
       <div class="field">
         <span>Price</span>
         <input id="courses-price" type="number" min="0" step="0.01"
                placeholder="0.00" />
         <small class="muted">Leave as 0.00 if this course is free.</small>
+    </div>
+<br>
+         <!-- Button to style course-->
+<!-- Button to style course -->
+ <div>
+<button id="open-course-style" type="button" class="style-btn" title="Course styling" aria-label="Course styling">
+   Style Course 🎨
+</button>
+</div>
+
+<br>
+<div style="margin-top:10px;">
+  <button id="courses-open-landing" class="btn ghost" type="button">
+    Customize landing page
+  </button>
+  <small class="muted" style="display:block; margin-top:6px;">
+    Add headline, story, urgency, CTAs, proof, FAQ, etc.
+  </small>
+</div>
+
+   </div>
+      <!-- Course Style Popup -->
+<div id="course-style-overlay" class="style-modalOverlay" style="display:none;">
+  <div class="style-modal" role="dialog" aria-modal="true" aria-label="Course styling">
+    <div class="style-modalHeader">
+      <div class="style-modalTitle">Course styling</div>
+      <button id="close-course-style" type="button" class="style-closeBtn" aria-label="Close">✕</button>
+    </div>
+
+    <div class="style-row">
+      <label class="style-label" for="course-bg-color">Background</label>
+      <div class="style-control">
+        <input id="course-bg-color" type="color" value="#ffffff" />
+        <input id="course-bg-hex" class="style-hex" value="#ffffff" />
       </div>
     </div>
 
-    <div class="form-actions" style="display:flex; justify-content:flex-end; gap:8px; margin-top:16px;">
-      <button id="courses-cancel" class="btn ghost" type="button">Cancel</button>
-      <button id="courses-save"   class="btn peach" type="button">Save Course</button>
-      <button id="courses-delete" class="btn danger" type="button">Delete</button>
+    <div class="style-row">
+      <label class="style-label" for="course-text-color">Text</label>
+      <div class="style-control">
+        <input id="course-text-color" type="color" value="#111111" />
+        <input id="course-text-hex" class="style-hex" value="#111111" />
+      </div>
+    </div>
+
+    <div class="style-actions">
+      <button id="cancel-course-style" type="button" class="style-secondary">Cancel</button>
+      <button id="save-course-style" type="button" class="style-primary">Save</button>
     </div>
   </div>
 </div>
+     </div>
+ 
+
+
+  
+
+                       <!-- NEW: Landing page -->
+<!-- Inline Landing Page Customizations (hidden until opened) -->
+<div id="courses-landing-card" class="card" style="margin-top:16px;" hidden>
+  <div class="card-head" style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px;">
+    <div>
+      <h3 style="margin:0;">Landing Page</h3>
+      <p class="muted" style="margin:4px 0 0;">Customize headline, story, urgency, CTAs, proof, FAQ, etc.</p>
+    </div>
+
+    <!-- X close -->
+    <button id="courses-landing-close" class="btn ghost" type="button" aria-label="Close landing page customizations">
+      ✕
+    </button>
+  </div>
+
+  <div id="courses-landing-body" style="margin-top:12px; display:flex; flex-direction:column; gap:14px;">
+
+    <!-- Headline (RTE) -->
+    <div class="field">
+      <span>Headline</span>
+      <div class="rte-toolbar" data-editor="courses-headline-rich">
+        <button type="button" data-cmd="bold"><b>B</b></button>
+        <button type="button" data-cmd="italic"><i>I</i></button>
+        <button type="button" data-cmd="underline"><u>U</u></button>
+        <button type="button" data-action="image" id="headline-insert-image">Insert Image</button>
+     <button type="button" data-action="row">Row</button>
+<button type="button" data-action="stack">Stack</button>
+
+      </div>
+      <div id="courses-headline-rich" class="rte" contenteditable="true" data-placeholder="Main promise headline"></div>
+    </div>
+
+    <!-- Subheadline (RTE) -->
+    <div class="field">
+      <span>Subheadline</span>
+      <div class="rte-toolbar" data-editor="courses-subheadline-rich">
+        <button type="button" data-cmd="bold"><b>B</b></button>
+        <button type="button" data-cmd="italic"><i>I</i></button>
+        <button type="button" data-cmd="underline"><u>U</u></button>
+        <button type="button" data-action="image" id="subheadline-insert-image">Insert Image</button>
+             <button type="button" data-action="row">Row</button>
+<button type="button" data-action="stack">Stack</button>
+
+      </div>
+      <div id="courses-subheadline-rich" class="rte" contenteditable="true" data-placeholder="Supporting promise / clarity"></div>
+    </div>
+
+    <!-- Sales Copy (RTE) -->
+    <div class="field">
+      <span>Sales Copy</span>
+      <div class="rte-toolbar" data-editor="courses-sales-copy-rich">
+        <button type="button" data-cmd="bold"><b>B</b></button>
+        <button type="button" data-cmd="italic"><i>I</i></button>
+        <button type="button" data-cmd="underline"><u>U</u></button>
+        <button type="button" data-action="image" id="salescopy-insert-image">Insert Image</button>
+             <button type="button" data-action="row">Row</button>
+<button type="button" data-action="stack">Stack</button>
+
+      </div>
+      <div id="courses-sales-copy-rich" class="rte" contenteditable="true" data-placeholder="Short persuasive copy..."></div>
+    </div>
+
+    <!-- Sales Story (RTE) -->
+    <div class="field">
+      <span>Sales Story</span>
+      <div class="rte-toolbar" data-editor="courses-sales-story-rich">
+        <button type="button" data-cmd="bold"><b>B</b></button>
+        <button type="button" data-cmd="italic"><i>I</i></button>
+        <button type="button" data-cmd="underline"><u>U</u></button>
+        <button type="button" data-action="image" id="salesstory-insert-image">Insert Image</button>
+             <button type="button" data-action="row">Row</button>
+<button type="button" data-action="stack">Stack</button>
+
+      </div>
+      <div id="courses-sales-story-rich" class="rte" contenteditable="true" data-placeholder="Your story / why you made the course..."></div>
+    </div>
+
+    <!-- Primary CTA (RTE) -->
+    <div class="field">
+      <span>Primary CTA (button text)</span>
+      <div class="rte-toolbar" data-editor="courses-primary-cta-rich">
+        <button type="button" data-cmd="bold"><b>B</b></button>
+        <button type="button" data-cmd="italic"><i>I</i></button>
+        <button type="button" data-cmd="underline"><u>U</u></button>
+        <button type="button" data-action="image">Insert Image</button>
+             <button type="button" data-action="row">Row</button>
+<button type="button" data-action="stack">Stack</button>
+
+
+      </div>
+      <div id="courses-primary-cta-rich" class="rte" contenteditable="true" data-placeholder="e.g. Enroll Now"></div>
+    </div>
+
+    <!-- Primary CTA URL (keep as input) -->
+    <div class="field">
+      <span>Primary CTA URL</span>
+      <input id="courses-primary-cta-url" type="text" placeholder="e.g. /checkout?course=SLUG or https://..." />
+    </div>
+
+    <!-- Secondary CTA (RTE) -->
+    <div class="field">
+      <span>Secondary CTA (button text)</span>
+      <div class="rte-toolbar" data-editor="courses-secondary-cta-rich">
+        <button type="button" data-cmd="bold"><b>B</b></button>
+        <button type="button" data-cmd="italic"><i>I</i></button>
+        <button type="button" data-cmd="underline"><u>U</u></button>
+       <button type="button" data-action="image" id="secondary-cta-insert-image">Insert Image</button>
+            <button type="button" data-action="row">Row</button>
+<button type="button" data-action="stack">Stack</button>
+
+
+      </div>
+      <div id="courses-secondary-cta-rich" class="rte" contenteditable="true" data-placeholder="e.g. View curriculum"></div>
+    </div>
+
+    <!-- Secondary CTA Anchor/Section (keep as input) -->
+    <div class="field">
+      <span>Secondary CTA Anchor/Section</span>
+      <input id="courses-secondary-cta-anchor" type="text" placeholder="e.g. #outline, #faq, #reviews" />
+    </div>
+
+    <!-- Sales Urgency (RTE) -->
+    <div class="field">
+      <span>Sales Urgency</span>
+      <div class="rte-toolbar" data-editor="courses-sales-urgency-rich">
+        <button type="button" data-cmd="bold"><b>B</b></button>
+        <button type="button" data-cmd="italic"><i>I</i></button>
+        <button type="button" data-cmd="underline"><u>U</u></button>
+        <button type="button" data-action="image" id="urgency-insert-image">Insert Image</button>
+             <button type="button" data-action="row">Row</button>
+<button type="button" data-action="stack">Stack</button>
+
+     
+      </div>
+      <div id="courses-sales-urgency-rich" class="rte" contenteditable="true" data-placeholder="e.g. Sale ends Friday / Bonus ends soon..."></div>
+    </div>
+
+    <!-- Sale Ends At (KEEP AS datetime-local) -->
+    <div class="field">
+      <span>Sale Ends At</span>
+      <input id="courses-sale-ends-at" type="datetime-local" />
+    </div>
+
+    <!-- Outcomes (RTE) -->
+    <div class="field">
+      <span>Outcomes</span>
+      <div class="rte-toolbar" data-editor="courses-outcomes-rich">
+        <button type="button" data-cmd="bold"><b>B</b></button>
+        <button type="button" data-cmd="italic"><i>I</i></button>
+        <button type="button" data-cmd="underline"><u>U</u></button>
+        <button type="button" data-action="image" id="outcomes-insert-image">Insert Image</button>
+             <button type="button" data-action="row">Row</button>
+<button type="button" data-action="stack">Stack</button>
+
+      </div>
+      <div id="courses-outcomes-rich" class="rte" contenteditable="true" data-placeholder="List outcomes (you can use line breaks)"></div>
+    </div>
+
+    <!-- Bonuses (RTE) -->
+    <div class="field">
+      <span>Bonuses</span>
+      <div class="rte-toolbar" data-editor="courses-bonuses-rich">
+        <button type="button" data-cmd="bold"><b>B</b></button>
+        <button type="button" data-cmd="italic"><i>I</i></button>
+        <button type="button" data-cmd="underline"><u>U</u></button>
+        <button type="button" data-action="image" id="bonuses-insert-image">Insert Image</button>
+             <button type="button" data-action="row">Row</button>
+<button type="button" data-action="stack">Stack</button>
+
+      </div>
+      <div id="courses-bonuses-rich" class="rte" contenteditable="true" data-placeholder="List bonuses (you can use line breaks)"></div>
+    </div>
+
+    <!-- Guarantee (RTE) -->
+    <div class="field">
+      <span>Guarantee</span>
+      <div class="rte-toolbar" data-editor="courses-guarantee-rich">
+        <button type="button" data-cmd="bold"><b>B</b></button>
+        <button type="button" data-cmd="italic"><i>I</i></button>
+        <button type="button" data-cmd="underline"><u>U</u></button>
+        <button type="button" data-action="image" id="guarantee-insert-image">Insert Image</button>
+             <button type="button" data-action="row">Row</button>
+<button type="button" data-action="stack">Stack</button>
+
+      </div>
+      <div id="courses-guarantee-rich" class="rte" contenteditable="true" data-placeholder="Guarantee statement"></div>
+    </div>
+
+    <!-- Social Proof Headline Text (RTE) -->
+    <div class="field">
+      <span>Social Proof Headline Text</span>
+      <div class="rte-toolbar" data-editor="courses-proof-headline-text-rich">
+        <button type="button" data-cmd="bold"><b>B</b></button>
+        <button type="button" data-cmd="italic"><i>I</i></button>
+        <button type="button" data-cmd="underline"><u>U</u></button>
+      <button type="button" data-action="image" id="proof-insert-image">Insert Image</button>
+           <button type="button" data-action="row">Row</button>
+<button type="button" data-action="stack">Stack</button>
+
+
+      </div>
+      <div id="courses-proof-headline-text-rich" class="rte" contenteditable="true" data-placeholder="e.g. Results from students"></div>
+    </div>
+
+    <!-- Social Proof Headline Images (keep as file input) -->
+    <div class="field">
+      <span>Social Proof Headline Images</span>
+           <button type="button" data-action="row">Row</button>
+<button type="button" data-action="stack">Stack</button>
+
+      <input id="courses-proof-headline-images" type="file" accept="image/*" multiple />
+    </div>
+
+    <!-- Instructor Bio (RTE) -->
+    <div class="field">
+      <span>Instructor Bio</span>
+      <div class="rte-toolbar" data-editor="courses-instructor-bio-rich">
+        <button type="button" data-cmd="bold"><b>B</b></button>
+        <button type="button" data-cmd="italic"><i>I</i></button>
+        <button type="button" data-cmd="underline"><u>U</u></button>
+        <button type="button" data-action="image" id="bio-insert-image">Insert Image</button>
+             <button type="button" data-action="row">Row</button>
+<button type="button" data-action="stack">Stack</button>
+
+      </div>
+      <div id="courses-instructor-bio-rich" class="rte" contenteditable="true" data-placeholder="Short credibility bio..."></div>
+    </div>
+
+    <!-- FAQ (RTE) -->
+    <div class="field">
+      <span>FAQ</span>
+      <div class="rte-toolbar" data-editor="courses-faq-rich">
+        <button type="button" data-cmd="bold"><b>B</b></button>
+        <button type="button" data-cmd="italic"><i>I</i></button>
+        <button type="button" data-cmd="underline"><u>U</u></button>
+        <button type="button" data-action="image" id="faq-insert-image">Insert Image</button>
+             <button type="button" data-action="row">Row</button>
+<button type="button" data-action="stack">Stack</button>
+
+      </div>
+      <div id="courses-faq-rich" class="rte" contenteditable="true" data-placeholder="Q: ...&#10;A: ..."></div>
+    </div>
+
+  </div>
+
+  
+
+
+<!-- Lead Capture (Collect Info) -->
+<div class="card" id="lead-capture-card">
+  <div class="card-head">
+    <h3>Collect Info</h3>
+
+    <label class="toggle">
+      <input type="checkbox" id="lead-enabled">
+      <span>Enable</span>
+    </label>
+  </div>
+
+  <div id="lead-settings" style="display:none;">
+    <div class="field">
+      <span>Headline</span>
+      <input id="lead-headline" type="text" placeholder="Enter your info to continue">
+    </div>
+
+    <div class="field">
+      <span>Button text</span>
+      <input id="lead-button-text" type="text" placeholder="Continue">
+    </div>
+
+
+    <!-- styles (keep yours) -->
+    <div class="grid-2">
+      <div class="field">
+        <span>Background</span>
+        <input id="lead-bg" type="color" value="#ffffff">
+      </div>
+<div class="field">
+  <span>Image</span>
+  <input id="lead-bg-image" type="file" accept="image/*">
+  <small class="muted">Optional background image for the popup.</small>
+
+  <div class="upload-row">
+    <div id="lead-bg-image-status" class="muted"></div>
+    <button id="lead-bg-image-remove" type="button" class="x-btn" style="display:none;">×</button>
+  </div>
+
+  <div id="lead-bg-image-preview" class="mini-preview"></div>
+</div>
+
+<!-- ✅ NEW: Header Image (different thing) -->
+<div class="field">
+  <span>Header Image</span>
+  <input id="lead-header-image" type="file" accept="image/*">
+  <small class="muted">Header image shown at the top of the popup.</small>
+
+  <div class="upload-row">
+    <div id="lead-header-image-status" class="muted"></div>
+    <button id="lead-header-image-remove" type="button" class="x-btn" style="display:none;">×</button>
+  </div>
+
+  <div id="lead-header-image-preview" class="mini-preview"></div>
+</div>
+
+      <div class="field">
+        <span>Text</span>
+        <input id="lead-text" type="color" value="#111111">
+      </div>
+      <div class="field">
+        <span>Button</span>
+        <input id="lead-btn" type="color" value="#111111">
+      </div>
+      <div class="field">
+        <span>Button Text</span>
+        <input id="lead-btn-text" type="color" value="#ffffff">
+      </div>
+      <div class="field">
+        <span>Border</span>
+        <input id="lead-border" type="color" value="#dddddd">
+      </div>
+      </div>
+
+    <!-- ✅ NEW: Fields UI (replaces preview) -->
+    <div class="collect-info-wrap">
+      <div class="collect-info-label">Fields</div>
+
+      <div id="lead-fields-list" class="collect-info-fields"></div>
+
+      <hr class="collect-info-divider">
+
+      <div class="collect-info-subtitle">Collect additional customer info</div>
+
+      <button id="lead-add-field" type="button" class="btn-outline-plus">
+        <span class="plus">＋</span> Add Field
+      </button>
+    </div>
+    </div>
+<div class="field">
+  <span>Deliver File</span>
+  <input id="lead-deliver-file" type="file" accept=".pdf,.png,.jpg,.jpeg,.zip,.doc,.docx">
+  <small class="muted">File the customer gets after submitting the form.</small>
+
+  <div class="upload-row">
+    <div id="lead-deliver-file-status" class="muted"></div>
+    <button id="lead-deliver-file-remove" type="button" class="x-btn" style="display:none;">×</button>
+  </div>
+</div>
+
+ 
+
+
+  </div>
+</div>
+
+</div>
+
+
+ 
+
 
 <!-- 🔹 Course Outline (sections/lessons builder – separate) -->
 <div id="courses-outline" class="card" hidden>
@@ -239,16 +692,56 @@
   <!-- your existing Course Outline UI lives inside here -->
 </div>
 
-<!-- Lesson details panel (initially hidden) -->
-<div id="lesson-detail-panel" style="display:none;">
-  <div class="lesson-detail-header">
-    <button id="lesson-detail-back" class="btn ghost btn-sm">← Back to outline</button>
-    <h3 id="lesson-detail-title">Lesson details</h3>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<!-- Lesson details panel -->
+<div id="lesson-detail-panel" class="card" hidden>
+  <div class="outline-head">
+    <button
+      id="lesson-toggle"
+      class="icon-toggle-btn"
+      type="button"
+      aria-expanded="true"
+    >
+      <span class="icon-open">▾</span>
+      <span class="icon-closed" hidden>▸</span>
+    </button>
+
+    <div class="outline-title-wrap">
+      <strong>Lesson</strong>
+      <p class="muted">Edit lesson content, blocks, and chapters.</p>
+    </div>
+
+    <!-- optional: keep your back button on the right -->
+    <div style="margin-left:auto; display:flex; gap:8px;">
+      <button id="lesson-detail-back" class="btn ghost btn-sm" type="button">
+        ← Back to outline
+      </button>
+    </div>
   </div>
 
-  <!-- store ids so you can save details later -->
-  <input type="hidden" id="lesson-detail-lesson-id">
-  <input type="hidden" id="lesson-detail-section-id">
+  <!-- ✅ this is the body we collapse -->
+  <div id="lesson-body" class="outline-body">
+    <!-- keep ALL your existing lesson content here -->
+    <input type="hidden" id="lesson-detail-lesson-id">
+    <input type="hidden" id="lesson-detail-section-id">
 
   <!-- put whatever details you want here -->
   <div class="lesson-detail-body">
@@ -305,20 +798,51 @@
 </button>
 
   </div>
+
+
+
+
+<!-- Chapter Section  -->
+
+
 <!-- Inside #lesson-detail-panel, probably in the body area -->
 
-<div class="lesson-chapters-bar">
-  <div class="lesson-chapters-header">
-    <span class="lesson-chapters-title">Chapters</span>
- 
-  </div>
-  <div id="lesson-chapters-list"></div>
-</div>
+<!-- Chapters card (list) -->
+<div id="chapters-card" class="card" style="margin-top:16px;">
+  <div class="outline-head">
+    <button
+      id="chapters-toggle"
+      class="icon-toggle-btn"
+      type="button"
+      aria-expanded="true"
+    >
+      <span class="icon-open">▾</span>
+      <span class="icon-closed" hidden>▸</span>
+    </button>
 
+    <div class="outline-title-wrap">
+      <strong>Chapters</strong>
+      <p class="muted">Add chapters inside this lesson.</p>
+    </div>
+  </div>
+
+
+
+
+
+
+  <!-- Chapter Section-->
+  <div id="chapters-body" class="outline-body">
+    <div id="lesson-chapters-list"></div>
 
 
 <!-- Chapter details panel (starts hidden) -->
 <div id="chapter-detail-panel" class="chapter-detail-panel" style="display:none;">
+  
+    <button id="chapter-detail-close" type="button" class="x-btn" aria-label="Close chapter details">
+    ✕
+  </button>
+
   <input type="hidden" id="chapter-detail-index">
    <label class="chapter-detail-label">
     Chapter title
@@ -329,6 +853,19 @@
       placeholder="Chapter title"
     >
   </label>
+
+   <!-- Chapter Thumbnail-->
+<label class="fieldLabel">Chapter Thumbnail</label>
+
+<input
+  id="chapter-thumb-input"
+  type="file"
+  accept="image/*"
+/>
+
+<div id="chapter-thumb-preview" style="margin-top:10px;"></div>
+
+
 
   <!-- Chapter description -->
   <label class="chapter-detail-label">
@@ -381,6 +918,7 @@
     </button>
   </div>
 </div>
+  </div>
 
 
 
@@ -482,6 +1020,21 @@
       </form>
     </div>
   </div>
+
+
+
+
+
+  </div>
+</div>
+
+
+
+
+
+
+
+
 
   <script src="/qassets/js/course-settings.js?v=2"></script>
 </body>

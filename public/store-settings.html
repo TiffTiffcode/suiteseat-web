@@ -34,13 +34,14 @@
    
     </div>
 
-    <ul class="nav" id="nav">
-      <li><button data-target="home" class="active"><span class="icon">🏠</span><span class="label">Home</span></button></li>
-      <li><button data-target="orders"><span class="icon">🧾</span><span class="label">Orders</span></button></li>
-      <li><button data-target="products"><span class="icon">🛍️</span><span class="label">Products</span></button></li>
-      <li><button data-target="customers"><span class="icon">👥</span><span class="label">Customers</span></button></li>
-      <li><button data-target="store"><span class="icon">🛒</span><span class="label">Online Store</span></button></li>
-    </ul>
+  <ul class="nav" id="nav">
+  <li><button data-target="home"><span class="icon">🏠</span><span class="label">Home</span></button></li>
+  <li><button data-target="store" class="active"><span class="icon">🛒</span><span class="label"> Store</span></button></li>
+  <li><button data-target="orders"><span class="icon">🧾</span><span class="label">Orders</span></button></li>
+  <li><button data-target="products"><span class="icon">🛍️</span><span class="label">Products</span></button></li>
+  <li><button data-target="customers"><span class="icon">👥</span><span class="label">Customers</span></button></li>
+</ul>
+
   </aside>
 
   <!-- Main area -->
@@ -68,6 +69,281 @@
         </div>
       </section>
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+      
+                                   <!--  Store Section -->
+<section id="store" class="section active">
+  <div class="list-head">
+    <div>
+      <h2 class="section-title">
+  Store<span id="store-title-suffix" class="muted"></span>
+</h2>
+
+      <p class="muted">Create and manage your stores.</p>
+    </div>
+
+   <div class="store-actions">
+  <select id="store-dd" class="input">
+    <option value="">Select a Store…</option>
+  </select>
+
+  <button id="store-add-btn"  type="button">Add Store</button>
+</div>
+
+  </div>
+
+
+  <!-- FORM MODE (hidden until Add Store is clicked) -->
+  <div id="store-form" style="margin-top:12px;" hidden>
+    <div class="card">
+      <div class="form-head" style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
+        <div>
+          <h3 style="margin:0;">Add Store</h3>
+          <p class="muted" style="margin:6px 0 0;">Enter your store name.</p>
+          <p class="muted" style="margin:10px 0 0;">
+  Store URL: <span id="store-slug-preview">—</span>
+</p>
+
+        </div>
+
+        <div style="display:flex; gap:8px;">
+          <button id="store-cancel-btn" class="btn" type="button">Cancel</button>
+          <button id="store-save-btn"  type="button">Save</button>
+        </div>
+      </div>
+
+      <label class="field" style="display:block; margin-top:14px;">
+        <span style="display:block; font-weight:600; margin-bottom:6px;">Store name</span>
+        <input id="store-name-input" class="finput" placeholder="My Beauty Store" />
+      </label>
+
+      <p class="auth-error" id="store-form-error"></p>
+    </div>
+  </div>
+
+
+
+
+
+
+
+
+  
+  <!-- =========================
+     THEMES (inside Store section)
+========================= -->
+<div class="store-subsection" id="store-themes">
+  <div class="subsection-head">
+    <h3 class="subsection-title">Themes</h3>
+
+    <div class="subsection-actions">
+      <button type="button" class="btn btn-primary" id="theme-add-btn">
+        Add Theme
+      </button>
+    </div>
+  </div>
+
+  
+  <!-- Theme cards list -->
+  <div class="cards-grid" id="theme-cards">
+    <!-- cards will render here -->
+  </div>
+<div class="section-title" id="theme-selected-label"></div>
+
+  <!-- empty state -->
+  <div class="empty-state" id="theme-empty" hidden>
+    No themes yet. Click <strong>Add Theme</strong> to create your first theme.
+  </div>
+
+  <!-- Theme form (hidden until Add Theme) -->
+  <div class="card form-card" id="theme-form" hidden>
+    <div class="form-row">
+      <label>Theme Name</label>
+      <input id="theme-name" type="text" placeholder="Ex: Minimal White" />
+    </div>
+
+    <div class="form-row">
+      <label>Template Key</label>
+      <input id="theme-template" type="text" placeholder="Ex: basic" />
+      <small class="muted">This can map to your Next template folder later (basic, luxe, etc.)</small>
+    </div>
+
+    <div class="form-actions">
+      <button type="button" class="btn" id="theme-cancel-btn">Cancel</button>
+      <button type="button" class="btn btn-primary" id="theme-save-btn">Save Theme</button>
+    </div>
+
+    <div class="form-error" id="theme-error"></div>
+  </div>
+</div>
+
+
+
+
+
+
+
+                                                      <!-- Theme Editor -->
+<section id="theme-editor" class="theme-editor" hidden>
+  <div class="theme-editor__head">
+    <div>
+      <div class="theme-editor__title">Edit Theme</div>
+      <div class="theme-editor__sub" id="theme-editor-name">—</div>
+    </div>
+    <button type="button" class="btn" id="theme-editor-close">Close</button>
+  </div>
+
+
+    <!-- Sidebar/Elements-->
+<div class="theme-editor__layout">
+  <aside class="theme-editor__sidebar" aria-label="Elements sidebar">
+    <div class="theme-editor__sidebarTitle">Elements</div>
+
+    <!-- NEW: your 3 types -->
+    <button class="el-item" draggable="true" data-type="section">Section</button>
+    <button class="el-item" draggable="true" data-type="group">Group</button>
+    <button class="el-item" draggable="true" data-type="dropdown">Dropdown</button>
+
+    <div style="height:10px"></div>
+
+    <!-- existing -->
+    <button class="el-item" draggable="true" data-type="hero">Hero</button>
+    <button class="el-item" draggable="true" data-type="text">Text</button>
+    <button class="el-item" draggable="true" data-type="image">Image</button>
+    <button class="el-item" draggable="true" data-type="button">Button</button>
+  </aside>
+
+        <!-- Drag Section -->
+  <div class="theme-editor__content">
+  <div class="theme-editor__panel">
+    <div class="theme-editor__panelTitle">Page Layout</div>
+
+    <div
+      id="theme-dropzone"
+      class="theme-dropzone"
+    >
+<div class="theme-dropzone__empty">Drop Area</div>
+
+
+    </div>
+  </div>
+</div>
+
+</section>
+
+
+
+</section>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                                               <!-- Orders Section -->                           
      <!-- Orders Section -->
 <section id="orders" class="section">
@@ -89,7 +365,7 @@
       <button type="button" class="chip" data-status="fulfilled">Fulfilled</button>
     </div>
 
-    <button id="orders-create-test" class="btn peach" type="button">
+    <button id="orders-create-test"  type="button">
       Create test order
     </button>
   </div>
@@ -169,7 +445,7 @@
       <h2>New Product</h2>
       <div class="form-actions">
         <button id="prod-cancel" class="btn ghost">Cancel</button>
-        <button id="prod-save" class="btn peach">Save Product</button>
+        <button id="prod-save" >Save Product</button>
       </div>
     </div>
 
@@ -238,12 +514,6 @@
 
 
 
-                                   <!-- Online Store Section -->
-      <section id="store" class="section">
-        <h2>Online Store</h2>
-        <p class="muted">Themes, pages, and preferences.</p>
-        <button class="btn peach" onclick="alert('Open Store Settings')">Open settings</button>
-      </section>
     </main>
   </div>
 </div>

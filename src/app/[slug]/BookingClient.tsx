@@ -1,4 +1,5 @@
 // src/app/[slug]/BookingClient.tsx
+//C:\Users\tiffa\OneDrive\Desktop\suiteseat-web\src\app\[slug]\BookingClient.tsx
 "use client";
 
 import { BasicFlowProvider } from "./BookingFlows/basicFlow";

@@ -1,0 +1,1580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Suite Settings</title>
+  <link rel="stylesheet" href="/qassets/css/suite-settings.css">
+  <link
+  href="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.snow.css"
+  rel="stylesheet"
+/>
+
+</head>
+<body>
+  <!-- Header (keep your existing styles) -->
+  <header class="header">
+    <section class="header-group-container">
+      <div class="group left-group">Suite Seat</div>
+
+      <div class="group right-group" id="login-container">
+        <button id="open-login-popup-btn">Login</button>
+        <span id="login-status-text">Not logged in</span>
+        <button id="logout-btn" style="display: none;">Logout</button>
+      </div>
+    </section>
+  </header>
+
+  <!-- Main App Shell -->
+  <div id="app" class="app">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <!-- Arrow button -->
+      <button
+        id="collapseBtn"
+        class="collapse-btn"
+        title="Collapse / Expand"
+        aria-label="Collapse sidebar"
+      >
+        ➜
+      </button>
+
+      <!-- Optional brand row (you can customize or hide) -->
+      <div class="brand">
+   
+      </div>
+
+      <!-- Nav items -->
+      <ul class="nav" id="nav">
+        <li>
+          <button data-target="dashboard" class="active">
+            <span class="icon">🏠</span>
+            <span class="label">Dashboard</span>
+          </button>
+        </li>
+        <li>
+          <button data-target="locations">
+            <span class="icon">📍</span>
+            <span class="label">Locations</span>
+          </button>
+        </li>
+
+         <li>
+  <button data-target="suites">
+    <span class="icon">🏢</span> <!-- or whatever icon you want -->
+    <span class="label">Applications</span>
+  </button>
+</li>
+
+        
+        <li>
+          <button data-target="suities">
+            <span class="icon">👤</span>
+            <span class="label">Suities</span>
+          </button>
+        </li>
+        <li>
+          <button data-target="maintenance">
+            <span class="icon">🛠️</span>
+            <span class="label">Maintenance</span>
+          </button>
+        </li>
+      </ul>
+    </aside>
+
+    <!-- Right side: topbar + content -->
+    <div class="main">
+      <header class="topbar">
+        <div class="search">
+          <span>🔍</span>
+          <input placeholder="Search settings, locations, suities…" />
+        </div>
+        <div class="user">
+          <span class="muted">Hi, Ashlee</span>
+          <div class="avatar"></div>
+        </div>
+      </header>
+
+
+
+
+
+
+
+      <main class="content">
+               
+        
+                                           <!-- Maintenance -->
+      
+<section id="maintenance" class="section settings-section">
+          <h2>Maintenance</h2>
+           <p class="muted" >Coming Soon </p>
+          <p class="muted" style="display:none">Track repairs, requests, and schedules.</p>
+        </section>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                            <!--------------- Applications -------------------->
+
+<section id="suites" class="section settings-section" hidden>
+  <div class="section-header">
+    <div>
+      <h2>Applications</h2>
+      <p class="muted">View and manage all applications.</p>
+    </div>
+
+
+  </div>
+
+  <!-- 🔹 Filter list by Location -->
+  <div class="suite-filter-row">
+    <label class="field inline">
+      <span>Filter by location</span>
+      <select id="suites-location-filter">
+        <option value="">All Locations</option>
+      </select>
+    </label>
+  </div>
+
+  <div id="suites-form-card" class="card" hidden>
+    <!-- your suite form here -->
+  </div>
+
+  <!-- ✅ Applications card -->
+  <div id="suite-applications-card" class="card">
+   
+
+    <div class="apps-toolbar">
+      <div class="muted" id="suite-applications-count">0 applications</div>
+    </div>
+
+    <div class="apps-table-wrap">
+      <table class="apps-table">
+        <thead>
+          <tr>
+            <th style="width: 220px;">Applicant</th>
+            <th>Email</th>
+            <th>Suite</th>
+            <th>Status</th>
+            <th>Submitted</th>
+            <th style="width: 120px;">Actions</th>
+          </tr>
+        </thead>
+
+        <tbody id="suite-applications-tbody">
+          <tr>
+            <td colspan="6" class="muted">Loading…</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                 <!--------------- Suities -------------------->
+
+ <!--------------- Suities Header -------------------->
+<section id="suities" class="section settings-section">
+  <div class="section-header">
+<div>
+  <h2>Suities</h2>
+  <p class="muted" id="suities-subtitle">Create and assign individual suites.</p>
+</div>
+
+
+    <!-- Add suitie button (JS needs this ID) -->
+    <button type="button" class="btn-orange" id="suities-add-btn">
+      + Add Suitie
+    </button>
+  </div>
+
+<!-- 🔹 Filter list by Location -->
+<div class="suitie-filter-row" id="suities-filter-row">
+  <label class="field inline">
+    <span>Filter by location</span>
+    <select id="suities-location-filter">
+      <option value="">All locations</option>
+    </select>
+  </label>
+</div>
+
+<!-- ✅ LIST SHOULD BE OUT HERE (VISIBLE BY DEFAULT) -->
+<div id="suities-list" class="suitie-list">
+  <p class="muted">No suities yet. Click “Add suitie” to create one.</p>
+</div>
+
+  <!-- Hidden form card (JS needs these IDs) -->
+  <div id="suities-form-card" class="card suitie-form-card" class="btn-orange" hidden>
+<h3 id="suitie-form-title">Add a New Suitie</h3>
+
+
+
+
+
+
+  <!-- Add A suitie Form -->
+
+    <form id="suitie-form">
+      <!-- Suite dropdown -->
+    <!-- Location dropdown (NEW) -->
+<label class="field">
+  <span>Location</span>
+  <select id="suitie-location-select">
+    <option value="">Select a location…</option>
+  </select>
+</label>
+
+<!-- Suite dropdown -->
+<label class="field">
+  <span>Suite</span>
+  <select id="suitie-suite-select">
+    <option value="">Select a suite…</option>
+  </select>
+</label>
+
+
+   
+      <label class="field">
+  <span>Suitie photo (optional)</span>
+  <input
+    id="suitie-photo-file"
+    type="file"
+    accept="image/*"
+  />
+  
+  <!-- ✅ preview goes here -->
+  <div id="suitie-photo-preview" class="suitie-photo-preview">
+    <span class="muted">No photo selected.</span>
+  </div>
+</label>
+
+
+      <div class="grid-2">
+        <label class="field">
+          <span>First name</span>
+          <input
+            id="suitie-first"
+            type="text"
+            placeholder="First name"
+          />
+        </label>
+
+        <label class="field">
+          <span>Last name</span>
+          <input
+            id="suitie-last"
+            type="text"
+            placeholder="Last name"
+          />
+        </label>
+      </div>
+
+         <div class="grid-2">
+        <label class="field">
+          <span>Email</span>
+          <input
+            id="suitie-email"
+            type="email"
+            placeholder="suite-owner@example.com"
+          />
+        </label>
+
+        <label class="field">
+          <span>Phone number</span>
+          <input
+            id="suitie-phone"
+            type="tel"
+            placeholder="(555) 555-5555"
+          />
+        </label>
+      </div>
+
+      <!-- 🔹 NEW: Suite rent + due date -->
+      <div class="grid-2">
+        <label class="field">
+          <span>Suite rent (base)</span>
+          <input
+            id="suitie-rent"
+            type="number"
+            step="0.01"
+            min="0"
+            placeholder="e.g. 300"
+          />
+        </label>
+
+          <label class="field">
+    <span>Rent frequency</span>
+    <select id="suitie-rent-frequency">
+      <option value="">Select frequency…</option>
+      <option value="weekly">Weekly</option>
+      <option value="biweekly">Biweekly</option>
+      <option value="monthly">Monthly</option>
+      <option value="quarterly">Quarterly</option>
+      <option value="yearly">Yearly</option>
+    </select>
+  </label>
+        <label class="field">
+          <span>Next due date</span>
+          <input
+            id="suitie-rent-due"
+            type="date"
+          />
+        </label>
+      </div>
+
+      <label class="field">
+        <span>Note (optional)</span>
+        <textarea
+          id="suitie-note"
+          rows="3"
+          placeholder="Extra details about this suitie"
+        ></textarea>
+      </label>
+
+
+
+      <div class="form-actions">
+        <button
+          type="button"
+          class="btn ghost"
+          id="suitie-cancel-btn"
+        >
+          Cancel
+        </button>
+
+        <button type="button" class="btn btn-danger" id="suitie-delete-btn" style="display:none;">
+  Delete Suitie
+</button>
+
+        <button type="submit" class="btn peach">
+          Save suitie
+        </button>
+      </div>
+    </form>
+  </div>
+
+
+
+
+
+
+
+
+
+
+
+
+                   <!-- Details + rent panel (new) -->
+  
+  <div id="suitie-details-card" class="card suitie-details" hidden>
+    <header class="suitie-details-header">
+      <div>
+        <button id="suitie-back-btn" class="btn ghost" type="button">
+          ← Back to suities
+        </button>
+        <h3 id="suitie-details-title">Suitie details</h3>
+        <p id="suitie-details-suite" class="suitie-meta"></p>
+      </div>
+
+      <div class="suitie-actions">
+        <button id="suitie-edit-btn" class="btn ghost" type="button">
+          Edit suitie
+        </button>
+        <button id="suitie-delete-btn" class="btn danger" type="button">
+          Delete
+        </button>
+      </div>
+    </header>
+
+    <div class="suitie-details-grid">
+      <div>
+        <h4>Occupant</h4>
+    <img
+      id="suitie-details-photo"
+      class="suitie-photo"
+      src=""
+      alt="Suitie photo"
+      style="display:none;"
+    />
+
+        <p id="suitie-details-name">—</p>
+      </div>
+      <div>
+        <h4>Contact</h4>
+        <p id="suitie-details-email" class="suitie-meta">—</p>
+        <p id="suitie-details-phone" class="suitie-meta">—</p>
+      </div>
+      <div>
+        <h4>Notes</h4>
+        <p id="suitie-details-note" class="suitie-meta">—</p>
+      </div>
+
+<div>
+  <h5>Application</h5>
+  <p id="suitie-details-application" class="muted">
+    No application added yet.
+  </p>
+
+  <button
+    id="location-suite-app-template-btn"
+    type="button"
+    class="btn ghost"
+    style="display:none; margin-top: 8px;"
+  >
+    View / edit template
+  </button>
+</div>
+
+
+    </div>
+      
+    <label class="field" >
+  <span>Application file (PDF / image)</span>
+  <input
+    id="suitie-app-file"
+    type="file"
+    accept=".pdf,image/*"
+  />
+</label>
+<label class="field">
+  <span>Base application questions</span>
+  <textarea
+    id="loc-suite-app-questions"
+    rows="4"
+    placeholder='Example: 
+Full legal name (required)
+Business name
+Instagram handle
+Years of experience'
+  ></textarea>
+  <p class="muted">
+    Later this will be turned into a form for applicants. For now, list one question per line.
+  </p>
+</label>
+
+
+    <hr class="suitie-divider" />
+
+    <div class="suitie-rent">
+      <h4>Suite rent</h4>
+      <dl class="rent-grid">
+        <div>
+          <dt>Amount</dt>
+          <dd id="rent-amount-display">—</dd>
+        </div>
+        <div>
+          <dt>Due date</dt>
+          <dd id="rent-due-display">—</dd>
+        </div>
+        <div>
+          <dt>Paid date</dt>
+          <dd id="rent-paid-display">—</dd>
+        </div>
+        <div>
+          <dt>Late fee</dt>
+          <dd id="rent-late-display">—</dd>
+        </div>
+      </dl>
+    
+    </div>
+  </div>
+
+</section>
+
+
+                                                 
+                            <!------------ Dashboard -------------------->
+    
+<section id="dashboard" class="section active">
+  <h2>Dashboard</h2>
+  <p class="muted">Quick overview of your suites.</p>
+
+  <div class="cards">
+    <div class="card dashboard-card" id="dash-card-locations">
+      <strong>Active Locations</strong>
+      <p class="muted">
+        <span id="dash-locations-count">0</span>
+      </p>
+    </div>
+
+    <div class="card dashboard-card" id="dash-card-applications">
+      <strong>Applications</strong>
+      <p class="muted">
+      <span id="dash-applications-count">0</span>
+
+      </p>
+    </div>
+
+    <div class="card dashboard-card" id="dash-card-maint">
+      <strong>Maintenance Request</strong>
+      <p class="muted">
+        <span id="dash-maint-count">0</span>
+      </p>
+    </div>
+  </div>
+</section>
+
+
+
+       
+       
+       
+                                <!--------- Locations Section -------->
+ 
+<section id="locations" class="section settings-section">
+
+  <div id="locations-header" class="section-head">
+    <div>
+      <h2>Locations</h2>
+      <p class="muted">Manage your suite locations.</p>
+    </div>
+
+    <button id="locations-add-btn" class="btn-orange" type="button">
+      + Add location
+    </button>
+  </div>
+
+  <!-- Hidden add/edit location form      Add Location form-->
+  <div id="location-form-card" class="location-card" hidden>
+    <input type="hidden" id="loc-id" />
+
+    <h3>Location</h3>
+<form id="location-form">
+  <label class="field">
+    <span>Location name</span>
+    <input id="loc-name" type="text" placeholder="Downtown Suites" required />
+  </label>
+
+  <label class="field">
+    <span>Address</span>
+    <input id="loc-address" type="text" placeholder="123 Main St, City, State" required />
+  </label>
+
+  <label class="field">
+    <span>Phone (optional)</span>
+    <input id="loc-phone" type="tel" placeholder="(555) 555-5555" />
+  </label>
+
+  <!-- Internal details -->
+  <label class="field">
+    <span>Details (optional)</span>
+    <textarea
+      id="loc-details"
+      rows="3"
+      placeholder="Building notes, parking, entry code, etc."
+    ></textarea>
+  </label>
+
+  <!-- About (public) -->
+  <label class="field">
+    <span>About this location (optional)</span>
+    <textarea
+      id="loc-about"
+      rows="3"
+      placeholder="Tell renters what makes this location special…"
+    ></textarea>
+  </label>
+
+  <!-- 🔹 Current main photo preview -->
+<!-- Current photo -->
+<div class="form-group">
+  <label>Default Photo</label>
+  <div id="loc-current-photo" class="location-current-photo muted">
+    No photo uploaded yet.
+  </div>
+</div>
+<!-- Change main photo -->
+<div class="form-group">
+  <input id="loc-photo-file" type="file" accept="image/*" />
+</div>
+
+<!-- Current gallery -->
+<div class="form-group">
+  <label>Gallery Images</label>
+  <div id="loc-current-gallery" class="location-current-gallery muted">
+  </div>
+</div>
+
+<!-- Add gallery images -->
+<div class="form-group">
+  <input
+    id="loc-gallery-files"
+    type="file"
+    accept="image/*"
+    multiple
+  />
+  <div id="loc-new-gallery-preview" class="location-new-gallery-preview muted"> 
+  </div>
+</div>
+
+
+  <div class="form-actions">
+    <button id="location-cancel-btn" type="button" class="btn ghost">
+      Cancel
+    </button>
+    <button type="submit" class="btn peach">
+      Save location
+    </button>
+  </div>
+</form>
+
+  </div>
+
+
+
+                              <!-- List of locations -->
+  <div id="locations-list"></div>
+
+ <!-- Location Details -->
+<div id="location-details-card" class="location-details card" style="display:none;">
+  <header class="location-details-header">
+  
+  
+  
+                              <!-- Location Details Section -->
+    <div>
+      <button id="location-back-btn" class="btn btn-back" type="button">← Back to locations</button>
+          <div>
+  <!-- 🆕 Public suite page button -->
+  <button
+    id="location-view-public-btn"
+    class="btn btn-linkout"
+    type="button"
+    title="Open this location’s suite page"
+  >
+    Go to <span id="location-view-public-name">Location</span> ↗
+  </button>
+</div>
+
+      <h3 id="location-details-name">Location details</h3>
+      <p id="location-details-address" class="muted"></p>
+    </div>
+
+
+   <div class="location-details-actions">
+
+      <!-- 🎨 style button -->
+  <button
+    id="location-style-btn"
+    class="btn-ghost"
+    type="button"
+    title="Style this page"
+  >
+    🎨
+  </button>
+  <button
+    id="location-scroll-suites-btn"
+    class="btn-underline"
+    type="button"
+  >
+    Suites
+  </button>
+
+
+
+  <button id="location-edit-btn" class="btn-grey" type="button">Edit</button>
+  <button id="location-delete-btn" class="btn btn-danger" type="button">
+    Delete
+  </button>
+</div>
+
+
+  </header>
+
+    <div class="location-details-grid">
+      <div>
+        <h4>Address</h4>
+        <p id="location-details-address-full" class="muted">—</p>
+      </div>
+
+      <div>
+        <h4>Phone</h4>
+        <p id="location-details-phone" class="muted">—</p>
+      </div>
+
+
+
+      <div>
+        <h4>Total suite rent (per month)</h4>
+        <p id="location-total-rent" class="location-rent-amount">—</p>
+      </div>      <!-- Somewhere inside the suite details card -->
+
+
+      <div>
+        <h4>Total rent collected this year</h4>
+        <p id="location-year-total-rent" class="location-rent-amount">—</p>
+      </div>
+
+   <div>
+  <h4>Details</h4>
+  <p id="location-details-desc" class="muted">—</p>
+  <!-- NEW: toggle button for Details -->
+  <button
+    id="location-details-desc-toggle"
+    type="button"
+    class="location-text-toggle"
+    style="display:none;"
+  >
+    Show more
+  </button>
+</div>
+
+   <div>
+  <h4>About</h4>
+  <p id="location-details-about" class="muted">—</p>
+
+  <!-- Show more/less button -->
+  <button
+    id="location-about-toggle"
+    type="button"
+    class="link-button"
+    style="display:none;"
+  >
+    Show more
+  </button>
+</div>
+
+      <div>
+        <h4>Location photo</h4>
+        <img
+          id="location-details-photo"
+          src=""
+          alt="Location photo"
+          style="max-width: 240px; border-radius: 12px; display:none;"
+        />
+      </div>
+
+           <!-- 🆕 Gallery section -->
+      <div>
+        <h4>Gallery</h4>
+        <div id="location-details-gallery" class="location-gallery">
+          <!-- thumbs will be injected here by JS -->
+        </div>
+      </div>
+    </div>
+
+    <hr class="location-divider" />
+
+           <!-- 🆕 List of Suites section -->
+    <div class="location-suites-header">
+      <h4>Suites in this location</h4>
+      <button id="location-add-suite-btn" class="btn-orange" type="button">+ Add suite</button>
+    </div>
+
+<div id="location-suites-list" class="location-suites-list">
+  <p class="muted">No suites added yet for this location.</p>
+</div>
+
+
+
+
+
+
+<!-- Location style panel-->
+<!-- 🎨 Location Style Modal -->
+<div id="location-style-modal" class="auth-modal" hidden>
+  <div class="auth-card location-style-card">
+    <div class="location-style-header">
+      <h3>Location Style</h3>
+      <button
+        type="button"
+        id="location-style-close-btn"
+        class="btn ghost small"
+        style="float:right;"
+      >
+        ✕
+      </button>
+    </div>
+
+  <div class="location-style-row">
+  <label for="location-style-bg-color">Background color</label>
+  <input type="color" id="location-style-bg-color" />
+  <p class="muted small">
+    Used when no background image is set.
+  </p>
+</div>
+
+<div class="location-style-row">
+  <label for="location-style-bg-image">Background image</label>
+  <input type="file" id="location-style-bg-image" accept="image/*" />
+  <div id="location-style-bg-preview" class="location-style-bg-preview">
+    <p class="muted">No background image yet.</p>
+  </div>
+  <p class="muted small">
+    If you upload an image, it will be shown instead of the background color.
+  </p>
+</div>
+
+
+       <div class="location-style-row">
+      <label for="location-style-text-color">Text color</label>
+      <input type="color" id="location-style-text-color" />
+    </div>
+
+    <div class="location-style-actions">
+      <button type="button" class="btn" id="location-style-save-btn">
+        Save style
+      </button>
+      <button
+        type="button"
+        class="btn ghost"
+        id="location-style-cancel-btn"
+      >
+        Cancel
+      </button>
+    </div>
+  </div>
+</div>
+
+
+
+
+
+
+                                <!-- 🆕 Hidden Suite form card -->
+<div id="location-suite-form-card" class="card" style="display:none;">
+  <div class="location-suite-form-header">
+    <button id="location-suite-back-btn" type="button" class="btn-orange">
+      ← Back to locations
+    </button>
+    <h4>Add / Edit Suite</h4>
+  </div>
+
+  <!-- 👇 NEW: location name inside the suite section -->
+  <p class="muted" style="margin: 0 0 0.75rem;">
+    Location: <strong id="loc-suite-location-name"></strong>
+  </p>
+
+  <form id="location-suite-form">
+
+    <input type="hidden" id="loc-suite-id" />
+
+    <label class="field">
+      <span>Suite Name / Number</span>
+      <input id="loc-suite-name" type="text" placeholder="Suite 1A" required />
+    </label>
+
+<label class="field">
+  <span>Details (optional)</span>
+
+  <div class="rte-box">
+    <div id="suite-details-toolbar" class="rte-toolbar">
+      <button type="button" class="ql-bold" aria-label="Bold"></button>
+      <button type="button" class="ql-italic" aria-label="Italic"></button>
+      <button type="button" class="ql-underline" aria-label="Underline"></button>
+      <button type="button" class="ql-list" value="ordered" aria-label="Numbered list"></button>
+      <button type="button" class="ql-list" value="bullet" aria-label="Bullets"></button>
+      <button type="button" class="ql-link" aria-label="Link"></button>
+      <button type="button" class="ql-clean" aria-label="Remove formatting"></button>
+    </div>
+
+    <div id="loc-suite-details-editor" class="rte-editor"></div>
+  </div>
+
+  <input type="hidden" id="loc-suite-details" name="loc-suite-details" />
+</label>
+
+
+    <label class="field">
+      <span>Date Available (optional)</span>
+      <input id="loc-suite-available" type="date" />
+    </label>
+
+    <!-- 💰 Suite Rate -->
+<div class="field-row">
+  <label for="suite-rent-amount">Rate</label>
+  <div class="field-row-inline">
+    <input
+      id="suite-rent-amount"
+      name="suite-rent-amount"
+      type="number"
+      step="0.01"
+      min="0"
+      placeholder="0.00"
+    />
+
+    <select
+      id="suite-rent-frequency"
+      name="suite-rent-frequency"
+    >
+      <option value="">Select Frequency</option>
+      <option value="daily">Daily</option>
+      <option value="weekly">Weekly</option>
+      <option value="bi-weekly">Bi-weekly</option>
+      <option value="monthly">Monthly</option>
+    </select>
+  </div>
+</div>
+
+
+   <!-- Current default image (for edit mode) -->
+<div class="field">
+
+</div>
+  <!-- Change default photo -->
+    <label class="field">
+      <span> Default Photo</span>
+       <div id="loc-suite-current-photo" class="location-current-photo muted">
+  
+  </div>
+      <input
+        id="loc-suite-photo-file"
+        type="file"
+        accept="image/*"
+      />
+    </label>
+ 
+    <!-- Current gallery (for edit mode) -->
+    <div class="field">
+  
+    </div>
+
+    <!-- Add gallery images -->
+
+    <div class="field">
+      <span>Gallery Images</span>
+             <div
+        id="loc-suite-new-gallery-preview"
+        class="location-new-gallery-preview muted"
+      >
+      </div>
+          <div id="loc-suite-current-gallery" class="location-current-gallery muted">
+      </div>
+      <input
+        id="loc-suite-gallery-files"
+        type="file"
+        accept="image/*"
+        multiple
+      />
+    
+    </div>
+
+
+<!-- Current default image (for edit mode) -->
+<!-- Application section in Add / Edit Suite form -->
+
+<div class="field">
+  <span>Online Application</span>
+  <label class="checkbox-row" style="display:none">
+    <input
+      id="loc-suite-application-enabled"
+      type="checkbox"
+    />
+    <span style="display:none">Allow applicants to apply online for this suite</span>
+  </label>
+</div>
+<!-- Which application should be used on the public site? -->
+<div class="field" style="display:none">
+  <span>Use this application on my site</span>
+
+  <label class="checkbox-row">
+    <input
+      type="radio"
+      name="loc-suite-app-mode"
+      value="template"
+      checked
+    />
+    <span>Online application form (template)</span>
+  </label>
+
+  <label class="checkbox-row">
+    <input
+      type="radio"
+      name="loc-suite-app-mode"
+      value="file"
+    />
+    <span>Downloadable file (PDF / image)</span>
+  </label>
+</div>
+
+
+<!-- Button to open the application builder -->
+<div class="field">
+  <span>Application Template</span>
+  <button
+    id="open-suite-app-builder"
+    type="button"
+    class="btn ghost"
+  >
+    Create / Edit Application
+  </button>
+  <!-- 🔹 New status text -->
+<span id="suite-app-status" class="muted" style="margin-left: 8px;"></span>
+
+  <p class="muted">
+  Template where you can customize the questions. 
+    
+  </p>
+</div>
+
+<!-- Application Template Hidden JSON that stores the template designed in the builder -->
+<input
+  type="hidden"
+  id="loc-suite-application-template"
+  name="loc-suite-application-template"
+/>
+
+<!-- Optional: keep PDF attach if you still want that fallback -->
+<label class="field" style="display:none">
+  <span>Attach PDF (optional)</span>
+
+  <!-- 👇 this is what the JS will update -->
+  <div id="loc-suite-current-app" class="muted">
+    No application uploaded yet.
+  </div>
+
+<input
+  type="file"
+  id="loc-suite-app-input"
+  name="suiteAppFile"
+  accept=".pdf,image/*"
+/>
+
+</label>
+
+
+
+
+  <div class="form-actions">
+      <button
+        id="loc-suite-cancel-btn"
+        type="button"
+        class="btn ghost"
+      >
+        Cancel
+      </button>
+
+      <!-- 👇 this is the Save button -->
+      <button
+        id="loc-suite-save-btn"
+        type="submit"
+        class="btn-orange"
+      >
+        Save suite
+      </button>
+    </div>
+  </form>
+</div>
+
+
+
+                     <!-- Suite details for a clicked suite -->
+<div
+  id="location-suite-details-card"
+  class="location-suite-details card"
+  style="display:none; margin-top: 1rem;"
+>
+   <button id="location-suite-details-back-btn" type="button" class="btn ghost">
+      ← Back to <span id="location-suite-details-location-name"></span>
+    </button>
+
+  <header class="location-suite-details-header">
+    <div>
+      <h4 id="location-suite-details-name">Suite details</h4>
+      <p id="location-suite-details-availability" class="muted">—</p>
+    </div>
+    
+ 
+<div class="location-suite-details-actions">
+  <button
+    id="location-suite-edit-btn"
+    type="button"
+    class="btn"
+  >
+    Edit suite
+  </button>
+
+  <!-- 🆕 Delete button -->
+  <button
+    id="location-suite-delete-btn"
+    type="button"
+    class="btn danger"
+  >
+    Delete
+  </button>
+
+  <button
+    id="location-suite-details-close"
+    type="button"
+    class="btn ghost"
+  >
+    Close
+  </button>
+</div>
+  </header>
+
+  <!-- 🔹 Suite rate display -->
+  <div class="location-suite-rate-row">
+    <h5>Rate</h5>
+    <p
+      id="location-suite-details-rate"
+      class="muted"
+    >
+   
+    </p>
+  </div>
+ 
+  <div id="suite-details-details" class="suite-details-text muted">
+     <h5>Details</h5>
+ </div>
+
+
+  <div>
+    <h5>Default image</h5>
+    <div
+      id="location-suite-default-img"
+      class="suite-current-photo muted"
+    >
+
+    </div>
+  </div>
+
+
+    <div>
+      <h5>Gallery</h5>
+      <div id="location-suite-details-gallery" class="suite-gallery"></div>
+    </div>
+
+    <div>
+      <h5>Application</h5>
+      <p id="location-suite-details-application" class="muted">No application added yet.</p>
+    </div>
+  </div>
+
+</div>
+
+
+  </div>
+</section>
+
+
+
+
+
+
+
+      </main>
+    </div>
+  </div>
+
+
+
+
+
+   <!-- Submitted Suite Application -->
+<!-- ✅ Application View Modal -->
+<div id="suite-template-preview-modal" class="ss-modal" style="display:none;">
+  <div class="ss-modal__overlay" id="suite-template-preview-overlay"></div>
+
+  <div class="ss-modal__panel">
+    <div class="ss-modal__header">
+      <h3>Application</h3>
+      <button type="button" id="suite-template-preview-close" class="ss-modal__close">×</button>
+    </div>
+
+    <div id="suite-template-preview-body" class="ss-modal__body">
+      <!-- JS injects the application here -->
+    </div>
+  </div>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<!-- Suite Application Builder Modal -->
+<div id="suite-app-builder" class="suite-app-modal" hidden aria-hidden="true">
+  <div class="suite-app-modal-card">
+    <div class="auth-sheet card" style="max-width: 800px; width: 100%;">
+
+      <button
+        id="suite-app-builder-close"
+        class="auth-x"
+        type="button"
+        aria-label="Close"
+      >
+        ×
+      </button>
+
+      <h3>Application for Lease – Template</h3>
+      <p class="muted">
+        Customize the questions applicants will answer. You can edit the text
+        in each box. Suite name and location will be shown automatically on the final form.
+      </p>
+
+      <!-- Header -->
+      <div class="suite-app-header">
+        <!-- Top row: logo + location name right -->
+        <div class="suite-app-header-row">
+          <!-- LEFT: Logo or fallback location name -->
+          <div class="suite-app-header-left">
+            <div class="suite-app-logo-block">
+              <div class="suite-app-logo-circle" id="suite-app-logo-preview">
+                LN
+              </div>
+              <span
+                class="suite-app-location-fallback"
+                contenteditable="true"
+                data-app-field="locationName"
+              >
+                Location Name
+              </span>
+            </div>
+          </div>
+
+          <!-- RIGHT: Location name in bold -->
+          <div class="suite-app-header-right">
+            <strong
+              data-app-field="locationNameRight"
+              contenteditable="true"
+            >
+              Location Name
+            </strong>
+          </div>
+        </div>
+
+        <!-- Center row: title + suite name -->
+        <div class="suite-app-header-center">
+          <span
+            class="suite-app-main-title"
+            contenteditable="true"
+            data-app-field="formTitle"
+          >
+            Application for Lease
+          </span>
+          <span class="suite-app-subtitle">
+            Suite Name (auto)
+          </span>
+        </div>
+      </div>
+
+      <hr />
+
+      <!-- Applicant information -->
+      <div class="suite-app-section" id="suite-app-section-applicant">
+        <div class="suite-app-section-title">
+          <span contenteditable="true" data-app-field="sectionApplicant">
+            Applicant information
+          </span>
+        </div>
+
+        <div class="suite-app-row">
+          <div class="suite-app-bullet suite-app-drag-handle"></div>
+          <div
+            class="suite-app-label"
+            contenteditable="true"
+            data-app-field="dateOfApplication"
+          >
+            Date of application
+          </div>
+          <div class="suite-app-input-box">
+            [date input]
+          </div>
+        </div>
+
+        <div class="suite-app-row">
+          <div class="suite-app-bullet suite-app-drag-handle"></div>
+          <div
+            class="suite-app-label"
+            contenteditable="true"
+            data-app-field="applicantName"
+          >
+            Applicant’s name
+          </div>
+          <div class="suite-app-input-box">
+            [text input]
+          </div>
+        </div>
+
+        <div class="suite-app-row">
+          <div class="suite-app-bullet suite-app-drag-handle"></div>
+          <div
+            class="suite-app-label"
+            contenteditable="true"
+            data-app-field="address"
+          >
+            Address
+          </div>
+          <div class="suite-app-input-box">
+            [text input]
+          </div>
+        </div>
+
+        <div class="suite-app-row">
+          <div class="suite-app-bullet suite-app-drag-handle"></div>
+          <div
+            class="suite-app-label"
+            contenteditable="true"
+            data-app-field="phone"
+          >
+            Cell phone
+          </div>
+          <div class="suite-app-input-box">
+            [text input]
+          </div>
+        </div>
+
+        <div class="suite-app-row">
+          <div class="suite-app-bullet suite-app-drag-handle"></div>
+          <div
+            class="suite-app-label"
+            contenteditable="true"
+            data-app-field="servicesRendered"
+          >
+            Services rendered
+          </div>
+          <div class="suite-app-input-box">
+            [text input]
+          </div>
+        </div>
+
+        <!-- Owner can add extra applicant questions -->
+        <button
+          id="suite-app-add-applicant-question"
+          type="button"
+          class="btn ghost suite-app-add-more"
+        >
+          + Add question
+        </button>
+      </div>
+
+      <!-- Professional experience -->
+      <div class="suite-app-section" id="suite-app-section-experience">
+        <div class="suite-app-section-title">
+          <span contenteditable="true" data-app-field="sectionExperience">
+            Professional experience
+          </span>
+        </div>
+
+        <div class="suite-app-row">
+          <div class="suite-app-bullet suite-app-drag-handle"></div>
+          <div
+            class="suite-app-label"
+            contenteditable="true"
+            data-app-field="salonName"
+          >
+            Salon name
+          </div>
+          <div class="suite-app-input-box">
+            [text input]
+          </div>
+        </div>
+
+        <div class="suite-app-row">
+          <div class="suite-app-bullet suite-app-drag-handle"></div>
+          <div
+            class="suite-app-label"
+            contenteditable="true"
+            data-app-field="datesWorked"
+          >
+            Date worked from / to
+          </div>
+          <div class="suite-app-input-box">
+            [date range input]
+          </div>
+        </div>
+
+        <div class="suite-app-row">
+          <div class="suite-app-bullet suite-app-drag-handle"></div>
+          <div
+            class="suite-app-label"
+            contenteditable="true"
+            data-app-field="experienceContact"
+          >
+            Contact person
+          </div>
+          <div class="suite-app-input-box">
+            [text input]
+          </div>
+        </div>
+
+        <!-- Owner: add extra experience questions/fields -->
+        <button
+          id="suite-app-add-experience-question"
+          type="button"
+          class="btn ghost suite-app-add-more"
+        >
+          + Add question
+        </button>
+
+        <!-- Applicant: later we’ll turn this into “add another job” -->
+        <button
+          id="suite-app-add-experience"
+          type="button"
+          class="btn ghost suite-app-add-more"
+        >
+          + Add more experience
+        </button>
+      </div>
+
+      <!-- Add whole custom section -->
+      <button
+        id="suite-app-add-section"
+        type="button"
+        class="btn ghost suite-app-add-more"
+      >
+        + Add new section
+      </button>
+
+      <!-- Availability -->
+      <div class="suite-app-section">
+        <div class="suite-app-row">
+          <div class="suite-app-bullet suite-app-drag-handle"></div>
+          <div
+            class="suite-app-label"
+            contenteditable="true"
+            data-app-field="suiteAvailability"
+          >
+            Preferred start date
+          </div>
+          <div class="suite-app-input-box">
+            [date input]
+          </div>
+        </div>
+      </div>
+
+      <!-- Signature -->
+      <div class="suite-app-section">
+        <div class="suite-app-row">
+          <div class="suite-app-bullet suite-app-drag-handle"></div>
+          <div
+            class="suite-app-label"
+            contenteditable="true"
+            data-app-field="signatureLabel"
+          >
+            Applicant signature
+          </div>
+          <div class="suite-app-input-box signature-box">
+            [signature box]
+          </div>
+        </div>
+      </div>
+
+      <!-- Buttons at bottom of modal -->
+      <div class="form-actions" style="margin-top: 1rem;">
+        <button
+          id="suite-app-builder-cancel"
+          type="button"
+          class="btn ghost"
+        >
+          Cancel
+        </button>
+        <button
+          id="suite-app-builder-save"
+          type="button"
+          class="btn peach"
+        >
+          Save application template
+        </button>
+      </div>
+
+    </div> <!-- end .auth-sheet card -->
+  </div>   <!-- end .suite-app-modal-card -->
+</div>     <!-- end #suite-app-builder -->
+
+
+<!-- Suite Application Template Preview Modal -->
+<div id="suite-template-preview-modal" class="suite-template-modal" style="display:none;">
+  <div class="suite-template-modal-overlay"></div>
+
+  <div class="suite-template-modal-inner">
+    <button id="suite-template-preview-close" class="suite-template-modal-close">
+      ×
+    </button>
+
+    <h2 class="suite-template-modal-title">Suite application</h2>
+    <div id="suite-template-preview-body" class="suite-template-modal-body">
+      <!-- Filled by JS -->
+    </div>
+  </div>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<!-- Auth Modal -->
+<div id="authModal" class="auth-modal" hidden aria-hidden="true">
+  <div class="auth-sheet">
+    <button id="authClose" class="auth-x" aria-label="Close">×</button>
+    <h3>Log in</h3>
+
+    <form id="authForm">
+      <label>Email</label>
+      <input id="authEmail" type="email" autocomplete="username" required />
+
+      <label>Password</label>
+      <input id="authPass" type="password" autocomplete="current-password" required />
+
+      <p id="authError" class="auth-error"></p>
+
+      <button id="authSubmit" type="submit" class="btn primary">
+        <span class="when-idle">Log in</span>
+        <span class="when-busy" hidden>Signing in…</span>
+      </button>
+    </form>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.min.js"></script>
+
+<!-- Drag & drop helper library -->
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+  <script src="/qassets/js/suite-settings2.js"></script>
+</body>
+
+</html>

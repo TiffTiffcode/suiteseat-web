@@ -951,7 +951,47 @@ body.modal-open{ overflow: hidden; }   /* lock page scroll while open */
 
 /* slots */
 .bk-slot-group { margin-bottom: 12px; }
-.bk-slot-list { display: flex; flex-wrap: wrap; gap: 8px; }
+/* container so times wrap nicely */
+/* wrap + spacing */
+.bk-slot-list{
+  display:flex;
+  flex-wrap:wrap;
+  gap:25px;
+  margin-top:10px;
+}
+
+/* ✅ DEFAULT: always has border + background */
+.bk-time{
+  appearance:none;
+  border: 1px solid rgba(0,0,0,.15);
+  background: rgba(0,0,0,.03);
+  color: #111;
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0,0,0,.06);
+  transition: background .12s ease, border-color .12s ease, box-shadow .12s ease, transform .12s ease;
+}
+
+/* ✅ HOVER: “highlight” it */
+.bk-time:hover{
+  background: rgba(0,0,0,.08);
+  border-color: rgba(0,0,0,.28);
+  box-shadow: 0 10px 18px rgba(0,0,0,.12);
+  transform: translateY(-1px);
+}
+
+/* keyboard focus */
+.bk-time:focus-visible{
+  outline: 2px solid rgba(0,0,0,.35);
+  outline-offset: 2px;
+}
+
+/* press */
+.bk-time:active{
+  transform: translateY(0) scale(.98);
+}
 
 /* side summary */
 .bk-side .bk-summary-row { margin: 6px 0; }
@@ -986,19 +1026,16 @@ body.modal-open{ overflow: hidden; }   /* lock page scroll while open */
 }
 
 /* Outer wrapper: centers whole bottom block */
-.booking-bottom {
-  display: flex;
-  justify-content: center;   /* centers the inner grid */
-  padding-inline: 1.5rem;    /* little side padding on small screens */
+.booking-bottom{
+  width: 100%;
+  padding: 40px 16px 80px;
 }
 
 /* Inner layout: two columns but centered with max width */
-.booking-bottom-inner {
-  display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
-  gap: 2rem;
-  max-width: 1100px;         /* controls how wide the block can get */
-  width: 100%;
+.booking-bottom-inner{
+  width: min(1200px, 92vw);  /* controls “bigger” look */
+  margin: 0 auto;            /* centers the whole booking area */
+  padding: 0;                /* keep clean; cards handle padding */
 }
 
 /* Stack on mobile */
@@ -1008,15 +1045,6 @@ body.modal-open{ overflow: hidden; }   /* lock page scroll while open */
   }
 }
 
-.booking-bottom {
-  padding: 40px 0 80px;
-}
-
-.booking-bottom-inner {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 24px;
-}
 
 /* Stack everything in one column, full width */
 .bk-columns {
@@ -1051,6 +1079,9 @@ body.modal-open{ overflow: hidden; }   /* lock page scroll while open */
   }
 }
 
+.bk-flow{
+  width: 100%;
+}
 
 /* Make the availability card span the full content width */
 .bk-card--availability {
@@ -1095,28 +1126,14 @@ body.modal-open{ overflow: hidden; }   /* lock page scroll while open */
   border-bottom: 2px dotted #333;
   opacity: 0.3;
 }
-.bk-card--availability {
-  width: 100%;
-  max-width: none; /* full viewport width inside your container */
-}
+
 /* === Make booking area full-width === */
 
 #booking-root {
   width: 100%;
 }
 
-/* wrapper under the hero */
-.booking-bottom {
-  width: 100%;
-}
 
-/* inner wrapper – let it stretch instead of max-width centered box */
-.booking-bottom-inner {
-  width: 100%;
-  max-width: none;          /* remove any previous cap */
-  margin: 0 auto;
-  padding: 32px 40px 64px;  /* adjust padding if you want less */
-}
 
 /* grid that holds all sections (cal, cat, services, availability) */
 .bk-grid--full {
@@ -1125,22 +1142,17 @@ body.modal-open{ overflow: hidden; }   /* lock page scroll while open */
 }
 
 /* generic “full-width card” modifier */
-.bk-card--full {
+.bk-card--availability,
+.bk-card--full{
   width: 100%;
-  max-width: none;
 }
 
-/* availability already had its own modifier – just be sure it’s also full */
-.bk-card--availability {
-  width: 100%;
-  max-width: none;
-}
 /* When we say bk-grid--full, we really mean ONE full-width column */
-.bk-grid.bk-grid--full {
-  display: block;              /* kill the 2-column grid layout */
-  grid-template-columns: none; /* safety reset */
+.bk-grid.bk-grid--full{
+  display: block;     /* fine */
   width: 100%;
 }
+
 
 /* Vertical stack for services list */
 .bk-list--vertical {
@@ -1149,3 +1161,16 @@ body.modal-open{ overflow: hidden; }   /* lock page scroll while open */
   gap: 12px;
 }
 
+/* Center the calendar cards row */
+.bk-list--cards-center{
+  display: flex;
+  gap: 12px;
+  justify-content: center;   /* ✅ centers the row */
+  flex-wrap: wrap;           /* ✅ wraps instead of leaving empty space */
+  overflow-x: visible;       /* ✅ no horizontal scroll when centered */
+}
+.bk-cal-day.is-past {
+  opacity: .35;
+  cursor: not-allowed;
+  background: #eee;
+}

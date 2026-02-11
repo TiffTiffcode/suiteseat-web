@@ -1,10 +1,20 @@
 // src/app/[slug]/BookingFlows/basicFlow.tsx
-
+//C:\Users\tiffa\OneDrive\Desktop\suiteseat-web\src\app\[slug]\BookingFlows\basicFlow.tsx
 "use client";
-if (typeof window !== "undefined") console.log("[flow] basicFlow.tsx loaded");
 
-import React, { createContext, useContext, useEffect, useState, useRef, ReactNode } from "react";
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useRef,
+  ReactNode,
+} from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+
+if (typeof window !== "undefined") {
+  console.log("[flow] basicFlow.tsx loaded");
+}
 
 type SlotGroups = { morning: string[]; afternoon: string[]; evening: string[] };
 type ConfirmStage = "review" | "book";
@@ -12,7 +22,11 @@ type ConfirmStage = "review" | "book";
 // basicFlow.tsx (and anywhere else the client calls the API)
 const API = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8400";
 
-const DEFAULT_MIN_FOR_UNKNOWN = 15;
+
+function unpackRows(payload: any): any[] {
+  if (Array.isArray(payload)) return payload;
+  return payload?.items || payload?.records || payload?.rows || [];
+}
 
 
 // ✅ single context (no duplicates)
@@ -33,9 +47,7 @@ export function useBookingFlow() {
 
 
 // --- amplify debug ---
-if (typeof console !== "undefined" && console.debug) {
-  console.debug = (...args: any[]) => console.log("[debug]", ...args);
-}
+const dbg = (...args: any[]) => console.log("[flow]", ...args);
 
 // ==== [FLOW_TYPE] Booking flow context shape ========────────────────────────────────────────────────────────
 type FlowContextType = {
@@ -67,14 +79,13 @@ type FlowContextType = {
   // confirm modal
   isConfirmOpen: boolean;
   openConfirm: (timeHHMM: string) => void;
-   closeConfirm: (mode?: "soft" | "hard" | boolean) => void;
+  closeConfirm: (mode?: "soft" | "hard" | boolean) => void;
   confirmStage: "review" | "book";
   reopenConfirmAsBook: () => void;
 
   handleServiceSelect: (serviceId: string) => Promise<void>;
   shiftMonth: (deltaMonths: number) => Promise<void>;
   selectDate: (dateISO: string) => Promise<void>;
-
 
   // auth
   isLoggedIn: boolean;
@@ -84,32 +95,41 @@ type FlowContextType = {
   login: (email: string, password: string) => Promise<boolean>;
   requireAuthThen: (fn: () => Promise<void> | void) => void;
 
- createAppointment: () => Promise<any>; 
-removeBookedFromSlots: (startHHMM: string, durMin: number) => void;
+  createAppointment: () => Promise<any>;
+  removeBookedFromSlots: (startHHMM: string, durMin: number) => void;
 
   isReschedule: boolean;
   rescheduleApptId: string | null;
   onConfirm: () => Promise<void>;
 
-    
   goBackToCalendars: () => void;
   goBackToCategories: () => void;
-goBackToServices: () => void;
+  goBackToServices: () => void;
 
+  // multi-service
   multiSelection: string[] | null;
   handleMultiServiceSelect: (ids: string[]) => Promise<void>;
-  // 🔁 ADD to your FlowCtx / interface
-pickedServiceIds: string[];
-addPick: (id: string) => void;
-removePick: (id: string) => void;
-clearPicks: () => void;
-isPicked: (id: string) => boolean;
 
-lookupService: (id: string) => any | null;
+  // 🔁 picks API
+  pickedServiceIds: string[];
   pickedServices: any[];
-currentUserId: string | null;
+  addPick: (id: string, svc: any) => void;
+  removePick: (id: string) => void;
+  clearPicks: () => void;
+  isPicked: (id: string) => boolean;
+
+  lookupService: (id: string) => any | null;
+  currentUserId: string | null;
+currentUser: any | null;
+
+
+  // 🔹 NEW: all services we’ve cached across categories
+  allServices: any[];
+  calendarCells: any[];
 
 };
+
+
 
 
 
@@ -126,7 +146,9 @@ async function fetchCalendarsForBusiness(businessId: string) {
     const url = `${API}/public/records?dataType=Calendar&${encodeURIComponent(k)}=${encodeURIComponent(businessId)}&ts=${Date.now()}`;
     const r = await fetch(url, { cache: "no-store" });
     if (!r.ok) continue;
-    const rows = await r.json();
+ const payload = await r.json().catch(() => null);
+const rows = unpackRows(payload);
+
     if (Array.isArray(rows) && rows.length) {
       return rows.map((doc: any) => {
         const v = doc.values || {};
@@ -138,11 +160,61 @@ async function fetchCalendarsForBusiness(businessId: string) {
   }
   return [];
 }
-function refId(v: any): string {
-  if (!v) return "";
-  if (typeof v === "string") return v;
-  if (typeof v === "object") return String(v._id || v.id || v.value || v.$id || "");
-  return "";
+function refId(x: any): string | null {
+  if (!x) return null;
+  if (typeof x === "string") return x;
+  if (typeof x === "object")
+    return String(x._id || x.id || x.value || x.$id || x.reference || "").trim() || null;
+  return null;
+}
+
+// -----------------------------
+// Business -> Pro extraction helpers (MODULE SCOPE)
+// -----------------------------
+function idVal(x: any): string {
+  if (!x) return "";
+  if (typeof x === "string") return x;
+  return String(x._id || x.id || x.value || "").trim();
+}
+
+function getBusinessNameFromRecord(rec: any): string {
+  const v = rec?.values || rec || {};
+  return String(
+    v.BusinessName ||
+    v["Business Name"] ||
+    v.Name ||
+    v.name ||
+    v.title ||
+    ""
+  ).trim();
+}
+
+function getProIdFromBusinessRecord(bizRec: any) {
+  const v = bizRec?.values || {};
+  return (
+    bizRec?.createdBy ||
+    v?.proUserId ||          // ✅ this will now exist
+    v?.ownerUserId ||
+    v?.providerId ||
+    null
+  );
+}
+
+
+
+async function fetchBusinessRecordById(businessId: string) {
+  const res = await fetch(
+    `${API}/public/records?dataType=Business&_id=${encodeURIComponent(businessId)}&limit=1&ts=${Date.now()}`,
+    { cache: "no-store", credentials: "include" }
+  );
+
+  const data = await res.json().catch(() => null);
+
+  const rows = Array.isArray(data)
+    ? data
+    : (data?.items || data?.records || data?.data || []);
+
+  return rows[0] || null; // ✅ THIS is the Business record
 }
 
 async function fetchCategoriesForCalendar(businessId: string, calendarId: string) {
@@ -152,7 +224,9 @@ async function fetchCategoriesForCalendar(businessId: string, calendarId: string
 
   const r = await fetch(url, { cache: "no-store" });
   if (r.ok) {
-    const rows = await r.json();
+  const payload = await r.json().catch(() => null);
+const rows = unpackRows(payload);
+
     if (Array.isArray(rows) && rows.length) {
       return rows.map((doc: any) => {
         const v = doc.values || {};
@@ -217,7 +291,9 @@ async function fetchServicesForCategory(businessId: string, categoryId: string) 
     try {
       const r = await fetch(url, { cache: "no-store" });
       if (!r.ok) continue;
-      const rows = await r.json();
+     const payload = await r.json().catch(() => null);
+const rows = unpackRows(payload);
+
       if (Array.isArray(rows) && rows.length) return rows.map(mapServiceDoc);
     } catch {}
   }
@@ -258,7 +334,6 @@ function mapServiceDoc(doc: any) {
   const desc = v.Description || v.description || v.Details || v.details || "";
   const price = v.Price ?? v.price ?? v.Cost ?? v.cost ?? "";
 
-  // duration parser (accepts "1h 30m", "90m", "75", etc.)
   const coerceMinutes = (val: any): number | undefined => {
     if (val == null) return undefined;
     const s = String(val).toLowerCase().trim();
@@ -273,14 +348,26 @@ function mapServiceDoc(doc: any) {
     return undefined;
   };
 
-  const rawDur =
-    v.DurationMin ??
-    v["Duration (min)"] ??
-    v["Duration (mins)"] ??
-    v["Service Duration"] ??
-    v.Minutes ??
-    v.Duration ??
-    v.duration;
+const rawDur =
+  v.durationMin ??              // already mapped value
+  v.durationMinutes ??          // 👈 add this
+  v.DurationMin ??
+  v["Duration (min)"] ??
+  v["Duration (mins)"] ??
+  v["Duration Minutes"] ??      // your common label
+  v["Service Time (mins)"] ??   // 👈 add exact label
+  v["Service Time"] ??          // keep as loose backup
+  v.Minutes ??
+  v.Duration ??
+  v.duration;
+
+
+  console.log("[svc] mapServiceDoc duration", {
+    id: String(doc._id || v._id || v.id),
+    name,
+    rawDur,
+    allKeys: Object.keys(v),
+  });
 
   const durationMin = coerceMinutes(rawDur) ?? DEFAULT_MIN_FOR_UNKNOWN;
 
@@ -293,6 +380,7 @@ function mapServiceDoc(doc: any) {
     values: v,
   };
 }
+
 
 
 //Helpers
@@ -313,38 +401,106 @@ function overlap(aStart: string, aEnd: string, bStart: string, bEnd: string) {
   return aStart < bEnd && bStart < aEnd;
 }
 function readMinFlexible(s: any): number {
-  if (Number.isFinite(s)) return Number(s);
-  if (Number.isFinite(s?.durationMin)) return Number(s.durationMin); // 👈 mapped field first
+  if (!s) return 0;
+  const v = s.values || s || {};
 
-  const candidates = [
-    s?.DurationMin, s?.Duration, s?.Minutes,
-    s?.values?.DurationMin, s?.values?.Duration, s?.values?.Minutes, s?.values?.duration,
-    s?.duration
-  ];
+  const raw =
+    s?.durationMin ??                     // mapped field first
+    v.durationMinutes ??
+    v.DurationMin ??
+    v["Duration (min)"] ??
+    v["Duration (mins)"] ??
+    v["Duration Minutes"] ??              // <- your label
+    v["Service Time (mins)"] ??           // <- your label
+    v.Minutes ??
+    v.Duration ??
+    v.duration;
 
-  for (const c of candidates) {
-    const n = Number(c);
-    if (Number.isFinite(n) && n > 0) return n;
-    if (typeof c === "string") {
-      const txt = c.toLowerCase().trim();
-      const h = /(\d+(\.\d+)?)\s*h/.exec(txt)?.[1];
-      const m = /(\d+)\s*m/.exec(txt)?.[1];
-      if (h || m) {
-        const total = Math.round((h ? Number(h) * 60 : 0) + (m ? Number(m) : 0));
-        if (total > 0) return total;
-      }
-      const onlyNum = Number(txt.replace(/[^\d.]/g, ""));
-      if (Number.isFinite(onlyNum) && onlyNum > 0) return Math.round(onlyNum);
-    }
+  if (raw == null) return 0;
+
+  if (typeof raw === "number" && Number.isFinite(raw) && raw > 0) {
+    return Math.round(raw);
   }
+
+  if (typeof raw === "string") {
+    const txt = raw.toLowerCase().trim();
+
+    // "1h 30m", "2h"
+    const h = /(\d+(\.\d+)?)\s*h/.exec(txt)?.[1];
+    const m = /(\d+)\s*m/.exec(txt)?.[1];
+    if (h || m) {
+      const total = Math.round((h ? Number(h) * 60 : 0) + (m ? Number(m) : 0));
+      if (total > 0) return total;
+    }
+
+    // "60", "60min"
+    const onlyNum = Number(txt.replace(/[^\d.]/g, ""));
+    if (Number.isFinite(onlyNum) && onlyNum > 0) return Math.round(onlyNum);
+  }
+
   return 0;
 }
+// near the top of basicFlow.ts
+const DEFAULT_MIN_FOR_UNKNOWN = 15; // (or whatever you want as fallback)
 
+function serviceDurationMinutes(s: any): number {
+  if (!s) return 0;
+
+  const v = s.values || s || {};
+
+  const raw =
+    v.durationMinutes ??
+    v.DurationMin ??
+    v["Duration (min)"] ??
+    v["Duration (mins)"] ??
+    v["Duration Minutes"] ??
+    v.ServiceDuration ??
+    v.Minutes ??
+    v.Duration ??
+    v.duration ??       // ← your Service field
+    s.durationMin ??
+    s.duration;
+
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? Math.round(n) : 0;
+}
 
 
 function sumMinutes(services: any[]): number {
-  return services.reduce((acc, s) => acc + readMinFlexible(s), 0);
+  return services.reduce((acc, svc) => {
+    const mins = serviceDurationMinutes(svc);
+    return acc + (Number.isFinite(mins) && mins > 0 ? mins : 0);
+  }, 0);
 }
+
+
+//Create Appointment helper
+// src/app/[slug]/BookingFlows/basicFlow.tsx
+// ...top of file (module scope)
+let TYPE_CACHE: Record<string, string> = {}; // name -> id
+
+async function getTypeIdByName(apiBase: string, typeName: string): Promise<string | null> {
+  const key = String(typeName || "").toLowerCase().trim();
+  if (TYPE_CACHE[key]) return TYPE_CACHE[key];
+
+  const r = await fetch(`${apiBase}/api/datatypes`, { credentials: "include" });
+  if (!r.ok) return null;
+
+  const list = await r.json().catch(() => null);
+
+  const found = Array.isArray(list)
+    ? list.find((dt: any) =>
+        String(dt?.name || dt?.values?.Name || "")
+          .toLowerCase()
+          .trim() === key
+      )
+    : null;
+
+  const id = found?._id ? String(found._id) : null;
+  if (id) TYPE_CACHE[key] = id;
+  return id;
+}
+
 
 
 //State
@@ -373,25 +529,54 @@ const [isReschedule, setIsReschedule] = useState(false);
 const [rescheduleApptId, setRescheduleApptId] = useState<string | null>(null);
 
 const [multiSelection, setMultiSelection] = useState<string[]>([]);
-  // 👇 ADD inside useBookingFlow(), near other useState hooks
 const [pickedServiceIds, setPickedServiceIds] = useState<string[]>([]);
-// Flow State (near other useState hooks)
 const [pickedServices, setPickedServices] = useState<any[]>([]);
-// who is logged in (optional link to Appointment.Client)
 const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 const pendingRef = useRef<(() => Promise<void> | void) | null>(null);
 
+const [currentUser, setCurrentUser] = useState<any | null>(null);
 
-function addPick(id: string) {
-  setPickedServiceIds(prev => (prev.includes(id) ? prev : [...prev, id]));
+const currentHoldIdRef = useRef<string | null>(null);
+
+const [needsName, setNeedsName] = useState(false);
+
+function addPick(id: string, svc: any) {
+  const key = String(id);
+
+  // update IDs
+  setPickedServiceIds(prev => {
+    const set = new Set(prev);
+    set.add(key);
+    return Array.from(set);
+  });
+
+  // update full objects
+  setPickedServices(prev => {
+    if (prev.some(s => String(s._id) === key)) return prev;
+    return [...prev, svc];
+  });
 }
+
 function removePick(id: string) {
-  setPickedServiceIds(prev => prev.filter(x => x !== id));
+  const key = String(id);
+
+  setPickedServiceIds(prev =>
+    prev.filter(x => String(x) !== key)
+  );
+
+  setPickedServices(prev =>
+    prev.filter(s => String(s._id) !== key)
+  );
 }
+
 function clearPicks() {
   setPickedServiceIds([]);
+  setPickedServices([]);
 }
-const isPicked = (id: string) => pickedServiceIds.includes(id);
+
+function isPicked(id: string) {
+  return pickedServiceIds.includes(String(id));
+}
 
 useEffect(() => {
     if (!businessId) return;
@@ -489,30 +674,45 @@ async function handleCategorySelect(catId: string) {
 
   // Release hold if the user navigates away
   return () => { if (rescheduleId) holdAppointment(rescheduleId, false).catch(()=>{}); };
-}, [rescheduleId]);
+}, [rescheduleId, businessId, selectedCalendarId]);
+
 // ── Multi-category confirm helper (INSIDE BasicFlowProvider, no export) ──
-async function handleMultiServiceSelect(ids: string[]) {
-  setMultiSelection(ids || []);
+async function handleMultiServiceSelect(idsFromThisCategory: string[]) {
+  // idsFromThisCategory = whatever the UI says is checked in the CURRENT category
+  const incoming = (idsFromThisCategory || []).map(String);
+
+  // ✅ merge with what we already picked globally
+  const mergedIds = Array.from(new Set([...(pickedServiceIds || []), ...incoming]));
+
+  setMultiSelection(mergedIds);
   setSelectedServiceId("__MULTI__");
 
-  // ensure we have full objects for ALL ids (even from other categories)
-  const known = new Map((services || []).map((s: any) => [String(s._id), s]));
-  const missingIds = (ids || []).filter(id => !known.has(String(id)));
-  const fetched = await fetchServicesByIds(missingIds); // helper below (module scope)
-setServiceCache(prev => {
-  const merged = { ...prev };
-  for (const s of fetched) merged[String(s._id)] = s;
-  return merged;
-});
+  // build known map from cache
+  const known = new Map(Object.values(serviceCache || {}).map((s: any) => [String(s._id), s]));
 
-  const allSvcs = (ids || [])
-    .map(id => known.get(String(id)) || fetched.find((s: any) => String(s._id) === String(id)))
+  // fetch any missing
+  const missingIds = mergedIds.filter(id => !known.has(id));
+  const fetched = await fetchServicesByIds(missingIds);
+
+  // cache fetched
+  setServiceCache(prev => {
+    const next = { ...(prev || {}) };
+    for (const s of fetched) next[String(s._id)] = s;
+    return next;
+  });
+
+  // build full picked services list in merged order
+  const allSvcs = mergedIds
+    .map(id => known.get(id) || fetched.find((s: any) => String(s._id) === id))
     .filter(Boolean) as any[];
 
+  // ✅ THIS is your global truth
+  setPickedServiceIds(mergedIds);
+  setPickedServices(allSvcs);
+
+  // duration = sum of ALL selected services across categories
   let newDur = sumMinutes(allSvcs);
   if (!Number.isFinite(newDur) || newDur <= 0) newDur = DEFAULT_MIN_FOR_UNKNOWN;
-// after you build `allSvcs` (known + fetched)
-setPickedServices(allSvcs);
 
   setServiceDurationMin(newDur);
   setSelectedDateISO(null);
@@ -521,51 +721,59 @@ setPickedServices(allSvcs);
   await loadMonth({ base: monthCursor, minOverride: newDur });
 }
 
+
 async function handleServiceSelect(serviceId: string) {
   setSelectedServiceId(serviceId);
   setMultiSelection([]);
 
-  const one = (services ?? []).find((s: any) => String(s._id) === String(serviceId));
+  const one = lookupService(serviceId); // ✅ pulls from cache across categories
 
-  // 👇 guarantee a non-zero duration
-  const mins = Math.max(15, readMinFlexible(one) || 0);
-  setServiceDurationMin(mins);
+  const mins = serviceDurationMinutes(one);
+  setServiceDurationMin(
+    Number.isFinite(mins) && mins > 0 ? mins : DEFAULT_MIN_FOR_UNKNOWN
+  );
 
   setSelectedDateISO(null);
   setSlots({ morning: [], afternoon: [], evening: [] });
-
-  // TIP: you can let the useEffect trigger loadMonth,
-  // or keep this call — now that mins is non-zero it's fine either way.
-
 }
 
+
+// helper inside basicFlow.ts (near top)
 function svcMinutes(s: any): number {
-  return Number(
+  // you can paste the same logic you already have in Template.tsx
+  const v = s?.values || s || {};
+  const raw =
+    v.durationMinutes ??
+    v.DurationMin ??
+    v["Duration (min)"] ??
+    v["Duration (mins)"] ??
+    v["Duration Minutes"] ??
+    v.ServiceDuration ??
+    v.Minutes ??
+    v.Duration ??
     s?.durationMin ??
-    s?.values?.Duration ??
-    s?.values?.durationMin ??
-    0
-  ) || 0;
+    s?.duration;
+
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? Math.round(n) : 0;
 }
+
 useEffect(() => {
   (async () => {
     try {
-      await getTypeIdByName("Appointment");
-      await getTypeIdByName("Business");
-      await getTypeIdByName("Service");
+      await getTypeIdByName(API, "Appointment");
+      await getTypeIdByName(API, "Business");
+      await getTypeIdByName(API, "Service");
     } catch {}
   })();
 }, []);
 
 function totalDurationFor(ids: string[]): number {
-  const byId = new Map((services || []).map((s: any) => [s._id, s]));
-  let sum = 0;
-  for (const id of ids) {
-    const svc = byId.get(id);
-    sum += svcMinutes(svc);
-  }
-  return sum;
+  const all = Object.values(serviceCache || {});
+  const byId = new Map(all.map((s: any) => [String(s._id), s]));
+  return ids.reduce((sum, id) => sum + svcMinutes(byId.get(String(id))), 0);
 }
+
 // helper: fetch a batch of services by _id (cross-category safe)
 // ── Fetch helpers (continue) ──────────────────────────────────────────────
 async function fetchServicesByIds(ids: string[]): Promise<any[]> {
@@ -589,14 +797,19 @@ async function fetchServicesByIds(ids: string[]): Promise<any[]> {
       const desc = v.Description || v.description || v.Details || v.details || "";
       const price = v.Price ?? v.price ?? v.Cost ?? v.cost ?? "";
 
-      const rawDur =
-        v.DurationMin ??
-        v["Duration (min)"] ??
-        v["Duration (mins)"] ??
-        v["Service Duration"] ??
-        v.Minutes ??
-        v.Duration ??
-        v.duration;
+ const rawDur =
+  v.durationMin ??              // already mapped value
+  v.durationMinutes ??          // 👈 add this
+  v.DurationMin ??
+  v["Duration (min)"] ??
+  v["Duration (mins)"] ??
+  v["Duration Minutes"] ??      // your common label
+  v["Service Time (mins)"] ??   // 👈 add exact label
+  v["Service Time"] ??          // keep as loose backup
+  v.Minutes ??
+  v.Duration ??
+  v.duration;
+
 
       const durationMin =
         readMinFlexible({ values: { Duration: rawDur }, durationMin: rawDur }) || DEFAULT_MIN_FOR_UNKNOWN;
@@ -725,24 +938,55 @@ function filterStartsByDuration(flatStarts: string[], minMinutes: number): strin
 }
 
 
+function buildCalendarGrid(
+  monthCursor: Date,
+  monthDays: { dateISO: string; isToday: boolean; isAvailable: boolean; isPast?: boolean }[]
+) {
+  // monthCursor should be the 1st of the month already (yours is)
+  const y = monthCursor.getFullYear();
+  const m = monthCursor.getMonth();
+
+  // Sunday-first offset (0=Sun..6=Sat)
+  const firstDow = new Date(y, m, 1).getDay();
+
+  // placeholders for blank cells
+  const blanks = Array.from({ length: firstDow }).map(() => ({
+    kind: "blank" as const,
+    key: `blank-${Math.random()}`,
+  }));
+
+  // real day cells
+  const days = monthDays.map((d) => ({
+    kind: "day" as const,
+    key: d.dateISO,
+    ...d,
+  }));
+
+  return [...blanks, ...days];
+}
+
+const calendarCells = React.useMemo(() => {
+  return buildCalendarGrid(monthCursor, monthDays as any);
+}, [monthCursor, monthDays]);
+
   function groupByTOA(times: string[]): SlotGroups {
     const g: SlotGroups = { morning: [], afternoon: [], evening: [] };
     for (const t of times) { const hr=parseInt(t.split(":")[0]||"0",10); if (hr<12) g.morning.push(t); else if (hr<17) g.afternoon.push(t); else g.evening.push(t); }
     return g;
   }
-  function refId(x: any): string | null {
-    if (!x) return null; if (typeof x === "string") return x;
-    if (typeof x === "object") return String(x._id||x.id||x.value||x.$id||x.reference||"").trim() || null;
-    return null;
-  }
+
   function truthyBool(v: any): boolean { const s=String(v).toLowerCase().trim(); return v===true||v===1||s==="true"||s==="yes"||s==="y"; }
 function readDurationMin(s: any): number {
+  const v = s?.values || s || {};
   const raw =
     s?.durationMin ??
-    s?.values?.DurationMin ??
-    s?.values?.Duration ??
-    s?.Duration ??
+    v.durationMinutes ??     // <– in case you ever save this way
+    v.DurationMin ??
+    v["Duration (min)"] ??
+    v["Duration (mins)"] ??
+    v.Duration ??
     0;
+
   const n = Number(raw);
   return Number.isFinite(n) && n > 0 ? n : 0;
 }
@@ -760,7 +1004,9 @@ function readDurationMin(s: any): number {
     const url = `${API}/public/records?dataType=Upcoming%20Hours&${qs}&ts=${Date.now()}`;
     const r = await fetch(url, { cache: "no-store" });
     if (!r.ok) continue;
-    const rows = await r.json();
+   const payload = await r.json().catch(() => null);
+const rows = unpackRows(payload);
+
     if (Array.isArray(rows)) all = all.concat(rows);
   }
   const wantId = String(calendarId);
@@ -806,7 +1052,9 @@ async function fetchAppointmentsForCalendar(calendarId: string): Promise<any[]> 
     try {
       const r = await fetch(url, { cache: "no-store" });
       if (!r.ok) continue;
-      const rows = await r.json();
+     const payload = await r.json().catch(() => null);
+const rows = unpackRows(payload);
+
       if (Array.isArray(rows)) all = all.concat(rows);
     } catch {}
   }
@@ -854,16 +1102,24 @@ function toDayRange(dateISO: string) {
 async function fetchActiveHoldsForDay(calendarId: string, dateISO: string, ignoreApptId?: string | null) {
   const { start, end } = toDayRange(dateISO);
   const url = new URL(`${API}/api/holds/active`);
-  url.searchParams.set('calendarId', calendarId);
-  url.searchParams.set('start', start.toISOString());
-  url.searchParams.set('end',   end.toISOString());
-  if (ignoreApptId) url.searchParams.set('ignoreAppointmentId', ignoreApptId);
+  url.searchParams.set("calendarId", calendarId);
+  url.searchParams.set("start", start.toISOString());
+  url.searchParams.set("end", end.toISOString());
+  if (ignoreApptId) url.searchParams.set("ignoreAppointmentId", ignoreApptId);
+
   try {
-    const r = await fetch(url.toString(), { credentials: 'include' });
+    const r = await fetch(url.toString(), { credentials: "include" });
+
+    if (r.status === 404) return []; // ✅ endpoint not implemented yet
     if (!r.ok) return [];
-    return await r.json() as Array<{ start: string; end: string }>;
-  } catch { return []; }
+
+    const data = await r.json();
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
 }
+
 
 function toHHMM(d: Date) {
   const h = String(d.getHours()).padStart(2, '0');
@@ -1153,7 +1409,6 @@ function pickISODateLoose(v: any, fallback?: any): string | null {
   }
   return null;
 }
-
 async function fetchDaySlotsClient(opts: {
   businessId: string;
   calendarId: string;
@@ -1161,6 +1416,7 @@ async function fetchDaySlotsClient(opts: {
   minMinutes: number;
 }): Promise<SlotGroups> {
   try {
+    // 1) Upcoming Hours → candidate starts for this date
     const rows = await getUpcomingHoursRows(opts.businessId, opts.calendarId);
     const starts = collectFlatStartsForDate(rows, opts.dateISO);
     const startsAfterFit = filterStartsByDuration(starts, opts.minMinutes);
@@ -1171,9 +1427,15 @@ async function fetchDaySlotsClient(opts: {
       fit: startsAfterFit.length,
       min: opts.minMinutes,
     });
+
     console.table(
       startsAfterFit.map((t) => ({
-        bucket: parseInt(t.slice(0, 2), 10) < 12 ? "morning" : parseInt(t.slice(0, 2), 10) < 17 ? "afternoon" : "evening",
+        bucket:
+          parseInt(t.slice(0, 2), 10) < 12
+            ? "morning"
+            : parseInt(t.slice(0, 2), 10) < 17
+              ? "afternoon"
+              : "evening",
         time: t,
       }))
     );
@@ -1182,70 +1444,77 @@ async function fetchDaySlotsClient(opts: {
       return groupByTOA([]);
     }
 
-    // 2) booked windows
+    // 2) Booked windows (appointments + holds)
+    let appointmentsOk = false;
     let booked: { start: string; end: string }[] = [];
+
+    // 2a) Appointments
     try {
       const appts = await fetchAppointmentsForCalendar(opts.calendarId);
+      appointmentsOk = true;
+
       const seenById = new Set<string>();
       const seenPair = new Set<string>();
 
       booked = appts
         .map((doc: any) => {
-const v = doc.values || doc;
+          const v = doc.values || doc;
 
-// ✅ calendar id can be an object OR a plain string
-const calId =
-  refId(v.Calendar) ||         // <-- handles object or string
-  refId(v.calendar) ||
-  v.calendarId ||
-  v.CalendarId;
+          // ✅ calendar id can be an object OR a plain string
+          const calId =
+            refId(v.Calendar) ||
+            refId(v.calendar) ||
+            v.calendarId ||
+            v.CalendarId;
 
-if (String(calId || "") !== String(opts.calendarId)) return null;
+          if (String(calId || "") !== String(opts.calendarId)) return null;
 
-const iso = pickISODateLoose(v, v?.Date);
-if (iso !== opts.dateISO) return null;
+          const iso = pickISODateLoose(v, v?.Date);
+          if (iso !== opts.dateISO) return null;
 
-const canceled = String(v["is Canceled"] ?? v.canceled ?? v.cancelled ?? false).toLowerCase() === "true";
-if (canceled) return null;
-const hold = String(v.Hold ?? v.hold ?? false).toLowerCase() === "true";
-if (hold) return null;
+          const canceled =
+            String(v["is Canceled"] ?? v.canceled ?? v.cancelled ?? false).toLowerCase() ===
+            "true";
+          if (canceled) return null;
 
-// ✅ recognize StartTime / DurationMin (and derive from EndTime if needed)
-const start = normalizeHHMM(
-  v.Time ??
-  v["Start Time"] ??
-  v.start ??
-  v.Start ??
-  v.StartTime     // NEW
-);
+          const hold =
+            String(v.Hold ?? v.hold ?? false).toLowerCase() === "true";
+          if (hold) return null;
 
-let dur = Number(
-  v.Duration ??
-  v.duration ??
-  v["Duration (min)"] ??
-  v.Minutes ??
-  v["Service Duration"] ??
-  v.DurationMin ??        // NEW
-  v["DurationMin"] ??     // NEW (just in case)
-  0
-);
+          // ✅ recognize StartTime / DurationMin (and derive from EndTime if needed)
+          const start = normalizeHHMM(
+            v.Time ??
+              v["Start Time"] ??
+              v.start ??
+              v.Start ??
+              v.StartTime // NEW
+          );
 
-if ((!Number.isFinite(dur) || dur <= 0) && start) {
-  const endTxt = v.EndTime ?? v["End Time"] ?? v.end ?? v.End ?? null;
-  const endHHMM = normalizeHHMM(endTxt);
-  if (endHHMM) {
-    const [sh, sm] = start.split(":").map(Number);
-    const [eh, em] = endHHMM.split(":").map(Number);
-    const delta = (eh * 60 + em) - (sh * 60 + sm);
-    if (Number.isFinite(delta) && delta > 0) dur = delta;
-  }
-}
+          let dur = Number(
+            v.Duration ??
+              v.duration ??
+              v["Duration (min)"] ??
+              v.Minutes ??
+              v["Service Duration"] ??
+              v.DurationMin ?? // NEW
+              v["DurationMin"] ?? // NEW (just in case)
+              0
+          );
 
-if (!start || !Number.isFinite(dur) || dur <= 0) return null;
+          if ((!Number.isFinite(dur) || dur <= 0) && start) {
+            const endTxt = v.EndTime ?? v["End Time"] ?? v.end ?? v.End ?? null;
+            const endHHMM = normalizeHHMM(endTxt);
+            if (endHHMM) {
+              const [sh, sm] = start.split(":").map(Number);
+              const [eh, em] = endHHMM.split(":").map(Number);
+              const delta = eh * 60 + em - (sh * 60 + sm);
+              if (Number.isFinite(delta) && delta > 0) dur = delta;
+            }
+          }
 
-const end = addMinutesHHMM(start, dur);
+          if (!start || !Number.isFinite(dur) || dur <= 0) return null;
 
-
+          const end = addMinutesHHMM(start, dur);
 
           const id = String(doc._id || "");
           if (id && seenById.has(id)) return null;
@@ -1259,12 +1528,15 @@ const end = addMinutesHHMM(start, dur);
         })
         .filter(Boolean) as { start: string; end: string }[];
     } catch (e) {
-      console.warn("[slots] fetchAppointmentsForCalendar failed — ignoring booked filter", e);
+      console.warn(
+        "[slots] fetchAppointmentsForCalendar failed — ignoring booked filter",
+        e
+      );
       booked = [];
+      appointmentsOk = false;
     }
 
-    // local short hold
-    let localHoldApplied = false;
+    // 2b) Local short hold (lastBooked)
     try {
       const jb = JSON.parse(localStorage.getItem("lastBooked") || "null");
       if (
@@ -1275,22 +1547,28 @@ const end = addMinutesHHMM(start, dur);
       ) {
         const heldStart = jb.start as string;
         const heldEnd = addMinutesHHMM(jb.start, jb.duration);
+
         if (!booked.some((b) => b.start === heldStart && b.end === heldEnd)) {
           booked.push({ start: heldStart, end: heldEnd });
         }
-        localHoldApplied = true;
       }
     } catch {}
 
-    // server holds
+    // 2c) Server holds
     try {
-      const holds = await fetchActiveHoldsForDay(opts.calendarId, opts.dateISO, rescheduleApptId);
+      const holds = await fetchActiveHoldsForDay(
+        opts.calendarId,
+        opts.dateISO,
+        rescheduleApptId
+      );
+
       if (Array.isArray(holds) && holds.length) {
         for (const h of holds) {
-          const hs = new Date(h.start),
-            he = new Date(h.end);
+          const hs = new Date(h.start);
+          const he = new Date(h.end);
           const hhmmStart = toHHMM(hs);
           const hhmmEnd = toHHMM(he);
+
           if (!booked.some((b) => b.start === hhmmStart && b.end === hhmmEnd)) {
             booked.push({ start: hhmmStart, end: hhmmEnd });
           }
@@ -1305,43 +1583,39 @@ const end = addMinutesHHMM(start, dur);
       console.table(booked.map((b) => ({ start: b.start, end: b.end })));
     }
 
-    // subtract booked
+    // 3) Remove time slots that overlap booked windows
     const validStarts = startsAfterFit.filter((s) => {
-      const end = addMinutesHHMM(s, opts.minMinutes);
-      return !booked.some((b) => overlap(s, end, b.start, b.end));
+      const slotEnd = addMinutesHHMM(s, opts.minMinutes); // ✅ use FULL selected duration
+      return !booked.some((b) => overlap(s, slotEnd, b.start, b.end));
     });
 
-    console.log("[slots] validStarts after booked overlap removal:", validStarts.length);
+    console.log(
+      "[slots] validStarts after booked overlap removal:",
+      validStarts.length
+    );
+
+    // If we had UH-fit starts but ended up with zero after removing booked:
     if (!validStarts.length && startsAfterFit.length) {
-      const fallbackMinusBooked = startsAfterFit.filter((s) => {
-        const end = addMinutesHHMM(s, opts.minMinutes);
-        return !booked.some((b) => overlap(s, end, b.start, b.end));
-      });
-
-      console.warn("[slots] all starts blocked — evaluating fallback", {
-        date: opts.dateISO,
-        uhFit: startsAfterFit.length,
-        bookedWindows: booked.length,
-        fallbackMinusBooked: fallbackMinusBooked.length,
-        localHoldApplied,
-      });
-
-      if (fallbackMinusBooked.length) {
-        return groupByTOA(fallbackMinusBooked);
-      }
-
-      if (localHoldApplied) {
-        console.warn("[slots] no leftover starts and a recent hold exists — returning empty");
+      // Appointments loaded OK ⇒ truly fully booked
+      if (appointmentsOk) {
+        console.warn("[slots] fully booked for this day — returning empty");
         return groupByTOA([]);
       }
 
-      console.warn("[slots] no leftover starts and no recent hold — returning UH-fit to keep UI usable");
+      // Appointments failed ⇒ fallback to UH-fit so UI still shows something
+      console.warn(
+        "[slots] appointments unavailable — returning UH-fit as fallback to keep UI usable"
+      );
       return groupByTOA(startsAfterFit);
     }
 
     return groupByTOA(validStarts);
   } catch (e) {
-    console.error("[slots] fetchDaySlotsClient error, falling back to UH-only", e);
+    console.error(
+      "[slots] fetchDaySlotsClient error, falling back to UH-only",
+      e
+    );
+
     try {
       const rows = await getUpcomingHoursRows(opts.businessId, opts.calendarId);
       const starts = collectFlatStartsForDate(rows, opts.dateISO);
@@ -1355,7 +1629,6 @@ const end = addMinutesHHMM(start, dur);
 
 //Rescheule Hold helpers
 // Track the current hold so we can release/replace it
-let currentHoldId: string | null = null;
 
 async function createHold(opts: {
   businessId: string;
@@ -1389,24 +1662,47 @@ async function createHold(opts: {
   }
   const json = await r.json();
   console.log('[HOLD] created', json);
-  currentHoldId = String(json.holdId || '');
-  return currentHoldId;
+currentHoldIdRef.current = String(json.holdId || "");
+return currentHoldIdRef.current;
+
 }
 
 async function releaseHold() {
-  if (!currentHoldId) return;
-  try {
-    const r = await fetch(`${API}/api/holds/${encodeURIComponent(currentHoldId)}`, {
-      method: 'DELETE',
-      credentials: 'include',
-    });
-    console.log('[HOLD] released', currentHoldId, r.ok);
-  } finally {
-    currentHoldId = null;
-  }
+if (!currentHoldIdRef.current) return;
+const id = currentHoldIdRef.current;
+
+try {
+  const r = await fetch(`${API}/api/holds/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+    credentials: "include",
+  });
+  console.log("[HOLD] released", id, r.ok);
+} finally {
+  currentHoldIdRef.current = null;
+}
+
 }
 
 
+function startOfDayLocal(d: Date) {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+function parseISOToLocalStart(iso: string) {
+  const [y, m, day] = iso.split("-").map(Number);
+  return new Date(y, m - 1, day);
+}
+
+//Change time to standard time 
+function to12h(hhmm: string) {
+  const [hStr, mStr] = hhmm.split(":");
+  const h = Number(hStr);
+  const m = Number(mStr);
+
+  const suffix = h >= 12 ? "PM" : "AM";
+  const h12 = ((h + 11) % 12) + 1; // 0->12, 13->1, etc
+  return `${h12}:${String(m).padStart(2, "0")} ${suffix}`;
+}
 
 // ─────────────────────────────────────────────
 // Month builder + auto-refresh
@@ -1461,15 +1757,31 @@ async function loadMonth({ base, minOverride }: { base: Date; minOverride?: numb
     });
   }
 
-  setMonthDays(days);
+// ✅ after you finish building `days` in the for-loop:
+const today0 = startOfDayLocal(new Date());
 
-  const availDays = days.filter((d) => d.isAvailable).map((d) => d.dateISO);
-  console.debug("[avail] month days available", {
-    month: base.toISOString().slice(0, 7),
-    count: availDays.length,
-    days: availDays,
-    minMinutes: effMin,
-  });
+const daysWithPast = days.map((d) => {
+  const day0 = parseISOToLocalStart(d.dateISO);
+  const isPast = day0 < today0;
+
+  return {
+    ...d,
+    isPast,
+    isAvailable: !isPast && d.isAvailable, // 👈 kills green highlight on past dates
+  };
+});
+
+setMonthDays(daysWithPast);
+
+// logs should use daysWithPast now
+const availDays = daysWithPast.filter((d) => d.isAvailable).map((d) => d.dateISO);
+console.debug("[avail] month days available", {
+  month: base.toISOString().slice(0, 7),
+  count: availDays.length,
+  days: availDays,
+  minMinutes: effMin,
+});
+
 
   setMonthLabel(base.toLocaleString(undefined, { month: "long", year: "numeric" }));
   setLoadingMonth(false);
@@ -1507,6 +1819,7 @@ useEffect(() => {
   monthCursor,
 ]);
 // cache services we've seen (cross-category)
+// cache services we've seen (cross-category)
 const [serviceCache, setServiceCache] = useState<Record<string, any>>({});
 
 // whenever you load services for a category, cache them:
@@ -1518,6 +1831,12 @@ useEffect(() => {
     return next;
   });
 }, [services]);
+
+// 🔹 all services we've ever seen (across categories)
+const allServices = React.useMemo(
+  () => Object.values(serviceCache),
+  [serviceCache]
+);
 
 // helper to look up a service by id from cache or current list
 function lookupService(id: string) {
@@ -1545,43 +1864,105 @@ function openAuth() {
   function closeAuth(){ setIsAuthOpen(false); }
 
 // 🔁 BASIC login: hits POST /login and then GET /check-login
+// 🔁 BASIC login: hits POST /auth/login and then GET /check-login
 async function login(email: string, password: string): Promise<boolean> {
   try {
-    const r = await fetch(`${API}/login`, {
+    // 1) Log in
+    const r = await fetch(`${API}/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
       body: JSON.stringify({ email, password }),
     });
-    if (!r.ok) return false;
 
-    // who am I?
+    if (!r.ok) {
+      setIsLoggedIn(false);
+      setCurrentUserId(null);
+      setCurrentUser(null);
+      return false;
+    }
+
+    // 2) Confirm session is actually set (cookie -> session -> user)
     const meRes = await fetch(`${API}/check-login?ts=${Date.now()}`, {
       credentials: "include",
+      cache: "no-store",
+      headers: { Accept: "application/json" },
     });
-    if (!meRes.ok) { setIsLoggedIn(false); setCurrentUserId(null); return true; }
+
+    if (!meRes.ok) {
+      setIsLoggedIn(false);
+      setCurrentUserId(null);
+      setCurrentUser(null);
+      return false;
+    }
 
     const me = await meRes.json().catch(() => ({}));
-    // your /check-login typically returns {loggedIn: true, userId, ...}
-    const uid = me?.userId || me?._id || me?.id || null;
 
-    setCurrentUserId(uid || null);
-    setIsLoggedIn(!!me?.loggedIn || !!uid);
+    const uid =
+      me?.userId ||
+      me?.user?.id ||
+      me?.user?._id ||
+      me?._id ||
+      me?.id ||
+      null;
 
-    try { (window as any).STATE = { ...(window as any).STATE, userId: uid || null }; } catch {}
+    const loggedIn =
+      !!me?.loggedIn ||
+      !!me?.isLoggedIn ||
+      !!me?.authenticated ||
+      !!uid;
+
+    if (!loggedIn || !uid) {
+      setIsLoggedIn(false);
+      setCurrentUserId(null);
+      setCurrentUser(null);
+      return false;
+    }
+
+    const userObj = me?.user || me?.profile || me || null;
+
+    const firstNameVal =
+      userObj?.firstName ||
+      userObj?.values?.firstName ||
+      userObj?.values?.["First Name"] ||
+      "";
+
+    const lastNameVal =
+      userObj?.lastName ||
+      userObj?.values?.lastName ||
+      userObj?.values?.["Last Name"] ||
+      "";
+
+    setCurrentUserId(String(uid));
+    setIsLoggedIn(true);
+    setNeedsName(!firstNameVal || !lastNameVal);
+    setCurrentUser(userObj);
+
+    // keep a global copy if you’re using window.STATE elsewhere
+    try {
+      (window as any).STATE = {
+        ...(window as any).STATE,
+        userId: String(uid),
+        user: userObj,
+      };
+    } catch {}
+
     setIsAuthOpen(false);
 
-    const fn = pendingRef.current;
-pendingRef.current = null;
-if (fn) {
-  await Promise.resolve(fn());
-}
+    // run whatever was pending after auth (ONLY ONCE)
+    const pendingFn = pendingRef.current;
+    pendingRef.current = null;
+    if (pendingFn) await Promise.resolve(pendingFn());
 
     return true;
-  } catch {
+  } catch (err) {
+    setIsLoggedIn(false);
+    setCurrentUserId(null);
+    setCurrentUser(null);
     return false;
   }
 }
+
 
 
  function requireAuthThen(fn: () => Promise<void> | void) {
@@ -1654,27 +2035,47 @@ function reopenConfirmAsBook() {
   };
 
 // 🔧 remove the just-booked time from the visible lists (optimistic UI)
-function removeBookedFromSlots(startHHMM: string, durMin: number){
-  const need = Math.max(1, Math.ceil((durMin || 0) / 15));
-  const next = (t: string) => {
-    const [h,m] = t.split(":").map(Number);
-    const total = h*60 + m + 15;
-    const hh = String(Math.floor(total/60)).padStart(2,"0");
-    const mm = String(total % 60).padStart(2,"0");
+// how many minutes to assume if we really can't figure it out
+
+
+// inside BookingFlowProvider component, next to createAppointment
+function removeBookedFromSlots(startHHMM: string, bookedMinutes?: number) {
+  const minutes =
+    bookedMinutes && bookedMinutes > 0
+      ? bookedMinutes
+      : serviceDurationMin && serviceDurationMin > 0
+      ? serviceDurationMin
+      : DEFAULT_MIN_FOR_UNKNOWN;
+
+  const steps = Math.max(1, Math.ceil(minutes / 15));
+  console.log("[removeBookedFromSlots]", { startHHMM, bookedMinutes, minutes, steps });
+
+  const stepForward = (t: string) => {
+    const [h, m] = t.split(":").map(Number);
+    const total = (h || 0) * 60 + (m || 0) + 15;
+    const hh = String(Math.floor(total / 60)).padStart(2, "0");
+    const mm = String(total % 60).padStart(2, "0");
     return `${hh}:${mm}`;
   };
 
-  const blocked: string[] = [];
-  let cur = startHHMM;
-  blocked.push(cur);
-  for (let i=1;i<need;i++){ cur = next(cur); blocked.push(cur); }
+  setSlots((prev) => {
+    // build a set of times to remove: start, start+15, start+30, ...
+    const toRemove = new Set<string>();
+    let cur = startHHMM;
+    for (let i = 0; i < steps; i++) {
+      toRemove.add(cur);
+      cur = stepForward(cur);
+    }
 
-  const filt = (arr: string[]) => arr.filter(t => !blocked.includes(t));
-  setSlots(prev => ({
-    morning:  filt(prev.morning),
-    afternoon:filt(prev.afternoon),
-    evening:  filt(prev.evening),
-  }));
+    const keep = (list: string[]) =>
+      Array.isArray(list) ? list.filter((t) => !toRemove.has(t)) : [];
+
+    return {
+      morning: keep(prev.morning),
+      afternoon: keep(prev.afternoon),
+      evening: keep(prev.evening),
+    };
+  });
 }
 
 
@@ -1705,7 +2106,7 @@ async function fetchBusinessNameStrict(bizId: string): Promise<string> {
   }
 }
 
-// 🧾 actually create the appointment on your API (FINAL, single source of truth)
+
 // 🧾 actually create the appointment on your API (FINAL, single source of truth)
 async function createAppointment() {
   if (bookingInFlight) return false;
@@ -1714,113 +2115,234 @@ async function createAppointment() {
   setBookingInFlight(true);
 
   try {
-    // MULTI OR SINGLE SERVICES
     const isMulti = selectedServiceId === "__MULTI__";
 
-    const serviceIds: string[] = isMulti
-      ? (multiSelection?.length ? multiSelection : pickedServiceIds.slice())
-      : [selectedServiceId!].filter(Boolean) as string[];
+    let allPicked: any[] = [];
+    let serviceIds: string[] = [];
 
-    // RECOMPUTE duration + price
-    const known = new Map((services || []).map((s: any) => [String(s._id), s]));
-    const missing = serviceIds.filter(id => !known.has(id));
-    let fetched: any[] = [];
+    if (isMulti) {
+      // 🔹 MULTI: trust the pickedServices array you already set in handleMultiServiceSelect
+      allPicked = pickedServices.slice();
+      serviceIds = pickedServices.map((s: any) => String(s._id));
 
-    if (missing.length) {
-      try { fetched = await fetchServicesByIds(missing); } catch {}
+      console.log("[createAppointment] multi mode", {
+        serviceIds,
+        pickedDurations: allPicked.map((s: any) => ({
+          id: s._id,
+          name: s.name,
+          durationMin: s.durationMin,
+          valuesDuration: s.values?.duration,
+        })),
+      });
+    } else {
+      // 🔹 SINGLE: look up the one selected service
+      const svc = lookupService(selectedServiceId!);
+      if (svc) {
+        allPicked = [svc];
+        serviceIds = [String(svc._id)];
+      }
+
+      console.log("[createAppointment] single mode", {
+        serviceIds,
+        pickedDurations: allPicked.map((s: any) => ({
+          id: s._id,
+          name: s.name,
+          durationMin: s.durationMin,
+          valuesDuration: s.values?.duration,
+        })),
+      });
     }
 
-    const allPicked = serviceIds
-      .map(id => known.get(id) || fetched.find(f => String(f._id) === id))
-      .filter(Boolean);
+    // 🔢 recompute duration from the ACTUAL picked services
+    let combinedMin = sumMinutes(allPicked);
+    if (!Number.isFinite(combinedMin) || combinedMin <= 0) {
+      // fall back to whatever the flow thought the duration was
+      combinedMin =
+        serviceDurationMin && serviceDurationMin > 0
+          ? serviceDurationMin
+          : DEFAULT_MIN_FOR_UNKNOWN;
+    }
 
-    let combinedMin = serviceDurationMin || 0;
-    const recomputed = allPicked.reduce(
-      (acc, s) => acc + readMinFlexible(s),
-      0
-    );
-
-    if (recomputed > 0) combinedMin = recomputed;
-    if (!combinedMin) combinedMin = DEFAULT_MIN_FOR_UNKNOWN;
+    console.log("[createAppointment] duration debug", {
+      isMulti,
+      serviceDurationMin,
+      combinedMin,
+      pickedCount: allPicked.length,
+    });
 
     const combinedPrice = allPicked.reduce((acc, s) => {
       const p = Number(s?.price ?? s?.values?.Price ?? 0);
       return acc + (Number.isFinite(p) ? p : 0);
     }, 0);
 
-    // BUILD VALUES  
-    const values: any = {
-      Business: { _id: businessId },
-      Calendar: { _id: selectedCalendarId },
-      Client: currentUserId ? { _id: currentUserId } : undefined,
+    const firstName =
+  currentUser?.firstName ||
+  currentUser?.values?.firstName ||
+  currentUser?.values?.["First Name"] ||
+  "";
 
+const lastName =
+  currentUser?.lastName ||
+  currentUser?.values?.lastName ||
+  currentUser?.values?.["Last Name"] ||
+  "";
+
+let providerId: string | null = null;
+let businessName = "";
+
+// Always derive BOTH from the Business record
+if (businessId) {
+  try {
+   const bizRec = await fetchBusinessRecordById(businessId);
+
+console.log("[bizRec.createdBy]", bizRec?.createdBy);
+console.log("[bizRec.values keys]", Object.keys(bizRec?.values || {}));
+
+providerId = getProIdFromBusinessRecord(bizRec) || null;
+
+console.log("[derived providerId]", providerId);
+
+console.log("[bizRec FULL]", bizRec);
+console.log("[bizRec.values]", bizRec?.values);
+
+    businessName = getBusinessNameFromRecord(bizRec);
+    providerId = getProIdFromBusinessRecord(bizRec) || null;
+
+    console.log("[createAppointment] derived from Business", {
       businessId,
-      calendarId: selectedCalendarId,
-      clientId: currentUserId,
-
-      Date: selectedDateISO,
-      StartTime: selectedTimeHHMM,
-      EndTime: addMinutesHHMM(selectedTimeHHMM, combinedMin),
-
-      DurationMin: combinedMin,
-      Duration: combinedMin,
-      "Duration (min)": combinedMin,
-
-      Price: combinedPrice,
-
-      Time: selectedTimeHHMM,
-      Start: selectedTimeHHMM,
-
-      createdBy: currentUserId,
-      updatedBy: currentUserId,
-
-      "Service(s)": serviceIds.map(id => ({ _id: id })),
-    };
-
-    // ✅ CORRECT ENDPOINT: note the `/Appointment` at the end
-    const res = await fetch(`${API}/api/records/Appointment`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({
-        dataTypeName: "Appointment", // extra safety for your controller
-        dataType: "Appointment",
-        values,
-      }),
+      businessName,
+      providerId,
+      bizKeys: Object.keys(bizRec?.values || bizRec || {}),
     });
+  } catch (e) {
+    console.warn("[createAppointment] business fetch/pro extract failed", e);
+  }
+}
 
-    // detailed error logging
-    if (!res.ok) {
-      const txt = await res.text().catch(() => "");
-      console.warn("[createAppointment] failed", res.status, txt);
-      alert(`Booking failed (${res.status}). Check the console for details.`);
-      return false;
-    }
 
-    const saved = await res.json().catch(() => null);
-    console.log("[createAppointment] saved:", saved);
+const serviceNames = allPicked.map(s => s?.name).filter(Boolean).join(", ");
 
-    // Remove slot visually
+const values: any = {
+  BusinessName: businessName,
+  ServiceNames: serviceNames,
+
+  Business: { _id: businessId },
+  Calendar: { _id: selectedCalendarId },
+  Client: currentUserId ? { _id: currentUserId } : undefined,
+
+  ClientName: `${firstName} ${lastName}`.trim(),
+  ClientFirstName: firstName,
+  ClientLastName: lastName,
+
+  businessId,
+  calendarId: selectedCalendarId,
+  clientId: currentUserId,
+
+...(providerId ? { Pro: { _id: providerId }, proUserId: providerId } : {}),
+
+  Date: selectedDateISO,
+  StartTime: selectedTimeHHMM,
+  EndTime: addMinutesHHMM(selectedTimeHHMM, combinedMin),
+
+  DurationMin: combinedMin,
+  Price: combinedPrice,
+
+  "Service(s)": serviceIds.map((id) => ({ _id: id })),
+};
+
+
+
+    // ✅ DEBUG: appointment payload we are about to save
+console.groupCollapsed("🧾 [createAppointment] payload");
+console.log("businessId:", businessId);
+console.log("calendarId:", selectedCalendarId);
+console.log("clientUserId:", currentUserId);
+console.log("selectedDateISO:", selectedDateISO);
+console.log("selectedTimeHHMM:", selectedTimeHHMM);
+console.log("serviceIds:", serviceIds);
+console.log("combinedMin:", combinedMin);
+console.log("combinedPrice:", combinedPrice);
+
+// Print the actual record payload
+console.log("values:", values);
+
+// Pretty JSON (easy to copy/paste)
+console.log("values JSON:", JSON.stringify(values, null, 2));
+
+console.groupEnd();
+ 
+const payload = {
+  dataTypeName: "Appointment",
+  dataType: "Appointment",
+  values,
+};
+
+console.log("📦 [createAppointment] POST body:", payload);
+
+const res = await fetch(`${API}/api/records/Appointment`, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  credentials: "include",
+  body: JSON.stringify({
+    dataTypeName: "Appointment",
+    dataType: "Appointment",
+    values,
+  }),
+});
+
+// ✅ READ BODY ONCE (as text), then parse it safely
+const rawText = await res.text().catch(() => "");
+let saved: any = null;
+
+try {
+  saved = rawText ? JSON.parse(rawText) : null;
+} catch {}
+
+// ✅ LOG WHAT WE GOT BACK
+console.log("✅/❌ [createAppointment] status:", res.status);
+console.log("[createAppointment] raw response:", rawText);
+console.log("[createAppointment] parsed response:", saved);
+
+if (!res.ok) {
+  alert(`Booking failed (${res.status}). Check console.`);
+  return false;
+}
+
+// ✅ OPTIONAL: fetch it back to confirm what actually got stored
+if (saved?._id) {
+  const check = await fetch(
+    `${API}/public/records?dataType=Appointment&_id=${encodeURIComponent(saved._id)}&ts=${Date.now()}`,
+    { cache: "no-store" }
+  )
+    .then((r) => r.json())
+    .catch(() => null);
+
+  console.log("🔎 [createAppointment] fetched back:", check);
+}
+
+    // 🔻 remove the whole block visually/ remove the appointment time
     if (selectedTimeHHMM && combinedMin) {
       removeBookedFromSlots(selectedTimeHHMM, combinedMin);
     }
 
-    // Refresh slots for that day
+    // refresh that day's slots
     if (selectedDateISO) {
       await selectDate(selectedDateISO);
     }
 
-    localStorage.setItem("lastBooked", JSON.stringify({
-      calId: selectedCalendarId,
-      date: selectedDateISO,
-      start: selectedTimeHHMM,
-      duration: combinedMin,
-      ts: Date.now(),
-    }));
+    localStorage.setItem(
+      "lastBooked",
+      JSON.stringify({
+        calId: selectedCalendarId,
+        date: selectedDateISO,
+        start: selectedTimeHHMM,
+        duration: combinedMin,
+        ts: Date.now(),
+      }),
+    );
 
     clearPicks?.();
     return true;
-
   } catch (err) {
     console.error(err);
     return false;
@@ -1842,6 +2364,17 @@ useEffect(() => {
       setCurrentUserId(uid || null);
       setIsLoggedIn(!!data?.loggedIn || !!uid);
 
+      const userObj = data?.user || data?.profile || data;
+setCurrentUser(userObj || null);
+
+try {
+  (window as any).STATE = {
+    ...(window as any).STATE,
+    userId: uid || null,
+    user: userObj || null,
+  };
+} catch {}
+
       try { (window as any).STATE = { ...(window as any).STATE, userId: uid || null }; } catch {}
     } catch {
       setIsLoggedIn(false);
@@ -1851,31 +2384,6 @@ useEffect(() => {
 }, []);
 
 
-
-//Create Appointment helper
-// src/app/[slug]/BookingFlows/basicFlow.tsx
-// ...top of file (module scope)
-let TYPE_CACHE: Record<string, string> = {}; // name -> id
-
-async function getTypeIdByName(typeName: string): Promise<string | null> {
-  const key = typeName.toLowerCase();
-  if (TYPE_CACHE[key]) return TYPE_CACHE[key];
-
-  // hit your API; it lists all DataTypes
-  const r = await fetch(`${API}/api/datatypes`, { credentials: 'include' });
-  if (!r.ok) return null;
-
-  const list = await r.json();
-  // match loosely on name
-  const found = Array.isArray(list)
-    ? list.find((dt: any) => String(dt.name || dt.values?.Name || '')
-        .toLowerCase() === key)
-    : null;
-
-  const id = found?._id ? String(found._id) : null;
-  if (id) TYPE_CACHE[key] = id;
-  return id;
-}
 
 
 //Flow Value
@@ -1900,24 +2408,28 @@ const value: FlowContextType = {
 
   isReschedule, rescheduleApptId, onConfirm,
 
-  // ← add them to the value you export
   goBackToCalendars,
   goBackToCategories,
-   goBackToServices, 
+  goBackToServices,
 
-     multiSelection,
-    handleMultiServiceSelect,
+  multiSelection,
+  handleMultiServiceSelect,
 
-          pickedServiceIds,
-        addPick,
-        removePick,
-        clearPicks,
-        isPicked,
-
-      lookupService,
+  pickedServiceIds,
   pickedServices,
+  addPick,
+  removePick,
+  clearPicks,
+  isPicked,
+
+  lookupService,
   currentUserId,
+  currentUser,
+   allServices,
+   calendarCells,
+
 };
+
 
 
   return <FlowCtx.Provider value={value}>{children}</FlowCtx.Provider>;

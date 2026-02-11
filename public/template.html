@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Template Builder</title>
+<link rel="stylesheet" href="/qassets/css/template.css">
+ 
+</head>
+
+<body>
+  <div class="tpl">
+<aside class="tpl__sidebar" id="tpl-sidebar">
+  <div class="sidebar-topbar">
+    <button type="button" class="sidebar-toggle" id="sidebar-toggle" aria-label="Collapse sidebar">
+      <span class="sidebar-back" aria-hidden="true"></span>
+    </button>
+  </div>
+
+                                        <!--Elements-->
+   <div class="sidebar-panel">
+  <div class="sidebar-panel__title">Elements</div>
+
+  <div class="sidebar-panel__list">
+    <div class="elementItem" draggable="true" data-type="section">Section</div>
+
+    <div class="elementItem" draggable="true" data-type="text">Text</div>
+
+    <div class="elementItem" draggable="true" data-type="button">Button</div>
+    
+<div class="elementItem" draggable="true" data-type="image">Image</div>
+<div class="elementItem" draggable="true" data-type="header">Header</div>
+
+  </div>
+</div>
+                                     
+   
+</aside>
+
+
+                         
+
+
+
+
+
+
+
+    <main class="tpl__dropArea">
+                                                 <!--Drag Area-->
+<div class="tpl-dropArea" id="tpl-dropArea">
+  <div class="dropArea__inner tpl-dropArea__inner" id="dropAreaInner">
+    <div class="tpl-dropArea__label">Drag Here</div>
+  </div>
+</div>
+
+    </main>
+  </div>
+
+
+
+ 
+  <script src="/qassets/js/template.js"></script>
+</body>
+</html>

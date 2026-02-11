@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Suite Seat – Checkout</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- Settings styles -->
+  <link rel="stylesheet" href="/qassets/css/settings.css" />
+
+  <!-- Auth + navigation logic -->
+  <script defer src="/qassets/js/settings.js"></script>
+</head>
+<body class="ss-page">
+
+  <!-- HEADER -->
+  <header class="ss-header">
+    <div class="ss-logo-text">Suite Seat</div>
+
+    <div class="ss-header-right">
+      <span id="login-status-text" class="ss-greeting">Not logged in</span>
+
+      <!-- Shows when user NOT logged in -->
+      <button id="open-login-popup-btn" class="ss-btn ss-btn-outline">
+        Login
+      </button>
+
+      <!-- Shows when user IS logged in -->
+      <button id="logout-btn" class="ss-btn ss-btn-outline" style="display:none;">
+        Logout
+      </button>
+    </div>
+  </header>
+
+     <h2 >Checkoutpage</h2>
+  <!-- MAIN CONTENT -->
+   <main class="ss-settings-layout"></main>
+ 
+
+  <!-- AUTH POPUP -->
+  <div id="authModal" class="auth-modal" hidden aria-hidden="true">
+    <div class="auth-modal-inner">
+      <button id="authClose" class="auth-close-btn">×</button>
+
+      <h2>Log in to Suite Seat</h2>
+
+      <form id="authForm">
+        <label>
+          Email
+          <input id="authEmail" type="email" autocomplete="email" required />
+        </label>
+
+        <label>
+          Password
+          <input id="authPass" type="password" autocomplete="current-password" required />
+        </label>
+
+        <div id="authError" class="auth-error"></div>
+
+        <button id="authSubmit" type="submit" class="ss-btn ss-btn-outline">
+          <span class="when-idle">Log in</span>
+          <span class="when-busy" hidden>Logging in…</span>
+        </button>
+      </form>
+    </div>
+  </div>
+
+</body>
+</html>

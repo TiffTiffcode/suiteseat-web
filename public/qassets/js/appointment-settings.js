@@ -503,128 +503,131 @@ function setHeroPreview(src) {
     });
   }
 
-  // =========================
-  // ✅ CREATE BUSINESS
-  // =========================
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
 
-    const TYPE_NAME = "Business";
-    const prevText = submitBtn ? submitBtn.textContent : "";
 
-    try {
-      if (submitBtn) {
-        submitBtn.disabled = true;
-        submitBtn.textContent = "Saving...";
-      }
+  ///////////////////////////////////////////////////////////////////////////////////
+// =========================
+// ✅ CREATE BUSINESS
+// =========================
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
 
-      // Collect values from the form
-      const values = {
-        businessName: document
-          .getElementById("popup-business-name-input")
-          .value.trim(),
-        yourName: document.getElementById("popup-your-name-input").value.trim(),
-        phoneNumber: document
-          .getElementById("popup-business-phone-number-input")
-          .value.trim(),
-        locationName: document
-          .getElementById("popup-business-location-name-input")
-          .value.trim(),
-        businessAddress: document
-          .getElementById("popup-business-address-input")
-          .value.trim(),
-        businessEmail: document
-          .getElementById("popup-business-email-input")
-          .value.trim(),
-      };
+  const TYPE_NAME = "Business";
+  const prevText = submitBtn ? submitBtn.textContent : "";
 
-      // ✅ HERO IMAGE (CREATE)
-      // keep current preview if user didn’t pick a new file
-      let heroUrl = getCurrentHeroSrc();
-
-      // if user picked a file, upload and replace
-      if (fileInput?.files?.[0]) {
-        heroUrl = await uploadImageToCloudinary(fileInput.files[0]);
-      }
-
-      // save the hero url if we have it
-      if (heroUrl) {
-        values.heroImageUrl = heroUrl;
-        values.heroImage = heroUrl;
-      }
-
-      // ✅ Slug fields
-      const baseName =
-        values.slug ||
-        values.businessSlug ||
-        values.bookingSlug ||
-        values.businessName ||
-        values.name ||
-        "";
-
-      if (baseName) {
-        const slug = toSlug(baseName);
-        values.slug = slug;
-        values.businessSlug = slug;
-        values.bookingSlug = slug;
-      }
-
-      // ✅ Create the Business record
-      const res = await fetch(
-        `${API_BASE}/api/records/${encodeURIComponent(TYPE_NAME)}`,
-        {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json", Accept: "application/json" },
-          body: JSON.stringify({ values }),
-        }
-      );
-
-      if (!res.ok) {
-        let msg = `HTTP ${res.status}`;
-        try {
-          const err = await res.json();
-          if (err?.error) msg += ` - ${err.error}`;
-        } catch {}
-        throw new Error(msg);
-      }
-
-      const created = await res.json();
-      console.log("[Business] Created:", created);
-      alert("Business saved!");
-
-      // Reset UI
-      form.reset();
-      setHeroPreview("");
-
-      // Refresh lists / dropdowns
-      if (typeof loadBusinessDropdown === "function") {
-        await loadBusinessDropdown({ preserve: false, selectId: created._id });
-      }
-      if (typeof loadBusinessList === "function") {
-        await loadBusinessList();
-      }
-
-      REQUIRE_FIRST_BUSINESS = false;
-      if (typeof closeAllPopups === "function") closeAllPopups();
-    } catch (err) {
-      console.error("[Business] Create error:", err);
-      if (String(err).includes("401")) {
-        alert("Please log in before uploading an image.");
-      } else {
-        alert("Error saving business: " + (err?.message || err));
-      }
-    } finally {
-      if (submitBtn) {
-        submitBtn.disabled = false;
-        submitBtn.textContent = prevText;
-      }
+  try {
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Saving...";
     }
+
+    const values = {
+      businessName: document.getElementById("popup-business-name-input").value.trim(),
+      yourName: document.getElementById("popup-your-name-input").value.trim(),
+      phoneNumber: document.getElementById("popup-business-phone-number-input").value.trim(),
+      locationName: document.getElementById("popup-business-location-name-input").value.trim(),
+      businessAddress: document.getElementById("popup-business-address-input").value.trim(),
+      businessEmail: document.getElementById("popup-business-email-input").value.trim(),
+    };
+
+    // ✅ HERO IMAGE (CREATE)
+    let heroUrl = getCurrentHeroSrc();
+    if (fileInput?.files?.[0]) {
+      heroUrl = await uploadImageToCloudinary(fileInput.files[0]);
+    }
+    if (heroUrl) {
+      values.heroImageUrl = heroUrl;
+      values.heroImage = heroUrl;
+    }
+
+    // ✅ Slug fields
+    const baseName =
+      values.slug ||
+      values.businessSlug ||
+      values.bookingSlug ||
+      values.businessName ||
+      values.name ||
+      "";
+
+    if (baseName) {
+      const slug = toSlug(baseName);
+      values.slug = slug;
+      values.businessSlug = slug;
+      values.bookingSlug = slug;
+    }
+
+  // ✅✅✅ ADD THE proUserId BLOCK RIGHT HERE (BEFORE fetch POST)
+let proUserId = null;
+try {
+  const meRes = await fetch(`${API_BASE}/api/me?ts=${Date.now()}`, {
+    credentials: "include",
+    cache: "no-store",
   });
+  const meData = await meRes.json().catch(() => null);
+  proUserId = meData?.user?._id || meData?.user?.id || null;
+} catch {}
+
+if (proUserId) {
+  values.proUserId = proUserId;
+  values.Pro = { _id: proUserId }; // optional
+}
+
+// ✅ NOW do the POST
+const res = await fetch(`${API_BASE}/api/records/${encodeURIComponent(TYPE_NAME)}`, {
+  method: "POST",
+  credentials: "include",
+  headers: { "Content-Type": "application/json", Accept: "application/json" },
+  body: JSON.stringify({ values }),
+});
+
+    if (!res.ok) {
+      let msg = `HTTP ${res.status}`;
+      try {
+        const err = await res.json();
+        if (err?.error) msg += ` - ${err.error}`;
+      } catch {}
+      throw new Error(msg);
+    }
+
+    const payload = await res.json();
+    const created = payload?.items?.[0];
+    if (!created?._id) throw new Error("Create failed (no record returned)");
+
+    console.log("[Business] Created:", created);
+    alert("Business saved!");
+
+    // Reset UI
+    form.reset();
+    setHeroPreview("");
+
+    // Refresh lists / dropdowns (only once)
+    if (typeof loadBusinessDropdown === "function") {
+      await loadBusinessDropdown({ preserve: false, selectId: created._id });
+    }
+    if (typeof loadBusinessList === "function") {
+      await loadBusinessList();
+    }
+
+    REQUIRE_FIRST_BUSINESS = false;
+    if (typeof closeAllPopups === "function") closeAllPopups();
+  } catch (err) {
+    console.error("[Business] Create error:", err);
+    if (String(err).includes("401")) {
+      alert("Please log in before uploading an image.");
+    } else {
+      alert("Error saving business: " + (err?.message || err));
+    }
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = prevText;
+    }
+  }
+});
 })();
 
 // =========================
-// ✅ UPDATE / DELETE BUTTONS
+// ✅ UPDATE Business
 // =========================
 const updateBtn = document.getElementById("update-button");
 const deleteBtn = document.getElementById("delete-button");
@@ -636,22 +639,12 @@ if (updateBtn && !updateBtn.dataset.bound) {
     const TYPE = "Business";
 
     const values = {
-      businessName: document
-        .getElementById("popup-business-name-input")
-        .value.trim(),
+      businessName: document.getElementById("popup-business-name-input").value.trim(),
       yourName: document.getElementById("popup-your-name-input").value.trim(),
-      phoneNumber: document
-        .getElementById("popup-business-phone-number-input")
-        .value.trim(),
-      locationName: document
-        .getElementById("popup-business-location-name-input")
-        .value.trim(),
-      businessAddress: document
-        .getElementById("popup-business-address-input")
-        .value.trim(),
-      businessEmail: document
-        .getElementById("popup-business-email-input")
-        .value.trim(),
+      phoneNumber: document.getElementById("popup-business-phone-number-input").value.trim(),
+      locationName: document.getElementById("popup-business-location-name-input").value.trim(),
+      businessAddress: document.getElementById("popup-business-address-input").value.trim(),
+      businessEmail: document.getElementById("popup-business-email-input").value.trim(),
     };
 
     // ✅ HERO IMAGE (UPDATE)
@@ -692,19 +685,28 @@ if (updateBtn && !updateBtn.dataset.bound) {
 
     try {
       const res = await fetch(
-        `${API_BASE}/api/records/${encodeURIComponent(TYPE)}/${encodeURIComponent(
-          editingBusinessId
-        )}`,
+        `${API_BASE}/api/records/${encodeURIComponent(TYPE)}/${encodeURIComponent(editingBusinessId)}`,
         {
           method: "PATCH",
           credentials: "include",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", Accept: "application/json" },
           body: JSON.stringify({ values }),
         }
       );
 
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const updated = await res.json();
+      if (!res.ok) {
+        let msg = `HTTP ${res.status}`;
+        try {
+          const err = await res.json();
+          if (err?.error) msg += ` - ${err.error}`;
+          if (err?.message) msg += ` - ${err.message}`;
+        } catch {}
+        throw new Error(msg);
+      }
+
+      const payload = await res.json();
+      const updated = payload?.items?.[0];
+      if (!updated?._id) throw new Error("Update failed (no record returned)");
 
       // cache + preview
       window.businessCache?.set?.(editingBusinessId, updated);
@@ -718,6 +720,7 @@ if (updateBtn && !updateBtn.dataset.bound) {
 
       alert("Business updated!");
       closeAllPopups?.();
+
       await loadBusinessDropdown?.({ preserve: true, selectId: editingBusinessId });
       await loadBusinessList?.();
     } catch (e) {
@@ -733,7 +736,9 @@ if (updateBtn && !updateBtn.dataset.bound) {
 }
 
 
-// Delete business
+// =========================
+// ✅ DELETE Business
+// =========================
 if (deleteBtn && !deleteBtn.dataset.bound) {
   deleteBtn.addEventListener("click", async () => {
     if (!editingBusinessId) return;
@@ -750,13 +755,25 @@ if (deleteBtn && !deleteBtn.dataset.bound) {
         {
           method: "DELETE",
           credentials: "include",
+          headers: { Accept: "application/json" },
         }
       );
 
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) {
+        let msg = `HTTP ${res.status}`;
+        try {
+          const err = await res.json();
+          if (err?.error) msg += ` - ${err.error}`;
+          if (err?.message) msg += ` - ${err.message}`;
+        } catch {}
+        throw new Error(msg);
+      }
+
+      // optional: read body (some routes return {ok:true})
+      try { await res.json(); } catch {}
 
       alert("Business deleted.");
-      closeAllPopups();
+      closeAllPopups?.();
 
       // clear selection if it was selected
       const saved = sessionStorage.getItem("selectedBusinessId");
@@ -764,17 +781,18 @@ if (deleteBtn && !deleteBtn.dataset.bound) {
         sessionStorage.removeItem("selectedBusinessId");
       }
 
-      await loadBusinessDropdown({ preserve: true });
-      await loadBusinessList();
-      await loadCalendarList(); // calendars tied to it might change visibility
+      await loadBusinessDropdown?.({ preserve: true });
+      await loadBusinessList?.();
+      await loadCalendarList?.(); // calendars tied to it might change visibility
     } catch (e) {
       console.error(e);
-      alert("Error deleting business: " + e.message);
+      alert("Error deleting business: " + (e?.message || e));
     } finally {
       deleteBtn.disabled = false;
       deleteBtn.textContent = prev;
     }
   });
+
   deleteBtn.dataset.bound = "1";
 }
 
@@ -783,7 +801,8 @@ if (deleteBtn && !deleteBtn.dataset.bound) {
 
 
 
-    ////////////////////////////////////////////////////////////////////
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
                     //Calendar Section
 const openCalendarBtn = document.getElementById("open-calendar-button");
 const calendarPopup   = document.getElementById("popup-add-calendar");
@@ -829,14 +848,16 @@ if (overlay) {
   overlay.addEventListener("click", closeAllPopups);
 }
 
-//Save Calendar 
+// =========================
+// ✅ Save Calendar
+// =========================
 const saveCalBtn   = document.getElementById("save-calendar-button");
 const calNameInput = document.getElementById("popup-calendar-name-input");
 const calBizSelect = document.getElementById("dropdown-calendar-business");
 
 if (saveCalBtn && calNameInput && calBizSelect) {
   saveCalBtn.addEventListener("click", async () => {
-    const TYPE_NAME = "Calendar"; // must match your Data Type name exactly
+    const TYPE_NAME = "Calendar";
     const calendarName = calNameInput.value.trim();
     const businessId   = calBizSelect.value;
 
@@ -847,50 +868,51 @@ if (saveCalBtn && calNameInput && calBizSelect) {
     const prevText = saveCalBtn.textContent;
     saveCalBtn.textContent = "Saving…";
 
-   try {
-  const res = await fetch(
-    `${API_BASE}/api/records/${encodeURIComponent(TYPE_NAME)}`,
-    {
-      method: "POST",
-      credentials: "include", // required by ensureAuthenticated
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        values: {
-          calendarName,
-          name: calendarName,
-          "Calendar Name": calendarName,
-          businessId,
-          Business: businessId
-  }
-})
-
-      });
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/records/${encodeURIComponent(TYPE_NAME)}`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json", Accept: "application/json" },
+          body: JSON.stringify({
+            values: {
+              calendarName,
+              name: calendarName,
+              "Calendar Name": calendarName,
+              businessId,
+              Business: businessId,
+            },
+          }),
+        }
+      );
 
       if (!res.ok) {
         let msg = `HTTP ${res.status}`;
         try {
           const err = await res.json();
           if (err?.error) msg += ` - ${err.error}`;
+          if (err?.message) msg += ` - ${err.message}`;
         } catch {}
         throw new Error(msg);
       }
 
-   const created = await res.json();
-console.log("Calendar created:", created);
-console.log("[calendar:create] keys:", Object.keys(created?.values || {}));
-console.log("[calendar:create] values:", created?.values);
+      const payload = await res.json();
+      const created = payload?.items?.[0]; // ✅ new server shape
+      if (!created?._id) throw new Error("Create failed (no record returned)");
 
+      console.log("Calendar created:", created);
+      console.log("[calendar:create] keys:", Object.keys(created?.values || {}));
+      console.log("[calendar:create] values:", created?.values);
 
       alert("Calendar saved!");
-      calNameInput.value = "";                 // clear name
-      // (optional) refresh any calendar lists you show elsewhere
-       await loadCalendarList();
+      calNameInput.value = "";
 
-      closeAddCalendarPopup();                 // hide popup + overlay
-
+      await loadCalendarList?.();
+      closeAddCalendarPopup?.();
     } catch (e) {
       console.error(e);
-      alert("Error saving calendar: " + e.message);
+      alert("Error saving calendar: " + (e?.message || e));
     } finally {
       saveCalBtn.disabled = false;
       saveCalBtn.textContent = prevText;
@@ -966,34 +988,42 @@ if (saveCategoryBtn && catBizSelect && catCalSelect) {
     saveCategoryBtn.disabled = true;
     saveCategoryBtn.textContent = "Saving…";
 
-  try {
-  const res = await fetch(
-    `${API_BASE}/api/records/${encodeURIComponent(TYPE_NAME)}`,
-    {
-      method: "POST",
-      credentials: "include", // required by ensureAuthenticated
-      headers: { "Content-Type": "application/json" },
-body: JSON.stringify({
-  values: {
-    Name: categoryName,
-    Business: businessId,
-    Calendar: calendarId,
-  }
-})
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/records/${encodeURIComponent(TYPE_NAME)}`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json", Accept: "application/json" },
+          body: JSON.stringify({
+            values: {
+              Name: categoryName,
+              Business: businessId,
+              Calendar: calendarId,
 
-
-      });
+              // optional aliases (only if you want them)
+              categoryName,
+              businessId,
+              calendarId,
+            },
+          }),
+        }
+      );
 
       if (!res.ok) {
         let msg = `HTTP ${res.status}`;
         try {
           const err = await res.json();
           if (err?.error) msg += ` - ${err.error}`;
+          if (err?.message) msg += ` - ${err.message}`;
         } catch {}
         throw new Error(msg);
       }
 
-      const created = await res.json();
+      const payload = await res.json();
+      const created = payload?.items?.[0]; // ✅ new server shape
+      if (!created?._id) throw new Error("Create failed (no record returned)");
+
       console.log("Category created:", created);
 
       alert("Category saved!");
@@ -1001,17 +1031,14 @@ body: JSON.stringify({
 
       await loadCategoryList();
       closeCategoryPopup();
-
-      // If you’ll show categories in a list later:
-      // await loadCategoryList();
-
     } catch (e) {
       console.error(e);
-      alert("Error saving category: " + e.message);
+      alert("Error saving category: " + (e?.message || e));
     } finally {
       saveCategoryBtn.disabled = false;
       saveCategoryBtn.textContent = prevText;
     }
+
   });
 }
 
@@ -1108,10 +1135,9 @@ if (svcCalSel && !svcCalSel.dataset.bound) {
   svcCalSel.dataset.bound = "1";
 }
 
-
 //Save Service
 // ===== Save Service =====
-const serviceForm   = document.getElementById("add-service-form");
+const serviceForm    = document.getElementById("add-service-form");
 const saveServiceBtn = document.getElementById("save-service-button");
 
 if (serviceForm && !serviceForm.dataset.bound) {
@@ -1128,23 +1154,23 @@ if (serviceForm && !serviceForm.dataset.bound) {
     const imgInput = document.getElementById("popup-service-image-input");
     const visChk   = document.getElementById("popup-service-visible-toggle");
 
-    const businessId = bizSel?.value || "";
-    const calendarId = calSel?.value || "";
-    const categoryId = catSel?.value || "";
-    const serviceName = nameIn?.value.trim() || "";
-    const price = priceIn?.value ?? "";
+    const businessId      = bizSel?.value || "";
+    const calendarId      = calSel?.value || "";
+    const categoryId      = catSel?.value || "";
+    const serviceName     = nameIn?.value.trim() || "";
+    const priceRaw        = priceIn?.value ?? "";
     const durationMinutes = durSel?.value || "";
 
     // Basic validation
-    if (!businessId)   return alert("Please choose a business.");
-    if (!calendarId)   return alert("Please choose a calendar.");
-    if (!categoryId)   return alert("Please choose a category.");
-    if (!serviceName)  return alert("Please enter a service name.");
-    if (!price)        return alert("Please enter a price.");
+    if (!businessId) return alert("Please choose a business.");
+    if (!calendarId) return alert("Please choose a calendar.");
+    if (!categoryId) return alert("Please choose a category.");
+    if (!serviceName) return alert("Please enter a service name.");
+    if (!priceRaw) return alert("Please enter a price.");
     if (!durationMinutes) return alert("Please choose a duration.");
 
     // Button state
-    const prevText = saveServiceBtn?.textContent;
+    const prevText = saveServiceBtn?.textContent || "Save Service";
     if (saveServiceBtn) {
       saveServiceBtn.disabled = true;
       saveServiceBtn.textContent = "Saving…";
@@ -1154,91 +1180,103 @@ if (serviceForm && !serviceForm.dataset.bound) {
       // 1) Optional image upload
       let imageUrl = "";
       const file = imgInput?.files?.[0];
+
       if (file) {
         const fd = new FormData();
-        // server expects the key "file" (upload.single('file'))
-        fd.append("file", file);
+        fd.append("file", file); // server expects "file"
 
-      const up = await fetch(`${API_BASE}/api/upload`, {
-
+        const up = await fetch(`${API_BASE}/api/upload`, {
           method: "POST",
           credentials: "include",
-          body: fd
+          body: fd,
         });
+
         if (!up.ok) {
           let msg = `HTTP ${up.status}`;
           try {
             const err = await up.json();
             if (err?.error) msg += ` - ${err.error}`;
+            if (err?.message) msg += ` - ${err.message}`;
           } catch {}
           throw new Error(`Image upload failed: ${msg}`);
         }
+
         const upJson = await up.json();
         imageUrl = upJson?.url || "";
       }
 
       // 2) Create the Service
       const TYPE = "Service"; // must match your Data Type name
+
       const values = {
         businessId,
         calendarId,
         categoryId,
-        serviceName,                             // or "name" if that's your field
-        price: parseFloat(price),                // store as number
-        description: descIn?.value.trim() || "",
+
+        // name fields (keep this compatible with your UI)
+        serviceName,
+
+        // numbers
+        price: Number(priceRaw),
         durationMinutes: parseInt(durationMinutes, 10),
+
+        // misc
+        description: descIn?.value.trim() || "",
         visible: !!(visChk && visChk.checked),
-        imageUrl                                  // optional
+        imageUrl, // optional
       };
 
-     const res = await fetch(`${API_BASE}/api/records/${encodeURIComponent(TYPE)}`, {
-
+      const res = await fetch(`${API_BASE}/api/records/${encodeURIComponent(TYPE)}`, {
         method: "POST",
         credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ values })
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ values }),
       });
+
       if (!res.ok) {
         let msg = `HTTP ${res.status}`;
         try {
           const err = await res.json();
           if (err?.error) msg += ` - ${err.error}`;
+          if (err?.message) msg += ` - ${err.message}`;
         } catch {}
         throw new Error(msg);
       }
 
-      const created = await res.json();
+      const payload = await res.json();
+      const created = payload?.items?.[0]; // ✅ new server shape
+      if (!created?._id) throw new Error("Create failed (no record returned)");
+
       console.log("Service created:", created);
 
       alert("Service saved!");
       serviceForm.reset();
 
       // Refresh UI
-    // Refresh UI
-await loadServiceFilterDropdown();
-await loadServiceList();
+      await loadServiceFilterDropdown?.();
+      await loadServiceList?.();
 
-// 🔹 NEW: refresh Business table so "# of Services" updates
-if (typeof loadBusinessList === "function") {
-  await loadBusinessList();
-}
+      // Refresh Business list so "# of Services" updates
+      if (typeof loadBusinessList === "function") {
+        await loadBusinessList();
+      }
 
-closeAddServicePopup();
-
-
+      closeAddServicePopup?.();
     } catch (e) {
       console.error(e);
-      alert("Error saving service: " + e.message);
+      alert("Error saving service: " + (e?.message || e));
     } finally {
       if (saveServiceBtn) {
         saveServiceBtn.disabled = false;
-        saveServiceBtn.textContent = prevText || "Save Service";
+        saveServiceBtn.textContent = prevText;
       }
     }
   });
 
   serviceForm.dataset.bound = "1";
 }
+
+// Preview service image (unchanged)
 const svcImgInput = document.getElementById("popup-service-image-input");
 if (svcImgInput && !svcImgInput.dataset.bound) {
   svcImgInput.addEventListener("change", () => {
@@ -1348,7 +1386,13 @@ async function loadBusinessDropdown({ preserve = true, selectId = null } = {}) {
       return;
     }
 
-    const businesses = (await res.json()).filter(b => !b.deletedAt);
+  const payload = await res.json();
+const businesses = Array.isArray(payload)
+  ? payload
+  : (payload?.items || payload?.records || []);
+
+const visible = businesses.filter(b => !b?.deletedAt);
+
 
     dropdown.innerHTML = '<option value="">-- Choose Business --</option>';
     businesses.forEach(biz => {
@@ -1453,7 +1497,13 @@ async function loadBusinessList() {
 });
 
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const businesses = (await res.json()).filter(b => !b.deletedAt);
+   const payload = await res.json();
+const businesses = Array.isArray(payload)
+  ? payload
+  : (payload?.items || payload?.records || []);
+
+const visible = businesses.filter(b => !b?.deletedAt);
+
 
     // clear columns
     nameCol.innerHTML   = "";
@@ -1740,6 +1790,7 @@ function openBusinessEdit(biz) {
                 //End Calendar Section 
 
 //Load Businesses in Calendar dropdown 
+//Load Businesses in Calendar dropdown 
 async function loadCalendarBusinessOptions() {
   const sel = document.getElementById("dropdown-calendar-business");
   if (!sel) return;
@@ -1747,38 +1798,40 @@ async function loadCalendarBusinessOptions() {
   sel.innerHTML = '<option value="">Loading…</option>';
   sel.disabled = true;
 
-  let list = []; // <-- always defined
+  let list = [];
   try {
-const res = await fetch(`${API_BASE}/api/records/Business?ts=${Date.now()}`, {
-
-  credentials: 'include',
-  cache: 'no-store'
-});
+    const res = await fetch(`${API_BASE}/api/records/Business?ts=${Date.now()}`, {
+      credentials: "include",
+      cache: "no-store",
+      headers: { Accept: "application/json" },
+    });
 
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    list = (await res.json()).filter(b => !b.deletedAt);
+
+    const payload = await res.json();
+    list = Array.isArray(payload?.items) ? payload.items : [];
+    list = list.filter(b => !b.deletedAt);
   } catch (e) {
     console.error("loadCalendarBusinessOptions:", e);
-    // fall through; list stays []
+    list = [];
   }
 
-  // Render options from list (even if empty)
   sel.innerHTML = '<option value="">-- Select --</option>';
   for (const biz of list) {
     const label =
       biz?.values?.businessName ??
       biz?.values?.Name ??
       "(Untitled)";
+
     const opt = document.createElement("option");
     opt.value = biz._id;
     opt.textContent = label;
     sel.appendChild(opt);
   }
 
-  // Prefer the main dropdown's current selection, else session
   const preferred =
-    document.getElementById('business-dropdown')?.value ||
-    sessionStorage.getItem('selectedBusinessId');
+    document.getElementById("business-dropdown")?.value ||
+    sessionStorage.getItem("selectedBusinessId");
 
   if (preferred && sel.querySelector(`option[value="${preferred}"]`)) {
     sel.value = preferred;
@@ -1787,33 +1840,30 @@ const res = await fetch(`${API_BASE}/api/records/Business?ts=${Date.now()}`, {
   sel.disabled = false;
 }
 
+
+// Load Calendars in Calendar Section (with Default radio + server PATCH)
 // Load Calendars in Calendar Section (with Default radio + server PATCH)
 async function loadCalendarList() {
   const nameCol    = document.getElementById("calendar-name-column");
   const defaultCol = document.getElementById("calendar-default-column");
   if (!nameCol || !defaultCol) return;
 
-  // tiny helpers
   const refId = (v) => {
     if (!v) return "";
     if (typeof v === "object") return String(v._id || v.id || "");
     return String(v);
   };
+
   const getBizId = (row) => {
     const v = row?.values || {};
-    return (
-      refId(v.Business) ||
-      String(v.businessId || v["Business Id"] || "")
-    );
+    return refId(v.Business) || String(v.businessId || v["Business Id"] || "");
   };
 
-  // cache (once)
   if (!window.calendarCache) window.calendarCache = new Map();
 
   nameCol.textContent = "Loading…";
   defaultCol.innerHTML = "";
 
-  // which business are we looking at?
   const dropdown = document.getElementById("business-dropdown");
   const selectedBusinessId =
     (dropdown && dropdown.value) ||
@@ -1827,15 +1877,18 @@ async function loadCalendarList() {
   }
 
   try {
-   const res = await fetch(`${API_BASE}/api/records/Calendar?ts=${Date.now()}`, {
+    const res = await fetch(`${API_BASE}/api/records/Calendar?ts=${Date.now()}`, {
       credentials: "include",
       cache: "no-store",
-      headers: { Accept: "application/json" }
+      headers: { Accept: "application/json" },
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const calendars = (await res.json()).filter(c => !c.deletedAt);
 
-    // filter to this business robustly (Business could be an id or ref object)
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+    const payload = await res.json();
+    const calendarsAll = Array.isArray(payload?.items) ? payload.items : [];
+    const calendars = calendarsAll.filter(c => !c.deletedAt);
+
     const rows = calendars.filter(c => getBizId(c) === String(selectedBusinessId));
 
     nameCol.innerHTML = "";
@@ -1849,13 +1902,12 @@ async function loadCalendarList() {
 
     const radioGroupName = `default-${selectedBusinessId}`;
 
-    // render rows
     rows.forEach(row => {
       window.calendarCache.set(row._id, row);
+
       const v = row.values || {};
       const calName = v.calendarName ?? v.name ?? "(Untitled)";
 
-      // name cell (clickable to edit)
       const nameDiv = document.createElement("div");
       nameDiv.className = "cal-row";
       nameDiv.dataset.id = row._id;
@@ -1863,7 +1915,6 @@ async function loadCalendarList() {
       nameDiv.style.cursor = "pointer";
       nameCol.appendChild(nameDiv);
 
-      // default radio
       const defDiv = document.createElement("div");
       const radio  = document.createElement("input");
       radio.type = "radio";
@@ -1873,53 +1924,60 @@ async function loadCalendarList() {
       defDiv.appendChild(radio);
       defaultCol.appendChild(defDiv);
 
-      // on change → set this as default, clear others
       radio.addEventListener("change", async () => {
         if (!radio.checked) return;
 
-        // disable all radios while patching
         defaultCol.querySelectorAll(`input[name="${radioGroupName}"]`)
           .forEach(r => (r.disabled = true));
 
         const thisId = row._id;
 
         try {
-          // 1) set this calendar to default = true
-         const setTrue = fetch(`${API_BASE}/api/records/Calendar/${encodeURIComponent(thisId)}`, {
-            method: "PATCH",
-            credentials: "include",
-            headers: { "Content-Type": "application/json", Accept: "application/json" },
-            body: JSON.stringify({ values: { "is Default": true } })
-          }).then(async r => {
-            if (!r.ok) throw new Error(`Set default failed: ${r.status} ${await r.text()}`);
-          });
-
-          // 2) clear others (same business) to false
-          const siblings = rows.filter(r => r._id !== thisId);
-          const clearOthers = siblings.map(sib =>
-            fetch(`${API_BASE}/api/records/Calendar/${encodeURIComponent(sib._id)}`, {
+          // helper to PATCH with good errors
+          async function patchCal(id, values) {
+            const r = await fetch(`${API_BASE}/api/records/Calendar/${encodeURIComponent(id)}`, {
               method: "PATCH",
               credentials: "include",
               headers: { "Content-Type": "application/json", Accept: "application/json" },
-              body: JSON.stringify({ values: { "is Default": false } })
-            }).then(async r => {
-              if (!r.ok) throw new Error(`Clear default failed: ${r.status} ${await r.text()}`);
-            })
-          );
+              body: JSON.stringify({ values }),
+            });
 
-          await Promise.all([setTrue, ...clearOthers]);
+            if (!r.ok) {
+              let msg = `HTTP ${r.status}`;
+              try {
+                const err = await r.json();
+                if (err?.error) msg += ` - ${err.error}`;
+                if (err?.message) msg += ` - ${err.message}`;
+              } catch {}
+              throw new Error(msg);
+            }
+
+            const payload = await r.json();
+            return payload?.items?.[0] || null; // ✅ new shape
+          }
+
+          // 1) set this calendar to default = true
+          await patchCal(thisId, { "is Default": true });
+
+          // 2) clear others to false
+          const siblings = rows.filter(r => r._id !== thisId);
+          for (const sib of siblings) {
+            await patchCal(sib._id, { "is Default": false });
+          }
 
           // update local cache + UI
           rows.forEach(r => {
             const vv = r.values || (r.values = {});
             vv["is Default"] = (r._id === thisId);
           });
+
           defaultCol.querySelectorAll(`input[name="${radioGroupName}"]`).forEach(inp => {
             inp.checked = (inp.value === String(thisId));
           });
         } catch (err) {
           console.error("Default toggle failed:", err);
           alert("Could not set default calendar. Please try again.");
+
           // revert UI
           defaultCol.querySelectorAll(`input[name="${radioGroupName}"]`).forEach(inp => {
             const cached = window.calendarCache.get(inp.value);
@@ -1933,17 +1991,12 @@ async function loadCalendarList() {
       });
     });
 
-    // bind once: click a name to open edit view (if you have it)
     if (!nameCol.dataset.bound) {
       nameCol.addEventListener("click", (e) => {
         const el = e.target.closest(".cal-row");
         if (!el) return;
         const cal = window.calendarCache.get(el.dataset.id);
-if (typeof openCalendarEdit === "function") {
-  openCalendarEdit(cal);
-}
-
-
+        if (typeof openCalendarEdit === "function") openCalendarEdit(cal);
       });
       nameCol.dataset.bound = "1";
     }
@@ -1960,9 +2013,9 @@ if (typeof openCalendarEdit === "function") {
 
 
 /////////////////////////////////////////////
-                //End Calendar Section 
+                //End Category Section 
                 
-//Reusable get Businesses 
+// Reusable get Businesses
 async function loadBusinessOptions(selectId) {
   const sel = document.getElementById(selectId);
   if (!sel) return;
@@ -1972,31 +2025,33 @@ async function loadBusinessOptions(selectId) {
 
   try {
     const res = await fetch(`${API_BASE}/api/records/Business?ts=${Date.now()}`, {
-  credentials: 'include',
-  cache: 'no-store'
-});
+      credentials: "include",
+      cache: "no-store",
+      headers: { Accept: "application/json" },
+    });
 
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-    const businesses = (await res.json()).filter(b => !b.deletedAt);
+    const payload = await res.json();
+    const businesses = (payload?.items || []).filter(b => !b.deletedAt);
 
     sel.innerHTML = '<option value="">-- Select --</option>';
     businesses.forEach(biz => {
-      const opt = document.createElement('option');
+      const opt = document.createElement("option");
       opt.value = biz._id;
-      opt.textContent = biz?.values?.businessName || biz?.values?.Name || '(Untitled)';
+      opt.textContent = biz?.values?.businessName || biz?.values?.Name || "(Untitled)";
       sel.appendChild(opt);
     });
 
-    // Preselect the main dropdown’s current business (if any)
     const fromMain =
-      document.getElementById('business-dropdown')?.value ||
-      sessionStorage.getItem('selectedBusinessId');
+      document.getElementById("business-dropdown")?.value ||
+      sessionStorage.getItem("selectedBusinessId");
+
     if (fromMain && sel.querySelector(`option[value="${fromMain}"]`)) {
       sel.value = fromMain;
     }
   } catch (e) {
-    console.error('loadBusinessOptions:', e);
+    console.error("loadBusinessOptions:", e);
     sel.innerHTML = '<option value="">-- Select --</option>';
   } finally {
     sel.disabled = false;
@@ -2004,7 +2059,7 @@ async function loadBusinessOptions(selectId) {
 }
 
 
-//Reusable get Calendars
+// Reusable get Calendars
 async function loadCalendarOptions(selectId, businessId) {
   const sel = document.getElementById(selectId);
   if (!sel) return;
@@ -2019,20 +2074,25 @@ async function loadCalendarOptions(selectId, businessId) {
   sel.disabled = true;
 
   try {
-const res = await fetch(`${API_BASE}/api/records/Calendar?ts=${Date.now()}`, {
-  credentials: "include",
-  cache: "no-store",
-});
+    const res = await fetch(`${API_BASE}/api/records/Calendar?ts=${Date.now()}`, {
+      credentials: "include",
+      cache: "no-store",
+      headers: { Accept: "application/json" },
+    });
 
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-   const rows = (await res.json()).filter(c =>
-  !c.deletedAt && sameBusiness(c.values || {}, businessId)
-);
+
+    const payload = await res.json();
+    const all = payload?.items || [];
+
+    const rows = all.filter(c =>
+      !c.deletedAt && sameBusiness(c.values || {}, businessId)
+    );
 
     sel.innerHTML = '<option value="">-- Select --</option>';
     rows.forEach(cal => {
-      const label = cal?.values?.calendarName ?? cal?.values?.name ?? '(Untitled)';
-      const opt = document.createElement('option');
+      const label = cal?.values?.calendarName ?? cal?.values?.name ?? "(Untitled)";
+      const opt = document.createElement("option");
       opt.value = cal._id;
       opt.textContent = label;
       sel.appendChild(opt);
@@ -2040,19 +2100,17 @@ const res = await fetch(`${API_BASE}/api/records/Calendar?ts=${Date.now()}`, {
 
     sel.disabled = rows.length === 0;
   } catch (e) {
-    console.error('loadCalendarOptions:', e);
+    console.error("loadCalendarOptions:", e);
     sel.innerHTML = '<option value="">-- Select --</option>';
     sel.disabled = true;
   }
 }
 
-//Reusable Category
-// Fill a <select> with categories for a given business + (optional) calendar
+// Reusable Category
 async function loadCategoryOptions(selectId, businessId, calendarId) {
   const sel = document.getElementById(selectId);
   if (!sel) return;
 
-  // reset base state
   sel.innerHTML = '<option value="">-- Select --</option>';
   sel.disabled = true;
 
@@ -2062,17 +2120,18 @@ async function loadCategoryOptions(selectId, businessId, calendarId) {
     const res = await fetch(`${API_BASE}/api/records/Category?ts=${Date.now()}`, {
       credentials: "include",
       cache: "no-store",
+      headers: { Accept: "application/json" },
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-    const raw = await res.json();
+    const payload = await res.json();
+    const raw = payload?.items || [];
 
     const categories = raw
       .filter(c => !c.deletedAt)
       .filter(c => {
         const v = c.values || {};
 
-        // match business
         const bid = String(
           firstDefined(
             v.businessId,
@@ -2082,7 +2141,6 @@ async function loadCategoryOptions(selectId, businessId, calendarId) {
         );
         if (bid !== String(businessId)) return false;
 
-        // optional calendar filter
         if (!calendarId) return true;
 
         const cid = String(
@@ -2097,8 +2155,6 @@ async function loadCategoryOptions(selectId, businessId, calendarId) {
 
     categories.forEach(cat => {
       const v = cat.values || {};
-
-      // 🔹 IMPORTANT: include v.Name (capital N)
       const label = firstDefined(
         v.categoryName,
         v.Name,
@@ -2126,17 +2182,17 @@ async function openCalendarEdit(cal) {
 
   editingCalendarId = cal._id;
 
-  // Make sure business dropdown exists and is filled
-  await loadCalendarBusinessOptions(); // fills #dropdown-calendar-business
+  await loadCalendarBusinessOptions();
 
-  // Prefill fields
+  const v = cal?.values || {};
   const bizSel = document.getElementById("dropdown-calendar-business");
   const nameIn = document.getElementById("popup-calendar-name-input");
 
-  if (bizSel) bizSel.value = cal?.values?.businessId || "";
-  if (nameIn) nameIn.value = cal?.values?.calendarName ?? cal?.values?.name ?? "";
+  const bizId = String(v.businessId || asId(v.Business) || "");
+  if (bizSel) bizSel.value = bizId;
 
-  // Toggle buttons & title (Edit mode)
+  if (nameIn) nameIn.value = v.calendarName ?? v.name ?? "";
+
   const saveBtn   = document.getElementById("save-calendar-button");
   const updateBtn = document.getElementById("update-calendar-button");
   const deleteBtn = document.getElementById("delete-calendar-button");
@@ -2144,12 +2200,11 @@ async function openCalendarEdit(cal) {
   if (updateBtn) updateBtn.style.display = "inline-block";
   if (deleteBtn) deleteBtn.style.display = "inline-block";
 
-  // Open popup
   if (popup)  popup.style.display = "block";
   if (overlay) overlay.style.display = "block";
   document.body.classList.add("popup-open");
 }
-window.openCalendarEdit = openCalendarEdit; // expose for any legacy callers
+window.openCalendarEdit = openCalendarEdit;
 
 // UPDATE handler (bind once inside DOMContentLoaded or here with guard)
 (function bindCalendarUpdateDeleteOnce() {
@@ -2175,36 +2230,46 @@ window.openCalendarEdit = openCalendarEdit; // expose for any legacy callers
       updateBtn.textContent = "Updating…";
 
       try {
-        const res = await fetch(`${API_BASE}/api/records/${encodeURIComponent(TYPE)}/${editingCalendarId}`, {
-          method: "PATCH",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-         body: JSON.stringify({
-  values: {
-    calendarName,
-    name: calendarName,
-    "Calendar Name": calendarName,
-    businessId,
-    Business: businessId} })
-        });
+        const res = await fetch(
+          `${API_BASE}/api/records/${encodeURIComponent(TYPE)}/${encodeURIComponent(editingCalendarId)}`,
+          {
+            method: "PATCH",
+            credentials: "include",
+            headers: { "Content-Type": "application/json", Accept: "application/json" },
+            body: JSON.stringify({
+              values: {
+                calendarName,
+                name: calendarName,
+                "Calendar Name": calendarName,
+                businessId,
+                Business: businessId,
+              },
+            }),
+          }
+        );
+
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        await res.json();
+
+        const payload = await res.json();
+        const updated = payload?.items?.[0];
+        if (!updated?._id) throw new Error("Update failed (no record returned)");
 
         alert("Calendar updated!");
-        closeAddCalendarPopup();
-        await loadCalendarList();
+        closeAddCalendarPopup?.();
+        await loadCalendarList?.();
       } catch (e) {
         console.error(e);
-        alert("Error updating calendar: " + e.message);
+        alert("Error updating calendar: " + (e?.message || e));
       } finally {
         updateBtn.disabled = false;
         updateBtn.textContent = prev;
       }
     });
+
     updateBtn.dataset.bound = "1";
   }
 
-  //Delete Calendar 
+  // ✅ Calendar DELETE handler (no response shape needed)
   if (deleteBtn && !deleteBtn.dataset.bound) {
     deleteBtn.addEventListener("click", async () => {
       if (!editingCalendarId) return;
@@ -2216,35 +2281,29 @@ window.openCalendarEdit = openCalendarEdit; // expose for any legacy callers
       deleteBtn.textContent = "Deleting…";
 
       try {
-   const res = await fetch(
-  `${API_BASE}/api/records/${encodeURIComponent(TYPE)}/${editingCalendarId}`,
-  {
-    method: "DELETE",
-    credentials: "include",
-  }
-);
+        const res = await fetch(
+          `${API_BASE}/api/records/${encodeURIComponent(TYPE)}/${encodeURIComponent(editingCalendarId)}`,
+          { method: "DELETE", credentials: "include" }
+        );
 
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
         alert("Calendar deleted.");
-        closeAddCalendarPopup();
-        await loadCalendarList();
-
-        // If your Category list depends on calendars, refresh it too (optional):
-        // await loadCategoryFilterDropdown();
-        // await loadCategoryList();
-
+        closeAddCalendarPopup?.();
+        await loadCalendarList?.();
       } catch (e) {
         console.error(e);
-        alert("Error deleting calendar: " + e.message);
+        alert("Error deleting calendar: " + (e?.message || e));
       } finally {
         deleteBtn.disabled = false;
         deleteBtn.textContent = prev;
       }
     });
+
     deleteBtn.dataset.bound = "1";
   }
 })();
+
 
 
 
@@ -2274,16 +2333,27 @@ window.openCalendarEdit = openCalendarEdit; // expose for any legacy callers
   sel.disabled = true;
 
   try {
-    const res = await fetch(`${API_BASE}/api/records/Calendar`, {
-  credentials: "include"
-});
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const calendars = (await res.json()).filter(c => {
-  const v = c?.values || {};
-  const bid = String(firstDefined(v.businessId, asId(v.Business), asId(v["Business"])) || "");
-  return bid === String(businessId);
-});
+    const res = await fetch(`${API_BASE}/api/records/Calendar?ts=${Date.now()}`, {
+      credentials: "include",
+      cache: "no-store",
+      headers: { Accept: "application/json" },
+    });
 
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+    const payload = await res.json();
+    const all = payload?.items || [];
+
+    const calendars = all.filter(c => {
+      if (c?.deletedAt) return false;
+
+      const v = c?.values || {};
+      const bid = String(
+        firstDefined(v.businessId, asId(v.Business), asId(v["Business"])) || ""
+      );
+
+      return bid === String(businessId);
+    });
 
     sel.innerHTML = '<option value="">All Calendars</option>';
     calendars.forEach(c => {
@@ -2300,6 +2370,7 @@ window.openCalendarEdit = openCalendarEdit; // expose for any legacy callers
     sel.innerHTML = '<option value="">-- Choose a Calendar --</option>';
     sel.disabled = true;
   }
+
 }
          
  //Load Category List 
@@ -2340,11 +2411,23 @@ async function loadCategoryList() {
     ]);
     if (!catRes.ok || !calRes.ok) throw new Error("Fetch failed");
 
-    const [rawCats, rawCals] = await Promise.all([catRes.json(), calRes.json()]);
+      const [catPayload, calPayload] = await Promise.all([catRes.json(), calRes.json()]);
 
-    // Hide soft-deleted; only calendars for this business
+    const rawCats = catPayload?.items || [];
+    const rawCals = calPayload?.items || [];
+
+    // Hide soft-deleted; only calendars for this business (robust match)
     const categories = rawCats.filter(c => !c.deletedAt);
-    const calendars  = rawCals.filter(c => !c.deletedAt && c?.values?.businessId === businessId);
+
+    const calendars = rawCals
+      .filter(c => !c.deletedAt)
+      .filter(c => {
+        const v = c?.values || {};
+        const bid = String(
+          firstDefined(v.businessId, asId(v.Business), asId(v["Business"])) || ""
+        );
+        return bid === String(businessId);
+      });
 
     // Map calendarId -> calendarName
     const calNameById = new Map(
@@ -2573,11 +2656,15 @@ async function openCategoryEdit(cat) {
 })
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        await res.json();
+
+        const payload = await res.json();
+        const updated = payload?.items?.[0];
+        if (!updated?._id) throw new Error("Update failed (no record returned)");
 
         alert("Category updated!");
         closeCategoryPopup();
         await loadCategoryList();
+
       } catch (e) {
         console.error(e);
         alert("Error updating category: " + e.message);
@@ -2639,15 +2726,17 @@ function formatMoney(val) {
 }        
 
 //Fill the list in Service List
+// Fill the calendar filter dropdown in Service section
 async function loadServiceFilterDropdown() {
   const wrapper = document.getElementById("service-section-calendar-dropdown-wrapper");
-  const sel     = document.getElementById("service-section-calendar-dropdown");
+  const sel = document.getElementById("service-section-calendar-dropdown");
   if (!sel) return;
 
   const bizDropdown = document.getElementById("business-dropdown");
   const businessId =
     (bizDropdown && bizDropdown.value) ||
-    sessionStorage.getItem("selectedBusinessId") || "";
+    sessionStorage.getItem("selectedBusinessId") ||
+    "";
 
   if (!businessId) {
     if (wrapper) wrapper.style.display = "none";
@@ -2661,20 +2750,32 @@ async function loadServiceFilterDropdown() {
   sel.disabled = true;
 
   try {
-const res = await fetch(`${API_BASE}/api/records/Calendar?ts=${Date.now()}`, {
-  credentials: "include",
-  cache: "no-store",
-});
+    const res = await fetch(`${API_BASE}/api/records/Calendar?ts=${Date.now()}`, {
+      credentials: "include",
+      cache: "no-store",
+      headers: { Accept: "application/json" },
+    });
 
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const calendars = (await res.json())
-      .filter(c => !c.deletedAt && c?.values?.businessId === businessId);
+
+    const payload = await res.json();
+    const raw = payload?.items || []; // ✅ new server shape
+
+    const calendars = raw.filter((c) => {
+      if (!c || c.deletedAt) return false;
+      const v = c.values || {};
+      const bid = String(
+        firstDefined(v.businessId, asId(v.Business), asId(v["Business"])) || ""
+      );
+      return bid === String(businessId);
+    });
 
     sel.innerHTML = '<option value="">All Calendars</option>';
-    calendars.forEach(c => {
-      const label = c?.values?.calendarName ?? c?.values?.name ?? "(Untitled)";
+    calendars.forEach((c) => {
+      const v = c.values || {};
+      const label = v.calendarName ?? v.Name ?? v.name ?? "(Untitled)";
       const opt = document.createElement("option");
-      opt.value = c._id;
+      opt.value = String(c._id);
       opt.textContent = label;
       sel.appendChild(opt);
     });
@@ -2686,6 +2787,7 @@ const res = await fetch(`${API_BASE}/api/records/Calendar?ts=${Date.now()}`, {
     sel.disabled = true;
   }
 }
+
 // helpers
 
 function firstDefined(...vals) {
@@ -2731,13 +2833,13 @@ async function loadServiceList() {
   const priceCol = document.getElementById("service-price-column");
   if (!nameCol || !calCol || !catCol || !priceCol) return;
 
-  // active business & calendar
   const businessId =
-    document.getElementById('business-dropdown')?.value ||
-    sessionStorage.getItem('selectedBusinessId') || '';
+    document.getElementById("business-dropdown")?.value ||
+    sessionStorage.getItem("selectedBusinessId") ||
+    "";
 
   const filterCalendarId =
-    document.getElementById('service-section-calendar-dropdown')?.value || '';
+    document.getElementById("service-section-calendar-dropdown")?.value || "";
 
   nameCol.innerHTML = "Loading…";
   calCol.innerHTML = catCol.innerHTML = priceCol.innerHTML = "";
@@ -2748,123 +2850,110 @@ async function loadServiceList() {
   }
 
   try {
-    // ✅ include filters in the actual requests
     const qs = (o) => new URLSearchParams(o).toString();
 
-const [svcRes, calRes, catRes, myId] = await Promise.all([
-  fetch(
-    `${API_BASE}/api/records/Service?${qs({
-      Business: businessId,
-      ...(filterCalendarId && { Calendar: filterCalendarId }),
-      ts: Date.now()
-    })}`,
-    { credentials: "include", cache: "no-store" }
-  ),
-  fetch(
-    `${API_BASE}/api/records/Calendar?${qs({
-      Business: businessId,
-      ts: Date.now()
-    })}`,
-    { credentials: "include", cache: "no-store" }
-  ),
-  fetch(
-    `${API_BASE}/api/records/Category?${qs({
-      Business: businessId,
-      ts: Date.now()
-    })}`,
-    { credentials: "include", cache: "no-store" }
-  ),
-  getMyId()
-]);
-
+    const [svcRes, calRes, catRes, myId] = await Promise.all([
+      fetch(
+        `${API_BASE}/api/records/Service?ts=${Date.now()}`,
+        { credentials: "include", cache: "no-store", headers: { Accept: "application/json" } }
+      ),
+      fetch(
+        `${API_BASE}/api/records/Calendar?ts=${Date.now()}`,
+        { credentials: "include", cache: "no-store", headers: { Accept: "application/json" } }
+      ),
+      fetch(
+        `${API_BASE}/api/records/Category?ts=${Date.now()}`,
+        { credentials: "include", cache: "no-store", headers: { Accept: "application/json" } }
+      ),
+      getMyId(),
+    ]);
 
     if (!svcRes.ok || !calRes.ok || !catRes.ok) throw new Error("Fetch failed");
 
-    const [rawServices, rawCalendars, rawCategories] = await Promise.all([
-      svcRes.json(), calRes.json(), catRes.json()
+    const [svcPayload, calPayload, catPayload] = await Promise.all([
+      svcRes.json(),
+      calRes.json(),
+      catRes.json(),
     ]);
 
-    // normalize records -> {_id, values}
+    // ✅ new server shape
+    const rawServices   = svcPayload?.items || [];
+    const rawCalendars  = calPayload?.items || [];
+    const rawCategories = catPayload?.items || [];
+
     const normalize = (r) => ({
-  _id: String(r._id),
-  values: r.values || {},
-  createdBy: r.createdBy ? String(r.createdBy) : ""
-});
+      _id: String(r._id),
+      values: r.values || {},
+      createdBy: r.createdBy ? String(r.createdBy) : "",
+      deletedAt: r.deletedAt || null,
+    });
 
-    const calendars  = rawCalendars.map(normalize)
-      .filter(c => {
-        // keep only calendars for this business (any shape)
+    const calendars = rawCalendars
+      .map(normalize)
+      .filter((c) => !c.deletedAt)
+      .filter((c) => {
         const bid = firstDefined(
           c.values.businessId,
           asId(c.values.Business),
-          asId(c.values['Business'])
+          asId(c.values["Business"])
         );
         return String(bid) === String(businessId);
       });
 
-    const categories = rawCategories.map(normalize)
-      .filter(c => {
+    const categories = rawCategories
+      .map(normalize)
+      .filter((c) => !c.deletedAt)
+      .filter((c) => {
         const bid = firstDefined(
           c.values.businessId,
           asId(c.values.Business),
-          asId(c.values['Business'])
+          asId(c.values["Business"])
         );
         return String(bid) === String(businessId);
       });
 
-    // quick lookup maps
-const calNameById = new Map(
-  calendars.map(c => [
-    String(c._id),
-    firstDefined(
-      c.values.calendarName,
-      c.values.Name,      // just in case
-      c.values.name,
-      "(Untitled)"
-    )
-  ])
-);
-
-const catNameById = new Map(
-  categories.map(c => [
-    String(c._id),
-    firstDefined(
-      c.values.categoryName,
-      c.values.Name,      // 👈 added this
-      c.values.name,
-      "(Untitled)"
-    )
-  ])
-);
-
-
-    // normalize & filter services robustly
-   const services = rawServices.map(normalize).filter(s => {
-  // OPTIONAL: you can delete this whole ownership check,
-  // the server already scopes results to the logged-in user unless admin.
-  if (myId && s.createdBy && s.createdBy !== String(myId)) return false;
-
-  const bid = firstDefined(
-    s.values.businessId,
-    asId(s.values.Business),
-    asId(s.values['Business'])
-  );
-  if (String(bid) !== String(businessId)) return false;
-
-  if (filterCalendarId) {
-    const cid = firstDefined(
-      s.values.calendarId,
-      asId(s.values.Calendar),
-      asId(s.values['Calendar']),
-      s.values.CalendarId
+    const calNameById = new Map(
+      calendars.map((c) => [
+        String(c._id),
+        firstDefined(c.values.calendarName, c.values.Name, c.values.name, "(Untitled)"),
+      ])
     );
-    if (String(cid) !== String(filterCalendarId)) return false;
-  }
-  return true;
-});
 
-    // render
+    const catNameById = new Map(
+      categories.map((c) => [
+        String(c._id),
+        firstDefined(c.values.categoryName, c.values.Name, c.values.name, "(Untitled)"),
+      ])
+    );
+
+    const services = rawServices
+      .map(normalize)
+      .filter((s) => !s.deletedAt)
+      .filter((s) => {
+        // OPTIONAL: can remove this; server already scopes most users
+        if (myId && s.createdBy && s.createdBy !== String(myId)) return false;
+
+        const bid = firstDefined(
+          s.values.businessId,
+          asId(s.values.Business),
+          asId(s.values["Business"])
+        );
+        if (String(bid) !== String(businessId)) return false;
+
+        if (filterCalendarId) {
+          const cid = firstDefined(
+            s.values.calendarId,
+            asId(s.values.Calendar),
+            asId(s.values["Calendar"]),
+            s.values.CalendarId
+          );
+          if (String(cid) !== String(filterCalendarId)) return false;
+        }
+        return true;
+      });
+
     nameCol.innerHTML = calCol.innerHTML = catCol.innerHTML = priceCol.innerHTML = "";
+    if (!window.serviceCache) window.serviceCache = new Map();
     window.serviceCache.clear();
 
     if (!services.length) {
@@ -2872,7 +2961,7 @@ const catNameById = new Map(
       return;
     }
 
-    services.forEach(svc => {
+    services.forEach((svc) => {
       window.serviceCache.set(svc._id, svc);
 
       const svcName = firstDefined(
@@ -2884,7 +2973,7 @@ const catNameById = new Map(
       const cid = firstDefined(
         svc.values.calendarId,
         asId(svc.values.Calendar),
-        asId(svc.values['Calendar']),
+        asId(svc.values["Calendar"]),
         svc.values.CalendarId
       );
       const calName = calNameById.get(String(cid)) || "(Unknown)";
@@ -2892,7 +2981,7 @@ const catNameById = new Map(
       const catId = firstDefined(
         svc.values.categoryId,
         asId(svc.values.Category),
-        asId(svc.values['Category'])
+        asId(svc.values["Category"])
       );
       const catName = catNameById.get(String(catId)) || "(Unassigned)";
 
@@ -2905,7 +2994,6 @@ const catNameById = new Map(
       );
       const price = rawPrice !== undefined ? formatMoney(rawPrice) : "";
 
-      // Name cell (clickable)
       const n = document.createElement("div");
       n.className = "service-row";
       n.dataset.id = svc._id;
@@ -2926,7 +3014,6 @@ const catNameById = new Map(
       priceCol.appendChild(p);
     });
 
-    // one-time delegated click -> edit
     if (!nameCol.dataset.bound) {
       nameCol.addEventListener("click", (e) => {
         const row = e.target.closest(".service-row");
@@ -2947,6 +3034,11 @@ const catNameById = new Map(
   const updateBtn = document.getElementById("update-service-button");
   const deleteBtn = document.getElementById("delete-service-button");
 
+  //Update Service 
+(function bindServiceUpdateDeleteOnce() {
+  const updateBtn = document.getElementById("update-service-button");
+  const deleteBtn = document.getElementById("delete-service-button");
+
   // UPDATE
   if (updateBtn && !updateBtn.dataset.bound) {
     updateBtn.addEventListener("click", async () => {
@@ -2962,42 +3054,49 @@ const catNameById = new Map(
       const visChk  = document.getElementById("popup-service-visible-toggle");
       const fileIn  = document.getElementById("popup-service-image-input");
 
-      const businessId = bizSel?.value || "";
-      const calendarId = calSel?.value || "";
-      const categoryId = catSel?.value || "";
-      const serviceName = nameIn?.value.trim() || "";
-      const price = priceIn?.value ?? "";
-      const durationMinutes = durSel?.value || "";
+      const businessId       = bizSel?.value || "";
+      const calendarId       = calSel?.value || "";
+      const categoryId       = catSel?.value || "";
+      const serviceName      = nameIn?.value.trim() || "";
+      const priceRaw         = priceIn?.value ?? "";
+      const durationMinutes  = durSel?.value || "";
 
-      if (!businessId)   return alert("Please choose a business.");
-      if (!calendarId)   return alert("Please choose a calendar.");
-      if (!categoryId)   return alert("Please choose a category.");
-      if (!serviceName)  return alert("Please enter a service name.");
-      if (!price)        return alert("Please enter a price.");
+      if (!businessId) return alert("Please choose a business.");
+      if (!calendarId) return alert("Please choose a calendar.");
+      if (!categoryId) return alert("Please choose a category.");
+      if (!serviceName) return alert("Please enter a service name.");
+      if (!priceRaw) return alert("Please enter a price.");
       if (!durationMinutes) return alert("Please choose a duration.");
 
       updateBtn.disabled = true;
-      const prev = updateBtn.textContent;
+      const prev = updateBtn.textContent || "Update";
       updateBtn.textContent = "Updating…";
 
       try {
         // optional image upload if a new file is chosen
         let imageUrlToSet = undefined;
         const file = fileIn?.files?.[0];
+
         if (file) {
           const fd = new FormData();
           fd.append("file", file);
-         const up = await fetch(`${API_BASE}/api/upload`, {
-  method: "POST",
-  credentials: "include",
-  body: fd
-});
+
+          const up = await fetch(`${API_BASE}/api/upload`, {
+            method: "POST",
+            credentials: "include",
+            body: fd,
+          });
 
           if (!up.ok) {
             let msg = `HTTP ${up.status}`;
-            try { const j = await up.json(); if (j?.error) msg += ` - ${j.error}`; } catch {}
+            try {
+              const j = await up.json();
+              if (j?.error) msg += ` - ${j.error}`;
+              if (j?.message) msg += ` - ${j.message}`;
+            } catch {}
             throw new Error(`Image upload failed: ${msg}`);
           }
+
           const j = await up.json();
           imageUrlToSet = j?.url || "";
         }
@@ -3008,76 +3107,112 @@ const catNameById = new Map(
           calendarId,
           categoryId,
           serviceName,
-          price: parseFloat(price),
+          price: Number(priceRaw),
           description: descIn?.value.trim() || "",
           durationMinutes: parseInt(durationMinutes, 10),
-          visible: !!(visChk && visChk.checked)
+          visible: !!(visChk && visChk.checked),
         };
+
         if (imageUrlToSet !== undefined) values.imageUrl = imageUrlToSet;
 
         const TYPE = "Service";
-      const res = await fetch(`${API_BASE}/api/records/${encodeURIComponent(TYPE)}/${editingServiceId}`, {
+        const res = await fetch(
+          `${API_BASE}/api/records/${encodeURIComponent(TYPE)}/${encodeURIComponent(editingServiceId)}`,
+          {
+            method: "PATCH",
+            credentials: "include",
+            headers: { "Content-Type": "application/json", Accept: "application/json" },
+            body: JSON.stringify({ values }),
+          }
+        );
 
-          method: "PATCH",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ values })
-        });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        await res.json();
+
+        const payload = await res.json();
+        const updated = payload?.items?.[0]; // ✅ new server shape
+        if (!updated?._id) throw new Error("Update failed (no record returned)");
 
         alert("Service updated!");
-        closeAddServicePopup();
-      await loadServiceFilterDropdown();
-await loadServiceList();
+        closeAddServicePopup?.();
 
-if (typeof loadBusinessList === "function") {
-  await loadBusinessList();
-}
+        await loadServiceFilterDropdown?.();
+        await loadServiceList?.();
 
+        if (typeof loadBusinessList === "function") {
+          await loadBusinessList();
+        }
       } catch (e) {
         console.error(e);
-        alert("Error updating service: " + e.message);
+        alert("Error updating service: " + (e?.message || e));
       } finally {
         updateBtn.disabled = false;
         updateBtn.textContent = prev;
       }
     });
+
     updateBtn.dataset.bound = "1";
   }
 
-  // DELETE Service
-  if (deleteBtn && !deleteBtn.dataset.bound) {
-    deleteBtn.addEventListener("click", async () => {
-      if (!editingServiceId) return;
-      if (!confirm("Delete this service? This cannot be undone.")) return;
+  // (delete block will go here — send it and I’ll update it too)
+})();
 
-      deleteBtn.disabled = true;
-      const prev = deleteBtn.textContent;
-      deleteBtn.textContent = "Deleting…";
 
-      try {
-        const TYPE = "Service";
-        const res = await fetch(`${API_BASE}/api/records/${encodeURIComponent(TYPE)}/${editingServiceId}`, {
+// DELETE Service
+if (deleteBtn && !deleteBtn.dataset.bound) {
+  deleteBtn.addEventListener("click", async () => {
+    if (!editingServiceId) return;
+    if (!confirm("Delete this service? This cannot be undone.")) return;
+
+    deleteBtn.disabled = true;
+    const prev = deleteBtn.textContent || "Delete";
+    deleteBtn.textContent = "Deleting…";
+
+    try {
+      const TYPE = "Service";
+      const res = await fetch(
+        `${API_BASE}/api/records/${encodeURIComponent(TYPE)}/${encodeURIComponent(editingServiceId)}`,
+        {
           method: "DELETE",
-          credentials: "include"
-        });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          credentials: "include",
+          headers: { Accept: "application/json" },
+        }
+      );
 
-        alert("Service deleted.");
-        closeAddServicePopup();
-        await loadServiceFilterDropdown();
-        await loadServiceList();
-      } catch (e) {
-        console.error(e);
-        alert("Error deleting service: " + e.message);
-      } finally {
-        deleteBtn.disabled = false;
-        deleteBtn.textContent = prev;
+      if (!res.ok) {
+        let msg = `HTTP ${res.status}`;
+        try {
+          const err = await res.json();
+          if (err?.error) msg += ` - ${err.error}`;
+          if (err?.message) msg += ` - ${err.message}`;
+        } catch {}
+        throw new Error(msg);
       }
-    });
-    deleteBtn.dataset.bound = "1";
-  }
+
+      // server may return { ok: true } (shape doesn’t matter here)
+      // await res.json().catch(() => null);
+
+      alert("Service deleted.");
+      closeAddServicePopup?.();
+
+      await loadServiceFilterDropdown?.();
+      await loadServiceList?.();
+
+      // keep counts fresh if you show "# services" per business
+      if (typeof loadBusinessList === "function") {
+        await loadBusinessList();
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Error deleting service: " + (e?.message || e));
+    } finally {
+      deleteBtn.disabled = false;
+      deleteBtn.textContent = prev;
+    }
+  });
+
+  deleteBtn.dataset.bound = "1";
+}
+
 })();
 
 document.addEventListener("DOMContentLoaded", () => {

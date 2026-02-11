@@ -4,6 +4,14 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Suite Seat — Admin</title>
+ <!-- 
+git status
+git add .
+git commit -m "Deploy: latest changes"
+git push
+-->
+
+
 
   <!-- Your stylesheet -->
  <link rel="stylesheet" href="/qassets/css/admin.css">
@@ -45,7 +53,63 @@ git push
     <div class="tab" data-tab="4" id="tab4">Option Sets</div>
     <div class="tab" data-tab="3" id="tab3">Users</div>
   <div class="tab" data-tab="5" id="tab5">Businesses</div>
+  <div class="tab" data-tab="6" id="tab6">Themes</div>
+
+  
   </div>
+
+  <!-- 🔹 Tab 6: Themes -->
+<div class="content" data-content="6" id="content6">
+  <h2>Themes</h2>
+
+  <p style="margin-bottom:8px;">
+    Create themes you (admin) provide. Users will only select themes later.
+  </p>
+
+  <form id="theme-create-form" style="display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end;">
+    <div>
+      <label for="theme-name">Name</label>
+      <input type="text" id="theme-name" placeholder="e.g., Basic" required />
+    </div>
+
+    <div>
+      <label for="theme-key">Template Key</label>
+      <input type="text" id="theme-key" placeholder="e.g., basic" required />
+    </div>
+
+    <div>
+      <label for="theme-preview">Preview Image URL (optional)</label>
+      <input type="text" id="theme-preview" placeholder="https://..." />
+    </div>
+
+    <button type="submit">Create Theme</button>
+  </form>
+
+  <table id="themes-table" style="width:100%; border-collapse:collapse; margin-top:12px;">
+    <thead>
+      <tr>
+        <th style="width:25%;">Name</th>
+        <th style="width:20%;">Template Key</th>
+        <th style="width:35%;">Preview</th>
+        <th style="width:20%; text-align:right;">Actions</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
 
   <!-- Panels -->
   <div class="tab-content">
@@ -307,7 +371,13 @@ git push
   </div>
 </div>
 
+</div>
 
+
+
+
+
+                             <!-- Themes Section  -->
 
       <script src="/qassets/js/admin.js"></script>
 </body>

@@ -18,7 +18,8 @@ export function BasicFlowProvider({ apiOrigin, store, children }: any){
     const r = await fetch(`${apiOrigin}/api/store/checkout-intent`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ storeId: store?.id, items })
+     body: JSON.stringify({ storeId: store?._id || store?.id, items })
+
     });
     const json = await r.json();
     if (!json?.clientSecret) { alert("Checkout init failed"); return; }

@@ -653,13 +653,15 @@ document.querySelectorAll('#calendar-sidebar .calendarOptions').forEach(tile => 
 
   //
 //Show times on calendar for Upcoming Hours 
-document.getElementById("dropdown-availability-calendar")?.addEventListener("change", () => {
-  loadAndGenerateCalendar();
+document.getElementById("dropdown-availability-calendar")?.addEventListener("change", (e) => {
+  console.log("[avail] calendar selected:", e.target.value);
+  window.loadAndGenerateCalendar?.();
 });
 
 document.getElementById("dropdown-category-business")?.addEventListener("change", () => {
-  loadAndGenerateCalendar();
+  window.loadAndGenerateCalendar?.();
 });
+
 
 
 //Reusable Show Times in dropdowns 
@@ -768,32 +770,151 @@ const end   = v['End']   || v['End Time']   || '';
   let viewYear  = today.getFullYear();
   let viewMonth = today.getMonth();
 
-  async function loadAndGenerateCalendar(){
-    const businessId = document.getElementById('dropdown-category-business')?.value || '';
-    const calendarId = document.getElementById('dropdown-availability-calendar')?.value || '';
+async function loadAndGenerateCalendar() {
+  console.log("[avail] REAL loader running ✅", {
+    biz: document.getElementById("dropdown-category-business")?.value,
+    cal: document.getElementById("dropdown-availability-calendar")?.value,
+  });
 
-    // visible month range
-    const start = new Date(viewYear, viewMonth, 1);
-    const end   = new Date(viewYear, viewMonth + 1, 0);
+  const businessId =
+    document.getElementById("dropdown-category-business")?.value || "";
+  const calendarId =
+    document.getElementById("dropdown-availability-calendar")?.value || "";
+  console.log("[avail] loadAndGenerateCalendar", {
+    businessId,
+    calendarId,
+    viewYear,
+    viewMonth,
+  });
 
-    const where = { Date: { $gte: toYMD(start), $lte: toYMD(end) } };
-    if (businessId) where['Business'] = businessId;
-    if (calendarId) where['Calendar'] = calendarId;
+  // visible month range
+  const start = new Date(viewYear, viewMonth, 1);
+  const end = new Date(viewYear, viewMonth + 1, 0);
 
-    let savedMap = {};
-    try{
-      const url = `${API(TYPE_UPCOMING)}?where=${encodeURIComponent(JSON.stringify(where))}&limit=500&sort=-updatedAt&ts=${Date.now()}`;
+  // IMPORTANT: match the popup query (values fields, not values.Date)
+  const where = { Date: { $gte: toYMD(start), $lte: toYMD(end) } };
+  if (businessId) where.Business = businessId;
+  if (calendarId) where.Calendar = calendarId;
 
-      const res = await fetch(url, { credentials:'include', cache:'no-store' });
-      const rows = await res.json().catch(()=>[]);
-      if (res.ok && Array.isArray(rows)) savedMap = rowsToSavedHoursMap(rows);
-    }catch(e){ console.error('Load upcoming hours failed', e); }
+  // ✅ Use the SAME endpoint the popup uses
+  const url =
+    `${API_ORIGIN}/public/records` +
+    `?dataType=${encodeURIComponent(TYPE_UPCOMING)}` +
+    `&where=${encodeURIComponent(JSON.stringify(where))}` +
+    `&limit=500&sort=-updatedAt&ts=${Date.now()}`;
 
-   renderMonth(viewYear, viewMonth, savedMap);
-   setRelativeMonthBadge(viewYear, viewMonth);
+  console.log("[avail] request url:", url);
+  console.log("[avail] request where:", where);
+
+  let savedMap = {};
+
+  try {
+    const res = await fetch(url, { credentials: "include", cache: "no-store" });
+
+    console.log("[avail] response status:", res.status);
+
+    const rawText = await res.text().catch(() => "");
+    console.log("[avail] raw response (preview):", rawText.slice(0, 1500));
+
+    if (!res.ok) {
+      throw new Error(
+        `HTTP ${res.status} ${res.statusText} — ${rawText.slice(0, 200)}`
+      );
+    }
+
+    let payload = null;
+    try {
+      payload = rawText ? JSON.parse(rawText) : null;
+    } catch (e) {
+      console.error("[avail] JSON parse failed:", e);
+      payload = null;
+    }
+
+// public/records usually returns { items: [...] } but handle all shapes
+const rows = Array.isArray(payload)
+  ? payload
+  : (payload?.items || payload?.records || payload?.data || []);
+
+// ✅ Selected filters
+const selectedBizId =
+  document.getElementById("dropdown-category-business")?.value || "";
+const selectedCalId =
+  document.getElementById("dropdown-availability-calendar")?.value || "";
+
+// ✅ If no biz selected, show nothing
+if (!selectedBizId) {
+  window.upcomingHoursMap = {};
+  renderMonth(viewYear, viewMonth, {});
+  setRelativeMonthBadge(viewYear, viewMonth);
+  return;
+}
+
+// ✅ Filter by Business + (optional) Calendar
+const filteredRows = rows.filter((r) => {
+  const v = r.values || r || {};
+
+  const b = v.Business || v.businessId || v.business || "";
+  const c = v.Calendar || v.calendarId || v.calendar || "";
+
+  if (String(b) !== String(selectedBizId)) return false;
+  if (selectedCalId && String(c) !== String(selectedCalId)) return false;
+
+  return true;
+});
+
+console.log("[avail] rows raw:", rows.length);
+console.log("[avail] rows filtered:", filteredRows.length, {
+  selectedBizId,
+  selectedCalId,
+});
+
+// ✅ Build map ONLY from filteredRows
+savedMap = rowsToSavedHoursMap(filteredRows);
+window.upcomingHoursMap = savedMap;
 
 
+
+
+
+
+    // 🔥 easiest way to SEE what’s actually in the records:
+    if (rows.length) {
+      console.table(
+        rows.slice(0, 15).map((r) => {
+          const v = r.values || {};
+          return {
+            id: r._id,
+            Date: v.Date || v.dateKey || v.date,
+            Calendar: v.Calendar,
+            Business: v.Business,
+            Start: v.Start || v["Start Time"],
+            End: v.End || v["End Time"],
+            isAvailable: v["is Available"],
+          };
+        })
+      );
+    }
+
+ 
+  } catch (e) {
+    console.error("[avail] Load upcoming hours failed:", e);
   }
+
+  console.log(
+    "[avail] savedMap sample entries:",
+    Object.entries(savedMap).slice(0, 10)
+  );
+
+  renderMonth(viewYear, viewMonth, savedMap);
+  setRelativeMonthBadge(viewYear, viewMonth);
+}
+
+
+const calName =
+  document.querySelector("#dropdown-availability-calendar option:checked")?.textContent || "(no calendar)";
+const bizName =
+  document.querySelector("#dropdown-category-business option:checked")?.textContent || "(no business)";
+console.log(`[avail] rendering for: ${bizName} / ${calName}`);
 
   function renderMonth(year, month, saved = {}){
     // title
@@ -907,21 +1028,43 @@ function openAvailabilityModal() {
   document.body.classList.add('popup-open');
 }
 
+// ---- Modal close helper (safe) ----
 function closeAvailabilityModal() {
+  const popupEl = document.getElementById("availability-popup");
+  const popupOverlayEl = document.getElementById("popup-overlay");
+
   if (!popupEl || !popupOverlayEl) return;
-  popupEl.style.display = 'none';
-  popupOverlayEl.classList.remove('show');
-  document.body.classList.remove('popup-open');
+
+  popupEl.style.display = "none";
+  popupOverlayEl.classList.remove("show");
+  document.body.classList.remove("popup-open");
 }
 
-// close with the “×”
-document.getElementById('popup-close')?.addEventListener('click', closeAvailabilityModal);
-// close by clicking the grey background
-popupOverlayEl?.addEventListener('click', closeAvailabilityModal);
-// close with Escape
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && popupEl?.style.display === 'block') closeAvailabilityModal();
-});
+// ---- Bind close actions ONCE ----
+(function bindAvailabilityModalCloseOnce() {
+  const closeBtn = document.getElementById("popup-close");
+  const overlayEl = document.getElementById("popup-overlay");
+
+  if (closeBtn && !closeBtn.dataset.bound) {
+    closeBtn.addEventListener("click", () => window.closeAvailabilityModal());
+    closeBtn.dataset.bound = "1";
+  }
+
+  if (overlayEl && !overlayEl.dataset.boundAvailClose) {
+    overlayEl.addEventListener("click", () => window.closeAvailabilityModal());
+    overlayEl.dataset.boundAvailClose = "1";
+  }
+
+  if (!document.body.dataset.availEscBound) {
+    document.addEventListener("keydown", (e) => {
+      const popupEl = document.getElementById("availability-popup");
+      if (e.key === "Escape" && popupEl?.style.display === "block") {
+        window.closeAvailabilityModal();
+      }
+    });
+    document.body.dataset.availEscBound = "1";
+  }
+})();
 
 
 
@@ -1123,73 +1266,77 @@ function normalizeSort(dt, sortObj) {
 // Fill a <select> with the user's (non-deleted) Businesses
 async function loadBusinessOptions(selectId, {
   defaultId  = null,
-  remember   = true,
   placeholder= '-- Select --'
 } = {}) {
   const sel = document.getElementById(selectId);
-  if (!sel) {
-    console.warn('[biz] no select found with id', selectId);
-    return;
-  }
-
-  console.log('[biz] loading options into', selectId);
+  if (!sel) return;
 
   sel.innerHTML = `<option value="">${placeholder}</option>`;
   sel.disabled = true;
 
   try {
     const res = await fetch(`${API_ORIGIN}/api/records/Business?ts=${Date.now()}`, {
-      credentials: 'include',
-      cache: 'no-store'
+      credentials: "include",
+      cache: "no-store",
+      headers: { Accept: "application/json" },
     });
-    console.log('[biz] response status', res.status);
 
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    // ✅ show the real reason in console if it fails
+    if (!res.ok) {
+      const t = await res.text().catch(() => "");
+      console.warn("[biz] load failed", res.status, t.slice(0, 200));
+      throw new Error(`HTTP ${res.status}`);
+    }
 
-    const raw = await res.json();
-    console.log('[biz] raw response:', raw);
+    const payload = await res.json().catch(() => ({}));
 
-    const businesses = (raw || [])
-      .filter(b => !b.deletedAt)
-      .sort((a,b) =>
-        (a?.values?.businessName || a?.values?.Name || '').localeCompare(
-          b?.values?.businessName || b?.values?.Name || ''
-        )
-      );
+    // ✅ handle ALL shapes: array OR {items} OR {records}
+    const rows = Array.isArray(payload)
+      ? payload
+      : (payload?.items || payload?.records || payload?.data || []);
 
-    console.log('[biz] businesses after filter/sort:', businesses.length, businesses);
+    const businesses = (rows || [])
+      .filter(b => !b?.deletedAt)
+      .sort((a, b) => {
+        const an = a?.values?.businessName || a?.values?.Name || "";
+        const bn = b?.values?.businessName || b?.values?.Name || "";
+        return String(an).localeCompare(String(bn));
+      });
 
+    // rebuild options
     sel.innerHTML = `<option value="">${placeholder}</option>`;
     for (const biz of businesses) {
-      const label = biz?.values?.businessName ?? biz?.values?.Name ?? '(Untitled)';
-      const opt = document.createElement('option');
+      const label = biz?.values?.businessName ?? biz?.values?.Name ?? "(Untitled)";
+      const opt = document.createElement("option");
       opt.value = biz._id;
       opt.textContent = label;
       sel.appendChild(opt);
     }
-  } catch (e) {
-    console.error('loadBusinessOptions error:', e);
-    sel.innerHTML = `<option value="">${placeholder}</option>`;
-  } finally {
-    // ⬇️ NEW: preselect saved or default business if we have one
+
+    // ✅ apply default selection
     if (defaultId && sel.querySelector(`option[value="${defaultId}"]`)) {
       sel.value = defaultId;
     }
+  } catch (e) {
+    console.error("[biz] loadBusinessOptions error:", e);
+    sel.innerHTML = `<option value="">${placeholder}</option>`;
+  } finally {
     sel.disabled = false;
   }
 }
 
 
 // Fill a <select> with (non-deleted) Calendars for a Business
-async function loadCalendarOptions(
-  selectId,
-  businessId,
-  {
-    placeholder = '-- Select --',
-    defaultId   = null,
-    rememberKey = null
-  } = {}
-) {
+function refId(v) {
+  if (!v) return "";
+  if (typeof v === "string") return v;
+  if (typeof v === "object") return v._id || v.id || v.value || "";
+  return "";
+}
+async function loadCalendarOptions(selectId, businessId, {
+  placeholder = "-- Select --",
+  defaultId   = null
+} = {}) {
   const sel = document.getElementById(selectId);
   if (!sel) return;
 
@@ -1199,54 +1346,63 @@ async function loadCalendarOptions(
     return;
   }
 
-  sel.innerHTML = '<option value="">Loading…</option>';
+  sel.innerHTML = `<option value="">Loading…</option>`;
   sel.disabled = true;
 
   try {
-const res = await fetch(`${API_ORIGIN}/api/records/Calendar?ts=${Date.now()}`, {
-  credentials: 'include',
-  cache: 'no-store'
-});
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const res = await fetch(`${API_ORIGIN}/api/records/Calendar?ts=${Date.now()}`, {
+      credentials: "include",
+      cache: "no-store",
+      headers: { Accept: "application/json" },
+    });
 
-const rows = (await res.json())
-  .filter(c => {
-    if (c.deletedAt) return false;
+    if (!res.ok) {
+      const t = await res.text().catch(() => "");
+      console.warn("[cal] load failed", res.status, t.slice(0, 200));
+      throw new Error(`HTTP ${res.status}`);
+    }
 
-    const v = c.values || {};
-    // Try several possible field names
-    const calBizId =
-      v.businessId ||
-      v.Business ||
-      v.business ||
-      v['Business Id'] ||
-      v['business id'];
+    const payload = await res.json().catch(() => ({}));
 
-    return String(calBizId) === String(businessId);
-  })
-  .sort((a, b) =>
-    (a?.values?.calendarName || a?.values?.name || '').localeCompare(
-      b?.values?.calendarName || b?.values?.name || ''
-    )
-  );
+    const all = Array.isArray(payload)
+      ? payload
+      : (payload?.items || payload?.records || payload?.data || []);
 
+    const rows = all
+      .filter(c => !c?.deletedAt)
+      .filter(c => {
+        const v = c.values || {};
+        const calBizId =
+          refId(v.businessId) ||
+          refId(v.Business) ||
+          refId(v.business) ||
+          refId(v["Business Id"]) ||
+          refId(v["business id"]);
+
+        return String(calBizId) === String(businessId);
+      })
+      .sort((a, b) => {
+        const an = a?.values?.calendarName || a?.values?.name || "";
+        const bn = b?.values?.calendarName || b?.values?.name || "";
+        return String(an).localeCompare(String(bn));
+      });
 
     sel.innerHTML = `<option value="">${placeholder}</option>`;
     for (const cal of rows) {
-      const label = cal?.values?.calendarName ?? cal?.values?.name ?? '(Untitled)';
-      const opt = document.createElement('option');
+      const label = cal?.values?.calendarName ?? cal?.values?.name ?? "(Untitled)";
+      const opt = document.createElement("option");
       opt.value = cal._id;
       opt.textContent = label;
       sel.appendChild(opt);
     }
 
-    const remembered = rememberKey ? (sessionStorage.getItem(rememberKey) || '') : '';
-    const want = defaultId || remembered;
-    if (want && sel.querySelector(`option[value="${want}"]`)) sel.value = want;
+    if (defaultId && sel.querySelector(`option[value="${defaultId}"]`)) {
+      sel.value = defaultId;
+    }
 
     sel.disabled = rows.length === 0;
   } catch (e) {
-    console.error('loadCalendarOptions:', e);
+    console.error("[cal] loadCalendarOptions error:", e);
     sel.innerHTML = `<option value="">${placeholder}</option>`;
     sel.disabled = true;
   }
@@ -1283,6 +1439,27 @@ function timeStrToMinutes(s) {
   return NaN;
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 //Upcoming Hours Section
 
 /* =======================
@@ -1290,6 +1467,15 @@ function timeStrToMinutes(s) {
    ======================= */
 
 /* Close Upcoming Hours popup */
+// ✅ GLOBAL modal close (must be top-level, not inside DOMContentLoaded)
+window.closeAvailabilityModal = function closeAvailabilityModal() {
+  const popupEl = document.getElementById("availability-popup");
+  const overlayEl = document.getElementById("popup-overlay");
+
+  if (popupEl) popupEl.style.display = "none";
+  if (overlayEl) overlayEl.classList.remove("show");
+  document.body.classList.remove("popup-open");
+};
 
  
 /* ---------- helpers you already had ---------- */
@@ -1362,10 +1548,15 @@ async function listUpcomingHours(where, limit = 500) {
     + `?dataType=${encodeURIComponent('Upcoming Hours')}`
     + `&where=${encodeURIComponent(JSON.stringify(where))}`
     + `&limit=${limit}&sort=-updatedAt&ts=${Date.now()}`;
+
   const res = await fetch(url, { credentials: 'include', cache: 'no-store' });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.json();
+
+  const data = await res.json();
+  const rows = Array.isArray(data) ? data : (data.items || data.records || []);
+  return rows; // 👈 return rows, not the raw payload
 }
+
 
 // CREATE one row
 async function createUpcomingHours(values) {
@@ -1423,48 +1614,64 @@ async function openAvailabilityPopup(dateOrYear, month, day) {
 
   popup.setAttribute("data-date", ymd);
   dateLabel.textContent = jsDate.toLocaleDateString(undefined, {
-    weekday: "long", month: "long", day: "numeric", year: "numeric"
+    weekday: "long", month: "long", day: "numeric", year: "numeric",
   });
 
-  const businessId = document.getElementById("dropdown-category-business")?.value || "";
-  const calendarId = document.getElementById("dropdown-availability-calendar")?.value || "";
+  // ✅ Selected Business + Calendar
+  const businessId =
+    document.getElementById("dropdown-category-business")?.value || "";
+  const calendarId =
+    document.getElementById("dropdown-availability-calendar")?.value || "";
+
+  console.log("[availability popup] businessId:", businessId);
+  console.log("[availability popup] calendarId:", calendarId);
+  console.log("[availability popup] date:", ymd);
+
+  // ✅ Fix: was checking businessId but you had selectedBusinessId before
   if (!businessId || !calendarId) {
     alert("Please select a business and calendar first.");
     return;
   }
 
   // 1) Build the selects first
-  populateTimeSelect24('current-day-start');
-  populateTimeSelect24('current-day-end');
-  setTimeSelect('current-day-start', '');
-  setTimeSelect('current-day-end', '');
+  populateTimeSelect24("current-day-start");
+  populateTimeSelect24("current-day-end");
+  setTimeSelect("current-day-start", "");
+  setTimeSelect("current-day-end", "");
 
   // 2) Fetch existing values and preselect
   try {
-const where = encodeURIComponent(JSON.stringify({ "Calendar": calendarId, "Date": ymd }));
+    // ✅ Query by Business + Calendar + Date
+    const where = encodeURIComponent(
+      JSON.stringify({ Business: businessId, Calendar: calendarId, Date: ymd })
+    );
 
-const url =
-  `${API_ORIGIN}/public/records` +
-  `?dataType=${encodeURIComponent('Upcoming Hours')}` +
-  `&where=${where}` +
-  `&limit=1&ts=${Date.now()}`;
+    const url =
+      `${API_ORIGIN}/public/records` +
+      `?dataType=${encodeURIComponent("Upcoming Hours")}` +
+      `&where=${where}` +
+      `&limit=1&ts=${Date.now()}`;
 
-const res = await fetch(url, {
-  credentials: 'include',
-  cache: 'no-store'
-});
+    const res = await fetch(url, {
+      credentials: "include",
+      cache: "no-store",
+    });
 
-  
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const items = await res.json();
-    const row = Array.isArray(items) ? items[0] : null;
+
+    const payload = await res.json().catch(() => ({}));
+    const items = Array.isArray(payload)
+      ? payload
+      : (payload?.items || payload?.records || payload?.data || []);
+
+    const row = items[0] || null;
 
     if (row?.values) {
       const v = row.values;
-      // These can be "HH:MM" or "h:mm AM/PM" – setTimeSelect normalizes for you
-  setTimeSelect('current-day-start', v.Start || v['Start Time'] || '');
-setTimeSelect('current-day-end',   v.End   || v['End Time']   || '');
 
+      // These can be "HH:MM" or "h:mm AM/PM" – setTimeSelect normalizes for you
+      setTimeSelect("current-day-start", v.Start || v["Start Time"] || "");
+      setTimeSelect("current-day-end",   v.End   || v["End Time"]   || "");
     }
   } catch (err) {
     console.error("Error loading availability:", err);
@@ -1472,6 +1679,7 @@ setTimeSelect('current-day-end',   v.End   || v['End Time']   || '');
 
   popup.style.display = "block";
 }
+
 
 
 // Save Upcoming Hours
@@ -1525,129 +1733,135 @@ function populateTimeSelect24(selectId) {
     }
   }
 }
-
 /* ---------- bind Save button ---------- */
 (function bindUpcomingSaveOnce() {
-  const btn = document.getElementById('save-upcoming-day-availability');
+  const btn = document.getElementById("save-upcoming-day-availability");
   if (!btn || btn.dataset.bound) return;
 
-  btn.addEventListener('click', async () => {
-    const businessId = document.getElementById('dropdown-category-business')?.value || '';
-    const calendarId = document.getElementById('dropdown-availability-calendar')?.value || '';
+  btn.addEventListener("click", async () => {
+    const businessId =
+      document.getElementById("dropdown-category-business")?.value || "";
+    const calendarId =
+      document.getElementById("dropdown-availability-calendar")?.value || "";
 
-    const start = to24h(document.getElementById('current-day-start')?.value || '');
-    const end   = to24h(document.getElementById('current-day-end')?.value || '');
+    const start = to24h(document.getElementById("current-day-start")?.value || "");
+    const end   = to24h(document.getElementById("current-day-end")?.value || "");
 
     let jsDate = window.upcomingSelectedDate;
     if (!jsDate) {
-      const attr = document.getElementById('availability-popup')?.getAttribute('data-date');
-      if (attr) jsDate = new Date(attr + 'T00:00:00');
+      const attr = document
+        .getElementById("availability-popup")
+        ?.getAttribute("data-date");
+      if (attr) jsDate = new Date(attr + "T00:00:00");
     }
 
-    if (!businessId)   return alert('Choose a business first.');
-    if (!calendarId)   return alert('Choose a calendar first.');
-    if (!jsDate)       return alert('Pick a date on the calendar.');
-    if (!start && !end) {
-  // allow clearing a day by leaving both blank
-} else if (!start || !end) {
-  return alert('Choose both start and end time, or leave both blank to clear.');
-} else {
-  // validate start < end
-  const [sh, sm] = start.split(':').map(Number);
-  const [eh, em] = end.split(':').map(Number);
-  const startMin = sh * 60 + sm;
-  const endMin   = eh * 60 + em;
-  if (endMin <= startMin) return alert('End time must be after start time.');
-}
+    if (!businessId) return alert("Choose a business first.");
+    if (!calendarId) return alert("Choose a calendar first.");
+    if (!jsDate)     return alert("Pick a date on the calendar.");
+
+    // allow clearing a day by leaving both blank
+    const clearing = !start && !end;
+
+    if (!clearing) {
+      if (!start || !end) return alert("Choose both start and end time, or leave both blank to clear.");
+
+      const [sh, sm] = start.split(":").map(Number);
+      const [eh, em] = end.split(":").map(Number);
+      const startMin = sh * 60 + sm;
+      const endMin   = eh * 60 + em;
+      if (endMin <= startMin) return alert("End time must be after start time.");
+    }
 
     const ymd = toYMD(jsDate);
 
     const prev = btn.textContent;
     btn.disabled = true;
-    btn.textContent = 'Saving…';
+    btn.textContent = "Saving…";
 
     try {
-      const whereObj = { "Calendar": calendarId, "Date": ymd };
+   const whereObj = { Business: businessId, Calendar: calendarId, Date: ymd };
+
       const where = encodeURIComponent(JSON.stringify(whereObj));
 
-      // look up existing
-      const check = await fetch(`${API(TYPE_UPCOMING)}?where=${where}&ts=${Date.now()}`, {
-        credentials: 'include',
-        cache: 'no-store'
+      // ✅ IMPORTANT: server now returns {items: []}
+      const checkRes = await fetch(`${API(TYPE_UPCOMING)}?where=${where}&limit=5&ts=${Date.now()}`, {
+        credentials: "include",
+        cache: "no-store",
       });
-      if (!check.ok) throw new Error(`HTTP ${check.status}`);
-      const existing = await check.json();
-const clearing = !start && !end;
 
-const values = clearing
-  ? {
-      "Business":     businessId,
-      "Calendar":     calendarId,
-      "Date":         ymd,
-      "Start":        "",
-      "End":          "",
-      "Start Time":   "",   // keep legacy fields in sync
-      "End Time":     "",
-      "is Available": false
-    }
-  : {
-      "Business":     businessId,
-      "Calendar":     calendarId,
-      "Date":         ymd,
-      "Start":        start,
-      "End":          end,
-      "Start Time":   start, // keep legacy fields in sync
-      "End Time":     end,
-      "is Available": true
-    };
+      if (!checkRes.ok) throw new Error(`HTTP ${checkRes.status}`);
 
+      const payload = await checkRes.json().catch(() => ({}));
+      const existing = Array.isArray(payload)
+        ? payload
+        : (payload?.items || payload?.records || payload?.data || []);
 
-      if (Array.isArray(existing) && existing.length) {
-        const id = existing[0]._id;
-        const up = await fetch(`${API(TYPE_UPCOMING)}/${id}`, {
-          method: 'PATCH',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ values })
+      const values = clearing
+        ? {
+            Business: businessId,
+            Calendar: calendarId,
+            Date: ymd,
+            Start: "",
+            End: "",
+            "Start Time": "",
+            "End Time": "",
+            "is Available": false,
+          }
+        : {
+            Business: businessId,
+            Calendar: calendarId,
+            Date: ymd,
+            Start: start,
+            End: end,
+            "Start Time": start,
+            "End Time": end,
+            "is Available": true,
+          };
+
+      if (existing.length) {
+        const id = existing[0]._id || existing[0].id;
+        const upRes = await fetch(`${API(TYPE_UPCOMING)}/${encodeURIComponent(id)}`, {
+          method: "PATCH",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ values }),
         });
-        if (!up.ok) throw new Error(`HTTP ${up.status}`);
-        await up.json();
+        if (!upRes.ok) throw new Error(`Update failed: HTTP ${upRes.status}`);
+        await upRes.json().catch(() => ({}));
       } else {
-        const create = await fetch(API(TYPE_UPCOMING), {
-          method: 'POST',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ values })
+        const createRes = await fetch(API(TYPE_UPCOMING), {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ values }),
         });
-        if (!create.ok) throw new Error(`HTTP ${create.status}`);
-        await create.json();
+        if (!createRes.ok) throw new Error(`Create failed: HTTP ${createRes.status}`);
+        await createRes.json().catch(() => ({}));
       }
 
-   // update local cache so the cell shows new hours immediately
-window.upcomingHoursMap = window.upcomingHoursMap || {};
-if (clearing) {
-  delete window.upcomingHoursMap[ymd];
-} else {
-  window.upcomingHoursMap[ymd] = { start, end };
-}
+      // ✅ update local cache so the cell shows new hours immediately
+      window.upcomingHoursMap = window.upcomingHoursMap || {};
+      if (clearing) delete window.upcomingHoursMap[ymd];
+      else window.upcomingHoursMap[ymd] = { start, end };
 
+      // close popup + refresh month UI
+      closeAvailabilityModal?.(); // if you’re using modal helpers
+      document.getElementById("availability-popup").style.display = "none";
 
-document.getElementById('availability-popup').style.display = 'none';
-// optional: comment this out if the alert is annoying
-alert('Saved!');
-if (typeof window.loadAndGenerateCalendar === 'function') {
-  await window.loadAndGenerateCalendar();
-}
+      if (typeof window.loadAndGenerateCalendar === "function") {
+        await window.loadAndGenerateCalendar();
+      }
 
+      // optional
+      // alert("Saved!");
     } catch (e) {
       console.error(e);
-      alert('Error saving: ' + e.message);
+      alert("Error saving: " + (e?.message || e));
     } finally {
       btn.disabled = false;
       btn.textContent = prev;
     }
   });
 
-  btn.dataset.bound = '1';
+  btn.dataset.bound = "1";
 })();
-

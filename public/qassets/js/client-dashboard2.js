@@ -17,6 +17,11 @@ function setVal(...args) {
   return null;
 }
 
+function apiUrl(path) {
+  // path should start with "/"
+  if (!path.startsWith("/")) path = "/" + path;
+  return API.replace(/\/$/, "") + path;
+}
 
 // Use a configurable type name; falls back to "Appointment"
 const APPOINTMENT_TYPE = (window.TYPES && window.TYPES.Appointment) || "Appointment";
@@ -60,10 +65,10 @@ document.addEventListener("DOMContentLoaded", async () => {
             }
 
             try {
-            const res = await fetch("/login", {
+const res = await fetch(apiUrl("/login"), {
   method: "POST",
   headers: { "Content-Type": "application/json" },
-  credentials: "include",               // <-- important for session cookie
+  credentials: "include",
   body: JSON.stringify({ email, password }),
 });
 
@@ -91,7 +96,8 @@ function escapeHtml(s) {
 const headerRight = document.querySelector(".right-group");
 (async () => {
   try {
-    const res = await fetch("/check-login", { credentials: "include" });
+   const res = await fetch(apiUrl("/check-login"), { credentials: "include" });
+
     const data = await res.json();
 
     if (data.loggedIn && headerRight) {
@@ -131,11 +137,12 @@ const headerRight = document.querySelector(".right-group");
 
 
 async function getCurrentUser() {
-  const tries = [
-    { url: "/check-login", shape: "check" },
-    { url: "/api/me",      shape: "flat"  },     // if you add it later
-    { url: "/me",          shape: "flat"  }      // legacy fallback
-  ];
+const tries = [
+  { url: apiUrl("/check-login"), shape: "check" },
+  { url: apiUrl("/api/me"),      shape: "flat"  },
+  { url: apiUrl("/me"),          shape: "flat"  }
+];
+
   for (const { url, shape } of tries) {
     try {
       const res = await fetch(url, { credentials: "include", headers: { Accept: "application/json" } });
@@ -213,7 +220,12 @@ async function hydrateHeaderAvatar() {
   };
 
   try {
-    const res = await fetch("/api/users/me", { credentials: "include" });
+ const res = await fetch(apiUrl("/update-user-profile"), {
+  method: "POST",
+  body: fd,
+  credentials: "include",
+});
+
     if (!res.ok) {
       headerImg.src = DEFAULT_AVATAR_DATAURL;
       headerImg.style.display = "block";
@@ -535,7 +547,7 @@ if (settingsForm && !settingsForm.dataset.bound) {
 
       if (!newPhoto) {
         try {
-          const me = await fetch("/api/users/me", { credentials: "include" });
+          const me = await fetch(apiUrl("/api/users/me"), { credentials: "include" });
           if (me.ok) {
             const data = await me.json();
             newPhoto = data?.user?.profilePhoto || "";
@@ -945,9 +957,9 @@ const displayTime = rawTime ? to12hSafe(rawTime) : "";
 
  async function fetchAndRenderClientAppointments() {
     try {
-      const url = `/api/me/records?dataType=${encodeURIComponent('Appointment')}&includeCreatedBy=1&includeRefField=1&myRefField=Client&sort=${encodeURIComponent(JSON.stringify({ 'values.Date': 1, 'values.Time': 1, createdAt: 1 }))}`;
-      const res = await fetch(url, { credentials: 'include', headers: { Accept: 'application/json' } });
-      const payload = await safeJson(res);
+    const url = apiUrl(`/api/me/records?dataType=${encodeURIComponent('Appointment')}&includeCreatedBy=1&includeRefField=1&myRefField=Client&sort=${encodeURIComponent(JSON.stringify({ 'values.Date': 1, 'values.Time': 1, createdAt: 1 }))}`);
+const res = await fetch(url, { credentials: "include", headers: { Accept: "application/json" } });
+const payload = await safeJson(res);
       const raw = Array.isArray(payload) ? payload : (payload.data || []);
 
       let list = raw.map(normalize).filter(a => a.startAt && !Number.isNaN(new Date(a.startAt).getTime()));

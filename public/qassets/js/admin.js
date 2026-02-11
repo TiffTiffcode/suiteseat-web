@@ -1075,4 +1075,228 @@ ovForm?.addEventListener('submit', async (e) => {
 
 
 
+
+
+
+///////////////////////////////////////
+//////                                    Themes Section 
+/////////////////////////////////////
+
+// ----------------------------
+// Themes (Tab 6)
+// ----------------------------
+const themesTbody = document.querySelector('#themes-table tbody');
+const themeCreateForm = document.getElementById('theme-create-form');
+const themeNameInput = document.getElementById('theme-name');
+const themeKeyInput = document.getElementById('theme-key');
+const themePreviewInput = document.getElementById('theme-preview');
+
+let themesDT = null;
+let allThemes = [];
+
+async function getThemeDataType() {
+  if (themesDT) return themesDT;
+
+  const dtRes = await fetch('/api/datatypes', { headers: { 'Accept': 'application/json' } });
+  if (!dtRes.ok) throw new Error(`DataTypes HTTP ${dtRes.status}`);
+  const dts = await dtRes.json();
+
+  const found = (dts || []).find(dt =>
+    dt.name === 'Store Theme' ||
+    dt.nameCanonical === 'store_theme' ||
+    dt.nameCanonical === 'store theme'
+  );
+
+  if (!found) throw new Error('No "Store Theme" DataType found. Create it first in Data Types tab.');
+
+  themesDT = found;
+  return found;
+}
+
+async function loadThemes() {
+  if (!themesTbody) return;
+
+  themesTbody.innerHTML = `<tr><td colspan="4">Loading…</td></tr>`;
+
+  try {
+    const dt = await getThemeDataType();
+
+    const res = await fetch(`/api/records?dataTypeId=${dt._id}&limit=500&sort=-createdAt`, {
+      headers: { 'Accept': 'application/json' }
+    });
+
+    if (!res.ok) throw new Error(`Records HTTP ${res.status}`);
+
+    const body = await res.json().catch(() => ({}));
+    const rows = Array.isArray(body) ? body : (body.items || body.records || []);
+    allThemes = rows;
+
+    renderThemesTable();
+  } catch (err) {
+    console.error('[admin] loadThemes failed:', err);
+    themesTbody.innerHTML = `<tr><td colspan="4">Failed: ${err.message}</td></tr>`;
+  }
+}
+
+function renderThemesTable() {
+  if (!themesTbody) return;
+
+  if (!allThemes.length) {
+    themesTbody.innerHTML = `<tr><td colspan="4">No themes yet</td></tr>`;
+    return;
+  }
+
+  themesTbody.innerHTML = '';
+
+  allThemes.forEach(rec => {
+    const v = rec.values || {};
+    const name = String(v.name || v['Name'] || '');
+    const key  = String(v.templateKey || v['Template Key'] || v.key || '');
+    const preview = String(v.previewImage || v['Preview Image'] || v.previewUrl || '');
+
+    const tr = document.createElement('tr');
+
+    // name (editable)
+    const tdName = document.createElement('td');
+    const inName = document.createElement('input');
+    inName.type = 'text';
+    inName.value = name;
+    inName.style.width = '100%';
+    tdName.appendChild(inName);
+
+    // key (editable)
+    const tdKey = document.createElement('td');
+    const inKey = document.createElement('input');
+    inKey.type = 'text';
+    inKey.value = key;
+    inKey.style.width = '100%';
+    tdKey.appendChild(inKey);
+
+    // preview (editable)
+    const tdPrev = document.createElement('td');
+    const inPrev = document.createElement('input');
+    inPrev.type = 'text';
+    inPrev.value = preview;
+    inPrev.placeholder = 'https://...';
+    inPrev.style.width = '100%';
+    tdPrev.appendChild(inPrev);
+
+    // actions
+    const tdActions = document.createElement('td');
+    tdActions.style.textAlign = 'right';
+
+    const btnSave = document.createElement('button');
+    btnSave.textContent = 'Save';
+    btnSave.style.marginRight = '8px';
+
+    btnSave.addEventListener('click', async () => {
+      const patch = {
+        values: {
+          name: inName.value.trim(),
+          templateKey: inKey.value.trim(),
+          previewImage: inPrev.value.trim() || null
+        }
+      };
+
+      if (!patch.values.name) return alert('Theme name is required');
+      if (!patch.values.templateKey) return alert('Template key is required');
+
+      const r = await fetch(`/api/records/${rec._id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patch)
+      });
+
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({}));
+        alert(err.error || 'Save failed');
+        return;
+      }
+
+      // update local
+      rec.values = { ...(rec.values || {}), ...patch.values };
+      alert('Saved');
+    });
+
+    const btnDel = document.createElement('button');
+    btnDel.textContent = 'Delete';
+    btnDel.style.background = '#d9534f';
+
+    btnDel.addEventListener('click', async () => {
+      if (!confirm(`Delete theme "${name}"?`)) return;
+      const r = await fetch(`/api/records/${rec._id}`, { method: 'DELETE' });
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({}));
+        alert(err.error || 'Delete failed');
+        return;
+      }
+      allThemes = allThemes.filter(x => (x._id !== rec._id));
+      renderThemesTable();
+    });
+
+    tdActions.appendChild(btnSave);
+    tdActions.appendChild(btnDel);
+
+    tr.appendChild(tdName);
+    tr.appendChild(tdKey);
+    tr.appendChild(tdPrev);
+    tr.appendChild(tdActions);
+
+    themesTbody.appendChild(tr);
+  });
+}
+
+// Create Theme
+themeCreateForm?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+
+  const name = (themeNameInput.value || '').trim();
+  const templateKey = (themeKeyInput.value || '').trim();
+  const previewImage = (themePreviewInput.value || '').trim();
+
+  if (!name) return alert('Theme name is required');
+  if (!templateKey) return alert('Template key is required');
+
+  try {
+    const dt = await getThemeDataType();
+
+    const payload = {
+      dataTypeId: dt._id,
+      values: {
+        name,
+        templateKey,
+        previewImage: previewImage || null
+      }
+    };
+
+    const res = await fetch('/api/records', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      alert(err.error || 'Failed to create theme');
+      return;
+    }
+
+    themeNameInput.value = '';
+    themeKeyInput.value = '';
+    themePreviewInput.value = '';
+
+    await loadThemes();
+    // optional: jump to tab 6 after creating
+    if (window.switchToTab) window.switchToTab(6);
+
+  } catch (err) {
+    alert(err.message);
+  }
+});
+
+// OPTIONAL: auto-load themes when tab is clicked
+document.getElementById('tab6')?.addEventListener('click', () => {
+  loadThemes();
+});
+
 });

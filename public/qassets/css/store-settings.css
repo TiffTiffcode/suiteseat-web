@@ -76,6 +76,17 @@
   }
   .app.collapsed{ grid-template-columns: var(--sidebar-w-collapsed) 1fr; }
 
+
+
+
+/*Buttons*/
+.btn.ghost{
+  background:#fff;
+  color:#111;
+  border:1px solid var(--line);
+}
+
+
   /* Sidebar */
   .sidebar{
     position:relative; background:linear-gradient(180deg,var(--peach),var(--orange));
@@ -223,3 +234,916 @@
 #orders-table .col-items {
   text-align: right;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                           /*Store Section*/
+.finput{
+  padding:10px 12px;
+  border:1px solid var(--line);
+  border-radius:12px;
+  background:#fff;
+}
+
+
+/*Theme Section*/
+.store-subsection { margin-top: 18px; }
+.subsection-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; }
+.subsection-title { margin:0; font-size: 18px; }
+
+.theme-card {
+  border: 1px solid rgba(0,0,0,.08);
+  border-radius: 14px;
+  padding: 14px;
+  background: #fff;
+}
+.theme-card .thumb {
+  height: 110px;
+  border-radius: 12px;
+  background: rgba(0,0,0,.04);
+  margin-bottom: 10px;
+}
+.theme-card .title { font-weight: 700; margin: 0 0 4px; }
+.theme-card .meta { font-size: 12px; opacity:.7; }
+.form-card { margin-top: 12px; padding: 14px; }
+.form-row { display:flex; flex-direction:column; gap:6px; margin-bottom: 12px; }
+.form-actions { display:flex; justify-content:flex-end; gap:10px; }
+.form-error { color: #b00020; margin-top: 8px; }
+/* =========================
+   THEME CARDS (final)
+   ========================= */
+
+.cards-grid{
+  display:grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.theme-card{
+  text-align:left;
+  border: 1px solid rgba(0,0,0,.08);
+  border-radius: 16px;
+  overflow:hidden;
+  background:#fff;
+  cursor:pointer;
+  padding: 0;
+}
+
+/* preview area */
+.theme-card__preview{
+  position: relative;
+  height: 140px;                 /* controls the thumbnail height */
+  background: #f3f4f7;
+  overflow: hidden;
+}
+
+.theme-card__img{
+  width: 100%;
+  height: 100%;
+  display:block;
+  object-fit: cover;
+}
+
+/* dark hover layer */
+.theme-card__preview::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  background: rgba(0,0,0,.45);
+  opacity:0;
+  transition: opacity .18s ease;
+}
+
+/* overlay controls */
+.theme-card__overlay{
+  position:absolute;
+  left: 12px;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  display:flex;
+  gap: 12px;
+  justify-content: center;
+
+  opacity:0;
+  transition: opacity .18s ease;
+  z-index: 2;
+}
+
+/* show overlay on hover OR when "pinned" open */
+.theme-card:hover .theme-card__preview::after,
+.theme-card.is-open .theme-card__preview::after{
+  opacity:1;
+}
+
+.theme-card:hover .theme-card__overlay,
+.theme-card.is-open .theme-card__overlay{
+  opacity:1;
+}
+
+.theme-card__btn{
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,.35);
+  background: rgba(0,0,0,.55);
+  color:#fff;
+  font-weight: 700;
+  cursor:pointer;
+}
+
+.theme-card__btn:hover{
+  background: rgba(0,0,0,.72);
+}
+
+/* card body */
+.theme-card__body{
+  padding: 12px 14px 14px;
+}
+
+.theme-card__name{
+  font-weight: 800;
+  margin-bottom: 4px;
+}
+
+.theme-card__meta{
+  opacity:.65;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+.theme-card__cta{
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* selected outline */
+.theme-card.is-selected{
+  outline: 2px solid rgba(0,0,0,.25);
+  outline-offset: 2px;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* =========================
+   THEME EDITOR: 2-column layout
+   (Left: Elements / Right: Settings)
+   ========================= */
+
+.theme-editor{
+  margin-top: 18px;
+  padding: 16px;
+
+  border: 1px solid rgba(0,0,0,.08);
+  background: #fff;
+}
+
+/* header row */
+.theme-editor__head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom: 14px;
+}
+
+.theme-editor__title{
+  font-size: 18px;
+  font-weight: 800;
+  margin: 0;
+}
+
+.theme-editor__sub{
+  font-size: 13px;
+  color: rgba(0,0,0,.6);
+  margin-top: 4px;
+}
+
+/* --- 2 sections layout --- */
+.theme-editor__layout{
+  display:grid;
+  grid-template-columns: 280px 1fr;   /* left sidebar width */
+  gap: 16px;
+  margin-top: 12px;
+  align-items:start;
+}
+
+/* Left: Elements sidebar */
+.theme-editor__sidebar{
+  border: 1px solid rgba(0,0,0,.08);
+  border-radius: 16px;
+  background: #fff;
+  padding: 14px;
+  min-height: 420px;
+  box-shadow: 0 10px 25px rgba(0,0,0,.05);
+}
+
+.theme-editor__sidebarTitle{
+  font-weight: 800;
+  font-size: 14px;
+  margin: 0 0 10px;
+}
+
+.theme-editor__sidebarList{
+  display:flex;
+  flex-direction:column;
+  gap: 8px;
+}
+
+/* each element button */
+.el-item{
+  width:100%;
+  text-align:left;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(0,0,0,.08);
+  background: #f7f7fb;
+  cursor:pointer;
+  font-weight: 650;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap: 10px;
+}
+
+.el-item:hover{
+  background:#efeff7;
+}
+
+.el-item.is-active{
+  background:#111;
+  color:#fff;
+  border-color:#111;
+}
+
+/* Right: Settings panel */
+.theme-editor__content{
+  min-width: 0; /* prevents overflow in grids */
+}
+
+.theme-editor__panel{
+  border: 1px solid rgba(0,0,0,.08);
+  border-radius: 16px;
+  padding: 14px;
+  background: #fff;
+  box-shadow: 0 10px 25px rgba(0,0,0,.05);
+}
+
+.theme-editor__panelTitle{
+  font-weight: 800;
+  font-size: 14px;
+  margin: 0 0 12px;
+}
+
+.theme-editor__grid{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+/* fields */
+.theme-editor .field{
+  display:block;
+  margin-bottom: 12px;
+}
+
+.theme-editor .field span{
+  display:block;
+  font-size: 12px;
+  color: rgba(0,0,0,.65);
+  margin-bottom: 6px;
+  font-weight: 650;
+}
+
+.theme-editor .field input,
+.theme-editor .field select{
+  width:100%;
+  padding: 10px 12px;
+ 
+  border: 1px solid rgba(0,0,0,.12);
+  outline:none;
+  background:#fff;
+}
+
+.theme-editor .field input:focus,
+.theme-editor .field select:focus{
+  border-color: rgba(0,0,0,.35);
+}
+
+/* responsive */
+@media (max-width: 900px){
+  .theme-editor__layout{
+    grid-template-columns: 1fr; /* stack */
+  }
+  .theme-editor__sidebar{
+    min-height: auto;
+  }
+  .theme-editor__grid{
+    grid-template-columns: 1fr;
+  }
+}
+
+
+
+/* =========================
+   DRAG & DROP CANVAS
+   ========================= */
+
+/* =========================
+   DROPZONE (graph paper look)
+   ========================= */
+
+.theme-dropzone{
+  position: relative;
+  min-height: 420px;
+  border-radius: 0;
+  border: 0;
+  padding: 0;
+
+  background-color: #e9e9e9;
+  background-image:
+    repeating-linear-gradient(90deg, rgba(0,0,0,.12) 0, rgba(0,0,0,.12) 1px, transparent 1px, transparent 90px),
+    repeating-linear-gradient(0deg,  rgba(0,0,0,.12) 0, rgba(0,0,0,.12) 1px, transparent 1px, transparent 90px),
+    repeating-linear-gradient(90deg, rgba(0,0,0,.06) 0, rgba(0,0,0,.06) 1px, transparent 1px, transparent 18px),
+    repeating-linear-gradient(0deg,  rgba(0,0,0,.06) 0, rgba(0,0,0,.06) 1px, transparent 1px, transparent 18px);
+
+  overflow: hidden;
+}
+
+/* centered label like “Drop Area” */
+.theme-dropzone__empty{
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 44px;
+  font-weight: 500;
+  color: #111;
+  pointer-events: none;
+}
+
+.theme-dropzone.has-items .theme-dropzone__empty{
+  display: none;
+}
+
+/* remove the emoji from earlier */
+.theme-dropzone__empty::before{
+  content: none;
+}
+
+/* drag-over state (subtle highlight like a tool canvas) */
+.theme-dropzone.is-over{
+  outline: 3px solid rgba(255,102,0,.35);
+  outline-offset: -3px;
+  filter: saturate(1.05);
+}
+
+/* optional: show “Release to drop” */
+.theme-dropzone.is-over::after{
+  content: "Release to drop";
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 8px 10px;
+ 
+  background: rgba(255,102,0,.14);
+  border: 1px solid rgba(255,102,0,.35);
+  color: #111;
+}
+
+
+/* on hover, it should hint “you can drop here” */
+.theme-dropzone:hover{
+  border-color: rgba(0,0,0,.35);
+  box-shadow: 0 8px 26px rgba(0,0,0,.06);
+}
+
+
+/* nicer blocks once dropped */
+.theme-block{
+  border: 1px solid rgba(0,0,0,.10);
+ 
+  background:#fff;
+  padding: 12px 14px;
+  cursor: grab;
+  box-shadow: 0 8px 18px rgba(0,0,0,.05);
+}
+
+.theme-block:active{ cursor: grabbing; }
+
+.theme-block__label{
+  font-weight: 800;
+  font-size: 12px;
+  letter-spacing: .02em;
+  margin-bottom: 6px;
+  color:#111;
+}
+
+/* RIGHT PANEL: theme elements */
+.theme-canvas{
+  min-height: 360px;
+  border: 1px solid rgba(0,0,0,.10);
+
+  padding: 14px;
+  background: #fff;
+  display:flex;
+  flex-direction:column;
+  gap: 12px;
+}
+
+.theme-canvas__empty{
+  margin:auto;
+  color:#6b7280;
+  font-size:14px;
+  text-align:center;
+}
+.theme-canvas { display: none !important; }
+
+.theme-block__top{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.theme-block__label{
+  font-weight:800;
+  font-size: 12px;
+  letter-spacing:.02em;
+}
+
+.theme-block__pill{
+  font-size: 12px;
+  padding: 6px 10px;
+ 
+  border: 1px solid rgba(0,0,0,.10);
+  background:#fff;
+}
+
+.theme-block__content{
+  background:#fff;
+  border: 1px solid rgba(0,0,0,.08);
+
+  padding: 10px;
+}
+
+/* Right-side canvas (drop zone) */
+.canvas{
+  min-height: 360px;
+  border: 1px dashed rgba(0,0,0,.18);
+ 
+
+  background: #fff;
+}
+
+.canvas.is-over{
+  border-color: rgba(0,0,0,.45);
+  background: #fafafa;
+}
+
+
+
+.canvas-item.is-selected{
+  outline: 2px solid rgba(255,102,0,.55);
+  outline-offset: 2px;
+}
+.resize-handle{
+  pointer-events: auto;
+  position: absolute;
+  z-index: 9999;
+}
+
+.canvas-item.in-section .resize-handle {
+  pointer-events: auto;
+  z-index: 9999;
+}
+
+
+
+/* Make sure the item is the positioning context */
+.canvas-item {
+  position: absolute;
+  box-sizing: border-box;
+}
+.canvas-item{
+  background: #fff;
+  border: 1px solid rgba(0,0,0,.10);
+ 
+  box-shadow: 0 8px 18px rgba(0,0,0,.05);
+
+}
+.canvas-item{
+  background: #fff;
+
+  border: 1px solid rgba(0,0,0,.08);
+  box-shadow: 0 12px 28px rgba(0,0,0,.08);
+
+}
+
+/* Handles should NOT take up layout space */
+.resize-handle {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  border: 2px solid #111;
+  background: #fff;
+  z-index: 10;
+}
+
+/* corners */
+.resize-handle--tl { top: -6px; left: -6px; cursor: nwse-resize; }
+.resize-handle--tr { top: -6px; right: -6px; cursor: nesw-resize; }
+.resize-handle--bl { bottom: -6px; left: -6px; cursor: nesw-resize; }
+.resize-handle--br { bottom: -6px; right: -6px; cursor: nwse-resize; }
+
+/* sides */
+.resize-handle--t { top: -6px; left: 50%; transform: translateX(-50%); cursor: ns-resize; }
+.resize-handle--b { bottom: -6px; left: 50%; transform: translateX(-50%); cursor: ns-resize; }
+.resize-handle--l { left: -6px; top: 50%; transform: translateY(-50%); cursor: ew-resize; }
+.resize-handle--r { right: -6px; top: 50%; transform: translateY(-50%); cursor: ew-resize; }
+.resize-handle { display: none; }
+
+
+.canvas-item__top{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+ 
+  margin-bottom: 8px;
+}
+
+.canvas-item__title{
+  font-weight: 800;
+}
+
+.canvas-item__meta{
+  font-size: 12px;
+  opacity: .7;
+}
+
+.canvas-item__btn{
+  border: 1px solid rgba(0,0,0,.12);
+  background: #fff;
+  border-radius: 10px;
+  padding: 8px 10px;
+  cursor: pointer;
+  font-weight: 700;
+}
+.canvas-item__btn:hover{
+  background: #f3f4f6;
+}
+
+/*x for elements*/
+.canvas-item{
+  position: absolute;
+  overflow: visible;     /* important so the X can sit outside if needed */
+  z-index: 1;            /* base */
+}
+
+.canvas-item.is-selected{
+  z-index: 5;            /* selected card floats above others */
+}
+/* =========================
+   X button (ONLY show on selected)
+   ========================= */
+
+/* hide by default */
+.canvas-item > .canvas-item__x{
+  display: none;
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 1px solid rgba(0,0,0,.15);
+  background: rgba(255,255,255,.95);
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  font-weight: 900;
+  place-items: center;
+  z-index: 9999;
+}
+
+/* show ONLY when that element is selected */
+.canvas-item.is-selected > .canvas-item__x{
+  display: grid;
+}
+
+.canvas-item > .canvas-item__x:hover{
+  background: #fff;
+  border-color: rgba(0,0,0,.3);
+}
+
+
+.canvas-item__x:hover{
+  background: #fff;
+  border-color: rgba(0,0,0,.3);
+}
+
+
+
+/*element label */
+.canvas-item__namebar{
+  position: absolute;
+  top: -26px;                /* ⬅ closer to element */
+  left: 12px;
+  right: 12px;
+  height: 22px;              /* ⬅ fixed small height */
+  display: none;
+  align-items: center;
+  gap: 6px;
+
+  background: #fff;
+  border-radius: 8px;
+  border: 1px solid rgba(0,0,0,.15);
+  z-index: 60;
+}
+
+
+/* ✅ Only show THIS element's handles + namebar (not children inside sections) */
+.canvas-item.is-selected > .resize-handle { 
+  display: block; 
+}
+
+.canvas-item.is-selected > .canvas-item__namebar { 
+  display: flex; 
+}
+
+
+
+.canvas-item__nameinput{
+  flex: 1;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 6px;
+  border: 0;
+  background: transparent;
+  font-weight: 700;
+  font-size: 11px;           /* ⬅ smaller text */
+  outline: none;
+}
+.canvas-item__nameinput::placeholder{
+  opacity: .6;
+}
+
+.canvas-item__nameinput:focus{
+  border-color: rgba(255,102,0,.55);
+}
+
+/* To color element */
+.canvas-item__colorwrap{
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.canvas-item__colorlabel{
+  font-size: 10px;
+  font-weight: 700;
+  opacity: .6;
+}
+
+.canvas-item__color{
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  border-radius: 4px;
+  border: 1px solid rgba(0,0,0,.25);
+  cursor: pointer;
+}
+.canvas-item__namebar{
+  overflow: hidden;
+}
+.canvas-item__layerwrap{
+  display:flex;
+  align-items:center;
+  gap:4px;
+}
+
+.canvas-item__layerlabel{
+  font-size:10px;
+  font-weight:700;
+  opacity:.6;
+}
+
+.canvas-item__layerbtn{
+  width:18px;
+  height:18px;
+  border-radius:6px;
+  border:1px solid rgba(0,0,0,.18);
+  background:#fff;
+  cursor:pointer;
+  font-size:11px;
+  line-height:1;
+  display:grid;
+  place-items:center;
+}
+
+.canvas-item__layerbtn:hover{
+  background:#f3f4f6;
+}
+
+/* the content area inside a section that children live in */
+.canvas-item__content{
+  position: relative; /* children absolute positions are relative to this */
+  width: 100%;
+  height: 100%;
+}
+
+/* if you want to HARD CLIP children visually */
+.canvas-item[data-type="section"] .canvas-item__content{
+  overflow: hidden;
+}
+/* children inside a section should look like content, not editor cards */
+.canvas-item.in-section {
+  border: 1px dashed rgba(0,0,0,.15);
+  box-shadow: none;
+}
+
+
+
+                                                          /*elements*/
+ /* text editor block */
+.canvas-textarea{
+  width: 100%;
+  min-height: 28px;           /* ✅ starts small */
+  height: 28px;               /* ✅ starts small */
+  resize: none;               /* we resize the ELEMENT, not the textarea */
+  border: 0;
+  outline: none;
+  background: transparent;    /* ✅ uses the element bg color */
+  font: inherit;
+  line-height: 1.2;
+  padding: 10px;
+  box-sizing: border-box;
+  overflow: hidden;           /* ✅ no scrollbars while autosizing */
+}
+
+/* You already have this idea — keeps dragging easy */
+.canvas-textarea{ pointer-events: none; }
+.canvas-item.is-selected .canvas-textarea{ pointer-events: auto; }
+
+/* ✅ When the element is selected: allow typing */
+.canvas-item.is-selected .canvas-textarea{
+  pointer-events: auto;
+}
+
+
+/*image*/
+.canvas-image{
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border: 1px dashed rgba(0,0,0,.18);
+  border-radius: 10px;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.canvas-image__file{
+  display: none; /* ✅ hidden input */
+}
+
+.canvas-image__img{
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: none; /* hidden until it has src */
+}
+
+.canvas-image__hint{
+  font-weight: 800;
+  font-size: 14px;
+  opacity: .7;
+  pointer-events: none;
+}
+
+.canvas-image.has-src .canvas-image__img{
+  display: block;
+}
+
+.canvas-image.has-src .canvas-image__hint{
+  display: none;
+}
+/* Image element fills the whole canvas-item */
+.canvas-item[data-type="image"] .canvas-item__content{
+  height: 100%;
+  padding: 0;              /* remove inner padding so image can hit edges */
+}
+
+/* wrapper fills content */
+.canvas-item[data-type="image"] .canvas-image{
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: block;
+  cursor: pointer;
+}
+
+/* image fills wrapper */
+.canvas-item[data-type="image"] .canvas-image__img{
+  width: 100%;
+  height: 100%;
+  object-fit: cover;       /* use contain if you don't want cropping */
+  display: block;
+}
+
+/* center the hint text over the block */
+.canvas-item[data-type="image"] .canvas-image__hint{
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  opacity: .75;
+  pointer-events: none;
+}
+
+/* hide hint once an image is set */
+.canvas-image.has-src .canvas-image__hint{
+  display: none;
+}
+
+/* hide the real file input */
+.canvas-image__file{
+  display: none;
+}
+/*if you want no croppping change object-fit: cover;
+ to object-fit: contain;
+background: #fff; /* or transparent */
+.canvas-image{
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.canvas-image__img{
+  width: 100%;
+  height: 100%;
+  object-fit: cover;   /* full block */
+  display: block;
+  border-radius: inherit; /* optional */
+}
+
+/* invisible drag area */
+.canvas-image__drag{
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 28px;      /* drag strip height */
+  cursor: grab;
+  z-index: 5;
+  background: transparent;
+}
+.canvas-item:active .canvas-image__drag{ cursor: grabbing; }
+

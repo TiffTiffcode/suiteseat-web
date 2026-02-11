@@ -682,6 +682,19 @@ body.popup-open {
 .appt-services { margin: 6px 0 0; padding-left: 18px; }
 .appt-services li { margin: 2px 0; }
 .appointment-card .appt-time { white-space: nowrap; }      
+.time-column { position: relative; } /* you already have this */
+
+.appointment-card{
+  left: 0;              /* default for non-overlap */
+  right: auto;
+  border-radius: 8px;
+  min-width: 0;         /* allows shrinking */
+}
+.time-column { position: relative; }
+.appointment-card{
+  left: 0;
+  width: 100%;
+}
 
 /* FIT-TO-WIDTH — no horizontal scrolling */
 .week-days{
@@ -720,3 +733,14 @@ body.popup-open {
 
 /* or hide Delete globally */
  #delete-appointment-btn { display: none !important; } 
+
+
+
+
+ .day-date.is-today{
+  background: #FF6600;
+  color: #fff;
+  padding: 4px 8px;
+  border-radius: 999px;
+  display: inline-block;
+}

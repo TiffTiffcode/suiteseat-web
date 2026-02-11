@@ -887,6 +887,13 @@ const hasAbout =
   }
 
 
+function pickFirst(v: any, keys: string[]) {
+  for (const k of keys) {
+    const val = v?.[k];
+    if (val != null && String(val).trim() !== "") return val;
+  }
+  return "";
+}
 
   function renderQuestionInput(q: AppQuestion) {
     const value = appAnswers[q.id] || "";
@@ -933,19 +940,36 @@ const hasAbout =
         );
     }
   }
+const suiteDetails = (() => {
+  const s: any = selectedSuite as any;
+  const sv = s?.values || s || {};
+
+  const description = pickFirst(sv, [
+    "Suite Description",
+    "Description",
+    "Details",
+    "About",
+  ]);
+
+  const sqft = pickFirst(sv, ["Square Feet", "Sq Ft", "Sqft", "Size"]);
+  const deposit = pickFirst(sv, ["Deposit", "Security Deposit"]);
+  const amenities = pickFirst(sv, ["Amenities", "Included", "What’s Included"]);
+  const availabilityNotes = pickFirst(sv, ["Availability Notes", "Notes"]);
+
+  return { description, sqft, deposit, amenities, availabilityNotes };
+})();
 
 
   return (
-    <main
-      className="suite-page"
-      style={{
-        backgroundColor: pageBgColor,
-        color: textColor,
-        backgroundImage: bgImageUrl ? `url(${bgImageUrl})` : undefined,
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-      }}
-    >
+<main
+  className="suite-page"
+  style={{
+    backgroundColor: pageBgColor,
+    color: textColor,
+    ...(bgImageUrl ? { "--bg-url": `url(${bgImageUrl})` } as any : {}),
+  }}
+>
+
 
       {/* Top bar */}
       <header className="suite-topbar">
@@ -1417,6 +1441,54 @@ const hasAbout =
             )}
         </span>
       </div>
+
+{/* ✅ Suite details section (under Application) */}
+<div className="suite-details-section">
+ <h3 className="suite-details-title">Suite details</h3>
+
+
+  {suiteDetails.description && (
+    <p className="suite-details-desc">{suiteDetails.description}</p>
+  )}
+
+  <div className="suite-details-grid">
+    {suiteDetails.sqft && (
+      <div className="suite-details-item">
+        <div className="suite-details-label">Size</div>
+        <div className="suite-details-value">{suiteDetails.sqft}</div>
+      </div>
+    )}
+
+    {suiteDetails.deposit && (
+      <div className="suite-details-item">
+        <div className="suite-details-label">Deposit</div>
+        <div className="suite-details-value">{suiteDetails.deposit}</div>
+      </div>
+    )}
+
+    {suiteDetails.amenities && (
+      <div className="suite-details-item">
+        <div className="suite-details-label">Amenities</div>
+        <div className="suite-details-value">{suiteDetails.amenities}</div>
+      </div>
+    )}
+
+    {suiteDetails.availabilityNotes && (
+      <div className="suite-details-item">
+        <div className="suite-details-label">Notes</div>
+        <div className="suite-details-value">{suiteDetails.availabilityNotes}</div>
+      </div>
+    )}
+  </div>
+
+  {!suiteDetails.description &&
+    !suiteDetails.sqft &&
+    !suiteDetails.deposit &&
+    !suiteDetails.amenities &&
+    !suiteDetails.availabilityNotes && (
+      <p className="muted">No extra details have been added for this suite yet.</p>
+    )}
+</div>
 
     </div>
   </section>
