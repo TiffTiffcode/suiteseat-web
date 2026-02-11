@@ -3,9 +3,13 @@ console.log("[suite-settings] loaded");
 window.STATE = window.STATE || { locations: [] };
 
 // ✅ Live API (Express) server
-const API_BASE = "http://localhost:8400";
+const API_BASE =
+  window.location.hostname === "localhost"
+    ? "http://localhost:8400"
+    : "https://YOUR-RENDER-API.onrender.com"; // <-- put your real Render URL
 
-// ✅ Helper to force calls to the Live API server
+const AUTH_BASE = API_BASE; // login + check-login live on the API server
+
 function apiUrl(path) {
   return `${API_BASE}${path.startsWith("/") ? "" : "/"}${path}`;
 }
@@ -15,8 +19,6 @@ function apiUrl(path) {
  * - On localhost, your auth routes live on 8400 (Express).
  * - On production (suiteseat.io), auth is same-origin.
  */
-const AUTH_BASE =
-  window.location.hostname === "localhost" ? API_BASE : "";
 
 let currentUser = null;
 
@@ -32,12 +34,10 @@ async function readJsonSafe(res) {
 // ---- Get signed-in user via /check-login ----
 async function getSignedInUser() {
   try {
-    const res = await fetch(`${AUTH_BASE}/check-login`, {
-      method: "GET",
-      credentials: "include",
-      headers: { Accept: "application/json" },
-      cache: "no-store",
-    });
+ const res = await fetch(`${AUTH_BASE}/check-login`, {
+  credentials: "include",
+});
+
 
     if (!res.ok) return null;
 
@@ -152,12 +152,13 @@ function initAuthUI() {
 
   try {
     // ✅ login route is same-origin
-  const res = await fetch(`${AUTH_BASE}/api/login`, {
+const res = await fetch(`${AUTH_BASE}/api/login`, {
   method: "POST",
   headers: { "Content-Type": "application/json" },
   credentials: "include",
   body: JSON.stringify({ email, password }),
 });
+
 
 
     const body = await res.json().catch(() => ({}));
@@ -187,10 +188,11 @@ function initAuthUI() {
 
   logoutBtn?.addEventListener("click", async () => {
     try {
- await fetch(`${AUTH_BASE}/api/logout`, {
+await fetch(`${AUTH_BASE}/api/logout`, {
   method: "POST",
   credentials: "include",
 });
+
 
     } catch {}
     location.reload();
