@@ -34,7 +34,7 @@ async function readJsonSafe(res) {
 // ---- Get signed-in user via /check-login ----
 async function getSignedInUser() {
   try {
-const res = await fetch(`${AUTH_BASE}/api/check-login`, {
+const res = await fetch(`${AUTH_BASE}/check-login`, {
   method: "GET",
   credentials: "include",
   headers: { Accept: "application/json" },
