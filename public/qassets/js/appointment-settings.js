@@ -1386,9 +1386,12 @@ async function loadBusinessDropdown({ preserve = true, selectId = null } = {}) {
 
   try {
     // 👇 cache-busting + no-store + soft-delete filter
-const res = await fetch(apiUrl(`/api/records/Business?ts=${Date.now()}`), {  credentials: "include",
+const res = await fetch(apiUrl(`/api/records/Business?ts=${Date.now()}`), {
+  credentials: "include",
   cache: "no-store",
+  headers: { Accept: "application/json" },
 });
+
 
 
     if (!res.ok) {
