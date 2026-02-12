@@ -1,14 +1,17 @@
 console.log('[accept-appoinments] web loaded');
 
 const host = window.location.hostname;
-const isProdHost =
-  host === "suiteseat.io" ||
-  host === "www.suiteseat.io";   // 👈 add this
 
-const API_BASE = isProdHost
-  ? "https://suiteseat-app1.onrender.com"
-  : "http://localhost:8400";
+const API_BASE =
+  location.hostname === "localhost"
+    ? "http://localhost:8400"
+    : "";
 
+function apiUrl(path) {
+  // ensure leading slash
+  const p = path.startsWith("/") ? path : `/${path}`;
+  return `${API_BASE}${p}`;
+}
 
 //add slug
 function toSlug(str = "") {
@@ -22,13 +25,9 @@ function toSlug(str = "") {
 function mediaUrl(raw) {
   if (!raw) return "";
 
-  let v;
-
-  if (typeof raw === "string") {
-    v = raw;
-  } else {
-    v = raw.url || raw.path || raw.src || raw.filename || raw.name || "";
-  }
+  let v = "";
+  if (typeof raw === "string") v = raw;
+  else v = raw.url || raw.path || raw.src || raw.filename || raw.name || "";
 
   v = (v || "").trim();
   if (!v) return "";
@@ -36,13 +35,12 @@ function mediaUrl(raw) {
   // already full URL
   if (/^https?:\/\//i.test(v)) return v;
 
-  // already server-relative path
-  if (v.startsWith("/")) return v;
+  // already server-relative path: /uploads/...
+  if (v.startsWith("/")) return apiUrl(v);
 
-  // treat as filename in /uploads
-  return `${API_BASE}/uploads/${v.replace(/^\/+/, "")}`;
+  // bare filename -> /uploads/filename
+  return apiUrl(`/uploads/${v.replace(/^\/+/, "")}`);
 }
-
  
 
 
@@ -83,39 +81,44 @@ let editingServiceId  = null;
 
 // ---------- API helpers ----------
 async function login(email, password) {
-  const res  = await fetch(`${API_BASE}/api/login`, {
-    method: 'POST',
-    credentials: 'include',               // 👈 always include
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password })
+  const res = await fetch(apiUrl("/api/login"), {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify({ email, password }),
   });
-  const ct   = res.headers.get('content-type') || '';
+
+  const ct = res.headers.get("content-type") || "";
   const text = await res.text();
-  if (!res.ok) throw new Error(`HTTP ${res.status} – ${text.slice(0,200)}`);
-  if (!ct.includes('application/json')) throw new Error(`Expected JSON, got ${ct || 'unknown'}: ${text.slice(0,200)}`);
+  if (!res.ok) throw new Error(`HTTP ${res.status} – ${text.slice(0, 200)}`);
+  if (!ct.includes("application/json")) {
+    throw new Error(`Expected JSON, got ${ct || "unknown"}: ${text.slice(0, 200)}`);
+  }
   return JSON.parse(text);
 }
 
 async function me() {
-  const res = await fetch(`${API_BASE}/api/me`, {
-    credentials: 'include', // send cookies
-    cache: 'no-store',
+  const res = await fetch(apiUrl(`/api/me?ts=${Date.now()}`), {
+    credentials: "include",
+    cache: "no-store",
+    headers: { Accept: "application/json" },
   });
 
   const text = await res.text();
 
   if (!res.ok) {
-    console.warn('[me] HTTP error', res.status, text.slice(0, 200));
+    console.warn("[me] HTTP error", res.status, text.slice(0, 200));
     throw new Error(`HTTP ${res.status}`);
   }
 
   try {
     return JSON.parse(text);
   } catch (err) {
-    console.error('[me] JSON parse failed', err, text.slice(0, 200));
+    console.error("[me] JSON parse failed", err, text.slice(0, 200));
     return { ok: false };
   }
 }
+
 
 async function loadMe() {
   const data = await me();
@@ -163,10 +166,12 @@ if (data.ok) {
     // logout -> /api/logout
     if (logoutBtn) {
       logoutBtn.addEventListener("click", async () => {
-       const res  = await fetch(`${API_BASE}/api/logout`, {
-  method: 'POST',
-  credentials: 'include',
+ const res = await fetch(apiUrl("/api/logout"), {
+  method: "POST",
+  credentials: "include",
+  headers: { Accept: "application/json" },
 });
+
 
         const text = await res.text();
         let out = {};
@@ -243,10 +248,12 @@ if (overlayEl) {
 
 async function ensureBusinessExists() {
   try {
-    const res = await fetch(`${API_BASE}/api/records/Business?limit=1`, {
-      credentials: "include",
-      headers: { "Accept": "application/json" },
-    });
+const res = await fetch(apiUrl("/api/records/Business?limit=1"), {
+  credentials: "include",
+  headers: { Accept: "application/json" },
+  cache: "no-store",
+});
+
 
     if (res.status === 401) {
       console.warn("[business] ensureBusinessExists: not logged in yet");
@@ -323,15 +330,17 @@ async function uploadImageToCloudinary(file) {
   const fd = new FormData();
   fd.append("file", file);
 
-  const res = await fetch(`${API_BASE}/api/upload`, {
+  const res = await fetch(apiUrl("/api/upload"), {
     method: "POST",
     body: fd,
     credentials: "include",
+    headers: { Accept: "application/json" },
   });
 
-  const data = await res.json();
-  if (!res.ok) throw new Error(data?.error || "Upload failed");
-  return data.url; // must be Cloudinary https://... OR permanent URL
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data?.error || data?.message || "Upload failed");
+  if (!data?.url) throw new Error("Upload succeeded but no url returned.");
+  return data.url;
 }
 
 
@@ -408,11 +417,11 @@ async function fetchBusinessById(id) {
 
   // ✅ 3) Fallback: GET {API_BASE}/get-records/Business and search in list
   try {
-    const r = await fetch(`${API_BASE}/get-records/Business`, {
-      credentials: "include",
-      headers: { Accept: "application/json" },
-      cache: "no-store",
-    });
+  const r = await fetch(apiUrl("/get-records/Business"), {
+  credentials: "include",
+  headers: { Accept: "application/json" },
+  cache: "no-store",
+});
 
     if (r.ok) {
       const arr = await r.json();
@@ -435,11 +444,11 @@ async function uploadImageToCloudinary(file) {
   const fd = new FormData();
   fd.append("file", file);
 
-  const res = await fetch(`${API_BASE}/api/upload`, {
-    method: "POST",
-    body: fd,
-    credentials: "include",
-  });
+const res = await fetch(apiUrl("/api/upload"), {
+  method: "POST",
+  body: fd,
+  credentials: "include",
+});
 
   let data = null;
   try {
@@ -559,10 +568,12 @@ form.addEventListener("submit", async (e) => {
   // ✅✅✅ ADD THE proUserId BLOCK RIGHT HERE (BEFORE fetch POST)
 let proUserId = null;
 try {
-  const meRes = await fetch(`${API_BASE}/api/me?ts=${Date.now()}`, {
-    credentials: "include",
-    cache: "no-store",
-  });
+const meRes = await fetch(apiUrl(`/api/me?ts=${Date.now()}`), {
+  credentials: "include",
+  cache: "no-store",
+  headers: { Accept: "application/json" },
+});
+
   const meData = await meRes.json().catch(() => null);
   proUserId = meData?.user?._id || meData?.user?.id || null;
 } catch {}
@@ -573,10 +584,13 @@ if (proUserId) {
 }
 
 // ✅ NOW do the POST
-const res = await fetch(`${API_BASE}/api/records/${encodeURIComponent(TYPE_NAME)}`, {
+const res = await fetch(apiUrl(`/api/records/${encodeURIComponent(TYPE_NAME)}`), {
   method: "POST",
   credentials: "include",
-  headers: { "Content-Type": "application/json", Accept: "application/json" },
+  headers: { 
+    "Content-Type": "application/json", 
+    Accept: "application/json" 
+  },
   body: JSON.stringify({ values }),
 });
 
@@ -684,15 +698,15 @@ if (updateBtn && !updateBtn.dataset.bound) {
     updateBtn.textContent = "Updating…";
 
     try {
-      const res = await fetch(
-        `${API_BASE}/api/records/${encodeURIComponent(TYPE)}/${encodeURIComponent(editingBusinessId)}`,
-        {
-          method: "PATCH",
-          credentials: "include",
-          headers: { "Content-Type": "application/json", Accept: "application/json" },
-          body: JSON.stringify({ values }),
-        }
-      );
+const res = await fetch(
+  apiUrl(`/api/records/${encodeURIComponent(TYPE)}/${encodeURIComponent(editingBusinessId)}`),
+  {
+    method: "PATCH",
+    credentials: "include",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify({ values }),
+  }
+);
 
       if (!res.ok) {
         let msg = `HTTP ${res.status}`;
@@ -750,14 +764,15 @@ if (deleteBtn && !deleteBtn.dataset.bound) {
     deleteBtn.textContent = "Deleting…";
 
     try {
-      const res = await fetch(
-        `${API_BASE}/api/records/${encodeURIComponent(TYPE)}/${encodeURIComponent(editingBusinessId)}`,
-        {
-          method: "DELETE",
-          credentials: "include",
-          headers: { Accept: "application/json" },
-        }
-      );
+const res = await fetch(
+  apiUrl(`/api/records/${encodeURIComponent(TYPE)}/${encodeURIComponent(editingBusinessId)}`),
+  {
+    method: "DELETE",
+    credentials: "include",
+    headers: { Accept: "application/json" },
+  }
+);
+
 
       if (!res.ok) {
         let msg = `HTTP ${res.status}`;
@@ -869,9 +884,7 @@ if (saveCalBtn && calNameInput && calBizSelect) {
     saveCalBtn.textContent = "Saving…";
 
     try {
-      const res = await fetch(
-        `${API_BASE}/api/records/${encodeURIComponent(TYPE_NAME)}`,
-        {
+    const res = await fetch(apiUrl(`/api/records/${encodeURIComponent(TYPE_NAME)}`), {
           method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json", Accept: "application/json" },
@@ -989,9 +1002,7 @@ if (saveCategoryBtn && catBizSelect && catCalSelect) {
     saveCategoryBtn.textContent = "Saving…";
 
     try {
-      const res = await fetch(
-        `${API_BASE}/api/records/${encodeURIComponent(TYPE_NAME)}`,
-        {
+  const res = await fetch(apiUrl(`/api/records/${encodeURIComponent(TYPE_NAME)}`), {
           method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json", Accept: "application/json" },
@@ -1185,7 +1196,7 @@ if (serviceForm && !serviceForm.dataset.bound) {
         const fd = new FormData();
         fd.append("file", file); // server expects "file"
 
-        const up = await fetch(`${API_BASE}/api/upload`, {
+     const up = await fetch(apiUrl("/api/upload"), {
           method: "POST",
           credentials: "include",
           body: fd,
@@ -1226,8 +1237,7 @@ if (serviceForm && !serviceForm.dataset.bound) {
         imageUrl, // optional
       };
 
-      const res = await fetch(`${API_BASE}/api/records/${encodeURIComponent(TYPE)}`, {
-        method: "POST",
+    const res = await fetch(apiUrl(`/api/records/${encodeURIComponent(TYPE)}`), {   method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify({ values }),
@@ -1376,10 +1386,11 @@ async function loadBusinessDropdown({ preserve = true, selectId = null } = {}) {
 
   try {
     // 👇 cache-busting + no-store + soft-delete filter
-    const res = await fetch(`${API_BASE}/api/records/Business?ts=${Date.now()}`, {
-  credentials: 'include',
-  cache: 'no-store'
+const res = await fetch(apiUrl(`/api/records/Business?ts=${Date.now()}`), {
+  credentials: "include",
+  cache: "no-store",
 });
+
 
     if (!res.ok) {
       dropdown.innerHTML = '<option value="">-- Choose Business --</option>';
@@ -1491,9 +1502,10 @@ async function loadBusinessList() {
 
   try {
     // You already use this endpoint for businesses
-    const res = await fetch(`${API_BASE}/api/records/Business?ts=${Date.now()}`, {
-  credentials: 'include',
-  cache: 'no-store'
+const res = await fetch(apiUrl(`/api/records/Business?ts=${Date.now()}`), {
+  credentials: "include",
+  cache: "no-store",
+  headers: { Accept: "application/json" },
 });
 
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -1609,11 +1621,12 @@ async function publicList(dataType, filters = {}, limit = 500) {
   for (const [k,v] of Object.entries(filters)) {
     if (v !== undefined && v !== null && v !== "") params.append(k, v);
   }
-  const r = await fetch(`${API_BASE}/public/records?${params.toString()}`, {
-    headers: { Accept: "application/json" },
-    credentials: "same-origin",
-    cache: "no-store"
-  });
+const r = await fetch(apiUrl(`/public/records?${params.toString()}`), {
+  credentials: "include",
+  headers: { Accept: "application/json" },
+  cache: "no-store",
+});
+
   if (!r.ok) return [];
   const rows = await r.json();
   return Array.isArray(rows) ? rows : [];
@@ -1800,11 +1813,12 @@ async function loadCalendarBusinessOptions() {
 
   let list = [];
   try {
-    const res = await fetch(`${API_BASE}/api/records/Business?ts=${Date.now()}`, {
-      credentials: "include",
-      cache: "no-store",
-      headers: { Accept: "application/json" },
-    });
+const res = await fetch(apiUrl(`/api/records/Business?ts=${Date.now()}`), {
+  credentials: "include",
+  cache: "no-store",
+  headers: { Accept: "application/json" },
+});
+
 
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
@@ -1877,11 +1891,11 @@ async function loadCalendarList() {
   }
 
   try {
-    const res = await fetch(`${API_BASE}/api/records/Calendar?ts=${Date.now()}`, {
-      credentials: "include",
-      cache: "no-store",
-      headers: { Accept: "application/json" },
-    });
+const res = await fetch(apiUrl(`/api/records/Calendar?ts=${Date.now()}`), {
+  credentials: "include",
+  cache: "no-store",
+  headers: { Accept: "application/json" },
+});
 
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
@@ -1935,12 +1949,13 @@ async function loadCalendarList() {
         try {
           // helper to PATCH with good errors
           async function patchCal(id, values) {
-            const r = await fetch(`${API_BASE}/api/records/Calendar/${encodeURIComponent(id)}`, {
-              method: "PATCH",
-              credentials: "include",
-              headers: { "Content-Type": "application/json", Accept: "application/json" },
-              body: JSON.stringify({ values }),
-            });
+       const r = await fetch(apiUrl(`/api/records/Calendar/${encodeURIComponent(id)}`), {
+  method: "PATCH",
+  credentials: "include",
+  headers: { "Content-Type": "application/json", Accept: "application/json" },
+  body: JSON.stringify({ values }),
+});
+
 
             if (!r.ok) {
               let msg = `HTTP ${r.status}`;
@@ -2024,11 +2039,12 @@ async function loadBusinessOptions(selectId) {
   sel.disabled = true;
 
   try {
-    const res = await fetch(`${API_BASE}/api/records/Business?ts=${Date.now()}`, {
-      credentials: "include",
-      cache: "no-store",
-      headers: { Accept: "application/json" },
-    });
+const res = await fetch(apiUrl(`/api/records/Business?ts=${Date.now()}`), {
+  credentials: "include",
+  cache: "no-store",
+  headers: { Accept: "application/json" },
+});
+
 
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
@@ -2074,11 +2090,12 @@ async function loadCalendarOptions(selectId, businessId) {
   sel.disabled = true;
 
   try {
-    const res = await fetch(`${API_BASE}/api/records/Calendar?ts=${Date.now()}`, {
-      credentials: "include",
-      cache: "no-store",
-      headers: { Accept: "application/json" },
-    });
+const res = await fetch(apiUrl(`/api/records/Calendar?ts=${Date.now()}`), {
+  credentials: "include",
+  cache: "no-store",
+  headers: { Accept: "application/json" },
+});
+
 
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
@@ -2117,11 +2134,12 @@ async function loadCategoryOptions(selectId, businessId, calendarId) {
   if (!businessId) return;
 
   try {
-    const res = await fetch(`${API_BASE}/api/records/Category?ts=${Date.now()}`, {
-      credentials: "include",
-      cache: "no-store",
-      headers: { Accept: "application/json" },
-    });
+const res = await fetch(apiUrl(`/api/records/Category?ts=${Date.now()}`), {
+  credentials: "include",
+  cache: "no-store",
+  headers: { Accept: "application/json" },
+});
+
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
     const payload = await res.json();
@@ -2333,11 +2351,12 @@ window.openCalendarEdit = openCalendarEdit;
   sel.disabled = true;
 
   try {
-    const res = await fetch(`${API_BASE}/api/records/Calendar?ts=${Date.now()}`, {
-      credentials: "include",
-      cache: "no-store",
-      headers: { Accept: "application/json" },
-    });
+const res = await fetch(apiUrl(`/api/records/Calendar?ts=${Date.now()}`), {
+  credentials: "include",
+  cache: "no-store",
+  headers: { Accept: "application/json" },
+});
+
 
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
@@ -2399,16 +2418,19 @@ async function loadCategoryList() {
 
   try {
     // Fetch once, avoid cache
-    const [catRes, calRes] = await Promise.all([
-      fetch(`${API_BASE}/api/records/Category?ts=${Date.now()}`, {
+  const [catRes, calRes] = await Promise.all([
+  fetch(apiUrl(`/api/records/Category?ts=${Date.now()}`), {
     credentials: "include",
-    cache: "no-store"
+    cache: "no-store",
+    headers: { Accept: "application/json" },
   }),
-        fetch(`${API_BASE}/api/records/Calendar?ts=${Date.now()}`, {
+  fetch(apiUrl(`/api/records/Calendar?ts=${Date.now()}`), {
     credentials: "include",
-    cache: "no-store"
-  })
-    ]);
+    cache: "no-store",
+    headers: { Accept: "application/json" },
+  }),
+]);
+
     if (!catRes.ok || !calRes.ok) throw new Error("Fetch failed");
 
       const [catPayload, calPayload] = await Promise.all([catRes.json(), calRes.json()]);
@@ -2637,12 +2659,14 @@ async function openCategoryEdit(cat) {
       updateBtn.textContent = "Updating…";
 
       try {
-        const res = await fetch(`${API_BASE}/api/records/${encodeURIComponent(TYPE)}/${editingCategoryId}`, {
-          method: "PATCH",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-         body: JSON.stringify({
-  values: {
+const res = await fetch(
+  apiUrl(`/api/records/${encodeURIComponent(TYPE)}/${encodeURIComponent(editingCategoryId)}`),
+  {
+    method: "PATCH",
+    credentials: "include",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify({
+      values: {
     // main canonical fields
     Name:        categoryName,
     Business:    businessId,
@@ -2687,10 +2711,15 @@ async function openCategoryEdit(cat) {
       deleteBtn.textContent = "Deleting…";
 
       try {
-        const res = await fetch(`${API_BASE}/api/records/${encodeURIComponent(TYPE)}/${editingCategoryId}`, {
-          method: "DELETE",
-          credentials: "include"
-        });
+  const res = await fetch(
+  apiUrl(`/api/records/${encodeURIComponent(TYPE)}/${encodeURIComponent(editingCategoryId)}`),
+  {
+    method: "DELETE",
+    credentials: "include",
+    headers: { Accept: "application/json" },
+  }
+);
+
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
         alert("Category deleted.");
@@ -2750,11 +2779,12 @@ async function loadServiceFilterDropdown() {
   sel.disabled = true;
 
   try {
-    const res = await fetch(`${API_BASE}/api/records/Calendar?ts=${Date.now()}`, {
-      credentials: "include",
-      cache: "no-store",
-      headers: { Accept: "application/json" },
-    });
+const res = await fetch(apiUrl(`/api/records/Calendar?ts=${Date.now()}`), {
+  credentials: "include",
+  cache: "no-store",
+  headers: { Accept: "application/json" },
+});
+
 
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
@@ -2802,26 +2832,30 @@ function asId(v){
   if (typeof v === 'object') return String(v._id || v.id || '');
   return '';
 }
-
 async function getMyId() {
   if (MY_ID) return MY_ID;
+
   try {
-    const res = await fetch(`${API_BASE}/api/me`, {
-      credentials: 'include',
+    const res = await fetch(apiUrl("/api/me"), {
+      credentials: "include",
+      cache: "no-store",
+      headers: { Accept: "application/json" },
     });
 
     if (!res.ok) {
-      console.warn('[getMyId] /api/me HTTP', res.status);
+      console.warn("[getMyId] /api/me HTTP", res.status);
       return null;
     }
 
-    const me = await res.json();
-    MY_ID = me?.user?._id || null;
+    const me = await res.json().catch(() => ({}));
+    MY_ID = me?.user?._id || me?.user?.id || null;
   } catch (err) {
-    console.error('[getMyId] error', err);
+    console.error("[getMyId] error", err);
   }
+
   return MY_ID;
 }
+
 
 window.serviceCache = window.serviceCache || new Map();
 
@@ -3081,11 +3115,12 @@ async function loadServiceList() {
           const fd = new FormData();
           fd.append("file", file);
 
-          const up = await fetch(`${API_BASE}/api/upload`, {
-            method: "POST",
-            credentials: "include",
-            body: fd,
-          });
+      const up = await fetch(apiUrl("/api/upload"), {
+  method: "POST",
+  credentials: "include",
+  body: fd,
+});
+
 
           if (!up.ok) {
             let msg = `HTTP ${up.status}`;
