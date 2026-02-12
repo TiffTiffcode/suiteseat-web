@@ -1,14 +1,15 @@
-console.log('[accept-appoinments] web loaded');
-
 console.log("[accept-appointments] web loaded");
 
 const API_ORIGIN =
   location.hostname === "localhost" ? "http://localhost:8400" : "";
 
 // Use for ANY endpoint path ("/api/..", "/public/..", "/get-records/..", etc.)
-function apiUrl(path) {
-  const p = path.startsWith("/") ? path : `/${path}`;
-  return `${API_ORIGIN}${p}`;
+// ✅ Always route API calls to your backend, not the current website origin
+function apiUrl(path = "") {
+  const base = String(window.API_BASE || "").replace(/\/$/, "");
+  const p = String(path || "");
+  if (!base) return p; // fallback (shouldn't happen)
+  return base + (p.startsWith("/") ? p : "/" + p);
 }
 
 async function apiFetch(path, opts = {}) {
@@ -255,12 +256,11 @@ if (overlayEl) {
 
 async function ensureBusinessExists() {
   try {
-const res = await fetch(apiUrl("/api/records/Business?limit=1"), {
-  credentials: "include",
-  headers: { Accept: "application/json" },
-  cache: "no-store",
-});
-
+    const res = await fetch(apiUrl(`/api/records/Business?limit=1&ts=${Date.now()}`), {
+      credentials: "include",
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+    });
 
     if (res.status === 401) {
       console.warn("[business] ensureBusinessExists: not logged in yet");
@@ -272,28 +272,20 @@ const res = await fetch(apiUrl("/api/records/Business?limit=1"), {
       return;
     }
 
-    const body = await res.json();
-    const rows = Array.isArray(body)
-      ? body
-      : Array.isArray(body.data)
-      ? body.data
-      : Array.isArray(body.records)
-      ? body.records
-      : [];
+    const payload = await res.json();
+    const rows = Array.isArray(payload?.items) ? payload.items : [];
+    const visible = rows.filter(r => !r?.deletedAt);
 
-    const hasAny = rows.length > 0;
-
-    if (!hasAny) {
+    if (!visible.length) {
       console.log("[business] no businesses yet – forcing create popup");
       REQUIRE_FIRST_BUSINESS = true;
-      if (typeof openBusinessCreate === "function") {
-        openBusinessCreate();
-      }
+      if (typeof openBusinessCreate === "function") openBusinessCreate();
     }
   } catch (err) {
     console.warn("[business] ensureBusinessExists error:", err);
   }
 }
+
 
 
   // ---------- Business Section: open create popup ----------
@@ -1381,9 +1373,14 @@ async function loadBusinessDropdown({ preserve = true, selectId = null } = {}) {
       header.textContent = selectedOption?.value
         ? selectedOption.textContent
         : "Choose business to manage";
+
       sessionStorage.setItem("selectedBusinessId", selectedOption?.value || "");
 
-      loadCalendarList();
+      if (typeof loadCalendarList === "function") loadCalendarList();
+      if (typeof loadCategoryFilterDropdown === "function") loadCategoryFilterDropdown();
+      if (typeof loadCategoryList === "function") loadCategoryList();
+      if (typeof loadServiceFilterDropdown === "function") loadServiceFilterDropdown();
+      if (typeof loadServiceList === "function") loadServiceList();
     });
     dropdown.dataset.bound = "1";
   }
@@ -1392,34 +1389,29 @@ async function loadBusinessDropdown({ preserve = true, selectId = null } = {}) {
   dropdown.disabled = true;
 
   try {
-    // 👇 cache-busting + no-store + soft-delete filter
-const res = await fetch(apiUrl(`/api/records/Business?ts=${Date.now()}`), {
-  credentials: "include",
-  cache: "no-store",
-  headers: { Accept: "application/json" },
-});
-
-
+    const res = await fetch(apiUrl(`/api/records/Business?ts=${Date.now()}`), {
+      credentials: "include",
+      cache: "no-store",
+      headers: { Accept: "application/json" },
+    });
 
     if (!res.ok) {
       dropdown.innerHTML = '<option value="">-- Choose Business --</option>';
       return;
     }
 
-  const payload = await res.json();
-const businesses = Array.isArray(payload)
-  ? payload
-  : (payload?.items || payload?.records || []);
-
-const visible = businesses.filter(b => !b?.deletedAt);
-
+    const payload = await res.json();
+    const businesses = Array.isArray(payload?.items) ? payload.items : [];
+    const visible = businesses.filter(b => !b?.deletedAt);
 
     dropdown.innerHTML = '<option value="">-- Choose Business --</option>';
-    businesses.forEach(biz => {
+
+    visible.forEach(biz => {
       const label =
-        biz?.values?.Name ??
         biz?.values?.businessName ??
+        biz?.values?.Name ??
         "Untitled";
+
       const opt = document.createElement("option");
       opt.value = biz._id;
       opt.textContent = label;
@@ -1510,90 +1502,89 @@ async function loadBusinessList() {
   gotoCol.textContent   = " ";
 
   try {
-    // You already use this endpoint for businesses
-const res = await fetch(apiUrl(`/api/records/Business?ts=${Date.now()}`), {  credentials: "include",
-  cache: "no-store",
-  headers: { Accept: "application/json" },
-});
+    const res = await fetch(apiUrl(`/api/records/Business?ts=${Date.now()}`), {
+      credentials: "include",
+      cache: "no-store",
+      headers: { Accept: "application/json" },
+    });
 
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-   const payload = await res.json();
-const businesses = Array.isArray(payload)
-  ? payload
-  : (payload?.items || payload?.records || []);
 
-const visible = businesses.filter(b => !b?.deletedAt);
+    const payload = await res.json();
+    const businesses = Array.isArray(payload?.items) ? payload.items : [];
+    const visible = businesses.filter(b => !b?.deletedAt);
 
-
-    // clear columns
     nameCol.innerHTML   = "";
     svcCol.innerHTML    = "";
     clientCol.innerHTML = "";
     gotoCol.innerHTML   = "";
 
-    // keep a cache if you use it elsewhere
-    window.businessCache?.clear?.();
+    if (!window.businessCache) window.businessCache = new Map();
+    window.businessCache.clear();
 
-    if (!businesses.length) {
+    if (!visible.length) {
       nameCol.innerHTML = "<div>No businesses yet</div>";
       return;
     }
 
-    // One row per business across the four columns
-    for (const biz of businesses) {
-      window.businessCache?.set?.(biz._id, biz);
+    for (const biz of visible) {
+      window.businessCache.set(biz._id, biz);
 
-      // Name column (click to open editor – your existing behavior)
       const nameRow = document.createElement("div");
       nameRow.className  = "biz-row";
       nameRow.dataset.id = biz._id;
-      nameRow.textContent = getFirst(biz.values, ["businessName","name","Business Name"]) || "(Untitled)";
+      nameRow.textContent =
+        (biz?.values?.businessName ?? biz?.values?.Name ?? biz?.values?.name ?? "(Untitled)");
       nameRow.style.cursor = "pointer";
       nameCol.appendChild(nameRow);
 
-      // Services count (placeholder while loading)
       const svcRow = document.createElement("div");
       svcRow.className = "biz-row";
       svcRow.textContent = "…";
       svcCol.appendChild(svcRow);
-      // load async
-      fillServiceCount(biz._id, svcRow).catch(() => (svcRow.textContent = "0"));
+      if (typeof fillServiceCount === "function") {
+        fillServiceCount(biz._id, svcRow).catch(() => (svcRow.textContent = "0"));
+      } else {
+        svcRow.textContent = "0";
+      }
 
-      // Clients count (placeholder while loading)
       const clientRow = document.createElement("div");
       clientRow.className = "biz-row";
       clientRow.textContent = "…";
       clientCol.appendChild(clientRow);
-      // load async
-      fillClientCount(biz._id, clientRow).catch(() => (clientRow.textContent = "0"));
+      if (typeof fillClientCount === "function") {
+        fillClientCount(biz._id, clientRow).catch(() => (clientRow.textContent = "0"));
+      } else {
+        clientRow.textContent = "0";
+      }
 
-      // Go To (booking page)
       const gotoRow = document.createElement("div");
       gotoRow.className = "biz-row";
-      const slug = slugForBiz(biz);
+      const slug = (typeof slugForBiz === "function") ? slugForBiz(biz) : biz._id;
       const a = document.createElement("a");
       a.href = `/${encodeURIComponent(slug)}`;
       a.textContent = "Open";
-      a.target = "_blank"; // optional
+      a.target = "_blank";
       gotoRow.appendChild(a);
       gotoCol.appendChild(gotoRow);
     }
 
-    // Click handler for name column (open editor)
     if (!nameCol.dataset.bound) {
       nameCol.addEventListener("click", (e) => {
         const row = e.target.closest(".biz-row");
         if (!row) return;
-        const biz = window.businessCache?.get?.(row.dataset.id);
-        if (biz) openBusinessEdit(biz);
+        const biz = window.businessCache.get(row.dataset.id);
+        if (biz && typeof openBusinessEdit === "function") openBusinessEdit(biz);
       });
       nameCol.dataset.bound = "1";
     }
+
   } catch (err) {
     console.error("Error loading businesses:", err);
     nameCol.innerHTML = "<div>Error loading list</div>";
   }
 }
+
 
  //helpers
  // Generic "first non-empty value" from an object by label variants
