@@ -1,17 +1,18 @@
 console.log('[accept-appoinments] web loaded');
 
 const host = window.location.hostname;
+const isProdHost = host === "suiteseat.io" || host === "www.suiteseat.io";
 
-const API_BASE =
-  location.hostname === "localhost"
-    ? "http://localhost:8400"
-    : "";
+const API_BASE = isProdHost
+  ? "https://suiteseat-app1.onrender.com"
+  : "http://localhost:8400";
 
+// Build full URL for API endpoints
 function apiUrl(path) {
-  // ensure leading slash
   const p = path.startsWith("/") ? path : `/${path}`;
   return `${API_BASE}${p}`;
 }
+
 
 //add slug
 function toSlug(str = "") {
