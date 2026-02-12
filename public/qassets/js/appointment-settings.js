@@ -1,18 +1,24 @@
 console.log('[accept-appoinments] web loaded');
 
-const host = window.location.hostname;
-const isProdHost = host === "suiteseat.io" || host === "www.suiteseat.io";
+console.log("[accept-appointments] web loaded");
 
-const API_BASE = isProdHost
-  ? "https://suiteseat-app1.onrender.com"
-  : "http://localhost:8400";
+const API_ORIGIN =
+  location.hostname === "localhost" ? "http://localhost:8400" : "";
 
-// Build full URL for API endpoints
+// Use for ANY endpoint path ("/api/..", "/public/..", "/get-records/..", etc.)
 function apiUrl(path) {
   const p = path.startsWith("/") ? path : `/${path}`;
-  return `${API_BASE}${p}`;
+  return `${API_ORIGIN}${p}`;
 }
 
+async function apiFetch(path, opts = {}) {
+  return fetch(apiUrl(path), {
+    credentials: "include",
+    headers: { Accept: "application/json", ...(opts.headers || {}) },
+    cache: "no-store",
+    ...opts,
+  });
+}
 
 //add slug
 function toSlug(str = "") {
