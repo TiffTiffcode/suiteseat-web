@@ -2890,21 +2890,23 @@ async function loadServiceList() {
   }
 
   try {
-    const qs = (o) => new URLSearchParams(o).toString();
-
+    // ✅ use apiUrl everywhere (no API_BASE mixed in)
     const [svcRes, calRes, catRes, myId] = await Promise.all([
-      fetch(
-        `${API_BASE}/api/records/Service?ts=${Date.now()}`,
-        { credentials: "include", cache: "no-store", headers: { Accept: "application/json" } }
-      ),
-      fetch(
-        `${API_BASE}/api/records/Calendar?ts=${Date.now()}`,
-        { credentials: "include", cache: "no-store", headers: { Accept: "application/json" } }
-      ),
-      fetch(
-        `${API_BASE}/api/records/Category?ts=${Date.now()}`,
-        { credentials: "include", cache: "no-store", headers: { Accept: "application/json" } }
-      ),
+      fetch(apiUrl(`/api/records/Service?ts=${Date.now()}`), {
+        credentials: "include",
+        cache: "no-store",
+        headers: { Accept: "application/json" },
+      }),
+      fetch(apiUrl(`/api/records/Calendar?ts=${Date.now()}`), {
+        credentials: "include",
+        cache: "no-store",
+        headers: { Accept: "application/json" },
+      }),
+      fetch(apiUrl(`/api/records/Category?ts=${Date.now()}`), {
+        credentials: "include",
+        cache: "no-store",
+        headers: { Accept: "application/json" },
+      }),
       getMyId(),
     ]);
 
@@ -2993,7 +2995,7 @@ async function loadServiceList() {
       });
 
     nameCol.innerHTML = calCol.innerHTML = catCol.innerHTML = priceCol.innerHTML = "";
-    if (!window.serviceCache) window.serviceCache = new Map();
+    window.serviceCache = window.serviceCache || new Map();
     window.serviceCache.clear();
 
     if (!services.length) {
@@ -3070,11 +3072,7 @@ async function loadServiceList() {
 }
 
 //Update Service 
-(function bindServiceUpdateDeleteOnce() {
-  const updateBtn = document.getElementById("update-service-button");
-  const deleteBtn = document.getElementById("delete-service-button");
-
-  //Update Service 
+// ===== Service UPDATE + DELETE (bind once) =====
 (function bindServiceUpdateDeleteOnce() {
   const updateBtn = document.getElementById("update-service-button");
   const deleteBtn = document.getElementById("delete-service-button");
@@ -3094,12 +3092,12 @@ async function loadServiceList() {
       const visChk  = document.getElementById("popup-service-visible-toggle");
       const fileIn  = document.getElementById("popup-service-image-input");
 
-      const businessId       = bizSel?.value || "";
-      const calendarId       = calSel?.value || "";
-      const categoryId       = catSel?.value || "";
-      const serviceName      = nameIn?.value.trim() || "";
-      const priceRaw         = priceIn?.value ?? "";
-      const durationMinutes  = durSel?.value || "";
+      const businessId      = bizSel?.value || "";
+      const calendarId      = calSel?.value || "";
+      const categoryId      = catSel?.value || "";
+      const serviceName     = nameIn?.value.trim() || "";
+      const priceRaw        = priceIn?.value ?? "";
+      const durationMinutes = durSel?.value || "";
 
       if (!businessId) return alert("Please choose a business.");
       if (!calendarId) return alert("Please choose a calendar.");
@@ -3114,35 +3112,24 @@ async function loadServiceList() {
 
       try {
         // optional image upload if a new file is chosen
-        let imageUrlToSet = undefined;
+        let imageUrlToSet;
         const file = fileIn?.files?.[0];
 
         if (file) {
           const fd = new FormData();
           fd.append("file", file);
 
-      const up = await fetch(apiUrl("/api/upload"), {
-  method: "POST",
-  credentials: "include",
-  body: fd,
-});
+          const up = await fetch(apiUrl("/api/upload"), {
+            method: "POST",
+            credentials: "include",
+            body: fd,
+          });
 
-
-          if (!up.ok) {
-            let msg = `HTTP ${up.status}`;
-            try {
-              const j = await up.json();
-              if (j?.error) msg += ` - ${j.error}`;
-              if (j?.message) msg += ` - ${j.message}`;
-            } catch {}
-            throw new Error(`Image upload failed: ${msg}`);
-          }
-
+          if (!up.ok) throw new Error(`Image upload failed: HTTP ${up.status}`);
           const j = await up.json();
           imageUrlToSet = j?.url || "";
         }
 
-        // build values (only include imageUrl if we uploaded a new one)
         const values = {
           businessId,
           calendarId,
@@ -3153,12 +3140,11 @@ async function loadServiceList() {
           durationMinutes: parseInt(durationMinutes, 10),
           visible: !!(visChk && visChk.checked),
         };
-
         if (imageUrlToSet !== undefined) values.imageUrl = imageUrlToSet;
 
         const TYPE = "Service";
         const res = await fetch(
-          `${API_BASE}/api/records/${encodeURIComponent(TYPE)}/${encodeURIComponent(editingServiceId)}`,
+          apiUrl(`/api/records/${encodeURIComponent(TYPE)}/${encodeURIComponent(editingServiceId)}`),
           {
             method: "PATCH",
             credentials: "include",
@@ -3170,7 +3156,7 @@ async function loadServiceList() {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
         const payload = await res.json();
-        const updated = payload?.items?.[0]; // ✅ new server shape
+        const updated = payload?.items?.[0];
         if (!updated?._id) throw new Error("Update failed (no record returned)");
 
         alert("Service updated!");
@@ -3179,9 +3165,7 @@ async function loadServiceList() {
         await loadServiceFilterDropdown?.();
         await loadServiceList?.();
 
-        if (typeof loadBusinessList === "function") {
-          await loadBusinessList();
-        }
+        if (typeof loadBusinessList === "function") await loadBusinessList();
       } catch (e) {
         console.error(e);
         alert("Error updating service: " + (e?.message || e));
@@ -3194,67 +3178,45 @@ async function loadServiceList() {
     updateBtn.dataset.bound = "1";
   }
 
-  // (delete block will go here — send it and I’ll update it too)
+  // DELETE
+  if (deleteBtn && !deleteBtn.dataset.bound) {
+    deleteBtn.addEventListener("click", async () => {
+      if (!editingServiceId) return;
+      if (!confirm("Delete this service? This cannot be undone.")) return;
+
+      deleteBtn.disabled = true;
+      const prev = deleteBtn.textContent || "Delete";
+      deleteBtn.textContent = "Deleting…";
+
+      try {
+        const TYPE = "Service";
+        const res = await fetch(
+          apiUrl(`/api/records/${encodeURIComponent(TYPE)}/${encodeURIComponent(editingServiceId)}`),
+          { method: "DELETE", credentials: "include", headers: { Accept: "application/json" } }
+        );
+
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+        alert("Service deleted.");
+        closeAddServicePopup?.();
+
+        await loadServiceFilterDropdown?.();
+        await loadServiceList?.();
+
+        if (typeof loadBusinessList === "function") await loadBusinessList();
+      } catch (e) {
+        console.error(e);
+        alert("Error deleting service: " + (e?.message || e));
+      } finally {
+        deleteBtn.disabled = false;
+        deleteBtn.textContent = prev;
+      }
+    });
+
+    deleteBtn.dataset.bound = "1";
+  }
 })();
 
-
-// DELETE Service
-if (deleteBtn && !deleteBtn.dataset.bound) {
-  deleteBtn.addEventListener("click", async () => {
-    if (!editingServiceId) return;
-    if (!confirm("Delete this service? This cannot be undone.")) return;
-
-    deleteBtn.disabled = true;
-    const prev = deleteBtn.textContent || "Delete";
-    deleteBtn.textContent = "Deleting…";
-
-    try {
-      const TYPE = "Service";
-      const res = await fetch(
-        `${API_BASE}/api/records/${encodeURIComponent(TYPE)}/${encodeURIComponent(editingServiceId)}`,
-        {
-          method: "DELETE",
-          credentials: "include",
-          headers: { Accept: "application/json" },
-        }
-      );
-
-      if (!res.ok) {
-        let msg = `HTTP ${res.status}`;
-        try {
-          const err = await res.json();
-          if (err?.error) msg += ` - ${err.error}`;
-          if (err?.message) msg += ` - ${err.message}`;
-        } catch {}
-        throw new Error(msg);
-      }
-
-      // server may return { ok: true } (shape doesn’t matter here)
-      // await res.json().catch(() => null);
-
-      alert("Service deleted.");
-      closeAddServicePopup?.();
-
-      await loadServiceFilterDropdown?.();
-      await loadServiceList?.();
-
-      // keep counts fresh if you show "# services" per business
-      if (typeof loadBusinessList === "function") {
-        await loadBusinessList();
-      }
-    } catch (e) {
-      console.error(e);
-      alert("Error deleting service: " + (e?.message || e));
-    } finally {
-      deleteBtn.disabled = false;
-      deleteBtn.textContent = prev;
-    }
-  });
-
-  deleteBtn.dataset.bound = "1";
-}
-
-})();
 
 document.addEventListener("DOMContentLoaded", () => {
   const desc = document.getElementById("popup-service-description-input");
