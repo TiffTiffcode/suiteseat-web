@@ -1386,8 +1386,7 @@ async function loadBusinessDropdown({ preserve = true, selectId = null } = {}) {
 
   try {
     // 👇 cache-busting + no-store + soft-delete filter
-const res = await fetch(apiUrl(`/api/records/Business?ts=${Date.now()}`), {
-  credentials: "include",
+const res = await fetch(apiUrl(`/api/records/Business?ts=${Date.now()}`), {  credentials: "include",
   cache: "no-store",
 });
 
@@ -1502,8 +1501,7 @@ async function loadBusinessList() {
 
   try {
     // You already use this endpoint for businesses
-const res = await fetch(apiUrl(`/api/records/Business?ts=${Date.now()}`), {
-  credentials: "include",
+const res = await fetch(apiUrl(`/api/records/Business?ts=${Date.now()}`), {  credentials: "include",
   cache: "no-store",
   headers: { Accept: "application/json" },
 });
@@ -1813,8 +1811,7 @@ async function loadCalendarBusinessOptions() {
 
   let list = [];
   try {
-const res = await fetch(apiUrl(`/api/records/Business?ts=${Date.now()}`), {
-  credentials: "include",
+const res = await fetch(apiUrl(`/api/records/Business?ts=${Date.now()}`), {  credentials: "include",
   cache: "no-store",
   headers: { Accept: "application/json" },
 });
@@ -2039,8 +2036,7 @@ async function loadBusinessOptions(selectId) {
   sel.disabled = true;
 
   try {
-const res = await fetch(apiUrl(`/api/records/Business?ts=${Date.now()}`), {
-  credentials: "include",
+const res = await fetch(apiUrl(`/api/records/Business?ts=${Date.now()}`), {  credentials: "include",
   cache: "no-store",
   headers: { Accept: "application/json" },
 });
