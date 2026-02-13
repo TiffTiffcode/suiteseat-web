@@ -1,3 +1,4 @@
+
 console.log("[accept-appointments] web loaded");
 
 // ✅ Dev hits backend directly, Prod hits same-origin Next API (/api/*)
@@ -93,11 +94,12 @@ let editingServiceId  = null;
 
 // ---------- API helpers ----------
 async function login(email, password) {
-const res = await apiFetch("/login", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify({ email, password }),
-  });
+const res =await fetch(`${API_BASE}/api/login`, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  credentials: "include",
+  body: JSON.stringify({ email, password }),
+});
 
   const text = await res.text();
   let data = {};
