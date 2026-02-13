@@ -120,15 +120,41 @@ async function uploadOneImage(file) {
   const out = await resp.json().catch(() => ({}));
   return out?.url || "";
 }
-
 // ------------------------------
 // DOMContentLoaded init
 // ------------------------------
 document.addEventListener("DOMContentLoaded", () => {
+  // init header + tabs
   initHeaderAuth();
   initTabs();
 
-  // logout
+  // ✅ LOGIN submit
+  document.getElementById("login-form")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const email = document.getElementById("login-email")?.value?.trim();
+    const password = document.getElementById("login-password")?.value;
+
+    const payload = { email, password };
+
+    const res = await apiFetch("/api/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    const out = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      alert(out?.error || out?.message || "Login failed");
+      return;
+    }
+
+    // ✅ refresh header state
+    await initHeaderAuth();
+  });
+
+  // ✅ LOGOUT
   document.getElementById("logout-btn")?.addEventListener("click", async () => {
     try {
       await apiFetch("/api/logout", { method: "POST" });
@@ -137,7 +163,7 @@ document.addEventListener("DOMContentLoaded", () => {
     location.reload();
   });
 
-  // Save Business
+  // ✅ SAVE BUSINESS
   const form = document.getElementById("popup-add-business-form");
   if (!form) return;
 
@@ -191,14 +217,14 @@ document.addEventListener("DOMContentLoaded", () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           values: {
-            businessName,    // ✅ match your actual saved fields (your public JSON shows businessName)
+            businessName,
             yourName,
             phoneNumber: phone,
             locationName,
             businessAddress: address,
             businessEmail: email,
             slug,
-            heroImageUrl: heroUrl, // ✅ your public JSON shows heroImageUrl
+            heroImageUrl: heroUrl,
           },
         }),
       });
