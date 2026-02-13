@@ -20,9 +20,11 @@ function apiFetch(path, options = {}) {
 // ------------------------------
 async function fetchMe() {
   const res = await apiFetch("/api/me");
+  if (res.status === 401) return { loggedIn: false };
   const data = await res.json().catch(() => ({}));
-  return data; // { ok, user } OR { loggedIn: false } depending on your backend
+  return data;
 }
+
 
 function setHeaderLoggedOut() {
   const status = document.getElementById("login-status-text");
@@ -325,5 +327,48 @@ document.addEventListener("DOMContentLoaded", () => {
       console.error("[login] error:", err);
       alert("Login error. Check console.");
     }
+  });
+});
+
+
+function openLoginPopup() {
+  document.getElementById("login-popup")?.style.setProperty("display", "block");
+  document.getElementById("popup-overlay")?.style.setProperty("display", "block");
+}
+
+function closeLoginPopup() {
+  document.getElementById("login-popup")?.style.setProperty("display", "none");
+  document.getElementById("popup-overlay")?.style.setProperty("display", "none");
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  // Open
+  document.getElementById("open-login-popup-btn")?.addEventListener("click", openLoginPopup);
+
+  // Close
+  document.getElementById("popup-overlay")?.addEventListener("click", closeLoginPopup);
+  document.getElementById("close-login-popup-btn")?.addEventListener("click", closeLoginPopup);
+
+  // Login submit
+  document.getElementById("login-form")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const email = document.getElementById("login-email")?.value?.trim();
+    const password = document.getElementById("login-password")?.value;
+
+    const res = await apiFetch("/api/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+
+    const out = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      alert(out?.error || out?.message || "Login failed");
+      return;
+    }
+
+    await initHeaderAuth();   // refresh "Hey, Name"
+    closeLoginPopup();        // hide popup
   });
 });

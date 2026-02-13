@@ -720,3 +720,38 @@ body.popup-open {
 .tab-item.active svg {
   fill: orange; /* optional: makes the icon orange too */
 }
+
+
+
+
+
+
+
+
+
+
+/* Login popup + overlay (force it on top) */
+#popup-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 9998;
+}
+
+/* Force the login popup to behave like a real popup */
+#login-popup {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 9999;
+
+  background: #fff;
+  width: min(420px, 92vw);
+  max-height: 85vh;
+  overflow: auto;
+
+  border-radius: 14px;
+  padding: 16px;
+  box-shadow: 0 18px 60px rgba(0,0,0,0.25);
+}

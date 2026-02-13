@@ -419,7 +419,17 @@
 
 
                           <!--Log-in Popup  -->
-<section id="login-popup" style="display:none;">
+<!--Log-in Popup  -->
+<section id="login-popup" class="popup-add-business" style="display:none;">
+  <div class="business-section-header">
+    <div class="spacer"></div>
+    <h2 class="section-title">Login</h2>
+    <button id="close-login-popup-btn" type="button"
+      style="float:right; border:none; background:none; font-size:18px; cursor:pointer;">
+      &times;
+    </button>
+  </div>
+
   <form id="login-form">
     <label for="login-email">Email</label><br>
     <input type="email" id="login-email" required placeholder="Enter your email" />
@@ -435,7 +445,7 @@
   </form>
 </section>
 
-  <div id="popup-overlay" class="popup-overlay" style="display: none;"></div>
+<div id="popup-overlay" class="popup-overlay" style="display:none;"></div>
 
 
 <!-- Bottom Tab Bar -->
