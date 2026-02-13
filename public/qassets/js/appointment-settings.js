@@ -6,7 +6,8 @@ const API_BASE =
     : "https://live-353x.onrender.com";
 
 async function fetchMe() {
-  const res = await fetch("/api/me", { credentials: "include" });
+const res = await fetch(`${API_BASE}/api/me`, { credentials: "include" });
+
   const data = await res.json().catch(() => ({}));
   return data; // { ok, user }
 }
@@ -55,7 +56,8 @@ document.addEventListener("DOMContentLoaded", () => {
   // logout click
   document.getElementById("logout-btn")?.addEventListener("click", async () => {
     try {
-      await fetch("/api/logout", { method: "POST", credentials: "include" });
+    await fetch(`${API_BASE}/api/logout`, { method: "POST", credentials: "include" });
+
     } catch {}
     setHeaderLoggedOut();
     // optional: force refresh
@@ -103,20 +105,20 @@ function slugify(str = "") {
 
 // Checks if a slug is already used by ANY Business record
 async function isSlugTakenGlobal(typeName, slug) {
-  const qs = new URLSearchParams({ type: typeName, slug });
-  const res = await fetch(
-    `${API_BASE}/public/slug-check?${qs.toString()}`,
-    { credentials: "include" }
-  );
+  const where = encodeURIComponent(JSON.stringify({ slug }));
+  const url = `${API_BASE}/public/records?dataType=${encodeURIComponent(typeName)}&where=${where}&limit=2`;
+  const res = await fetch(url); // no credentials needed (public)
   const out = await res.json().catch(() => ({}));
-  return !!out?.taken;
+  const items = out?.items || [];
+  return items.length > 0;
 }
 
 
 
 
+
 async function generateSlugForType(typeName, base, excludeId = null) {
-  const resp = await fetch(`/api/slug/${encodeURIComponent(typeName)}`, {
+  const resp = await fetch(`${API_BASE}/api/slug/${encodeURIComponent(typeName)}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
@@ -135,7 +137,7 @@ async function uploadOneImage(file) {
   const fd = new FormData();
   fd.append("file", file);
 
-  const resp = await fetch("/api/upload", {
+  const resp = await fetch(`${API_BASE}/api/upload`, {
     method: "POST",
     credentials: "include",
     body: fd,
@@ -201,7 +203,7 @@ if (taken) {
       }
 
       // ✅ create Business record
-      const resp = await fetch("/api/records/Business", {
+      const resp = await fetch(`${API_BASE}/api/records/Business`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
