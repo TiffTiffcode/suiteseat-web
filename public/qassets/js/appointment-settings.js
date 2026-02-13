@@ -106,24 +106,39 @@ async function login(email, password) {
 }
 
 async function me() {
-  const res = await fetch(apiUrl(`/api/me?ts=${Date.now()}`), {
-    credentials: "include",
-    cache: "no-store",
-    headers: { Accept: "application/json" },
-  });
-
-  const text = await res.text();
-
-  if (!res.ok) {
-    console.warn("[me] HTTP error", res.status, text.slice(0, 200));
-    throw new Error(`HTTP ${res.status}`);
-  }
-
   try {
-    return JSON.parse(text);
+    const res = await fetch(apiUrl(`/api/me?ts=${Date.now()}`), {
+      credentials: "include",
+      cache: "no-store",
+      headers: { Accept: "application/json" },
+    });
+
+    const text = await res.text();
+
+    // ✅ If not logged in, return a safe object (DON’T throw)
+    if (res.status === 401) {
+      let body = {};
+      try { body = JSON.parse(text || "{}"); } catch {}
+      return { ok: false, loggedIn: false, user: null, ...body };
+    }
+
+    if (!res.ok) {
+      console.warn("[me] HTTP error", res.status, text.slice(0, 200));
+      return { ok: false, loggedIn: false, user: null };
+    }
+
+    try {
+      const body = JSON.parse(text || "{}");
+      // normalize shapes
+      if (body.ok === undefined && body.loggedIn !== undefined) body.ok = !!body.loggedIn;
+      return body;
+    } catch (err) {
+      console.error("[me] JSON parse failed", err, text.slice(0, 200));
+      return { ok: false, loggedIn: false, user: null };
+    }
   } catch (err) {
-    console.error("[me] JSON parse failed", err, text.slice(0, 200));
-    return { ok: false };
+    console.warn("[me] request failed", err);
+    return { ok: false, loggedIn: false, user: null };
   }
 }
 
