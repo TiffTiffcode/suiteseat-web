@@ -93,7 +93,7 @@ let editingServiceId  = null;
 
 // ---------- API helpers ----------
 async function login(email, password) {
-  const res = await apiFetch("/api/login", {
+const res = await apiFetch("/login", {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify({ email, password }),
@@ -112,7 +112,8 @@ async function login(email, password) {
 
 
 async function me() {
-  const res = await apiFetch(`/api/me?ts=${Date.now()}`);
+const res = await apiFetch(`/me?ts=${Date.now()}`);
+
 
   const text = await res.text();
   let data = {};
