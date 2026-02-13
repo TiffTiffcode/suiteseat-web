@@ -1,28 +1,29 @@
-//C:\Users\tiffa\OneDrive\Desktop\suiteseat-web\api\records\[...path].js
+//C:\Users\tiffa\OneDrive\Desktop\suiteseat-web\pages\api\records\[...path].js
+
 export const config = {
   api: { bodyParser: false },
 };
 
-const BACKEND_ORIGIN = process.env.BACKEND_ORIGIN; // https://suiteseat-app1.onrender.com
-
 export default async function handler(req, res) {
   try {
+    const BACKEND_ORIGIN = process.env.BACKEND_ORIGIN; // set in Vercel + .env.local
     if (!BACKEND_ORIGIN) {
-      return res.status(500).json({ ok: false, error: "BACKEND_ORIGIN env var missing" });
+      return res
+        .status(500)
+        .json({ ok: false, error: "BACKEND_ORIGIN env var missing" });
     }
 
-    // Forward: /api/records/<...path>?q -> <BACKEND_ORIGIN>/api/records/<...path>?q
+    // /api/records/<...path>?q  ->  <BACKEND_ORIGIN>/api/records/<...path>?q
     const pathParts = Array.isArray(req.query.path) ? req.query.path : [];
     const qsIndex = req.url.indexOf("?");
     const qs = qsIndex >= 0 ? req.url.slice(qsIndex) : "";
-
     const targetUrl = `${BACKEND_ORIGIN}/api/records/${pathParts.join("/")}${qs}`;
 
-    // copy headers + keep cookies
+    // Copy headers (keep cookies)
     const headers = { ...req.headers };
     delete headers.host;
 
-    // read raw body
+    // Read raw body (for POST/PATCH/DELETE)
     let body = undefined;
     if (req.method !== "GET" && req.method !== "HEAD") {
       const chunks = [];
@@ -36,13 +37,21 @@ export default async function handler(req, res) {
       body,
     });
 
+    // Pass status
     res.status(upstream.status);
 
+    // Pass headers (special handling for set-cookie)
+    const setCookie = upstream.headers.get("set-cookie");
+    if (setCookie) res.setHeader("set-cookie", setCookie);
+
     upstream.headers.forEach((value, key) => {
-      if (key.toLowerCase() === "transfer-encoding") return;
+      const k = key.toLowerCase();
+      if (k === "transfer-encoding") return;
+      if (k === "set-cookie") return; // handled above
       res.setHeader(key, value);
     });
 
+    // Return body
     const buf = Buffer.from(await upstream.arrayBuffer());
     return res.send(buf);
   } catch (err) {
@@ -50,4 +59,3 @@ export default async function handler(req, res) {
     return res.status(500).json({ ok: false, error: "Records proxy failed" });
   }
 }
-
