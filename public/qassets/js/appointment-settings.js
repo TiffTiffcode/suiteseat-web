@@ -1,15 +1,19 @@
 // appointment-settings.js
 console.log("[Appointment-settings] web loaded");
 
-// ✅ IMPORTANT:
-// - On localhost, hit your local API directly.
-// - On production (suiteseat.io), use SAME-ORIGIN routes like /api/me so cookies/sessions work.
-const API_BASE = location.hostname.includes("localhost")
-  ? "http://localhost:8400"
-  : ""; // 👈 production uses relative URLs (proxy/rewrites keep session working)
+const API_BASE =
+  location.hostname.includes("localhost")
+    ? "http://localhost:8400"
+    : "https://live-353x.onrender.com";
+
+// always call the backend through this helper
+function apiFetch(path, options = {}) {
+  const url = `${API_BASE}${path.startsWith("/") ? path : `/${path}`}`;
+  return fetch(url, { credentials: "include", ...options });
+}
 
 async function fetchMe() {
-  const res = await fetch(`${API_BASE}/api/me`, { credentials: "include" });
+  const res = await apiFetch("/api/me");
   const data = await res.json().catch(() => ({}));
   return data;
 }
@@ -183,7 +187,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (file) heroUrl = await uploadOneImage(file);
 
       // ✅ create Business record
-      const resp = await fetch(`${API_BASE}/api/records/Business`, {
+      const resp = await apiFetch("/api/records/Business", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
