@@ -4,7 +4,7 @@ console.log("[Appointment-settings] web loaded");
 const API_BASE =
   location.hostname.includes("localhost")
     ? "http://localhost:8400"
-    : "https://api.suiteseat.io"; // ✅ CHANGE THIS to your custom domain (recommended)
+    : "https://api.suiteseat.io";
 
 // always call the backend through this helper
 function apiFetch(path, options = {}) {
@@ -14,8 +14,7 @@ function apiFetch(path, options = {}) {
 
 async function fetchMe() {
   const res = await apiFetch("/api/me");
-  const data = await res.json().catch(() => ({}));
-  return data;
+  return await res.json().catch(() => ({}));
 }
 
 function setHeaderLoggedOut() {
@@ -45,8 +44,11 @@ function setHeaderLoggedIn(user) {
 async function initHeaderAuth() {
   try {
     const data = await fetchMe();
-    if (data?.ok && data?.user) setHeaderLoggedIn(data.user);
-    else setHeaderLoggedOut();
+    if ((data?.ok && data?.user) || data?.loggedIn) {
+      setHeaderLoggedIn(data.user || data);
+    } else {
+      setHeaderLoggedOut();
+    }
   } catch (e) {
     console.error("[auth header] failed:", e);
     setHeaderLoggedOut();
@@ -58,7 +60,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   document.getElementById("logout-btn")?.addEventListener("click", async () => {
     try {
-      await apiFetch("/api/logout", { method: "POST" }); // ✅ use apiFetch
+      await apiFetch("/api/logout", { method: "POST" });
     } catch {}
     setHeaderLoggedOut();
     location.reload();
@@ -99,13 +101,20 @@ function slugify(str = "") {
     .slice(0, 80);
 }
 
-// ✅ GLOBAL slug check (all users)
+// ✅ GLOBAL slug check (all users) using /public/records
 async function isSlugTakenGlobal(typeName, slug) {
   const where = encodeURIComponent(JSON.stringify({ slug }));
   const path = `/public/records?dataType=${encodeURIComponent(typeName)}&where=${where}&limit=2`;
-  const res = await apiFetch(path, { cache: "no-store" }); // ✅ use apiFetch
-  const out = await res.json().catch(() => ({}));
-  return (out?.items || []).length > 0;
+
+  const res = await apiFetch(path, { cache: "no-store" });
+  const out = await res.json().catch(() => null);
+
+  // your endpoint returns an ARRAY (based on your screenshot)
+  if (Array.isArray(out)) return out.length > 0;
+
+  // fallback if it ever returns { items: [...] }
+  const items = out?.items || out?.records || [];
+  return Array.isArray(items) && items.length > 0;
 }
 
 // upload helper
@@ -113,7 +122,7 @@ async function uploadOneImage(file) {
   const fd = new FormData();
   fd.append("file", file);
 
-  const resp = await apiFetch("/api/upload", { method: "POST", body: fd }); // ✅ use apiFetch
+  const resp = await apiFetch("/api/upload", { method: "POST", body: fd });
   const out = await resp.json().catch(() => ({}));
   return out?.url || "";
 }
@@ -173,12 +182,12 @@ document.addEventListener("DOMContentLoaded", () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           values: {
-            "Business Name": businessName,
-            "Your Name": yourName,
-            "Phone Number": phone,
-            "Location Name": locationName,
-            "Business Address": address,
-            "Business Email": email,
+            businessName: businessName,
+            yourName: yourName,
+            phoneNumber: phone,
+            locationName: locationName,
+            businessAddress: address,
+            businessEmail: email,
             slug,
             HeroImage: heroUrl,
           },
@@ -186,17 +195,17 @@ document.addEventListener("DOMContentLoaded", () => {
       });
 
       if (!resp.ok) {
-        const err = await resp.json().catch(() => ({}));
-        console.log("Create business failed:", resp.status, err);
-        alert(err?.error || err?.message || "Could not create business");
+        const errText = await resp.text().catch(() => "");
+        console.log("Create business failed:", resp.status, errText);
+        alert(`Could not create business (status ${resp.status}). Check server logs.`);
         return;
       }
 
       const out = await resp.json().catch(() => ({}));
-      const created = out?.items?.[0];
+      const created = out?.items?.[0] || out;
 
-      if (!created?._id) {
-        console.log("Create business failed:", out);
+      if (!created?._id && !created?.id) {
+        console.log("Create business response:", out);
         alert("Could not create business");
         return;
       }
