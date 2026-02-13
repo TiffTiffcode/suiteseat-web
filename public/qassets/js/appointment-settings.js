@@ -6,18 +6,22 @@ const API_BASE =
     ? "http://localhost:8400"
     : "https://api.suiteseat.io";
 
-// always call the backend through this helper
-// when user clicks Login
-const resp = await apiFetch("/api/login", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ email, password }),
-});
+// Always call backend through this helper
+function apiFetch(path, options = {}) {
+  const url = `${API_BASE}${path.startsWith("/") ? path : `/${path}`}`;
+  return fetch(url, {
+    credentials: "include",
+    ...options,
+  });
+}
 
-
+// ------------------------------
+// Header auth
+// ------------------------------
 async function fetchMe() {
   const res = await apiFetch("/api/me");
-  return await res.json().catch(() => ({}));
+  const data = await res.json().catch(() => ({}));
+  return data; // { ok, user } OR { loggedIn: false } depending on your backend
 }
 
 function setHeaderLoggedOut() {
@@ -47,33 +51,24 @@ function setHeaderLoggedIn(user) {
 async function initHeaderAuth() {
   try {
     const data = await fetchMe();
-    if ((data?.ok && data?.user) || data?.loggedIn) {
-      setHeaderLoggedIn(data.user || data);
-    } else {
-      setHeaderLoggedOut();
-    }
+
+    // support either shape:
+    // (A) { ok:true, user:{} }
+    // (B) { loggedIn:true, user:{} }
+    const ok = !!data?.ok || !!data?.loggedIn;
+
+    if (ok && data?.user) setHeaderLoggedIn(data.user);
+    else setHeaderLoggedOut();
   } catch (e) {
     console.error("[auth header] failed:", e);
     setHeaderLoggedOut();
   }
 }
 
-document.addEventListener("DOMContentLoaded", () => {
-  initHeaderAuth();
-
-  document.getElementById("logout-btn")?.addEventListener("click", async () => {
-    try {
-      await apiFetch("/api/logout", { method: "POST" });
-    } catch {}
-    setHeaderLoggedOut();
-    location.reload();
-  });
-});
-
 // ------------------------------
-// Tab switching
+// Tabs
 // ------------------------------
-document.addEventListener("DOMContentLoaded", () => {
+function initTabs() {
   const optionTabs = document.querySelectorAll(".option");
   const tabSections = document.querySelectorAll("[id$='-section']");
 
@@ -89,10 +84,10 @@ document.addEventListener("DOMContentLoaded", () => {
       if (targetId === "booking-section") attachSaveTemplateLogic?.();
     });
   });
-});
+}
 
 // ------------------------------
-// Business Section
+// Business helpers
 // ------------------------------
 function slugify(str = "") {
   return String(str)
@@ -104,23 +99,19 @@ function slugify(str = "") {
     .slice(0, 80);
 }
 
-// ✅ GLOBAL slug check (all users) using /public/records
+// GLOBAL slug check (all users) using your existing public route
 async function isSlugTakenGlobal(typeName, slug) {
   const where = encodeURIComponent(JSON.stringify({ slug }));
   const path = `/public/records?dataType=${encodeURIComponent(typeName)}&where=${where}&limit=2`;
 
   const res = await apiFetch(path, { cache: "no-store" });
-  const out = await res.json().catch(() => null);
+  // Some of your public endpoints return an array directly, others return {items:[]}
+  const out = await res.json().catch(() => ({}));
 
-  // your endpoint returns an ARRAY (based on your screenshot)
-  if (Array.isArray(out)) return out.length > 0;
-
-  // fallback if it ever returns { items: [...] }
-  const items = out?.items || out?.records || [];
-  return Array.isArray(items) && items.length > 0;
+  const items = Array.isArray(out) ? out : (out?.items || []);
+  return items.length > 0;
 }
 
-// upload helper
 async function uploadOneImage(file) {
   const fd = new FormData();
   fd.append("file", file);
@@ -130,8 +121,23 @@ async function uploadOneImage(file) {
   return out?.url || "";
 }
 
-// CREATE business on submit
+// ------------------------------
+// DOMContentLoaded init
+// ------------------------------
 document.addEventListener("DOMContentLoaded", () => {
+  initHeaderAuth();
+  initTabs();
+
+  // logout
+  document.getElementById("logout-btn")?.addEventListener("click", async () => {
+    try {
+      await apiFetch("/api/logout", { method: "POST" });
+    } catch {}
+    setHeaderLoggedOut();
+    location.reload();
+  });
+
+  // Save Business
   const form = document.getElementById("popup-add-business-form");
   if (!form) return;
 
@@ -185,30 +191,29 @@ document.addEventListener("DOMContentLoaded", () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           values: {
-            businessName: businessName,
-            yourName: yourName,
+            businessName,    // ✅ match your actual saved fields (your public JSON shows businessName)
+            yourName,
             phoneNumber: phone,
-            locationName: locationName,
+            locationName,
             businessAddress: address,
             businessEmail: email,
             slug,
-            HeroImage: heroUrl,
+            heroImageUrl: heroUrl, // ✅ your public JSON shows heroImageUrl
           },
         }),
       });
 
+      const out = await resp.json().catch(() => ({}));
+
       if (!resp.ok) {
-        const errText = await resp.text().catch(() => "");
-        console.log("Create business failed:", resp.status, errText);
-        alert(`Could not create business (status ${resp.status}). Check server logs.`);
+        console.log("Create business failed:", resp.status, out);
+        alert(out?.error || out?.message || "Could not create business");
         return;
       }
 
-      const out = await resp.json().catch(() => ({}));
-      const created = out?.items?.[0] || out;
-
-      if (!created?._id && !created?.id) {
-        console.log("Create business response:", out);
+      const created = out?.items?.[0];
+      if (!created?._id) {
+        console.log("Create business failed:", out);
         alert("Could not create business");
         return;
       }
