@@ -1,15 +1,17 @@
-//appointment-settings.js
+// appointment-settings.js
 console.log("[Appointment-settings] web loaded");
-const API_BASE =
-  location.hostname.includes("localhost")
-    ? "http://localhost:8400"
-    : "https://live-353x.onrender.com";
+
+// ✅ IMPORTANT:
+// - On localhost, hit your local API directly.
+// - On production (suiteseat.io), use SAME-ORIGIN routes like /api/me so cookies/sessions work.
+const API_BASE = location.hostname.includes("localhost")
+  ? "http://localhost:8400"
+  : ""; // 👈 production uses relative URLs (proxy/rewrites keep session working)
 
 async function fetchMe() {
-const res = await fetch(`${API_BASE}/api/me`, { credentials: "include" });
-
+  const res = await fetch(`${API_BASE}/api/me`, { credentials: "include" });
   const data = await res.json().catch(() => ({}));
-  return data; // { ok, user }
+  return data;
 }
 
 function setHeaderLoggedOut() {
@@ -39,11 +41,8 @@ function setHeaderLoggedIn(user) {
 async function initHeaderAuth() {
   try {
     const data = await fetchMe();
-    if (data?.ok && data?.user) {
-      setHeaderLoggedIn(data.user);
-    } else {
-      setHeaderLoggedOut();
-    }
+    if (data?.ok && data?.user) setHeaderLoggedIn(data.user);
+    else setHeaderLoggedOut();
   } catch (e) {
     console.error("[auth header] failed:", e);
     setHeaderLoggedOut();
@@ -56,43 +55,40 @@ document.addEventListener("DOMContentLoaded", () => {
   // logout click
   document.getElementById("logout-btn")?.addEventListener("click", async () => {
     try {
-    await fetch(`${API_BASE}/api/logout`, { method: "POST", credentials: "include" });
-
+      await fetch(`${API_BASE}/api/logout`, {
+        method: "POST",
+        credentials: "include",
+      });
     } catch {}
     setHeaderLoggedOut();
-    // optional: force refresh
     location.reload();
   });
 });
 
-
-
-  // Tab switching
+// ------------------------------
+// Tab switching
+// ------------------------------
 document.addEventListener("DOMContentLoaded", () => {
-  const optionTabs  = document.querySelectorAll(".option");
+  const optionTabs = document.querySelectorAll(".option");
   const tabSections = document.querySelectorAll("[id$='-section']");
 
   optionTabs.forEach((tab) => {
     tab.addEventListener("click", () => {
-      optionTabs.forEach(t => t.classList.remove("active"));
-      tabSections.forEach(section => section.style.display = "none");
+      optionTabs.forEach((t) => t.classList.remove("active"));
+      tabSections.forEach((section) => (section.style.display = "none"));
       tab.classList.add("active");
 
       const targetId = `${tab.dataset.id}-section`;
-      const section  = document.getElementById(targetId);
+      const section = document.getElementById(targetId);
       if (section) section.style.display = "block";
       if (targetId === "booking-section") attachSaveTemplateLogic?.();
     });
   });
 });
 
-
-  ///////////////////////////////////////////////////////////////////////
-                            //Business Section 
- ///////////////////////////////////////////////////////////////////////
-
- //Save Business 
-// 1) helpers (put once near top)
+// ------------------------------
+// Business Section
+// ------------------------------
 function slugify(str = "") {
   return String(str)
     .toLowerCase()
@@ -103,36 +99,20 @@ function slugify(str = "") {
     .slice(0, 80);
 }
 
-// Checks if a slug is already used by ANY Business record
+// ✅ GLOBAL slug check (checks across all users)
+// Uses your existing /public/records route
 async function isSlugTakenGlobal(typeName, slug) {
   const where = encodeURIComponent(JSON.stringify({ slug }));
-  const url = `${API_BASE}/public/records?dataType=${encodeURIComponent(typeName)}&where=${where}&limit=2`;
-  const res = await fetch(url); // no credentials needed (public)
+  const url = `${API_BASE}/public/records?dataType=${encodeURIComponent(
+    typeName
+  )}&where=${where}&limit=2`;
+
+  const res = await fetch(url, { cache: "no-store" });
   const out = await res.json().catch(() => ({}));
-  const items = out?.items || [];
-  return items.length > 0;
+  return (out?.items || []).length > 0;
 }
 
-
-
-
-
-async function generateSlugForType(typeName, base, excludeId = null) {
-  const resp = await fetch(`${API_BASE}/api/slug/${encodeURIComponent(typeName)}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
-    body: JSON.stringify({
-      base: String(base || ""),
-      excludeId: excludeId || null,
-    }),
-  });
-
-  const out = await resp.json().catch(() => ({}));
-  return out?.slug || "";
-}
-
-// 2) upload helper (uses your /api/upload)
+// upload helper
 async function uploadOneImage(file) {
   const fd = new FormData();
   fd.append("file", file);
@@ -147,7 +127,7 @@ async function uploadOneImage(file) {
   return out?.url || "";
 }
 
-// 3) CREATE business on submit
+// CREATE business on submit
 document.addEventListener("DOMContentLoaded", () => {
   const form = document.getElementById("popup-add-business-form");
   if (!form) return;
@@ -183,24 +163,24 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!businessName) return alert("Business Name is required");
 
       // ✅ create slug in JS
-const slug = slugify(businessName);
-if (!slug) return alert("Please enter a business name to create a slug.");
+      const slug = slugify(businessName);
+      if (!slug) return alert("Please enter a business name to create a slug.");
 
-const taken = await isSlugTakenGlobal("Business", slug);
-if (taken) {
-  alert(`That booking link is not available: "${slug}". Try a different business name.`);
-  return; // STOP
-}
+      // ✅ global availability check
+      const taken = await isSlugTakenGlobal("Business", slug);
+      if (taken) {
+        alert(
+          `That booking link is not available: "${slug}". Try a different business name.`
+        );
+        return;
+      }
 
-
-      // ✅ optional hero upload
+      // optional hero upload
       const fileInput = document.getElementById("image-upload");
       const file = fileInput?.files?.[0] || null;
 
       let heroUrl = "";
-      if (file) {
-        heroUrl = await uploadOneImage(file);
-      }
+      if (file) heroUrl = await uploadOneImage(file);
 
       // ✅ create Business record
       const resp = await fetch(`${API_BASE}/api/records/Business`, {
@@ -215,15 +195,19 @@ if (taken) {
             "Location Name": locationName,
             "Business Address": address,
             "Business Email": email,
-
-            // ✅ store slug on the record
             slug,
-
-            // ✅ store hero url if uploaded
             HeroImage: heroUrl,
           },
         }),
       });
+
+      // ✅ better errors
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        console.log("Create business failed:", resp.status, err);
+        alert(err?.error || err?.message || "Could not create business");
+        return;
+      }
 
       const out = await resp.json().catch(() => ({}));
       const created = out?.items?.[0];
