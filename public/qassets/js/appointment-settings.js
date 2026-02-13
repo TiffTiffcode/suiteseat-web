@@ -7,10 +7,13 @@ const API_BASE =
     : "https://api.suiteseat.io";
 
 // always call the backend through this helper
-function apiFetch(path, options = {}) {
-  const url = `${API_BASE}${path.startsWith("/") ? path : `/${path}`}`;
-  return fetch(url, { credentials: "include", ...options });
-}
+// when user clicks Login
+const resp = await apiFetch("/api/login", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ email, password }),
+});
+
 
 async function fetchMe() {
   const res = await apiFetch("/api/me");
