@@ -254,3 +254,76 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 });
+
+
+
+
+
+// ------------------------------
+// Login Popup + Login Submit
+// ------------------------------
+function openLoginPopup() {
+  const popup = document.getElementById("login-popup");
+  const overlay = document.getElementById("popup-overlay");
+  if (popup) popup.style.display = "block";
+  if (overlay) overlay.style.display = "block";
+}
+
+function closeLoginPopup() {
+  const popup = document.getElementById("login-popup");
+  const overlay = document.getElementById("popup-overlay");
+  if (popup) popup.style.display = "none";
+  if (overlay) overlay.style.display = "none";
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  // Open popup
+  document.getElementById("open-login-popup-btn")?.addEventListener("click", () => {
+    openLoginPopup();
+  });
+
+  // Close popup if overlay clicked
+  document.getElementById("popup-overlay")?.addEventListener("click", () => {
+    closeLoginPopup();
+  });
+
+  // Submit login
+  document.getElementById("login-form")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const email = document.getElementById("login-email")?.value?.trim();
+    const password = document.getElementById("login-password")?.value;
+
+    if (!email || !password) {
+      alert("Please enter email and password.");
+      return;
+    }
+
+    try {
+      const res = await apiFetch("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const out = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        alert(out?.error || out?.message || "Login failed");
+        return;
+      }
+
+      // ✅ Update header + UI
+      await initHeaderAuth();
+
+      // ✅ Close popup
+      closeLoginPopup();
+
+      // Optional: clear fields
+      document.getElementById("login-password").value = "";
+    } catch (err) {
+      console.error("[login] error:", err);
+      alert("Login error. Check console.");
+    }
+  });
+});
