@@ -1,22 +1,26 @@
 console.log("[accept-appointments] web loaded");
 
-const API_ORIGIN =
-  location.hostname === "localhost" ? "http://localhost:8400" : "";
+// ✅ Dev hits backend directly, Prod hits same-origin Next API (/api/*)
+const API_ORIGIN = location.hostname === "localhost" ? "http://localhost:8400" : "";
 
-// Use for ANY endpoint path ("/api/..", "/public/..", "/get-records/..", etc.)
-// ✅ Always route API calls to your backend, not the current website origin
+// ✅ Always produce a /api/... URL (same behavior as suite-settings + signup page)
 function apiUrl(path = "") {
-  const base = String(window.API_BASE || "").replace(/\/$/, "");
   const p = String(path || "");
-  if (!base) return p; // fallback (shouldn't happen)
-  return base + (p.startsWith("/") ? p : "/" + p);
+  if (!p) return `${API_ORIGIN}/api`;
+
+  // if caller already passed /api/...
+  if (p.startsWith("/api/")) return `${API_ORIGIN}${p}`;
+
+  // if caller passed "login" or "/login", force it into /api/login
+  const cleaned = p.startsWith("/") ? p : `/${p}`;
+  return `${API_ORIGIN}/api${cleaned}`;
 }
 
 async function apiFetch(path, opts = {}) {
   return fetch(apiUrl(path), {
     credentials: "include",
-    headers: { Accept: "application/json", ...(opts.headers || {}) },
     cache: "no-store",
+    headers: { Accept: "application/json", ...(opts.headers || {}) },
     ...opts,
   });
 }
@@ -89,57 +93,39 @@ let editingServiceId  = null;
 
 // ---------- API helpers ----------
 async function login(email, password) {
-  const res = await fetch(apiUrl("/api/login"), {
+  const res = await apiFetch("/api/login", {
     method: "POST",
-    credentials: "include",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify({ email, password }),
   });
 
-  const ct = res.headers.get("content-type") || "";
   const text = await res.text();
-  if (!res.ok) throw new Error(`HTTP ${res.status} – ${text.slice(0, 200)}`);
-  if (!ct.includes("application/json")) {
-    throw new Error(`Expected JSON, got ${ct || "unknown"}: ${text.slice(0, 200)}`);
+  let data = {};
+  try { data = JSON.parse(text || "{}"); } catch {}
+
+  if (!res.ok || data.ok === false) {
+    throw new Error(data.error || data.message || `HTTP ${res.status}`);
   }
-  return JSON.parse(text);
+
+  return data;
 }
 
+
 async function me() {
-  try {
-    const res = await fetch(apiUrl(`/api/me?ts=${Date.now()}`), {
-      credentials: "include",
-      cache: "no-store",
-      headers: { Accept: "application/json" },
-    });
+  const res = await apiFetch(`/api/me?ts=${Date.now()}`);
 
-    const text = await res.text();
+  const text = await res.text();
+  let data = {};
+  try { data = JSON.parse(text || "{}"); } catch {}
 
-    // ✅ If not logged in, return a safe object (DON’T throw)
-    if (res.status === 401) {
-      let body = {};
-      try { body = JSON.parse(text || "{}"); } catch {}
-      return { ok: false, loggedIn: false, user: null, ...body };
-    }
+  // ✅ treat "not logged in" as a normal state (no throwing)
+  if (res.status === 401) return { ok: false, user: null, loggedIn: false, ...data };
 
-    if (!res.ok) {
-      console.warn("[me] HTTP error", res.status, text.slice(0, 200));
-      return { ok: false, loggedIn: false, user: null };
-    }
+  if (!res.ok) return { ok: false, user: null, loggedIn: false };
 
-    try {
-      const body = JSON.parse(text || "{}");
-      // normalize shapes
-      if (body.ok === undefined && body.loggedIn !== undefined) body.ok = !!body.loggedIn;
-      return body;
-    } catch (err) {
-      console.error("[me] JSON parse failed", err, text.slice(0, 200));
-      return { ok: false, loggedIn: false, user: null };
-    }
-  } catch (err) {
-    console.warn("[me] request failed", err);
-    return { ok: false, loggedIn: false, user: null };
-  }
+  // normalize
+  if (data.ok === undefined && data.loggedIn !== undefined) data.ok = !!data.loggedIn;
+  return data;
 }
 
 
@@ -3225,6 +3211,9 @@ async function loadServiceList() {
 
 
 document.addEventListener("DOMContentLoaded", () => {
+  const form = document.querySelector("#login-form");
+if (form) form.removeAttribute("action");
+
   const desc = document.getElementById("popup-service-description-input");
   if (!desc) return;
 
