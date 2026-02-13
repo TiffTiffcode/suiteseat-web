@@ -1,8 +1,16 @@
-//appointment-settings.js
+// appointment-settings.js
 console.log("[Appointment-settings] web loaded");
 
+const API_BASE =
+  location.hostname.includes("localhost")
+    ? "http://localhost:8400"
+    : "https://live-353x.onrender.com";
+
+// -----------------------------
+// Auth header
+// -----------------------------
 async function fetchMe() {
-  const res = await fetch("/api/me", { credentials: "include" });
+  const res = await fetch(`${API_BASE}/api/me`, { credentials: "include" });
   const data = await res.json().catch(() => ({}));
   return data; // { ok, user }
 }
@@ -34,11 +42,8 @@ function setHeaderLoggedIn(user) {
 async function initHeaderAuth() {
   try {
     const data = await fetchMe();
-    if (data?.ok && data?.user) {
-      setHeaderLoggedIn(data.user);
-    } else {
-      setHeaderLoggedOut();
-    }
+    if (data?.ok && data?.user) setHeaderLoggedIn(data.user);
+    else setHeaderLoggedOut();
   } catch (e) {
     console.error("[auth header] failed:", e);
     setHeaderLoggedOut();
@@ -48,45 +53,42 @@ async function initHeaderAuth() {
 document.addEventListener("DOMContentLoaded", () => {
   initHeaderAuth();
 
-  // logout click
   document.getElementById("logout-btn")?.addEventListener("click", async () => {
     try {
-      await fetch("/api/logout", { method: "POST", credentials: "include" });
+      await fetch(`${API_BASE}/api/logout`, {
+        method: "POST",
+        credentials: "include",
+      });
     } catch {}
     setHeaderLoggedOut();
-    // optional: force refresh
     location.reload();
   });
 });
 
-
-
-  // Tab switching
+// -----------------------------
+// Tab switching
+// -----------------------------
 document.addEventListener("DOMContentLoaded", () => {
-  const optionTabs  = document.querySelectorAll(".option");
+  const optionTabs = document.querySelectorAll(".option");
   const tabSections = document.querySelectorAll("[id$='-section']");
 
   optionTabs.forEach((tab) => {
     tab.addEventListener("click", () => {
-      optionTabs.forEach(t => t.classList.remove("active"));
-      tabSections.forEach(section => section.style.display = "none");
+      optionTabs.forEach((t) => t.classList.remove("active"));
+      tabSections.forEach((section) => (section.style.display = "none"));
       tab.classList.add("active");
 
       const targetId = `${tab.dataset.id}-section`;
-      const section  = document.getElementById(targetId);
+      const section = document.getElementById(targetId);
       if (section) section.style.display = "block";
       if (targetId === "booking-section") attachSaveTemplateLogic?.();
     });
   });
 });
 
-
-  ///////////////////////////////////////////////////////////////////////
-                            //Business Section 
- ///////////////////////////////////////////////////////////////////////
-
- //Save Business 
-// 1) helpers (put once near top)
+// -----------------------------
+// Business helpers
+// -----------------------------
 function slugify(str = "") {
   return String(str)
     .toLowerCase()
@@ -97,43 +99,38 @@ function slugify(str = "") {
     .slice(0, 80);
 }
 
-// Checks if a slug is already used by ANY Business record
+/**
+ * ✅ GLOBAL slug check (ALL USERS) using your existing /public/records
+ * This does NOT require login and does NOT filter by ownerUserId.
+ */
 async function isSlugTakenGlobal(typeName, slug) {
   const qs = new URLSearchParams({
-    type: typeName,
-    slug: slug,
+    dataType: typeName,
+    where: JSON.stringify({ slug }), // becomes values.slug in your server rewriteNode()
+    limit: "1",
   });
 
-  const res = await fetch(`/public/slug-check?${qs.toString()}`, {
-    credentials: "include",
+  const res = await fetch(`${API_BASE}/public/records?${qs.toString()}`, {
+    cache: "no-store",
   });
+
+  // if something goes wrong, don't silently allow duplicates
+  if (!res.ok) {
+    console.warn("[slug-check] request failed:", res.status);
+    return true; // safest default: treat as taken
+  }
 
   const out = await res.json().catch(() => ({}));
-  return !!out?.taken;
+  const items = out?.items || [];
+  return items.length > 0;
 }
 
-
-async function generateSlugForType(typeName, base, excludeId = null) {
-  const resp = await fetch(`/api/slug/${encodeURIComponent(typeName)}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
-    body: JSON.stringify({
-      base: String(base || ""),
-      excludeId: excludeId || null,
-    }),
-  });
-
-  const out = await resp.json().catch(() => ({}));
-  return out?.slug || "";
-}
-
-// 2) upload helper (uses your /api/upload)
+// upload helper (your /api/upload)
 async function uploadOneImage(file) {
   const fd = new FormData();
   fd.append("file", file);
 
-  const resp = await fetch("/api/upload", {
+  const resp = await fetch(`${API_BASE}/api/upload`, {
     method: "POST",
     credentials: "include",
     body: fd,
@@ -143,7 +140,9 @@ async function uploadOneImage(file) {
   return out?.url || "";
 }
 
-// 3) CREATE business on submit
+// -----------------------------
+// CREATE business on submit
+// -----------------------------
 document.addEventListener("DOMContentLoaded", () => {
   const form = document.getElementById("popup-add-business-form");
   if (!form) return;
@@ -178,28 +177,28 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (!businessName) return alert("Business Name is required");
 
-      // ✅ create slug in JS
-const slug = slugify(businessName);
-if (!slug) return alert("Please enter a business name to create a slug.");
+      // ✅ slug created in JS
+      const slug = slugify(businessName);
+      if (!slug) return alert("Please enter a business name to create a slug.");
 
-const taken = await isSlugTakenGlobal("Business", slug);
-if (taken) {
-  alert(`That booking link is not available: "${slug}". Try a different business name.`);
-  return; // STOP
-}
-
+      // ✅ GLOBAL slug availability check (all users)
+      const taken = await isSlugTakenGlobal("Business", slug);
+      if (taken) {
+        alert(
+          `That booking link is not available: "${slug}". Try a different business name.`
+        );
+        return; // STOP
+      }
 
       // ✅ optional hero upload
       const fileInput = document.getElementById("image-upload");
       const file = fileInput?.files?.[0] || null;
 
       let heroUrl = "";
-      if (file) {
-        heroUrl = await uploadOneImage(file);
-      }
+      if (file) heroUrl = await uploadOneImage(file);
 
       // ✅ create Business record
-      const resp = await fetch("/api/records/Business", {
+      const resp = await fetch(`${API_BASE}/api/records/Business`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -212,11 +211,9 @@ if (taken) {
             "Business Address": address,
             "Business Email": email,
 
-            // ✅ store slug on the record
-            slug,
+            slug, // ✅ important
 
-            // ✅ store hero url if uploaded
-            HeroImage: heroUrl,
+            HeroImage: heroUrl, // optional
           },
         }),
       });
