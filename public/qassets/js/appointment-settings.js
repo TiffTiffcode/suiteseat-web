@@ -1,7 +1,7 @@
 console.log("[accept-appointments] web loaded");
 
 // ✅ Dev hits backend directly, Prod hits same-origin Next API (/api/*)
-const API_ORIGIN = location.hostname === "localhost" ? "http://localhost:8400" : "";
+const API_BASE = API_ORIGIN; // keep consistent
 
 // ✅ Always produce a /api/... URL (same behavior as suite-settings + signup page)
 function apiUrl(path = "") {
