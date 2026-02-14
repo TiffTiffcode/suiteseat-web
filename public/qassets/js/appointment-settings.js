@@ -39,8 +39,8 @@ function setHeaderLoggedIn(user) {
   const loginBtn = document.getElementById("open-login-popup-btn");
   const logoutBtn = document.getElementById("logout-btn");
 
-  const first = (user?.firstName || "").trim();
-  const last = (user?.lastName || "").trim();
+  const first = (user?.firstName || user?.first_name || "").trim();
+  const last = (user?.lastName || user?.last_name || "").trim();
   const name = [first, last].filter(Boolean).join(" ").trim();
 
   if (status) status.textContent = name ? `Hey, ${name}` : "Logged in";
@@ -48,15 +48,25 @@ function setHeaderLoggedIn(user) {
   if (logoutBtn) logoutBtn.style.display = "inline-block";
 }
 
-// Your server route: GET /api/me -> { ok:true, user:{...} } OR { ok:false, user:null }
+// Your server route: GET /api/me can return either:
+// A) { ok:true, user:{...} }  OR  B) { _id/id/email/firstName/lastName }  OR  C) { ok:false, user:null }
 async function initHeaderAuth() {
   try {
-    const { res, data } = await apiJSON("/api/me", { method: "GET" });
+    const res = await apiFetch("/api/me", { method: "GET", cache: "no-store" });
+    const data = await res.json().catch(() => ({}));
+
     console.log("[auth] GET /api/me", res.status, data);
 
-    if (res.ok && data?.ok && data?.user) {
+    // Shape A
+    if (data?.ok && data?.user) {
       setHeaderLoggedIn(data.user);
       return { loggedIn: true, user: data.user };
+    }
+
+    // Shape B
+    if (data?._id || data?.id) {
+      setHeaderLoggedIn(data);
+      return { loggedIn: true, user: data };
     }
 
     setHeaderLoggedOut();
@@ -112,7 +122,16 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     if (!res.ok) return alert(data?.message || data?.error || "Login failed");
 
-    // now re-check session and update header
+    // ✅ Update header immediately from login response (supports multiple shapes)
+    const user =
+      data?.user ||
+      (data?.loggedIn ? data : null);
+
+    if (user && (user._id || user.id)) {
+      setHeaderLoggedIn(user);
+    }
+
+    // ✅ Then re-check session (source of truth)
     await initHeaderAuth();
 
     closeLoginPopup();
@@ -120,7 +139,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (pw) pw.value = "";
   });
 
-  // Logout: you have multiple logout routes; the cleanest you showed is POST /api/logout
+  // Logout: your clean one is POST /api/logout
   document.getElementById("logout-btn")?.addEventListener("click", async () => {
     await apiFetch("/api/logout", { method: "POST" }).catch(() => {});
     setHeaderLoggedOut();
