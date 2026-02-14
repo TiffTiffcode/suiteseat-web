@@ -5,6 +5,9 @@ const API_BASE =
     ? "http://localhost:8400"
     : "https://api.suiteseat.io";
 
+// Set these to match your server routes
+const LOGIN_PATH = "/api/signin";  // <-- change if your server uses something else
+const LOGOUT_PATH = "/api/logout"; // <-- change if your server uses something else
 
 // Always call backend through this helper
 function apiFetch(path, options = {}) {
@@ -18,7 +21,6 @@ function apiFetch(path, options = {}) {
 // ------------------------------
 // Header auth
 // ------------------------------
-// --------- API helpers ----------
 async function fetchMe() {
   const res = await apiFetch("/api/me", {
     method: "GET",
@@ -28,7 +30,6 @@ async function fetchMe() {
   const data = await res.json().catch(() => ({}));
   return { res, data };
 }
-
 
 function setHeaderLoggedOut() {
   const status = document.getElementById("login-status-text");
@@ -56,8 +57,8 @@ function setHeaderLoggedIn(user) {
 
 async function initHeaderAuth() {
   try {
-    const data = await fetchMe();
-    const ok = !!data?.ok || !!data?.loggedIn;
+    const { res, data } = await fetchMe();
+    const ok = res.ok && (data?.ok || data?.loggedIn);
 
     if (ok && data?.user) setHeaderLoggedIn(data.user);
     else setHeaderLoggedOut();
@@ -101,51 +102,10 @@ function closeLoginPopup() {
   document.getElementById("popup-overlay")?.style.setProperty("display", "none");
 }
 
-  // Open login popup
-  document.getElementById("open-login-popup-btn")?.addEventListener("click", openLoginPopup);
-
-  // Close popup
-  document.getElementById("popup-overlay")?.addEventListener("click", closeLoginPopup);
-  document.getElementById("close-login-popup-btn")?.addEventListener("click", closeLoginPopup);
-
-  // Login submit (ONE handler only)
-  document.getElementById("login-form")?.addEventListener("submit", async (e) => {
-    e.preventDefault();
-
-    const email = document.getElementById("login-email")?.value?.trim();
-    const password = document.getElementById("login-password")?.value;
-
-    if (!email || !password) return alert("Please enter email and password.");
-
-    const res = await apiFetch("/api/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    });
-
-    const out = await res.json().catch(() => ({}));
-    if (!res.ok) return alert(out?.error || out?.message || "Login failed");
-
-    await initHeaderAuth();
-    closeLoginPopup();
-    document.getElementById("login-password").value = "";
-  });
-
-  // Logout
-  document.getElementById("logout-btn")?.addEventListener("click", async () => {
-    try {
-      await apiFetch("/api/logout", { method: "POST" });
-    } catch {}
-    setHeaderLoggedOut();
-    location.reload();
-  });
-
-
-  ////////////////////////////////////////////////////////////
-                     //Menu Section
-  ////////////////////////////////////////////////////////////
-  
-  async function fetchMyBusinesses() {
+// ------------------------------
+// Businesses (dropdown)
+// ------------------------------
+async function fetchMyBusinesses() {
   const res = await apiFetch(`/api/records/Business?ts=${Date.now()}`, {
     method: "GET",
     headers: { Accept: "application/json" },
@@ -159,15 +119,9 @@ function closeLoginPopup() {
 
 function bizLabel(biz) {
   const v = biz?.values || biz || {};
-  return (
-    v.businessName ||
-    v.Name ||
-    v.name ||
-    "(Untitled)"
-  );
+  return v.businessName || v.Name || v.name || "(Untitled)";
 }
 
-// --------- UI ----------
 function setSelectedBusinessNameFromSelect() {
   const dropdown = document.getElementById("business-dropdown");
   const header = document.getElementById("selected-business-name");
@@ -186,7 +140,7 @@ async function loadBusinessDropdown({ preserve = true } = {}) {
   dropdown.innerHTML = `<option value="">Loading…</option>`;
   if (header) header.textContent = "Choose business to manage";
 
-  // 1) confirm auth (optional but helpful)
+  // confirm auth
   const { res: meRes, data: me } = await fetchMe();
   if (!meRes.ok || !(me?.ok || me?.loggedIn)) {
     dropdown.innerHTML = `<option value="">-- Please log in --</option>`;
@@ -195,7 +149,7 @@ async function loadBusinessDropdown({ preserve = true } = {}) {
     return;
   }
 
-  // 2) fetch businesses
+  // fetch businesses
   const { res, items } = await fetchMyBusinesses();
   if (!res.ok) {
     dropdown.innerHTML = `<option value="">-- Could not load businesses --</option>`;
@@ -203,11 +157,9 @@ async function loadBusinessDropdown({ preserve = true } = {}) {
     return;
   }
 
-  // (optional) remove soft-deleted
   const visible = items.filter((b) => !b?.deletedAt);
 
   dropdown.innerHTML = `<option value="">-- Choose Business --</option>`;
-
   for (const biz of visible) {
     const opt = document.createElement("option");
     opt.value = biz._id;
@@ -237,9 +189,60 @@ async function loadBusinessDropdown({ preserve = true } = {}) {
   }
 }
 
-// --------- init ----------
+// ------------------------------
+// Init (ONE DOMContentLoaded only)
+// ------------------------------
 document.addEventListener("DOMContentLoaded", () => {
-  loadBusinessDropdown({ preserve: true }).catch((e) => {
-    console.error("[business-dropdown] init error:", e);
+  initTabs();
+  initHeaderAuth();
+
+  // popup open/close
+  document
+    .getElementById("open-login-popup-btn")
+    ?.addEventListener("click", openLoginPopup);
+  document
+    .getElementById("popup-overlay")
+    ?.addEventListener("click", closeLoginPopup);
+  document
+    .getElementById("close-login-popup-btn")
+    ?.addEventListener("click", closeLoginPopup);
+
+  // login submit
+  document.getElementById("login-form")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const email = document.getElementById("login-email")?.value?.trim();
+    const password = document.getElementById("login-password")?.value;
+
+    if (!email || !password) return alert("Please enter email and password.");
+
+    const res = await apiFetch(LOGIN_PATH, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+
+    const out = await res.json().catch(() => ({}));
+    if (!res.ok) return alert(out?.error || out?.message || "Login failed");
+
+    await initHeaderAuth();
+    closeLoginPopup();
+    const pw = document.getElementById("login-password");
+    if (pw) pw.value = "";
+
+    // after login, load businesses
+    await loadBusinessDropdown({ preserve: true });
   });
+
+  // logout
+  document.getElementById("logout-btn")?.addEventListener("click", async () => {
+    try {
+      await apiFetch(LOGOUT_PATH, { method: "POST" });
+    } catch {}
+    setHeaderLoggedOut();
+    location.reload();
+  });
+
+  // initial attempt (will show "Please log in" until session exists)
+  loadBusinessDropdown({ preserve: true }).catch(console.error);
 });
