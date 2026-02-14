@@ -298,6 +298,34 @@ async function ensureBusinessExists() {
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
   // ---------- Business Section: open create popup ----------
   const openBtn       = document.getElementById("open-business-popup-button");
   const businessPopup = document.getElementById("popup-add-business");

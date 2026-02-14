@@ -1,11 +1,9 @@
-// appointment-settings.js
 console.log("[Appointment-settings] web loaded");
 
 const API_BASE =
   location.hostname.includes("localhost")
     ? "http://localhost:8400"
     : "https://live-353x.onrender.com";
-
 
 // Always call backend through this helper
 function apiFetch(path, options = {}) {
@@ -21,11 +19,9 @@ function apiFetch(path, options = {}) {
 // ------------------------------
 async function fetchMe() {
   const res = await apiFetch("/api/me");
-  if (res.status === 401) return { loggedIn: false };
   const data = await res.json().catch(() => ({}));
   return data;
 }
-
 
 function setHeaderLoggedOut() {
   const status = document.getElementById("login-status-text");
@@ -54,10 +50,6 @@ function setHeaderLoggedIn(user) {
 async function initHeaderAuth() {
   try {
     const data = await fetchMe();
-
-    // support either shape:
-    // (A) { ok:true, user:{} }
-    // (B) { loggedIn:true, user:{} }
     const ok = !!data?.ok || !!data?.loggedIn;
 
     if (ok && data?.user) setHeaderLoggedIn(data.user);
@@ -90,7 +82,20 @@ function initTabs() {
 }
 
 // ------------------------------
-// Business helpers
+// Login popup helpers (ONE version only)
+// ------------------------------
+function openLoginPopup() {
+  document.getElementById("login-popup")?.style.setProperty("display", "block");
+  document.getElementById("popup-overlay")?.style.setProperty("display", "block");
+}
+
+function closeLoginPopup() {
+  document.getElementById("login-popup")?.style.setProperty("display", "none");
+  document.getElementById("popup-overlay")?.style.setProperty("display", "none");
+}
+
+// ------------------------------
+// Business helpers (keep yours)
 // ------------------------------
 function slugify(str = "") {
   return String(str)
@@ -102,15 +107,12 @@ function slugify(str = "") {
     .slice(0, 80);
 }
 
-// GLOBAL slug check (all users) using your existing public route
 async function isSlugTakenGlobal(typeName, slug) {
   const where = encodeURIComponent(JSON.stringify({ slug }));
   const path = `/public/records?dataType=${encodeURIComponent(typeName)}&where=${where}&limit=2`;
 
   const res = await apiFetch(path, { cache: "no-store" });
-  // Some of your public endpoints return an array directly, others return {items:[]}
   const out = await res.json().catch(() => ({}));
-
   const items = Array.isArray(out) ? out : (out?.items || []);
   return items.length > 0;
 }
@@ -123,41 +125,45 @@ async function uploadOneImage(file) {
   const out = await resp.json().catch(() => ({}));
   return out?.url || "";
 }
+
 // ------------------------------
-// DOMContentLoaded init
+// DOMContentLoaded (ONE block only)
 // ------------------------------
 document.addEventListener("DOMContentLoaded", () => {
-  // init header + tabs
   initHeaderAuth();
   initTabs();
 
-  // ✅ LOGIN submit
+  // Open login popup
+  document.getElementById("open-login-popup-btn")?.addEventListener("click", openLoginPopup);
+
+  // Close popup
+  document.getElementById("popup-overlay")?.addEventListener("click", closeLoginPopup);
+  document.getElementById("close-login-popup-btn")?.addEventListener("click", closeLoginPopup);
+
+  // Login submit (ONE handler only)
   document.getElementById("login-form")?.addEventListener("submit", async (e) => {
     e.preventDefault();
 
     const email = document.getElementById("login-email")?.value?.trim();
     const password = document.getElementById("login-password")?.value;
 
-    const payload = { email, password };
+    if (!email || !password) return alert("Please enter email and password.");
 
     const res = await apiFetch("/api/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ email, password }),
     });
 
     const out = await res.json().catch(() => ({}));
+    if (!res.ok) return alert(out?.error || out?.message || "Login failed");
 
-    if (!res.ok) {
-      alert(out?.error || out?.message || "Login failed");
-      return;
-    }
-
-    // ✅ refresh header state
     await initHeaderAuth();
+    closeLoginPopup();
+    document.getElementById("login-password").value = "";
   });
 
-  // ✅ LOGOUT
+  // Logout
   document.getElementById("logout-btn")?.addEventListener("click", async () => {
     try {
       await apiFetch("/api/logout", { method: "POST" });
@@ -166,7 +172,7 @@ document.addEventListener("DOMContentLoaded", () => {
     location.reload();
   });
 
-  // ✅ SAVE BUSINESS
+  // Save Business (your existing logic)
   const form = document.getElementById("popup-add-business-form");
   if (!form) return;
 
@@ -233,143 +239,21 @@ document.addEventListener("DOMContentLoaded", () => {
       });
 
       const out = await resp.json().catch(() => ({}));
-
       if (!resp.ok) {
         console.log("Create business failed:", resp.status, out);
-        alert(out?.error || out?.message || "Could not create business");
-        return;
+        return alert(out?.error || out?.message || "Could not create business");
       }
 
       const created = out?.items?.[0];
-      if (!created?._id) {
-        console.log("Create business failed:", out);
-        alert("Could not create business");
-        return;
-      }
+      if (!created?._id) return alert("Could not create business");
 
       console.log("✅ Business created:", created);
 
-      if (typeof loadBusinesses === "function") await loadBusinesses();
+      if (typeof loadBusinesses === "function") loadBusinesses();
       if (typeof closeAddBusinessPopup === "function") closeAddBusinessPopup();
     } catch (err) {
       console.error("Save business error:", err);
       alert("Error saving business");
     }
-  });
-});
-
-
-
-
-
-// ------------------------------
-// Login Popup + Login Submit
-// ------------------------------
-function openLoginPopup() {
-  const popup = document.getElementById("login-popup");
-  const overlay = document.getElementById("popup-overlay");
-  if (popup) popup.style.display = "block";
-  if (overlay) overlay.style.display = "block";
-}
-
-function closeLoginPopup() {
-  const popup = document.getElementById("login-popup");
-  const overlay = document.getElementById("popup-overlay");
-  if (popup) popup.style.display = "none";
-  if (overlay) overlay.style.display = "none";
-}
-
-document.addEventListener("DOMContentLoaded", () => {
-  // Open popup
-  document.getElementById("open-login-popup-btn")?.addEventListener("click", () => {
-    openLoginPopup();
-  });
-
-  // Close popup if overlay clicked
-  document.getElementById("popup-overlay")?.addEventListener("click", () => {
-    closeLoginPopup();
-  });
-
-  // Submit login
-  document.getElementById("login-form")?.addEventListener("submit", async (e) => {
-    e.preventDefault();
-
-    const email = document.getElementById("login-email")?.value?.trim();
-    const password = document.getElementById("login-password")?.value;
-
-    if (!email || !password) {
-      alert("Please enter email and password.");
-      return;
-    }
-
-    try {
-      const res = await apiFetch("/api/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
-
-      const out = await res.json().catch(() => ({}));
-
-      if (!res.ok) {
-        alert(out?.error || out?.message || "Login failed");
-        return;
-      }
-
-      // ✅ Update header + UI
-      await initHeaderAuth();
-
-      // ✅ Close popup
-      closeLoginPopup();
-
-      // Optional: clear fields
-      document.getElementById("login-password").value = "";
-    } catch (err) {
-      console.error("[login] error:", err);
-      alert("Login error. Check console.");
-    }
-  });
-});
-
-
-function openLoginPopup() {
-  document.getElementById("login-popup")?.style.setProperty("display", "block");
-  document.getElementById("popup-overlay")?.style.setProperty("display", "block");
-}
-
-function closeLoginPopup() {
-  document.getElementById("login-popup")?.style.setProperty("display", "none");
-  document.getElementById("popup-overlay")?.style.setProperty("display", "none");
-}
-
-document.addEventListener("DOMContentLoaded", () => {
-  // Open
-  document.getElementById("open-login-popup-btn")?.addEventListener("click", openLoginPopup);
-
-  // Close
-  document.getElementById("popup-overlay")?.addEventListener("click", closeLoginPopup);
-  document.getElementById("close-login-popup-btn")?.addEventListener("click", closeLoginPopup);
-
-  // Login submit
-  document.getElementById("login-form")?.addEventListener("submit", async (e) => {
-    e.preventDefault();
-
-    const email = document.getElementById("login-email")?.value?.trim();
-    const password = document.getElementById("login-password")?.value;
-
-    const res = await apiFetch("/api/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    });
-
-    const out = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      alert(out?.error || out?.message || "Login failed");
-      return;
-    }
-
-    await initHeaderAuth();   // refresh "Hey, Name"
-    closeLoginPopup();        // hide popup
   });
 });
