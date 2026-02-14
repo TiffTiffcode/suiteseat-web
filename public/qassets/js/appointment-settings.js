@@ -48,11 +48,11 @@ function setHeaderLoggedIn(user) {
   if (logoutBtn) logoutBtn.style.display = "inline-block";
 }
 
-// Your server returns: { ok: true, user: {...} } OR { ok:false, user:null }
+// Your server route: GET /api/me -> { ok:true, user:{...} } OR { ok:false, user:null }
 async function initHeaderAuth() {
   try {
     const { res, data } = await apiJSON("/api/me", { method: "GET" });
-    console.log("[auth] /api/me", res.status, data);
+    console.log("[auth] GET /api/me", res.status, data);
 
     if (res.ok && data?.ok && data?.user) {
       setHeaderLoggedIn(data.user);
@@ -69,7 +69,7 @@ async function initHeaderAuth() {
 }
 
 // ------------------------------
-// Login popup (only ONE set)
+// Login popup
 // ------------------------------
 function openLoginPopup() {
   document.getElementById("login-popup")?.style.setProperty("display", "block");
@@ -82,18 +82,18 @@ function closeLoginPopup() {
 }
 
 // ------------------------------
-// Page init
+// Init
 // ------------------------------
 document.addEventListener("DOMContentLoaded", async () => {
-  // header state on load
   await initHeaderAuth();
 
-  // open/close popup (if your popup exists in HTML)
   document.getElementById("open-login-popup-btn")?.addEventListener("click", openLoginPopup);
   document.getElementById("popup-overlay")?.addEventListener("click", closeLoginPopup);
   document.getElementById("close-login-popup-btn")?.addEventListener("click", closeLoginPopup);
 
-  // login submit (POST /api/login)
+  // IMPORTANT: your server has POST /login working (not /api/login)
+  const LOGIN_PATH = "/login";
+
   document.getElementById("login-form")?.addEventListener("submit", async (e) => {
     e.preventDefault();
 
@@ -102,23 +102,25 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     if (!email || !password) return alert("Enter email + password");
 
-    const { res, data } = await apiJSON("/api/login", {
+    const { res, data } = await apiJSON(LOGIN_PATH, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password }),
     });
 
-    console.log("[login] /api/login", res.status, data);
+    console.log(`[login] POST ${LOGIN_PATH}`, res.status, data);
 
-    if (!res.ok) return alert(data?.message || "Login failed");
+    if (!res.ok) return alert(data?.message || data?.error || "Login failed");
 
-    await initHeaderAuth(); // refresh header text/buttons
+    // now re-check session and update header
+    await initHeaderAuth();
+
     closeLoginPopup();
     const pw = document.getElementById("login-password");
     if (pw) pw.value = "";
   });
 
-  // logout (POST /api/logout)
+  // Logout: you have multiple logout routes; the cleanest you showed is POST /api/logout
   document.getElementById("logout-btn")?.addEventListener("click", async () => {
     await apiFetch("/api/logout", { method: "POST" }).catch(() => {});
     setHeaderLoggedOut();
