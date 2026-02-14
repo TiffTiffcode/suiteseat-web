@@ -4,7 +4,8 @@ console.log("[Appointment-settings] web loaded");
 const API_BASE =
   location.hostname.includes("localhost")
     ? "http://localhost:8400"
-    : "https://api.suiteseat.io";
+    : "https://live-353x.onrender.com";
+
 
 // Always call backend through this helper
 function apiFetch(path, options = {}) {
