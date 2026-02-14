@@ -7,8 +7,9 @@ const API_BASE =
 
 // ✅ Your server routes
 const ME_PATH = "/api/me";
-const LOGIN_PATH = "/api/login";
-const LOGOUT_PATH = "/api/logout";
+const LOGIN_PATH = "/login";      // ✅ change this
+const LOGOUT_PATH = "/api/logout"; // keep for now
+
 
 // Always call backend through this helper
 function apiFetch(path, options = {}) {
