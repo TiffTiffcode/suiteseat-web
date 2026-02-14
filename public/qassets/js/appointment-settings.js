@@ -1,21 +1,35 @@
-// appointment-settings.js
 console.log("[Appointment-settings] web loaded");
 
 const API_BASE =
   location.hostname.includes("localhost")
     ? "http://localhost:8400"
-    : "https://api.suiteseat.io"; // ✅ CHANGE THIS to your custom domain (recommended)
+    : "https://api.suiteseat.io";
 
-// always call the backend through this helper
+// ✅ Your server routes
+const ME_PATH = "/api/me";
+const LOGIN_PATH = "/api/login";
+const LOGOUT_PATH = "/api/logout";
+
+// Always call backend through this helper
 function apiFetch(path, options = {}) {
   const url = `${API_BASE}${path.startsWith("/") ? path : `/${path}`}`;
-  return fetch(url, { credentials: "include", ...options });
+  return fetch(url, {
+    credentials: "include",
+    ...options,
+  });
 }
 
+// ------------------------------
+// Header auth
+// ------------------------------
 async function fetchMe() {
-  const res = await apiFetch("/api/me");
+  const res = await apiFetch(ME_PATH, {
+    method: "GET",
+    headers: { Accept: "application/json" },
+    cache: "no-store",
+  });
   const data = await res.json().catch(() => ({}));
-  return data;
+  return { res, data };
 }
 
 function setHeaderLoggedOut() {
@@ -44,31 +58,29 @@ function setHeaderLoggedIn(user) {
 
 async function initHeaderAuth() {
   try {
-    const data = await fetchMe();
-    if (data?.ok && data?.user) setHeaderLoggedIn(data.user);
+    const { res, data } = await fetchMe();
+
+    // Logged out is normal; don’t treat as a hard error
+    if (!res.ok || !(data?.ok || data?.loggedIn)) {
+      setHeaderLoggedOut();
+      return { ok: false, user: null };
+    }
+
+    if (data?.user) setHeaderLoggedIn(data.user);
     else setHeaderLoggedOut();
+
+    return { ok: true, user: data.user || null };
   } catch (e) {
     console.error("[auth header] failed:", e);
     setHeaderLoggedOut();
+    return { ok: false, user: null };
   }
 }
 
-document.addEventListener("DOMContentLoaded", () => {
-  initHeaderAuth();
-
-  document.getElementById("logout-btn")?.addEventListener("click", async () => {
-    try {
-      await apiFetch("/api/logout", { method: "POST" }); // ✅ use apiFetch
-    } catch {}
-    setHeaderLoggedOut();
-    location.reload();
-  });
-});
-
 // ------------------------------
-// Tab switching
+// Tabs
 // ------------------------------
-document.addEventListener("DOMContentLoaded", () => {
+function initTabs() {
   const optionTabs = document.querySelectorAll(".option");
   const tabSections = document.querySelectorAll("[id$='-section']");
 
@@ -84,137 +96,154 @@ document.addEventListener("DOMContentLoaded", () => {
       if (targetId === "booking-section") attachSaveTemplateLogic?.();
     });
   });
-});
+}
 
 // ------------------------------
-// Business Section
+// Login popup helpers
 // ------------------------------
-function slugify(str = "") {
-  return String(str)
-    .toLowerCase()
-    .trim()
-    .replace(/['"]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 80);
+function openLoginPopup() {
+  document.getElementById("login-popup")?.style.setProperty("display", "block");
+  document.getElementById("popup-overlay")?.style.setProperty("display", "block");
 }
 
-// ✅ GLOBAL slug check (all users)
-async function isSlugTakenGlobal(typeName, slug) {
-  const where = encodeURIComponent(JSON.stringify({ slug }));
-  const path = `/public/records?dataType=${encodeURIComponent(typeName)}&where=${where}&limit=2`;
-
-  const res = await apiFetch(path, { cache: "no-store" });
-  const out = await res.json().catch(() => null);
-
-  // your endpoint returns an ARRAY (based on your screenshot)
-  if (Array.isArray(out)) return out.length > 0;
-
-  // fallback if it sometimes returns { items: [...] }
-  const items = out?.items || out?.records || [];
-  return Array.isArray(items) && items.length > 0;
+function closeLoginPopup() {
+  document.getElementById("login-popup")?.style.setProperty("display", "none");
+  document.getElementById("popup-overlay")?.style.setProperty("display", "none");
 }
 
-// upload helper
-async function uploadOneImage(file) {
-  const fd = new FormData();
-  fd.append("file", file);
+// ------------------------------
+// Businesses dropdown
+// ------------------------------
+async function fetchMyBusinesses() {
+  const res = await apiFetch(`/api/records/Business?ts=${Date.now()}`, {
+    method: "GET",
+    headers: { Accept: "application/json" },
+    cache: "no-store",
+  });
 
-  const resp = await apiFetch("/api/upload", { method: "POST", body: fd }); // ✅ use apiFetch
-  const out = await resp.json().catch(() => ({}));
-  return out?.url || "";
+  const data = await res.json().catch(() => ({}));
+  const items = Array.isArray(data?.items) ? data.items : [];
+  return { res, items, raw: data };
 }
 
-// CREATE business on submit
+function bizLabel(biz) {
+  const v = biz?.values || biz || {};
+  return v.businessName || v.Name || v.name || "(Untitled)";
+}
+
+function setSelectedBusinessNameFromSelect() {
+  const dropdown = document.getElementById("business-dropdown");
+  const header = document.getElementById("selected-business-name");
+  if (!dropdown || !header) return;
+
+  const opt = dropdown.options[dropdown.selectedIndex];
+  header.textContent = opt?.value ? opt.textContent : "Choose business to manage";
+}
+
+async function loadBusinessDropdown({ preserve = true } = {}) {
+  const dropdown = document.getElementById("business-dropdown");
+  const header = document.getElementById("selected-business-name");
+  if (!dropdown) return;
+
+  dropdown.disabled = true;
+  dropdown.innerHTML = `<option value="">Loading…</option>`;
+  if (header) header.textContent = "Choose business to manage";
+
+  // confirm auth
+  const { ok } = await initHeaderAuth();
+  if (!ok) {
+    dropdown.innerHTML = `<option value="">-- Please log in --</option>`;
+    dropdown.disabled = true;
+    if (header) header.textContent = "Not logged in";
+    return;
+  }
+
+  // fetch businesses
+  const { res, items } = await fetchMyBusinesses();
+  if (!res.ok) {
+    dropdown.innerHTML = `<option value="">-- Could not load businesses --</option>`;
+    dropdown.disabled = false;
+    return;
+  }
+
+  const visible = items.filter((b) => !b?.deletedAt);
+
+  dropdown.innerHTML = `<option value="">-- Choose Business --</option>`;
+
+  for (const biz of visible) {
+    const opt = document.createElement("option");
+    opt.value = biz._id;
+    opt.textContent = bizLabel(biz);
+    dropdown.appendChild(opt);
+  }
+
+  if (preserve) {
+    const saved = sessionStorage.getItem("selectedBusinessId");
+    if (saved && dropdown.querySelector(`option[value="${saved}"]`)) {
+      dropdown.value = saved;
+    }
+  }
+
+  setSelectedBusinessNameFromSelect();
+  dropdown.disabled = false;
+
+  if (!dropdown.dataset.bound) {
+    dropdown.addEventListener("change", () => {
+      sessionStorage.setItem("selectedBusinessId", dropdown.value || "");
+      setSelectedBusinessNameFromSelect();
+    });
+    dropdown.dataset.bound = "1";
+  }
+}
+
+// ------------------------------
+// Init
+// ------------------------------
 document.addEventListener("DOMContentLoaded", () => {
-  const form = document.getElementById("popup-add-business-form");
-  if (!form) return;
+  initTabs();
 
-  form.addEventListener("submit", async (e) => {
+  // Popup buttons
+  document.getElementById("open-login-popup-btn")?.addEventListener("click", openLoginPopup);
+  document.getElementById("popup-overlay")?.addEventListener("click", closeLoginPopup);
+  document.getElementById("close-login-popup-btn")?.addEventListener("click", closeLoginPopup);
+
+  // Login submit (single handler)
+  document.getElementById("login-form")?.addEventListener("submit", async (e) => {
     e.preventDefault();
 
-    try {
-      const businessName = String(
-        document.getElementById("popup-business-name-input")?.value || ""
-      ).trim();
+    const email = document.getElementById("login-email")?.value?.trim();
+    const password = document.getElementById("login-password")?.value;
 
-      const yourName = String(
-        document.getElementById("popup-your-name-input")?.value || ""
-      ).trim();
+    if (!email || !password) return alert("Please enter email and password.");
 
-      const phone = String(
-        document.getElementById("popup-business-phone-number-input")?.value || ""
-      ).trim();
+    const res = await apiFetch(LOGIN_PATH, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
 
-      const locationName = String(
-        document.getElementById("popup-business-location-name-input")?.value || ""
-      ).trim();
+    const out = await res.json().catch(() => ({}));
+    if (!res.ok) return alert(out?.message || out?.error || "Login failed");
 
-      const address = String(
-        document.getElementById("popup-business-address-input")?.value || ""
-      ).trim();
+    closeLoginPopup();
+    const pw = document.getElementById("login-password");
+    if (pw) pw.value = "";
 
-      const email = String(
-        document.getElementById("popup-business-email-input")?.value || ""
-      ).trim();
-
-      if (!businessName) return alert("Business Name is required");
-
-      const slug = slugify(businessName);
-      if (!slug) return alert("Please enter a business name to create a slug.");
-
-      const taken = await isSlugTakenGlobal("Business", slug);
-      if (taken) {
-        alert(`That booking link is not available: "${slug}". Try a different business name.`);
-        return;
-      }
-
-      const fileInput = document.getElementById("image-upload");
-      const file = fileInput?.files?.[0] || null;
-
-      let heroUrl = "";
-      if (file) heroUrl = await uploadOneImage(file);
-
-      const resp = await apiFetch("/api/records/Business", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          values: {
-            "Business Name": businessName,
-            "Your Name": yourName,
-            "Phone Number": phone,
-            "Location Name": locationName,
-            "Business Address": address,
-            "Business Email": email,
-            slug,
-            HeroImage: heroUrl,
-          },
-        }),
-      });
-
-      if (!resp.ok) {
-        const err = await resp.json().catch(() => ({}));
-        console.log("Create business failed:", resp.status, err);
-        alert(err?.error || err?.message || "Could not create business");
-        return;
-      }
-
-      const out = await resp.json().catch(() => ({}));
-      const created = out?.items?.[0];
-
-      if (!created?._id) {
-        console.log("Create business failed:", out);
-        alert("Could not create business");
-        return;
-      }
-
-      console.log("✅ Business created:", created);
-
-      if (typeof loadBusinesses === "function") await loadBusinesses();
-      if (typeof closeAddBusinessPopup === "function") closeAddBusinessPopup();
-    } catch (err) {
-      console.error("Save business error:", err);
-      alert("Error saving business");
-    }
+    // refresh header + businesses now that session exists
+    await initHeaderAuth();
+    await loadBusinessDropdown({ preserve: true });
   });
+
+  // Logout
+  document.getElementById("logout-btn")?.addEventListener("click", async () => {
+    try {
+      await apiFetch(LOGOUT_PATH, { method: "POST" });
+    } catch {}
+    setHeaderLoggedOut();
+    sessionStorage.removeItem("selectedBusinessId");
+    location.reload();
+  });
+
+  // Initial load (shows "Please log in" until logged in)
+  loadBusinessDropdown({ preserve: true }).catch(console.error);
 });
