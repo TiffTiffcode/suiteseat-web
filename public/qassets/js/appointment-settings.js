@@ -1,20 +1,20 @@
-// appointment-settings.js
-console.log("[Appointment-settings] web loaded");
+// /qassets/js/appointment-settings.js
+console.log("[appointment-settings] loaded");
 
 const API_BASE = location.hostname.includes("localhost")
   ? "http://localhost:8400"
-  : "https://api.suiteseat.io"; // ✅ production MUST be api.suiteseat.io for cookies
+  : "https://api.suiteseat.io";
 
-// Always call backend through this helper (cookies included)
+// ALWAYS include cookies
 function apiFetch(path, options = {}) {
   const url = `${API_BASE}${path.startsWith("/") ? path : `/${path}`}`;
   return fetch(url, { credentials: "include", ...options });
 }
 
-async function fetchJSON(path, options = {}) {
+async function apiJSON(path, options = {}) {
   const res = await apiFetch(path, {
-    headers: { Accept: "application/json", ...(options.headers || {}) },
     cache: "no-store",
+    headers: { Accept: "application/json", ...(options.headers || {}) },
     ...options,
   });
   const data = await res.json().catch(() => ({}));
@@ -22,7 +22,7 @@ async function fetchJSON(path, options = {}) {
 }
 
 // ------------------------------
-// Header auth
+// Header UI
 // ------------------------------
 function setHeaderLoggedOut() {
   const status = document.getElementById("login-status-text");
@@ -48,53 +48,28 @@ function setHeaderLoggedIn(user) {
   if (logoutBtn) logoutBtn.style.display = "inline-block";
 }
 
-// returns { loggedIn, user }
-async function getAuthState() {
-  const { res, data } = await fetchJSON("/api/me", { method: "GET" });
-
-  // Your /api/me returns { ok: false, user: null } when not logged in (NOT always 401)
-  const ok = res.ok && !!data?.ok && !!data?.user;
-  return { loggedIn: ok, user: ok ? data.user : null, raw: data };
-}
-
+// Your server returns: { ok: true, user: {...} } OR { ok:false, user:null }
 async function initHeaderAuth() {
   try {
-    const state = await getAuthState();
-    console.log("[auth] /api/me ->", state.raw);
-    if (state.loggedIn) setHeaderLoggedIn(state.user);
-    else setHeaderLoggedOut();
-    return state;
+    const { res, data } = await apiJSON("/api/me", { method: "GET" });
+    console.log("[auth] /api/me", res.status, data);
+
+    if (res.ok && data?.ok && data?.user) {
+      setHeaderLoggedIn(data.user);
+      return { loggedIn: true, user: data.user };
+    }
+
+    setHeaderLoggedOut();
+    return { loggedIn: false, user: null };
   } catch (e) {
-    console.error("[auth header] failed:", e);
+    console.error("[auth] initHeaderAuth failed", e);
     setHeaderLoggedOut();
     return { loggedIn: false, user: null };
   }
 }
 
 // ------------------------------
-// Tabs
-// ------------------------------
-function initTabs() {
-  const optionTabs = document.querySelectorAll(".option");
-  const tabSections = document.querySelectorAll("[id$='-section']");
-
-  optionTabs.forEach((tab) => {
-    tab.addEventListener("click", () => {
-      optionTabs.forEach((t) => t.classList.remove("active"));
-      tabSections.forEach((section) => (section.style.display = "none"));
-      tab.classList.add("active");
-
-      const targetId = `${tab.dataset.id}-section`;
-      const section = document.getElementById(targetId);
-      if (section) section.style.display = "block";
-
-      if (targetId === "booking-section") attachSaveTemplateLogic?.();
-    });
-  });
-}
-
-// ------------------------------
-// Login popup
+// Login popup (only ONE set)
 // ------------------------------
 function openLoginPopup() {
   document.getElementById("login-popup")?.style.setProperty("display", "block");
@@ -107,155 +82,45 @@ function closeLoginPopup() {
 }
 
 // ------------------------------
-// Businesses dropdown
-// ------------------------------
-async function fetchMyBusinesses() {
-  const { res, data } = await fetchJSON(`/api/records/Business?ts=${Date.now()}`, {
-    method: "GET",
-  });
-  // ✅ your list endpoints should be { items: rows }
-  const items = Array.isArray(data?.items) ? data.items : [];
-  return { res, items, raw: data };
-}
-
-function bizLabel(biz) {
-  const v = biz?.values || biz || {};
-  return v.businessName || v.Name || v.name || "(Untitled)";
-}
-
-function setSelectedBusinessNameFromSelect() {
-  const dropdown = document.getElementById("business-dropdown");
-  const header = document.getElementById("selected-business-name");
-  if (!dropdown || !header) return;
-
-  const opt = dropdown.options[dropdown.selectedIndex];
-  header.textContent = opt?.value ? opt.textContent : "Choose business to manage";
-}
-
-async function loadBusinessDropdown({ preserve = true } = {}) {
-  const dropdown = document.getElementById("business-dropdown");
-  const header = document.getElementById("selected-business-name");
-  if (!dropdown) return;
-
-  dropdown.disabled = true;
-  dropdown.innerHTML = `<option value="">Loading…</option>`;
-  if (header) header.textContent = "Choose business to manage";
-
-  // must be logged in
-  const auth = await getAuthState();
-  if (!auth.loggedIn) {
-    dropdown.innerHTML = `<option value="">-- Please log in --</option>`;
-    dropdown.disabled = true;
-    if (header) header.textContent = "Not logged in";
-    return;
-  }
-
-  // fetch businesses
-  const { res, items, raw } = await fetchMyBusinesses();
-  console.log("[biz] /api/records/Business ->", raw);
-
-  if (!res.ok) {
-    dropdown.innerHTML = `<option value="">-- Could not load businesses --</option>`;
-    dropdown.disabled = false;
-    return;
-  }
-
-  const visible = items.filter((b) => !b?.deletedAt);
-
-  dropdown.innerHTML = `<option value="">-- Choose Business --</option>`;
-  for (const biz of visible) {
-    const opt = document.createElement("option");
-    opt.value = biz?._id || "";
-    opt.textContent = bizLabel(biz);
-    dropdown.appendChild(opt);
-  }
-
-  if (preserve) {
-    const saved = sessionStorage.getItem("selectedBusinessId");
-    if (saved && dropdown.querySelector(`option[value="${saved}"]`)) {
-      dropdown.value = saved;
-    }
-  }
-
-  setSelectedBusinessNameFromSelect();
-  dropdown.disabled = false;
-
-  if (!dropdown.dataset.bound) {
-    dropdown.addEventListener("change", () => {
-      sessionStorage.setItem("selectedBusinessId", dropdown.value || "");
-      setSelectedBusinessNameFromSelect();
-      // later: trigger calendar/category/service loads here
-    });
-    dropdown.dataset.bound = "1";
-  }
-}
-
-// ------------------------------
-// Auth actions
-// ------------------------------
-async function doLogin(email, password) {
-  const { res, data } = await fetchJSON("/api/login", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password }),
-  });
-  return { res, data };
-}
-
-async function doLogout() {
-  // you have multiple logout routes in server; this is the one you showed:
-  await apiFetch("/api/logout", { method: "POST" }).catch(() => {});
-}
-
-// ------------------------------
-// Init (ONE DOMContentLoaded)
+// Page init
 // ------------------------------
 document.addEventListener("DOMContentLoaded", async () => {
-  initTabs();
+  // header state on load
+  await initHeaderAuth();
 
-  // popup open/close
+  // open/close popup (if your popup exists in HTML)
   document.getElementById("open-login-popup-btn")?.addEventListener("click", openLoginPopup);
   document.getElementById("popup-overlay")?.addEventListener("click", closeLoginPopup);
   document.getElementById("close-login-popup-btn")?.addEventListener("click", closeLoginPopup);
 
-  // login submit (ONE handler)
+  // login submit (POST /api/login)
   document.getElementById("login-form")?.addEventListener("submit", async (e) => {
     e.preventDefault();
 
     const email = document.getElementById("login-email")?.value?.trim();
     const password = document.getElementById("login-password")?.value;
 
-    if (!email || !password) return alert("Please enter email and password.");
+    if (!email || !password) return alert("Enter email + password");
 
-    const { res, data } = await doLogin(email, password);
+    const { res, data } = await apiJSON("/api/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
 
-    if (!res.ok) {
-      alert(data?.message || data?.error || "Login failed");
-      return;
-    }
+    console.log("[login] /api/login", res.status, data);
 
-    // ✅ refresh header & dropdown after login
-    await initHeaderAuth();
+    if (!res.ok) return alert(data?.message || "Login failed");
+
+    await initHeaderAuth(); // refresh header text/buttons
     closeLoginPopup();
     const pw = document.getElementById("login-password");
     if (pw) pw.value = "";
-    await loadBusinessDropdown({ preserve: true });
   });
 
-  // logout
+  // logout (POST /api/logout)
   document.getElementById("logout-btn")?.addEventListener("click", async () => {
-    await doLogout();
+    await apiFetch("/api/logout", { method: "POST" }).catch(() => {});
     setHeaderLoggedOut();
-    sessionStorage.removeItem("selectedBusinessId");
-    location.reload();
   });
-
-  // initial boot
-  const state = await initHeaderAuth();
-  if (state.loggedIn) {
-    await loadBusinessDropdown({ preserve: true });
-  } else {
-    // show dropdown logged-out state
-    await loadBusinessDropdown({ preserve: true }).catch(() => {});
-  }
 });
