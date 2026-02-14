@@ -18,11 +18,17 @@ function apiFetch(path, options = {}) {
 // ------------------------------
 // Header auth
 // ------------------------------
+// --------- API helpers ----------
 async function fetchMe() {
-  const res = await apiFetch("/api/me");
+  const res = await apiFetch("/api/me", {
+    method: "GET",
+    headers: { Accept: "application/json" },
+    cache: "no-store",
+  });
   const data = await res.json().catch(() => ({}));
-  return data;
+  return { res, data };
 }
+
 
 function setHeaderLoggedOut() {
   const status = document.getElementById("login-status-text");
@@ -133,3 +139,107 @@ function closeLoginPopup() {
     setHeaderLoggedOut();
     location.reload();
   });
+
+
+  ////////////////////////////////////////////////////////////
+                     //Menu Section
+  ////////////////////////////////////////////////////////////
+  
+  async function fetchMyBusinesses() {
+  const res = await apiFetch(`/api/records/Business?ts=${Date.now()}`, {
+    method: "GET",
+    headers: { Accept: "application/json" },
+    cache: "no-store",
+  });
+
+  const data = await res.json().catch(() => ({}));
+  const items = Array.isArray(data?.items) ? data.items : [];
+  return { res, items, raw: data };
+}
+
+function bizLabel(biz) {
+  const v = biz?.values || biz || {};
+  return (
+    v.businessName ||
+    v.Name ||
+    v.name ||
+    "(Untitled)"
+  );
+}
+
+// --------- UI ----------
+function setSelectedBusinessNameFromSelect() {
+  const dropdown = document.getElementById("business-dropdown");
+  const header = document.getElementById("selected-business-name");
+  if (!dropdown || !header) return;
+
+  const opt = dropdown.options[dropdown.selectedIndex];
+  header.textContent = opt?.value ? opt.textContent : "Choose business to manage";
+}
+
+async function loadBusinessDropdown({ preserve = true } = {}) {
+  const dropdown = document.getElementById("business-dropdown");
+  const header = document.getElementById("selected-business-name");
+  if (!dropdown) return;
+
+  dropdown.disabled = true;
+  dropdown.innerHTML = `<option value="">Loading…</option>`;
+  if (header) header.textContent = "Choose business to manage";
+
+  // 1) confirm auth (optional but helpful)
+  const { res: meRes, data: me } = await fetchMe();
+  if (!meRes.ok || !(me?.ok || me?.loggedIn)) {
+    dropdown.innerHTML = `<option value="">-- Please log in --</option>`;
+    dropdown.disabled = true;
+    if (header) header.textContent = "Not logged in";
+    return;
+  }
+
+  // 2) fetch businesses
+  const { res, items } = await fetchMyBusinesses();
+  if (!res.ok) {
+    dropdown.innerHTML = `<option value="">-- Could not load businesses --</option>`;
+    dropdown.disabled = false;
+    return;
+  }
+
+  // (optional) remove soft-deleted
+  const visible = items.filter((b) => !b?.deletedAt);
+
+  dropdown.innerHTML = `<option value="">-- Choose Business --</option>`;
+
+  for (const biz of visible) {
+    const opt = document.createElement("option");
+    opt.value = biz._id;
+    opt.textContent = bizLabel(biz);
+    dropdown.appendChild(opt);
+  }
+
+  // restore selection
+  if (preserve) {
+    const saved = sessionStorage.getItem("selectedBusinessId");
+    if (saved && dropdown.querySelector(`option[value="${saved}"]`)) {
+      dropdown.value = saved;
+    }
+  }
+
+  setSelectedBusinessNameFromSelect();
+  dropdown.disabled = false;
+
+  // bind change once
+  if (!dropdown.dataset.bound) {
+    dropdown.addEventListener("change", () => {
+      sessionStorage.setItem("selectedBusinessId", dropdown.value || "");
+      setSelectedBusinessNameFromSelect();
+      // later: trigger calendar/category/service loads here
+    });
+    dropdown.dataset.bound = "1";
+  }
+}
+
+// --------- init ----------
+document.addEventListener("DOMContentLoaded", () => {
+  loadBusinessDropdown({ preserve: true }).catch((e) => {
+    console.error("[business-dropdown] init error:", e);
+  });
+});
