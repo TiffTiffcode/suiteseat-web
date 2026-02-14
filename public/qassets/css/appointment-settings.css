@@ -548,6 +548,14 @@ body.popup-open {
   box-shadow: 0 4px 12px rgba(0,0,0,0.2);
 }
 
+/* overlay always below popup, above page */
+#popup-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 9998;
+  display: none;
+}
 .popup-open .popup-overlay {
   display: block;
   position: fixed;
@@ -649,15 +657,7 @@ body.popup-open {
   padding: 20px;
   box-shadow: 0 0 30px rgba(0, 0, 0, 0.2);
 }
-#popup-overlay {
-  display: none;
-  position: fixed;
-  top: 0; left: 0;
-  width: 100vw; height: 100vh;
-  background: rgba(0, 0, 0, 0.5);
-  z-index: 999;
-  backdrop-filter: blur(4px);
-}
+
 
 #popup-service-description-input {
   width: 100%;          /* make it stretch across the form */
@@ -730,13 +730,7 @@ body.popup-open {
 
 
 
-/* Login popup + overlay (force it on top) */
-#popup-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.45);
-  z-index: 9998;
-}
+
 
 /* Force the login popup to behave like a real popup */
 #login-popup {
