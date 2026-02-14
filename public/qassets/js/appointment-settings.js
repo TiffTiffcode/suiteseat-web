@@ -5,12 +5,6 @@ const API_BASE =
     ? "http://localhost:8400"
     : "https://api.suiteseat.io";
 
-// ✅ Your server routes
-const ME_PATH = "/api/me";
-const LOGIN_PATH = "/login";      // ✅ change this
-const LOGOUT_PATH = "/api/logout"; // keep for now
-
-
 // Always call backend through this helper
 function apiFetch(path, options = {}) {
   const url = `${API_BASE}${path.startsWith("/") ? path : `/${path}`}`;
@@ -21,10 +15,10 @@ function apiFetch(path, options = {}) {
 }
 
 // ------------------------------
-// Header auth
+// Auth: /api/me
 // ------------------------------
 async function fetchMe() {
-  const res = await apiFetch(ME_PATH, {
+  const res = await apiFetch("/api/me", {
     method: "GET",
     headers: { Accept: "application/json" },
     cache: "no-store",
@@ -59,22 +53,18 @@ function setHeaderLoggedIn(user) {
 
 async function initHeaderAuth() {
   try {
-    const { res, data } = await fetchMe();
+    const { data } = await fetchMe();
+    console.log("[auth] /api/me ->", data);
 
-    // Logged out is normal; don’t treat as a hard error
-    if (!res.ok || !(data?.ok || data?.loggedIn)) {
-      setHeaderLoggedOut();
-      return { ok: false, user: null };
-    }
-
-    if (data?.user) setHeaderLoggedIn(data.user);
+    const ok = !!(data?.ok || data?.loggedIn);
+    if (ok && data?.user) setHeaderLoggedIn(data.user);
     else setHeaderLoggedOut();
 
-    return { ok: true, user: data.user || null };
+    return ok;
   } catch (e) {
     console.error("[auth header] failed:", e);
     setHeaderLoggedOut();
-    return { ok: false, user: null };
+    return false;
   }
 }
 
@@ -100,7 +90,7 @@ function initTabs() {
 }
 
 // ------------------------------
-// Login popup helpers
+// Login popup
 // ------------------------------
 function openLoginPopup() {
   document.getElementById("login-popup")?.style.setProperty("display", "block");
@@ -150,9 +140,9 @@ async function loadBusinessDropdown({ preserve = true } = {}) {
   dropdown.innerHTML = `<option value="">Loading…</option>`;
   if (header) header.textContent = "Choose business to manage";
 
-  // confirm auth
-  const { ok } = await initHeaderAuth();
-  if (!ok) {
+  // confirm session
+  const { data: me } = await fetchMe();
+  if (!(me?.ok || me?.loggedIn)) {
     dropdown.innerHTML = `<option value="">-- Please log in --</option>`;
     dropdown.disabled = true;
     if (header) header.textContent = "Not logged in";
@@ -170,7 +160,6 @@ async function loadBusinessDropdown({ preserve = true } = {}) {
   const visible = items.filter((b) => !b?.deletedAt);
 
   dropdown.innerHTML = `<option value="">-- Choose Business --</option>`;
-
   for (const biz of visible) {
     const opt = document.createElement("option");
     opt.value = biz._id;
@@ -178,6 +167,7 @@ async function loadBusinessDropdown({ preserve = true } = {}) {
     dropdown.appendChild(opt);
   }
 
+  // restore selection
   if (preserve) {
     const saved = sessionStorage.getItem("selectedBusinessId");
     if (saved && dropdown.querySelector(`option[value="${saved}"]`)) {
@@ -198,17 +188,18 @@ async function loadBusinessDropdown({ preserve = true } = {}) {
 }
 
 // ------------------------------
-// Init
+// Init (ONE time)
 // ------------------------------
 document.addEventListener("DOMContentLoaded", () => {
   initTabs();
 
-  // Popup buttons
   document.getElementById("open-login-popup-btn")?.addEventListener("click", openLoginPopup);
   document.getElementById("popup-overlay")?.addEventListener("click", closeLoginPopup);
   document.getElementById("close-login-popup-btn")?.addEventListener("click", closeLoginPopup);
 
-  // Login submit (single handler)
+  const LOGIN_PATH = "/login";      // ✅ matches your working route
+  const LOGOUT_PATH = "/api/logout"; // ✅ you have this route
+
   document.getElementById("login-form")?.addEventListener("submit", async (e) => {
     e.preventDefault();
 
@@ -227,24 +218,24 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!res.ok) return alert(out?.message || out?.error || "Login failed");
 
     closeLoginPopup();
-    const pw = document.getElementById("login-password");
-    if (pw) pw.value = "";
+    document.getElementById("login-password").value = "";
 
-    // refresh header + businesses now that session exists
-    await initHeaderAuth();
-    await loadBusinessDropdown({ preserve: true });
+    // ✅ refresh UI + businesses
+    const ok = await initHeaderAuth();
+    if (ok) await loadBusinessDropdown({ preserve: true });
   });
 
-  // Logout
   document.getElementById("logout-btn")?.addEventListener("click", async () => {
     try {
       await apiFetch(LOGOUT_PATH, { method: "POST" });
     } catch {}
     setHeaderLoggedOut();
-    sessionStorage.removeItem("selectedBusinessId");
     location.reload();
   });
 
-  // Initial load (shows "Please log in" until logged in)
-  loadBusinessDropdown({ preserve: true }).catch(console.error);
+  // initial state
+  initHeaderAuth().then((ok) => {
+    if (ok) loadBusinessDropdown({ preserve: true }).catch(console.error);
+    else loadBusinessDropdown({ preserve: true }).catch(console.error);
+  });
 });
