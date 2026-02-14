@@ -1,13 +1,10 @@
+// appointment-settings.js
 console.log("[Appointment-settings] web loaded");
 
 const API_BASE =
   location.hostname.includes("localhost")
     ? "http://localhost:8400"
     : "https://api.suiteseat.io";
-
-// Set these to match your server routes
-const LOGIN_PATH = "/api/signin";  // <-- change if your server uses something else
-const LOGOUT_PATH = "/api/logout"; // <-- change if your server uses something else
 
 // Always call backend through this helper
 function apiFetch(path, options = {}) {
@@ -22,13 +19,9 @@ function apiFetch(path, options = {}) {
 // Header auth
 // ------------------------------
 async function fetchMe() {
-  const res = await apiFetch("/api/me", {
-    method: "GET",
-    headers: { Accept: "application/json" },
-    cache: "no-store",
-  });
+  const res = await apiFetch("/api/me");
   const data = await res.json().catch(() => ({}));
-  return { res, data };
+  return data; // { ok, user } OR { loggedIn: false } depending on your backend
 }
 
 function setHeaderLoggedOut() {
@@ -57,8 +50,12 @@ function setHeaderLoggedIn(user) {
 
 async function initHeaderAuth() {
   try {
-    const { res, data } = await fetchMe();
-    const ok = res.ok && (data?.ok || data?.loggedIn);
+    const data = await fetchMe();
+
+    // support either shape:
+    // (A) { ok:true, user:{} }
+    // (B) { loggedIn:true, user:{} }
+    const ok = !!data?.ok || !!data?.loggedIn;
 
     if (ok && data?.user) setHeaderLoggedIn(data.user);
     else setHeaderLoggedOut();
@@ -90,159 +87,144 @@ function initTabs() {
 }
 
 // ------------------------------
-// Login popup helpers (ONE version only)
+// Business helpers
 // ------------------------------
-function openLoginPopup() {
-  document.getElementById("login-popup")?.style.setProperty("display", "block");
-  document.getElementById("popup-overlay")?.style.setProperty("display", "block");
+function slugify(str = "") {
+  return String(str)
+    .toLowerCase()
+    .trim()
+    .replace(/['"]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
 }
 
-function closeLoginPopup() {
-  document.getElementById("login-popup")?.style.setProperty("display", "none");
-  document.getElementById("popup-overlay")?.style.setProperty("display", "none");
+// GLOBAL slug check (all users) using your existing public route
+async function isSlugTakenGlobal(typeName, slug) {
+  const where = encodeURIComponent(JSON.stringify({ slug }));
+  const path = `/public/records?dataType=${encodeURIComponent(typeName)}&where=${where}&limit=2`;
+
+  const res = await apiFetch(path, { cache: "no-store" });
+  // Some of your public endpoints return an array directly, others return {items:[]}
+  const out = await res.json().catch(() => ({}));
+
+  const items = Array.isArray(out) ? out : (out?.items || []);
+  return items.length > 0;
 }
 
-// ------------------------------
-// Businesses (dropdown)
-// ------------------------------
-async function fetchMyBusinesses() {
-  const res = await apiFetch(`/api/records/Business?ts=${Date.now()}`, {
-    method: "GET",
-    headers: { Accept: "application/json" },
-    cache: "no-store",
-  });
+async function uploadOneImage(file) {
+  const fd = new FormData();
+  fd.append("file", file);
 
-  const data = await res.json().catch(() => ({}));
-  const items = Array.isArray(data?.items) ? data.items : [];
-  return { res, items, raw: data };
-}
-
-function bizLabel(biz) {
-  const v = biz?.values || biz || {};
-  return v.businessName || v.Name || v.name || "(Untitled)";
-}
-
-function setSelectedBusinessNameFromSelect() {
-  const dropdown = document.getElementById("business-dropdown");
-  const header = document.getElementById("selected-business-name");
-  if (!dropdown || !header) return;
-
-  const opt = dropdown.options[dropdown.selectedIndex];
-  header.textContent = opt?.value ? opt.textContent : "Choose business to manage";
-}
-
-async function loadBusinessDropdown({ preserve = true } = {}) {
-  const dropdown = document.getElementById("business-dropdown");
-  const header = document.getElementById("selected-business-name");
-  if (!dropdown) return;
-
-  dropdown.disabled = true;
-  dropdown.innerHTML = `<option value="">Loading…</option>`;
-  if (header) header.textContent = "Choose business to manage";
-
-  // confirm auth
-  const { res: meRes, data: me } = await fetchMe();
-  if (!meRes.ok || !(me?.ok || me?.loggedIn)) {
-    dropdown.innerHTML = `<option value="">-- Please log in --</option>`;
-    dropdown.disabled = true;
-    if (header) header.textContent = "Not logged in";
-    return;
-  }
-
-  // fetch businesses
-  const { res, items } = await fetchMyBusinesses();
-  if (!res.ok) {
-    dropdown.innerHTML = `<option value="">-- Could not load businesses --</option>`;
-    dropdown.disabled = false;
-    return;
-  }
-
-  const visible = items.filter((b) => !b?.deletedAt);
-
-  dropdown.innerHTML = `<option value="">-- Choose Business --</option>`;
-  for (const biz of visible) {
-    const opt = document.createElement("option");
-    opt.value = biz._id;
-    opt.textContent = bizLabel(biz);
-    dropdown.appendChild(opt);
-  }
-
-  // restore selection
-  if (preserve) {
-    const saved = sessionStorage.getItem("selectedBusinessId");
-    if (saved && dropdown.querySelector(`option[value="${saved}"]`)) {
-      dropdown.value = saved;
-    }
-  }
-
-  setSelectedBusinessNameFromSelect();
-  dropdown.disabled = false;
-
-  // bind change once
-  if (!dropdown.dataset.bound) {
-    dropdown.addEventListener("change", () => {
-      sessionStorage.setItem("selectedBusinessId", dropdown.value || "");
-      setSelectedBusinessNameFromSelect();
-      // later: trigger calendar/category/service loads here
-    });
-    dropdown.dataset.bound = "1";
-  }
+  const resp = await apiFetch("/api/upload", { method: "POST", body: fd });
+  const out = await resp.json().catch(() => ({}));
+  return out?.url || "";
 }
 
 // ------------------------------
-// Init (ONE DOMContentLoaded only)
+// DOMContentLoaded init
 // ------------------------------
 document.addEventListener("DOMContentLoaded", () => {
-  initTabs();
   initHeaderAuth();
-
-  // popup open/close
-  document
-    .getElementById("open-login-popup-btn")
-    ?.addEventListener("click", openLoginPopup);
-  document
-    .getElementById("popup-overlay")
-    ?.addEventListener("click", closeLoginPopup);
-  document
-    .getElementById("close-login-popup-btn")
-    ?.addEventListener("click", closeLoginPopup);
-
-  // login submit
-  document.getElementById("login-form")?.addEventListener("submit", async (e) => {
-    e.preventDefault();
-
-    const email = document.getElementById("login-email")?.value?.trim();
-    const password = document.getElementById("login-password")?.value;
-
-    if (!email || !password) return alert("Please enter email and password.");
-
-    const res = await apiFetch(LOGIN_PATH, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    });
-
-    const out = await res.json().catch(() => ({}));
-    if (!res.ok) return alert(out?.error || out?.message || "Login failed");
-
-    await initHeaderAuth();
-    closeLoginPopup();
-    const pw = document.getElementById("login-password");
-    if (pw) pw.value = "";
-
-    // after login, load businesses
-    await loadBusinessDropdown({ preserve: true });
-  });
+  initTabs();
 
   // logout
   document.getElementById("logout-btn")?.addEventListener("click", async () => {
     try {
-      await apiFetch(LOGOUT_PATH, { method: "POST" });
+      await apiFetch("/api/logout", { method: "POST" });
     } catch {}
     setHeaderLoggedOut();
     location.reload();
   });
 
-  // initial attempt (will show "Please log in" until session exists)
-  loadBusinessDropdown({ preserve: true }).catch(console.error);
+  // Save Business
+  const form = document.getElementById("popup-add-business-form");
+  if (!form) return;
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    try {
+      const businessName = String(
+        document.getElementById("popup-business-name-input")?.value || ""
+      ).trim();
+
+      const yourName = String(
+        document.getElementById("popup-your-name-input")?.value || ""
+      ).trim();
+
+      const phone = String(
+        document.getElementById("popup-business-phone-number-input")?.value || ""
+      ).trim();
+
+      const locationName = String(
+        document.getElementById("popup-business-location-name-input")?.value || ""
+      ).trim();
+
+      const address = String(
+        document.getElementById("popup-business-address-input")?.value || ""
+      ).trim();
+
+      const email = String(
+        document.getElementById("popup-business-email-input")?.value || ""
+      ).trim();
+
+      if (!businessName) return alert("Business Name is required");
+
+      const slug = slugify(businessName);
+      if (!slug) return alert("Please enter a business name to create a slug.");
+
+      const taken = await isSlugTakenGlobal("Business", slug);
+      if (taken) {
+        alert(`That booking link is not available: "${slug}". Try a different business name.`);
+        return;
+      }
+
+      const fileInput = document.getElementById("image-upload");
+      const file = fileInput?.files?.[0] || null;
+
+      let heroUrl = "";
+      if (file) heroUrl = await uploadOneImage(file);
+
+      const resp = await apiFetch("/api/records/Business", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          values: {
+            businessName,    // ✅ match your actual saved fields (your public JSON shows businessName)
+            yourName,
+            phoneNumber: phone,
+            locationName,
+            businessAddress: address,
+            businessEmail: email,
+            slug,
+            heroImageUrl: heroUrl, // ✅ your public JSON shows heroImageUrl
+          },
+        }),
+      });
+
+      const out = await resp.json().catch(() => ({}));
+
+      if (!resp.ok) {
+        console.log("Create business failed:", resp.status, out);
+        alert(out?.error || out?.message || "Could not create business");
+        return;
+      }
+
+      const created = out?.items?.[0];
+      if (!created?._id) {
+        console.log("Create business failed:", out);
+        alert("Could not create business");
+        return;
+      }
+
+      console.log("✅ Business created:", created);
+
+      if (typeof loadBusinesses === "function") await loadBusinesses();
+      if (typeof closeAddBusinessPopup === "function") closeAddBusinessPopup();
+    } catch (err) {
+      console.error("Save business error:", err);
+      alert("Error saving business");
+    }
+  });
 });
