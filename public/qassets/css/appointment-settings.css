@@ -556,15 +556,21 @@ body.popup-open {
   z-index: 9998;
   display: none;
 }
-.popup-open .popup-overlay {
-  display: block;
+
+/* overlay */
+#popup-overlay{
   position: fixed;
-  top: 0; left: 0;
-  width: 100vw; height: 100vh;
-  background: rgba(0, 0, 0, 0.5);
-  z-index: 1000;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 1000;         /* lower than popup */
+  display: none;
 }
 
+/* business popup */
+#popup-add-business{
+  position: fixed;
+  z-index: 1001;         /* above overlay */
+}
 
 
 .progress-list {

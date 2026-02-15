@@ -207,6 +207,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   // If already logged in on load, populate businesses
   if (auth.loggedIn && auth.user?._id) {
     await loadMyBusinesses(auth.user._id);
+
+      initBusinessSave();
   }
 
   // --- Login popup wiring ---
@@ -257,3 +259,201 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (title) title.textContent = "Choose business to manage";
   });
 });
+
+
+
+
+
+
+/////////////////////////////////////////////////
+//Business Section 
+/////////////////////////////////////////////////
+//Open Add Business Popup when Add Business button is pressed 
+function openAddBusinessPopup() {
+  const popup = document.getElementById("popup-add-business");
+  const overlay = document.getElementById("popup-overlay");
+
+  if (popup) popup.style.display = "block";
+  if (overlay) overlay.style.display = "block";
+}
+
+function closeAddBusinessPopup() {
+  const popup = document.getElementById("popup-add-business");
+  const overlay = document.getElementById("popup-overlay");
+
+  if (popup) popup.style.display = "none";
+  if (overlay) overlay.style.display = "none";
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  // open
+  document
+    .getElementById("open-business-popup-button")
+    ?.addEventListener("click", openAddBusinessPopup);
+
+  // close via X
+  document
+    .getElementById("close-add-business-popup-btn")
+    ?.addEventListener("click", closeAddBusinessPopup);
+
+  // optional: close by clicking overlay
+  document
+    .getElementById("popup-overlay")
+    ?.addEventListener("click", closeAddBusinessPopup);
+
+  // optional: close with ESC
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeAddBusinessPopup();
+  });
+});
+
+// ------------------------------
+// Slug helpers
+// ------------------------------
+function getFileFromInput(id) {
+  const el = document.getElementById(id);
+  return el?.files?.[0] || null;
+}
+
+// If you DON'T have a server slug generator yet, use this.
+// (Collision risk if two businesses have same name.)
+function slugify(str = "") {
+  return String(str)
+    .toLowerCase()
+    .trim()
+    .replace(/['"]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
+}
+
+// If you already have a server slug route, use it. (Best)
+// POST /api/slug/Business  { base, excludeId? } -> { slug }
+async function generateBusinessSlug(name, excludeId = null) {
+  const base = slugify(name);
+  const { res, data } = await apiJSON(`/api/slug/${encodeURIComponent("Business")}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ base, excludeId }),
+  });
+
+  if (!res.ok) {
+    console.warn("[slug] fallback to base slug (slug route failed)", res.status, data);
+    return base;
+  }
+  return data?.slug || base;
+}
+
+
+////////////////
+//Save Business
+/////////////////////
+// Upload image -> returns Cloudinary URL (or "" if none)
+async function uploadHeroImageIfAny() {
+  const file = getFileFromInput("image-upload");
+  if (!file) return "";
+
+  const fd = new FormData();
+  fd.append("file", file);
+
+  const url = `${API_BASE}/api/upload`;
+  const res = await fetch(url, { method: "POST", body: fd, credentials: "include" });
+  const data = await res.json().catch(() => ({}));
+
+  console.log("[upload] /api/upload", res.status, data);
+
+  if (!res.ok) throw new Error(data?.error || "Upload failed");
+  return String(data?.url || "");
+}
+
+// Save business record via generic records route
+async function createBusinessRecord({ userId, heroUrl }) {
+  const businessName = document.getElementById("popup-business-name-input")?.value?.trim();
+  const proName = document.getElementById("popup-your-name-input")?.value?.trim();
+  const phoneNumber = document.getElementById("popup-business-phone-number-input")?.value?.trim();
+  const locationName = document.getElementById("popup-business-location-name-input")?.value?.trim();
+  const locationAddress = document.getElementById("popup-business-address-input")?.value?.trim();
+  const email = document.getElementById("popup-business-email-input")?.value?.trim();
+
+  if (!businessName) throw new Error("Business name is required.");
+  if (!proName) throw new Error("Your name is required.");
+
+  const slug = slugify(businessName);
+
+  // 👇 IMPORTANT: match your Field names EXACTLY as they exist in your DataType editor
+  // From your list:
+  // Name, Pro Name, Phone Number, Location Name, Location Address, Email, Hero Image, slug, Pro, Created By
+  const values = {
+    "Name": businessName,
+    "Pro Name": proName,
+    "Phone Number": phoneNumber || "",
+    "Location Name": locationName || "",
+    "Location Address": locationAddress || "",
+    "Email": email || "",
+    "Hero Image": heroUrl || "",
+    "slug": slug,
+
+    // Reference fields:
+    // Your system matches ref fields in many shapes. These are safe:
+    "Pro": userId,
+    "Created By": userId,
+  };
+
+  const { res, data } = await apiJSON("/api/records/Business", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ values }),
+  });
+
+  console.log("[business] POST /api/records/Business", res.status, data);
+
+  if (!res.ok) throw new Error("Failed to save business");
+
+  const created = Array.isArray(data?.items) ? data.items[0] : null;
+  if (!created?._id) throw new Error("Business saved but missing _id.");
+
+  return created;
+}
+
+// Wire the Save button (form submit)
+function initBusinessSave() {
+  const form = document.getElementById("popup-add-business-form");
+  if (!form) return;
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    try {
+      // 1) make sure logged in (session)
+      const auth = await initHeaderAuth();
+      const userId = auth?.user?._id || auth?.user?.id;
+
+      if (!auth.loggedIn || !userId) {
+        alert("Please log in first.");
+        return;
+      }
+
+      // 2) upload image (optional)
+      const heroUrl = await uploadHeroImageIfAny();
+
+      // 3) create record
+      const created = await createBusinessRecord({ userId, heroUrl });
+
+      alert("Business saved!");
+
+      // 4) close popup + refresh dropdown
+      closeAddBusinessPopup();
+      await loadMyBusinesses(userId);
+
+      // auto-select the new business
+      const dd = document.getElementById("business-dropdown");
+      if (dd) {
+        dd.value = String(created._id);
+        dd.dispatchEvent(new Event("change"));
+      }
+    } catch (err) {
+      console.error("[business] save failed", err);
+      alert(err?.message || "Business save failed");
+    }
+  });
+}

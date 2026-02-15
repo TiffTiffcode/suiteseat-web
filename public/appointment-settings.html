@@ -76,8 +76,64 @@
 
   </div>
 </section>
-
   </div>
+
+  
+                            <!--Business Popup  -->
+  <section id="popup-add-business" class="popup-add-business" style="display: none;">
+    <div class="business-section-header">
+      <div class="spacer"></div>
+      <h2 id="popup-title" class="section-title">Business</h2>
+      <button   id="close-add-business-popup-btn" type="button" onclick="closeAddBusinessPopup()" style="float:right; border:none; background:none; font-size:18px;">&times;</button>
+  
+
+    </div>
+    
+    <form id="popup-add-business-form">
+      <div class="form-group">
+        <label for="popup-business-name-input">Business Name*</label><br>
+        <input id="popup-business-name-input" name="businessName" type="text" placeholder="Enter business name" required>
+      <small id="business-name-warning" style="color: red; display: none;">
+  ⚠️ A business with this name already exists.
+</small>
+</div>
+      <div class="form-group">
+        <label for="popup-your-name-input">Your Name*</label><br>
+        <input id="popup-your-name-input" name="yourName" type="text" placeholder="Enter your name" required>
+      </div>
+      <div class="form-group">
+        <label for="popup-business-phone-number-input">Phone Number*</label><br>
+        <input id="popup-business-phone-number-input" name="phoneNumber" type="text" placeholder="Enter phone number">
+      </div>
+      <div class="form-group">
+        <label for="popup-business-location-name-input">Location Name</label><br>
+        <input id="popup-business-location-name-input" name="locationName" type="text" placeholder="Enter location name" required>
+      </div>
+      <div class="form-group">
+        <label for="popup-business-address-input">Business Address</label><br>
+        <input id="popup-business-address-input" name="businessAddress" type="text" placeholder="Enter business address" required>
+      </div>
+      <div class="form-group">
+        <label for="popup-business-email-input">Business Email</label><br>
+        <input id="popup-business-email-input" name="businessEmail" type="text" placeholder="Enter business email">
+      </div>
+      <div class="form-group">
+        <label for="image-upload">Upload Image:</label><br>
+        <input type="file" id="image-upload" name="heroImage" accept="image/*">
+        <br>
+        <h4> Landcape 12 X 800px or Portrait 1000 X 1600px</h4>
+        <div id="current-hero-image-container" style="margin-top: 10px;">
+          <img id="current-hero-image" src="" alt="Current Business Image" style="max-width: 200px; height: auto; display: none;">
+          <p id="no-image-text" style="display: none;">No image uploaded yet.</p>
+        </div>
+      </div>
+      <div class="button-center-wrapper">
+        <button type="submit" id="save-button" class="add-business-button">Save Business</button>
+        <button type="button" id="update-button" class="add-business-button" style="display: none;">Update</button>
+        <button type="button" id="delete-button" class="add-business-button" style="display: none; background-color: #e74c3c;">Delete</button>
+      </div>
+    </form>
+  </section>
 
                   <!-- Calendar Section  -->
   <div id="calendar-section" style="display: none;">
@@ -187,61 +243,6 @@
 
                             
 
-                            <!--Business Popup  -->
-  <section id="popup-add-business" class="popup-add-business" style="display: none;">
-    <div class="business-section-header">
-      <div class="spacer"></div>
-      <h2 id="popup-title" class="section-title">Business</h2>
-      <button type="button" onclick="closeAddBusinessPopup()" style="float:right; border:none; background:none; font-size:18px;">&times;</button>
-  
-
-    </div>
-    
-    <form id="popup-add-business-form">
-      <div class="form-group">
-        <label for="popup-business-name-input">Business Name*</label><br>
-        <input id="popup-business-name-input" name="businessName" type="text" placeholder="Enter business name" required>
-      <small id="business-name-warning" style="color: red; display: none;">
-  ⚠️ A business with this name already exists.
-</small>
-</div>
-      <div class="form-group">
-        <label for="popup-your-name-input">Your Name*</label><br>
-        <input id="popup-your-name-input" name="yourName" type="text" placeholder="Enter your name" required>
-      </div>
-      <div class="form-group">
-        <label for="popup-business-phone-number-input">Phone Number*</label><br>
-        <input id="popup-business-phone-number-input" name="phoneNumber" type="text" placeholder="Enter phone number">
-      </div>
-      <div class="form-group">
-        <label for="popup-business-location-name-input">Location Name</label><br>
-        <input id="popup-business-location-name-input" name="locationName" type="text" placeholder="Enter location name" required>
-      </div>
-      <div class="form-group">
-        <label for="popup-business-address-input">Business Address</label><br>
-        <input id="popup-business-address-input" name="businessAddress" type="text" placeholder="Enter business address" required>
-      </div>
-      <div class="form-group">
-        <label for="popup-business-email-input">Business Email</label><br>
-        <input id="popup-business-email-input" name="businessEmail" type="text" placeholder="Enter business email">
-      </div>
-      <div class="form-group">
-        <label for="image-upload">Upload Image:</label><br>
-        <input type="file" id="image-upload" name="heroImage" accept="image/*">
-        <br>
-        <h4> Landcape 12 X 800px or Portrait 1000 X 1600px</h4>
-        <div id="current-hero-image-container" style="margin-top: 10px;">
-          <img id="current-hero-image" src="" alt="Current Business Image" style="max-width: 200px; height: auto; display: none;">
-          <p id="no-image-text" style="display: none;">No image uploaded yet.</p>
-        </div>
-      </div>
-      <div class="button-center-wrapper">
-        <button type="submit" id="save-button" class="add-business-button">Save Business</button>
-        <button type="button" id="update-button" class="add-business-button" style="display: none;">Update</button>
-        <button type="button" id="delete-button" class="add-business-button" style="display: none; background-color: #e74c3c;">Delete</button>
-      </div>
-    </form>
-  </section>
 
                              <!--Calendar Popup  -->
   <section id="popup-add-calendar" class="popup-add-business" style="display: none;">
