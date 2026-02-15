@@ -188,6 +188,8 @@ async function loadMyBusinesses() {
   console.log("[business] names:", names);
 
   renderBusinessDropdown(items);
+  renderBusinessSection(items);
+
   return items;
 }
 
@@ -487,4 +489,84 @@ function initBusinessSave() {
       alert(err?.message || "Business save failed");
     }
   });
+}
+
+
+
+
+
+////////////////
+//Fill COlumns in Business Section 
+/////////////////////
+function renderBusinessSection(items) {
+  const nameCol = document.getElementById("business-name-column");
+  const servicesCol = document.getElementById("services-column");
+  const clientsCol = document.getElementById("clients-column");
+  const gotoCol = document.getElementById("goto-column");
+
+  if (!nameCol || !servicesCol || !clientsCol || !gotoCol) return;
+
+  // Clear existing
+  nameCol.innerHTML = "";
+  servicesCol.innerHTML = "";
+  clientsCol.innerHTML = "";
+  gotoCol.innerHTML = "";
+
+  if (!items || !items.length) {
+    nameCol.innerHTML = `<div class="business-result">(no businesses yet)</div>`;
+    servicesCol.innerHTML = `<div class="business-result">—</div>`;
+    clientsCol.innerHTML = `<div class="business-result">—</div>`;
+    gotoCol.innerHTML = `<div class="business-result">—</div>`;
+    return;
+  }
+
+  // Most recent first (your API already sorts newest first, but we’ll keep it safe)
+  const rows = [...items].sort((a, b) => {
+    const ad = new Date(a?.createdAt || a?.updatedAt || 0).getTime();
+    const bd = new Date(b?.createdAt || b?.updatedAt || 0).getTime();
+    return bd - ad;
+  });
+
+  rows.forEach((row) => {
+    const v = row?.values || row || {};
+    const id = String(row?._id || row?.id || "").trim();
+    if (!id) return;
+
+    const name = getBusinessName(row); // ✅ uses your helper
+
+    // If your business record stores arrays of refs, this will work:
+    const servicesCount = Array.isArray(v?.["Service(s)"]) ? v["Service(s)"].length : (Number(v?.servicesCount) || 0);
+    const clientsCount = Array.isArray(v?.["Client(s)"]) ? v["Client(s)"].length : (Number(v?.clientsCount) || 0);
+
+    // Name cell (clickable if you want later)
+    const nameDiv = document.createElement("div");
+    nameDiv.className = "business-result clickable-item";
+    nameDiv.textContent = name;
+    nameDiv.dataset.id = id;
+
+    // Services count cell
+    const servicesDiv = document.createElement("div");
+    servicesDiv.className = "business-result";
+    servicesDiv.textContent = String(servicesCount);
+
+    // Clients count cell
+    const clientsDiv = document.createElement("div");
+    clientsDiv.className = "business-result";
+    clientsDiv.textContent = String(clientsCount);
+
+    // Go to cell (arrow)
+    const goDiv = document.createElement("div");
+    goDiv.className = "business-result goto-arrow";
+    goDiv.textContent = "➜";
+    goDiv.title = "Open business";
+    goDiv.dataset.id = id;
+
+    // Append to each column
+    nameCol.appendChild(nameDiv);
+    servicesCol.appendChild(servicesDiv);
+    clientsCol.appendChild(clientsDiv);
+    gotoCol.appendChild(goDiv);
+  });
+
+  console.log("[business-section] rendered businesses:", rows.map(getBusinessName));
 }
