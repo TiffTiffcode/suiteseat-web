@@ -399,7 +399,7 @@ async function createBusinessRecord({ userId, heroUrl }) {
     "Created By": userId,
   };
 
-  const { res, data } = await apiJSON("/api/records/Business", {
+   const { res, data } = await apiJSON("/api/records/Business", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ values }),
@@ -407,12 +407,29 @@ async function createBusinessRecord({ userId, heroUrl }) {
 
   console.log("[business] POST /api/records/Business", res.status, data);
 
-  if (!res.ok) throw new Error("Failed to save business");
+  if (!res.ok) throw new Error(data?.message || data?.error || "Failed to save business");
 
-  const created = Array.isArray(data?.items) ? data.items[0] : null;
-  if (!created?._id) throw new Error("Business saved but missing _id.");
+  // ✅ handle multiple shapes:
+  // - { items: [doc] }
+  // - { item: doc }
+  // - doc
+  const created =
+    (Array.isArray(data?.items) && data.items[0]) ||
+    data?.item ||
+    data;
+
+  const createdId = created?._id || created?.id;
+
+  if (!createdId) {
+    console.warn("[business] create response missing id fields:", created);
+    throw new Error("Business saved but missing id");
+  }
+
+  // normalize: ensure _id exists so the rest of your code is consistent
+  if (!created._id) created._id = createdId;
 
   return created;
+
 }
 
 // Wire the Save button (form submit)
@@ -448,7 +465,9 @@ function initBusinessSave() {
       // auto-select the new business
       const dd = document.getElementById("business-dropdown");
       if (dd) {
-        dd.value = String(created._id);
+       const newId = created?._id || created?.id;
+      dd.value = String(newId || "");
+  
         dd.dispatchEvent(new Event("change"));
       }
     } catch (err) {
