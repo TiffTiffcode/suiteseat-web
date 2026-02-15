@@ -108,32 +108,50 @@ function normalizeItems(out) {
   return [];
 }
 
+function getBusinessName(row) {
+  const v = row?.values || row || {};
+  return (
+    (typeof v["Business Name"] === "string" && v["Business Name"].trim()) ||
+    (typeof v["Name"] === "string" && v["Name"].trim()) ||
+    (typeof v.businessName === "string" && v.businessName.trim()) ||
+    (typeof v.title === "string" && v.title.trim()) ||
+    "(Untitled)"
+  );
+}
+
 // Render dropdown
+// Render dropdown + log what got rendered
 function renderBusinessDropdown(items) {
   const dd = document.getElementById("business-dropdown");
   if (!dd) return;
 
   dd.innerHTML = `<option value="">-- Choose Business --</option>`;
 
+  const rendered = [];
+
   items.forEach((row) => {
     const v = row?.values || row || {};
     const id = String(row?._id || row?.id || v?._id || "");
-    const name =
-      pickText(v, ["Business Name", "Name", "businessName", "title"]) || "Business";
-
     if (!id) return;
+
+    const name = getBusinessName(row);
 
     const opt = document.createElement("option");
     opt.value = id;
     opt.textContent = name;
     dd.appendChild(opt);
+
+    rendered.push({ id, name });
   });
+
+  // ✅ log what’s actually in the dropdown now
+  console.log("[dropdown] options rendered:", rendered);
+  console.log("[dropdown] business names:", rendered.map((x) => x.name));
 }
 
 async function loadMyBusinesses(userId) {
   const where = encodeURIComponent(JSON.stringify({ createdBy: String(userId) }));
 
-  // Try a few common endpoints (first one that works will populate)
   const candidates = [
     `/api/records/Business?where=${where}&limit=200`,
     `/api/records/Business?createdBy=${encodeURIComponent(String(userId))}&limit=200`,
@@ -145,10 +163,19 @@ async function loadMyBusinesses(userId) {
       res: null,
       data: null,
     }));
-    if (!res || !res.ok) continue;
+    if (!res) continue;
+
+    // ✅ log the raw response (this is “what comes back”)
+    console.log("[business] RAW response from", path, "status:", res.status, data);
+
+    if (!res.ok) continue;
 
     const items = normalizeItems(data);
-    console.log("[business] loaded", path, items.length);
+
+    // ✅ log business names current user has (from the API payload)
+    console.log("[business] items count:", items.length);
+    console.log("[business] names:", items.map(getBusinessName));
+
     renderBusinessDropdown(items);
     return items;
   }
@@ -157,7 +184,6 @@ async function loadMyBusinesses(userId) {
   renderBusinessDropdown([]);
   return [];
 }
-
 function wireBusinessDropdownUI() {
   document.getElementById("business-dropdown")?.addEventListener("change", (e) => {
     const dd = e.target;
