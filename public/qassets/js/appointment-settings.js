@@ -221,16 +221,50 @@ function wireBusinessDropdownUI() {
                  // Calendar Section 
 /////////////////////////////////////////////////
 //Fill Calendar Section Based on if business is clicked 
+function getCalendarBusinessId(row) {
+  const v = row?.values || row || {};
+
+  // common shapes your dynamic system might store
+  const raw =
+    v["Business"] ??
+    v.business ??
+    v.businessId ??
+    v["Business Id"];
+
+  // if it's a string id
+  if (typeof raw === "string") return raw.trim();
+
+  // if it's an object like { _id: "...", name: "..." }
+  if (raw && typeof raw === "object") {
+    const id = raw._id || raw.id;
+    return id ? String(id).trim() : "";
+  }
+
+  // if it's an array (some systems store refs in arrays)
+  if (Array.isArray(raw) && raw.length) {
+    const first = raw[0];
+    if (typeof first === "string") return first.trim();
+    if (first && typeof first === "object") {
+      const id = first._id || first.id;
+      return id ? String(id).trim() : "";
+    }
+  }
+
+  return "";
+}
+
 async function loadCalendarsForSelectedBusiness() {
+  const businessId = String(SELECTED_BUSINESS_ID || "").trim();
+
   // If no business selected, clear calendar UI
-  if (!SELECTED_BUSINESS_ID) {
+  if (!businessId) {
     renderCalendarSection([]);
     return [];
   }
 
-  // This works with your server's "simple query param" matching:
-  // /api/records/Calendar?Business=<id>
-  const path = `/api/records/Calendar?Business=${encodeURIComponent(SELECTED_BUSINESS_ID)}&limit=200`;
+  // ✅ Use where= filter (your API supports this pattern)
+  const where = encodeURIComponent(JSON.stringify({ "values.Business": businessId }));
+  const path = `/api/records/Calendar?where=${where}&limit=200`;
 
   const { res, data } = await apiJSON(path, { method: "GET" });
   console.log("[calendar] RAW response from", path, "status:", res.status, data);
@@ -242,10 +276,18 @@ async function loadCalendarsForSelectedBusiness() {
   }
 
   const items = normalizeItems(data);
-  CALENDAR_CACHE = items;
 
-  renderCalendarSection(items);
-  return items;
+  // ✅ SAFETY: filter again on the client in case API still returns extra
+  const filtered = items.filter((row) => getCalendarBusinessId(row) === businessId);
+
+  // ✅ prevent “stale” renders if user changes dropdown fast
+  if (businessId !== String(SELECTED_BUSINESS_ID || "").trim()) return [];
+
+  CALENDAR_CACHE = filtered;
+  renderCalendarSection(filtered);
+
+  console.log("[calendar-section] filtered count:", filtered.length);
+  return filtered;
 }
 
 function getCalendarName(row) {
@@ -447,6 +489,68 @@ await loadCalendarsForSelectedBusiness();
 /////////////////////////////////////////////////
 //  Delete Calendar
 /////////////////////////////////////////////////
+
+
+
+
+              /////////////////////////////////////////////////
+                   // Category Section
+             /////////////////////////////////////////////////  
+ //Open Add Category Section             
+function openCategoryPopup() {
+  const popup = document.getElementById("popup-add-category");
+  const overlay = document.getElementById("popup-overlay");
+
+  if (popup) popup.style.display = "block";
+  if (overlay) overlay.style.display = "block";
+}
+
+function closeCategoryPopup() {
+  const popup = document.getElementById("popup-add-category");
+  const overlay = document.getElementById("popup-overlay");
+
+  if (popup) popup.style.display = "none";
+  if (overlay) overlay.style.display = "none";
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -1095,7 +1199,16 @@ nameDiv.addEventListener("click", () => {
               /////////////////////////////////////////////////
                    // Category Section
              /////////////////////////////////////////////////   
-             
+             document.getElementById("open-category-popup-button")?.addEventListener("click", () => {
+  // optional: if you have a create mode function
+  // setCategoryPopupCreateMode();
+
+  openCategoryPopup();
+});
+
+// If your close X has an id, wire it too (recommended)
+document.getElementById("close-add-category-popup-btn")?.addEventListener("click", closeCategoryPopup);
+
               /////////////////////////////////////////////////
                    // Service Section
              /////////////////////////////////////////////////            
