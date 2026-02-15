@@ -125,16 +125,30 @@ function renderBusinessDropdown(items) {
   const dd = document.getElementById("business-dropdown");
   if (!dd) return;
 
+  // reset dropdown
   dd.innerHTML = `<option value="">-- Choose Business --</option>`;
 
   const rendered = [];
 
-  items.forEach((row) => {
+  (items || []).forEach((row) => {
     const v = row?.values || row || {};
-    const id = String(row?._id || row?.id || v?._id || "");
+    const id = String(row?._id || row?.id || v?._id || "").trim();
     if (!id) return;
 
-    const name = getBusinessName(row);
+    // ✅ prefer your helper if it exists, fallback to common name fields
+    let name = "";
+    try {
+      name = typeof getBusinessName === "function" ? getBusinessName(row) : "";
+    } catch {}
+
+    if (!name || !String(name).trim()) {
+      name =
+        String(v?.Name || "").trim() ||
+        String(v?.["Business Name"] || "").trim() ||
+        String(v?.businessName || "").trim() ||
+        String(v?.title || "").trim() ||
+        "Business";
+    }
 
     const opt = document.createElement("option");
     opt.value = id;
@@ -149,41 +163,34 @@ function renderBusinessDropdown(items) {
   console.log("[dropdown] business names:", rendered.map((x) => x.name));
 }
 
-async function loadMyBusinesses(userId) {
-  const where = encodeURIComponent(JSON.stringify({ createdBy: String(userId) }));
 
-  const candidates = [
-    `/api/records/Business?where=${where}&limit=200`,
-    `/api/records/Business?createdBy=${encodeURIComponent(String(userId))}&limit=200`,
-    `/api/records?type=Business&where=${where}&limit=200`,
-  ];
+async function loadMyBusinesses() {
+  const path = `/api/records/Business?limit=200`;
 
-  for (const path of candidates) {
-    const { res, data } = await apiJSON(path, { method: "GET" }).catch(() => ({
-      res: null,
-      data: null,
-    }));
-    if (!res) continue;
+  const { res, data } = await apiJSON(path, { method: "GET" });
+  console.log("[business] RAW response from", path, "status:", res.status, data);
 
-    // ✅ log the raw response (this is “what comes back”)
-    console.log("[business] RAW response from", path, "status:", res.status, data);
-
-    if (!res.ok) continue;
-
-    const items = normalizeItems(data);
-
-    // ✅ log business names current user has (from the API payload)
-    console.log("[business] items count:", items.length);
-    console.log("[business] names:", items.map(getBusinessName));
-
-    renderBusinessDropdown(items);
-    return items;
+  if (!res.ok) {
+    console.warn("[business] load failed", res.status, data);
+    renderBusinessDropdown([]);
+    return [];
   }
 
-  console.warn("[business] could not load businesses (no matching endpoint worked)");
-  renderBusinessDropdown([]);
-  return [];
+  const items = normalizeItems(data);
+
+  console.log("[business] items count:", items.length);
+
+  // log the names we got back
+  const names = items.map((row) => {
+    const v = row?.values || row || {};
+    return pickText(v, ["Name", "Business Name", "businessName", "title"]) || "(no name)";
+  });
+  console.log("[business] names:", names);
+
+  renderBusinessDropdown(items);
+  return items;
 }
+
 function wireBusinessDropdownUI() {
   document.getElementById("business-dropdown")?.addEventListener("change", (e) => {
     const dd = e.target;
@@ -204,16 +211,41 @@ document.addEventListener("DOMContentLoaded", async () => {
   // --- Menu section / business UI (below) ---
   wireBusinessDropdownUI();
 
+  // ✅ (Fix #3) ALWAYS wire the save handler (even if user is logged out on page load)
+  // because the user can log in AFTER the page loads.
+  initBusinessSave();
+
+  // ✅ (Fix #2) Move the Add Business popup wiring here (so there is only ONE DOMContentLoaded)
+  document
+    .getElementById("open-business-popup-button")
+    ?.addEventListener("click", openAddBusinessPopup);
+
+  document
+    .getElementById("close-add-business-popup-btn")
+    ?.addEventListener("click", closeAddBusinessPopup);
+
+  // optional: close popup by clicking overlay
+  document
+    .getElementById("popup-overlay")
+    ?.addEventListener("click", closeAddBusinessPopup);
+
+  // optional: close popup with ESC
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeAddBusinessPopup();
+  });
+
   // If already logged in on load, populate businesses
   if (auth.loggedIn && auth.user?._id) {
-    await loadMyBusinesses(auth.user._id);
-
-      initBusinessSave();
+    await loadMyBusinesses();
   }
 
   // --- Login popup wiring ---
   document.getElementById("open-login-popup-btn")?.addEventListener("click", openLoginPopup);
-  document.getElementById("popup-overlay")?.addEventListener("click", closeLoginPopup);
+
+  // ✅ IMPORTANT: do NOT use popup-overlay to close ONLY login now,
+  // because we also use it to close the business popup.
+  // If you want overlay click to close whichever popup is open, we can do that later.
+
   document.getElementById("close-login-popup-btn")?.addEventListener("click", closeLoginPopup);
 
   // --- Login submit ---
@@ -240,7 +272,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // Populate businesses immediately after login
     if (auth2.loggedIn && auth2.user?._id) {
-      await loadMyBusinesses(auth2.user._id);
+      await loadMyBusinesses();
     }
 
     closeLoginPopup();
@@ -285,27 +317,6 @@ function closeAddBusinessPopup() {
   if (overlay) overlay.style.display = "none";
 }
 
-document.addEventListener("DOMContentLoaded", () => {
-  // open
-  document
-    .getElementById("open-business-popup-button")
-    ?.addEventListener("click", openAddBusinessPopup);
-
-  // close via X
-  document
-    .getElementById("close-add-business-popup-btn")
-    ?.addEventListener("click", closeAddBusinessPopup);
-
-  // optional: close by clicking overlay
-  document
-    .getElementById("popup-overlay")
-    ?.addEventListener("click", closeAddBusinessPopup);
-
-  // optional: close with ESC
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") closeAddBusinessPopup();
-  });
-});
 
 // ------------------------------
 // Slug helpers
@@ -460,7 +471,8 @@ function initBusinessSave() {
 
       // 4) close popup + refresh dropdown
       closeAddBusinessPopup();
-      await loadMyBusinesses(userId);
+     await loadMyBusinesses();
+
 
       // auto-select the new business
       const dd = document.getElementById("business-dropdown");
