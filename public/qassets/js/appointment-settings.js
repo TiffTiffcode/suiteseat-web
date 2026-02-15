@@ -177,6 +177,8 @@ async function loadMyBusinesses() {
   }
 
   const items = normalizeItems(data);
+renderBusinessDropdown(items);      // your dropdown
+renderBusinessSection(items);       // the 4-column section
 
   console.log("[business] items count:", items.length);
 
@@ -205,7 +207,6 @@ function wireBusinessDropdownUI() {
 /////////////////////////////////////////////////
 // 3) INIT (SINGLE DOMContentLoaded)
 /////////////////////////////////////////////////
-
 document.addEventListener("DOMContentLoaded", async () => {
   // --- Header auth (top of page) ---
   const auth = await initHeaderAuth();
@@ -213,27 +214,36 @@ document.addEventListener("DOMContentLoaded", async () => {
   // --- Menu section / business UI (below) ---
   wireBusinessDropdownUI();
 
-  // ✅ (Fix #3) ALWAYS wire the save handler (even if user is logged out on page load)
-  // because the user can log in AFTER the page loads.
+  // Always wire save handler
   initBusinessSave();
 
-  // ✅ (Fix #2) Move the Add Business popup wiring here (so there is only ONE DOMContentLoaded)
+  // ✅ Add Business button → CREATE MODE
   document
     .getElementById("open-business-popup-button")
-    ?.addEventListener("click", openAddBusinessPopup);
+    ?.addEventListener("click", () => {
+      setBusinessPopupCreateMode();   // <-- switch to create mode
+      openAddBusinessPopup();         // <-- then open popup
+    });
 
+  // Close popup via X
   document
     .getElementById("close-add-business-popup-btn")
     ?.addEventListener("click", closeAddBusinessPopup);
 
-  // optional: close popup by clicking overlay
+  // Close popup via overlay
   document
     .getElementById("popup-overlay")
-    ?.addEventListener("click", closeAddBusinessPopup);
+    ?.addEventListener("click", () => {
+      closeAddBusinessPopup();
+      closeLoginPopup(); // closes whichever is open
+    });
 
-  // optional: close popup with ESC
+  // Close popup with ESC
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") closeAddBusinessPopup();
+    if (e.key === "Escape") {
+      closeAddBusinessPopup();
+      closeLoginPopup();
+    }
   });
 
   // If already logged in on load, populate businesses
@@ -242,13 +252,14 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   // --- Login popup wiring ---
-  document.getElementById("open-login-popup-btn")?.addEventListener("click", openLoginPopup);
+  document
+    .getElementById("open-login-popup-btn")
+    ?.addEventListener("click", openLoginPopup);
 
-  // ✅ IMPORTANT: do NOT use popup-overlay to close ONLY login now,
-  // because we also use it to close the business popup.
-  // If you want overlay click to close whichever popup is open, we can do that later.
+  document
+    .getElementById("close-login-popup-btn")
+    ?.addEventListener("click", closeLoginPopup);
 
-  document.getElementById("close-login-popup-btn")?.addEventListener("click", closeLoginPopup);
 
   // --- Login submit ---
   const LOGIN_PATH = "/login"; // your server route
@@ -491,6 +502,162 @@ function initBusinessSave() {
   });
 }
 
+////////////////
+//Open Add Business Popup when Business is clicked 
+/////////////////////
+// EDIT state
+let CURRENT_BUSINESS = null;     // full record
+let CURRENT_BUSINESS_ID = null;  // string id
+let BUSINESS_CACHE = [];         // last loaded list
+
+//Helpers to read/write your Business "values"
+function getVal(row, fieldName) {
+  // Record stores fields in row.values
+  const v = row?.values || {};
+  return v?.[fieldName];
+}
+
+function setHeroPreview(url) {
+  const img = document.getElementById("current-hero-image");
+  const txt = document.getElementById("no-image-text");
+  if (!img || !txt) return;
+
+  if (url) {
+    img.src = url;
+    img.style.display = "block";
+    txt.style.display = "none";
+  } else {
+    img.src = "";
+    img.style.display = "none";
+    txt.style.display = "block";
+  }
+}
+
+const setVal = (id, val) => {
+  const el = document.getElementById(id);
+  if (el) el.value = val;
+};
+
+function setBusinessPopupCreateMode() {
+  CURRENT_BUSINESS = null;
+  CURRENT_BUSINESS_ID = null;
+
+  const title = document.getElementById("popup-title");
+  if (title) title.textContent = "Add Business";
+
+  document.getElementById("save-button")?.style.setProperty("display", "inline-block");
+  document.getElementById("update-button")?.style.setProperty("display", "none");
+  document.getElementById("delete-button")?.style.setProperty("display", "none");
+
+  document.getElementById("popup-add-business-form")?.reset();
+  setHeroPreview("");
+  document.getElementById("business-name-warning")?.style.setProperty("display", "none");
+}
+
+function setBusinessPopupEditMode(businessRow) {
+  const row = businessRow || {};
+  const v = row?.values || row || {};
+
+  CURRENT_BUSINESS = row;
+  CURRENT_BUSINESS_ID = String(row?._id || row?.id || "").trim();
+
+  const title = document.getElementById("popup-title");
+  if (title) title.textContent = "Edit Business";
+
+  document.getElementById("save-button")?.style.setProperty("display", "none");
+  document.getElementById("update-button")?.style.setProperty("display", "inline-block");
+  document.getElementById("delete-button")?.style.setProperty("display", "inline-block");
+
+  setVal("popup-business-name-input", String(v["Name"] || "").trim());
+  setVal("popup-your-name-input", String(v["Pro Name"] || "").trim());
+  setVal("popup-business-phone-number-input", String(v["Phone Number"] || "").trim());
+  setVal("popup-business-location-name-input", String(v["Location Name"] || "").trim());
+  setVal("popup-business-address-input", String(v["Location Address"] || "").trim());
+  setVal("popup-business-email-input", String(v["Email"] || "").trim());
+
+  const heroUrl = String(v["Hero Image"] || "").trim();
+  setHeroPreview(heroUrl);
+
+  document.getElementById("business-name-warning")?.style.setProperty("display", "none");
+}
+
+
+////////////////
+//Update + Delete buttons (edit mode actions)
+/////////////////////
+async function updateBusinessRecord({ heroUrl }) {
+  if (!CURRENT_BUSINESS_ID) throw new Error("No business selected.");
+
+  const businessName = document.getElementById("popup-business-name-input")?.value?.trim();
+  const proName = document.getElementById("popup-your-name-input")?.value?.trim();
+  const phoneNumber = document.getElementById("popup-business-phone-number-input")?.value?.trim();
+  const locationName = document.getElementById("popup-business-location-name-input")?.value?.trim();
+  const locationAddress = document.getElementById("popup-business-address-input")?.value?.trim();
+  const email = document.getElementById("popup-business-email-input")?.value?.trim();
+
+  // If they didn’t upload a new image, keep existing
+  const existingHero = String(getVal(CURRENT_BUSINESS, "Hero Image") || "").trim();
+  const finalHero = heroUrl || existingHero;
+
+  const values = {
+    "Name": businessName || "",
+    "Pro Name": proName || "",
+    "Phone Number": phoneNumber || "",
+    "Location Name": locationName || "",
+    "Location Address": locationAddress || "",
+    "Email": email || "",
+    "Hero Image": finalHero || "",
+    "slug": slugify(businessName || ""), // or generateBusinessSlug(...)
+  };
+
+  const { res, data } = await apiJSON(`/api/records/Business/${encodeURIComponent(CURRENT_BUSINESS_ID)}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ values }),
+  });
+
+  console.log("[business] PATCH", res.status, data);
+  if (!res.ok) throw new Error(data?.message || data?.error || "Update failed");
+}
+
+document.getElementById("update-button")?.addEventListener("click", async () => {
+  try {
+    const heroUrl = await uploadHeroImageIfAny().catch(() => "");
+    await updateBusinessRecord({ heroUrl });
+
+    await loadMyBusinesses();  // re-render dropdown + section
+    closeAddBusinessPopup();
+  } catch (e) {
+    console.error(e);
+    alert(e?.message || "Update failed");
+  }
+});
+
+
+
+////////////////
+//Delete Business 
+/////////////////////
+document.getElementById("delete-button")?.addEventListener("click", async () => {
+  try {
+    if (!CURRENT_BUSINESS_ID) return;
+    if (!confirm("Delete this business?")) return;
+
+    const { res, data } = await apiJSON(`/api/records/Business/${encodeURIComponent(CURRENT_BUSINESS_ID)}`, {
+      method: "DELETE",
+    });
+
+    console.log("[business] DELETE", res.status, data);
+    if (!res.ok) throw new Error(data?.message || data?.error || "Delete failed");
+
+    await loadMyBusinesses();
+    closeAddBusinessPopup();
+    setBusinessPopupCreateMode();
+  } catch (e) {
+    console.error(e);
+    alert(e?.message || "Delete failed");
+  }
+});
 
 
 
@@ -544,6 +711,12 @@ function renderBusinessSection(items) {
     nameDiv.textContent = name;
     nameDiv.dataset.id = id;
 
+    // ✅ Click business name -> open popup in EDIT mode
+nameDiv.addEventListener("click", () => {
+  setBusinessPopupEditMode(row);   // fills the popup
+  openAddBusinessPopup();          // shows popup
+});
+
     // Services count cell
     const servicesDiv = document.createElement("div");
     servicesDiv.className = "business-result";
@@ -560,6 +733,11 @@ function renderBusinessSection(items) {
     goDiv.textContent = "➜";
     goDiv.title = "Open business";
     goDiv.dataset.id = id;
+
+    goDiv.addEventListener("click", () => {
+  setBusinessPopupEditMode(row);
+  openAddBusinessPopup();
+});
 
     // Append to each column
     nameCol.appendChild(nameDiv);

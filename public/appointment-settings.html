@@ -84,7 +84,7 @@
     <div class="business-section-header">
       <div class="spacer"></div>
       <h2 id="popup-title" class="section-title">Business</h2>
-      <button   id="close-add-business-popup-btn" type="button" onclick="closeAddBusinessPopup()" style="float:right; border:none; background:none; font-size:18px;">&times;</button>
+      <button   id="close-add-business-popup-btn" type="button"  style="float:right; border:none; background:none; font-size:18px;">&times;</button>
   
 
     </div>
@@ -155,8 +155,33 @@
     <div class="calendar-column" id="calendar-default-column"></div>
   </div>
 </section>
-
   </div>
+
+  
+                             <!--Calendar Popup  -->
+  <section id="popup-add-calendar" class="popup-add-business" style="display: none;">
+    <div class="business-section-header">
+      <div class="spacer"></div>
+      <h2 class="section-title">Add Calendar</h2>
+      <button type="button" onclick="closeAddCalendarPopup()" style="float:right; border:none; background:none; font-size:18px;">&times;</button>
+    </div>
+    <div class="form-group">
+      <label for="dropdown-calendar-business">Choose Business</label><br>
+      <select id="dropdown-calendar-business">
+        <option value="">-- Select --</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label for="popup-calendar-name-input">Calendar Name*</label><br>
+      <input id="popup-calendar-name-input" type="text" placeholder="Enter calendar name" required>
+    </div>
+    <div class="button-center-wrapper">
+      <button id="save-calendar-button" class="add-business-button">Save Calendar</button>
+      <button id="update-calendar-button" class="add-business-button" style="display: none;">Update</button>
+      <button id="delete-calendar-button" class="add-business-button" style="display: none; background-color: #e74c3c;">Delete</button>
+    </div>
+  </section>
+
   
                       <!-- Category Section -->
 <div id="category-section" style="display: none;">
@@ -194,6 +219,37 @@
 
 
 
+                                <!--Category Popup  -->
+  <section id="popup-add-category" class="popup-add-business" style="display: none;">
+    <div class="business-section-header">
+      <div class="spacer"></div>
+      <h2 class="section-title">Add a Category</h2>
+      <button type="button" onclick="closeCategoryPopup()" style="float:right; border:none; background:none; font-size:18px;">&times;</button>
+    </div>
+    <div class="form-group">
+      <label for="dropdown-category-business">Choose Business</label><br>
+      <select id="dropdown-category-business">
+        <option value="">-- Select --</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label for="dropdown-business-calendar">Choose Calendar</label><br>
+      <select id="dropdown-business-calendar" disabled>
+        <option value="">-- Select --</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label for="popup-category-name-input">Category Name*</label><br>
+      <input id="popup-category-name-input" type="text" placeholder="Enter category name" required>
+    </div>
+    <div class="button-center-wrapper">
+      <button id="save-category-button" class="add-business-button">Save Category</button>
+      <button id="update-category-button" class="add-business-button" style="display: none;">Update</button>
+      <button id="delete-category-button" class="add-business-button" style="display: none; background-color: #e74c3c;">Delete</button>
+    </div>
+  </section>
+  
+
                         <!-- Service Section -->
   <div id="service-section" style="display: none;">
     <div class="service-section-header">
@@ -229,78 +285,7 @@
 
   </div>
 
-                         <!-- Booking Section  -->
-  <div id="booking-section" style="display: none;">
-    <div class="booking-section-header">
-      <div class="spacer"></div>
-      <h2 class="section-title">Booking Page</h2>
-    </div>
-    <section class="border-start">
-
-    </section>
-  </div>
-                            <!-- Popups  -->
-
-                            
-
-
-                             <!--Calendar Popup  -->
-  <section id="popup-add-calendar" class="popup-add-business" style="display: none;">
-    <div class="business-section-header">
-      <div class="spacer"></div>
-      <h2 class="section-title">Add Calendar</h2>
-      <button type="button" onclick="closeAddCalendarPopup()" style="float:right; border:none; background:none; font-size:18px;">&times;</button>
-    </div>
-    <div class="form-group">
-      <label for="dropdown-calendar-business">Choose Business</label><br>
-      <select id="dropdown-calendar-business">
-        <option value="">-- Select --</option>
-      </select>
-    </div>
-    <div class="form-group">
-      <label for="popup-calendar-name-input">Calendar Name*</label><br>
-      <input id="popup-calendar-name-input" type="text" placeholder="Enter calendar name" required>
-    </div>
-    <div class="button-center-wrapper">
-      <button id="save-calendar-button" class="add-business-button">Save Calendar</button>
-      <button id="update-calendar-button" class="add-business-button" style="display: none;">Update</button>
-      <button id="delete-calendar-button" class="add-business-button" style="display: none; background-color: #e74c3c;">Delete</button>
-    </div>
-  </section>
-
-
-                                <!--Category Popup  -->
-  <section id="popup-add-category" class="popup-add-business" style="display: none;">
-    <div class="business-section-header">
-      <div class="spacer"></div>
-      <h2 class="section-title">Add a Category</h2>
-      <button type="button" onclick="closeCategoryPopup()" style="float:right; border:none; background:none; font-size:18px;">&times;</button>
-    </div>
-    <div class="form-group">
-      <label for="dropdown-category-business">Choose Business</label><br>
-      <select id="dropdown-category-business">
-        <option value="">-- Select --</option>
-      </select>
-    </div>
-    <div class="form-group">
-      <label for="dropdown-business-calendar">Choose Calendar</label><br>
-      <select id="dropdown-business-calendar" disabled>
-        <option value="">-- Select --</option>
-      </select>
-    </div>
-    <div class="form-group">
-      <label for="popup-category-name-input">Category Name*</label><br>
-      <input id="popup-category-name-input" type="text" placeholder="Enter category name" required>
-    </div>
-    <div class="button-center-wrapper">
-      <button id="save-category-button" class="add-business-button">Save Category</button>
-      <button id="update-category-button" class="add-business-button" style="display: none;">Update</button>
-      <button id="delete-category-button" class="add-business-button" style="display: none; background-color: #e74c3c;">Delete</button>
-    </div>
-  </section>
   
-
-
                                <!--Service Popup  -->
   <section id="popup-add-service" class="popup-add-business" style="display: none;">
     <div class="business-section-header">
@@ -413,6 +398,23 @@
 
   
 </section>
+
+
+                         <!-- Booking Section  -->
+  <div id="booking-section" style="display: none;">
+    <div class="booking-section-header">
+      <div class="spacer"></div>
+      <h2 class="section-title">Booking Page</h2>
+    </div>
+    <section class="border-start">
+
+    </section>
+  </div>
+
+
+
+
+                            <!-- Popups  -->
 
 <div id="popup-overlay" class="popup-overlay" style="display:none;"></div>
 
