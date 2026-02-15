@@ -89,6 +89,9 @@ function closeLoginPopup() {
   document.getElementById("popup-overlay")?.style.setProperty("display", "none");
 }
 
+
+
+
 /////////////////////////////////////////////////
 // 2) MENU SECTION + BUSINESS DROPDOWN (BELOW LOGIN)
 /////////////////////////////////////////////////
@@ -172,37 +175,295 @@ async function loadMyBusinesses() {
 
   if (!res.ok) {
     console.warn("[business] load failed", res.status, data);
+    MY_BUSINESSES = [];
     renderBusinessDropdown([]);
+    renderBusinessSection([]);
+    renderCalendarBusinessDropdown([]);
     return [];
   }
 
   const items = normalizeItems(data);
-renderBusinessDropdown(items);      // your dropdown
-renderBusinessSection(items);       // the 4-column section
+
+  // ✅ cache globally
+  MY_BUSINESSES = items;
 
   console.log("[business] items count:", items.length);
+  console.log("[business] names:", items.map(getBusinessName));
 
-  // log the names we got back
-  const names = items.map((row) => {
-    const v = row?.values || row || {};
-    return pickText(v, ["Name", "Business Name", "businessName", "title"]) || "(no name)";
-  });
-  console.log("[business] names:", names);
-
+  // ✅ render ONCE
   renderBusinessDropdown(items);
   renderBusinessSection(items);
+  renderCalendarBusinessDropdown(items);
 
   return items;
 }
 
+
 function wireBusinessDropdownUI() {
-  document.getElementById("business-dropdown")?.addEventListener("change", (e) => {
-    const dd = e.target;
+  const dd = document.getElementById("business-dropdown");
+  if (!dd) return;
+
+  dd.addEventListener("change", async (e) => {
+    const selectedId = String(e.target.value || "").trim();
+    SELECTED_BUSINESS_ID = selectedId;
+
     const selectedText = dd?.options?.[dd.selectedIndex]?.textContent || "";
     const title = document.getElementById("selected-business-name");
     if (title) title.textContent = selectedText ? selectedText : "Choose business to manage";
+
+    // ✅ whenever business changes, reload calendars for that business
+    await loadCalendarsForSelectedBusiness();
   });
 }
+
+
+/////////////////////////////////////////////////
+                 // Calendar Section 
+/////////////////////////////////////////////////
+//Fill Calendar Section Based on if business is clicked 
+async function loadCalendarsForSelectedBusiness() {
+  // If no business selected, clear calendar UI
+  if (!SELECTED_BUSINESS_ID) {
+    renderCalendarSection([]);
+    return [];
+  }
+
+  // This works with your server's "simple query param" matching:
+  // /api/records/Calendar?Business=<id>
+  const path = `/api/records/Calendar?Business=${encodeURIComponent(SELECTED_BUSINESS_ID)}&limit=200`;
+
+  const { res, data } = await apiJSON(path, { method: "GET" });
+  console.log("[calendar] RAW response from", path, "status:", res.status, data);
+
+  if (!res.ok) {
+    console.warn("[calendar] load failed", res.status, data);
+    renderCalendarSection([]);
+    return [];
+  }
+
+  const items = normalizeItems(data);
+  CALENDAR_CACHE = items;
+
+  renderCalendarSection(items);
+  return items;
+}
+
+function getCalendarName(row) {
+  const v = row?.values || row || {};
+  return (
+    (typeof v["Name"] === "string" && v["Name"].trim()) ||
+    (typeof v["Calendar Name"] === "string" && v["Calendar Name"].trim()) ||
+    (typeof v.name === "string" && v.name.trim()) ||
+    "(Untitled)"
+  );
+}
+
+function renderCalendarSection(items) {
+  const nameCol = document.getElementById("calendar-name-column");
+  const defCol  = document.getElementById("calendar-default-column");
+  if (!nameCol || !defCol) return;
+
+  nameCol.innerHTML = "";
+  defCol.innerHTML = "";
+
+  if (!items || !items.length) {
+    nameCol.innerHTML = `<div class="business-result">(no calendars yet)</div>`;
+    defCol.innerHTML  = `<div class="business-result">—</div>`;
+    return;
+  }
+
+  // newest first (optional)
+  const rows = [...items].sort((a, b) => {
+    const ad = new Date(a?.createdAt || a?.updatedAt || 0).getTime();
+    const bd = new Date(b?.createdAt || b?.updatedAt || 0).getTime();
+    return bd - ad;
+  });
+
+  rows.forEach((row) => {
+    const v = row?.values || row || {};
+    const id = String(row?._id || row?.id || "").trim();
+    if (!id) return;
+
+    const name = getCalendarName(row);
+
+    // "Default" field could be: v["Default"] or v["isDefault"] etc.
+    const isDefault =
+      Boolean(v?.["Default"]) ||
+      Boolean(v?.isDefault) ||
+      Boolean(v?.["Is Default"]);
+
+    // Name cell (click later for edit mode)
+    const nameDiv = document.createElement("div");
+    nameDiv.className = "business-result clickable-item";
+    nameDiv.textContent = name;
+    nameDiv.dataset.id = id;
+
+    // Default cell (simple indicator for now)
+    const defDiv = document.createElement("div");
+    defDiv.className = "business-result";
+    defDiv.textContent = isDefault ? "✓" : "";
+
+    nameCol.appendChild(nameDiv);
+    defCol.appendChild(defDiv);
+  });
+
+  console.log("[calendar-section] rendered calendars:", rows.map(getCalendarName));
+}
+
+//Open Add Calendar Popup
+function openAddCalendarPopup() {
+  const popup = document.getElementById("popup-add-calendar");
+  const overlay = document.getElementById("popup-overlay"); // reuse same overlay
+
+    // ✅ make sure it has the latest businesses
+  renderCalendarBusinessDropdown(MY_BUSINESSES);
+
+  if (popup) popup.style.display = "block";
+  if (overlay) overlay.style.display = "block";
+}
+
+function closeAddCalendarPopup() {
+  const popup = document.getElementById("popup-add-calendar");
+  const overlay = document.getElementById("popup-overlay");
+
+  if (popup) popup.style.display = "none";
+  if (overlay) overlay.style.display = "none";
+}
+
+
+document
+  .getElementById("close-add-calendar-popup-btn")
+  ?.addEventListener("click", closeAddCalendarPopup);
+
+//load dropdown in popup
+function renderCalendarBusinessDropdown(items) {
+  const dd = document.getElementById("dropdown-calendar-business");
+  if (!dd) return;
+
+  dd.innerHTML = `<option value="">-- Select --</option>`;
+
+  const rendered = [];
+
+  (items || []).forEach((row) => {
+    const v = row?.values || row || {};
+    const id = String(row?._id || row?.id || v?._id || "").trim();
+    if (!id) return;
+
+    const name = typeof getBusinessName === "function" ? getBusinessName(row) : (v.Name || "Business");
+
+    const opt = document.createElement("option");
+    opt.value = id;
+    opt.textContent = name;
+    dd.appendChild(opt);
+
+    rendered.push({ id, name });
+  });
+
+  console.log("[calendar-dd] options rendered:", rendered);
+  console.log("[calendar-dd] business names:", rendered.map(x => x.name));
+}
+
+
+/////////////////////////////////////////////////
+//  Save Calendar
+/////////////////////////////////////////////////
+// ------------------------------
+// Calendar: create record
+// ------------------------------
+async function createCalendarRecord({ businessId }) {
+  const name = document.getElementById("popup-calendar-name-input")?.value?.trim();
+  if (!businessId) throw new Error("Please choose a business.");
+  if (!name) throw new Error("Calendar name is required.");
+
+  // IMPORTANT: these keys must match your Calendar DataType field names exactly.
+  // Most likely you have: "Name" and "Business" as a Reference → Business
+  const values = {
+    "Name": name,
+    "Business": businessId, // reference field to Business
+  };
+
+  const { res, data } = await apiJSON("/api/records/Calendar", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ values }),
+  });
+
+  console.log("[calendar] POST /api/records/Calendar", res.status, data);
+
+  if (!res.ok) throw new Error(data?.message || data?.error || "Failed to save calendar");
+
+  const created =
+    (Array.isArray(data?.items) && data.items[0]) ||
+    data?.item ||
+    data;
+
+  const createdId = created?._id || created?.id;
+  if (!createdId) throw new Error("Calendar saved but missing id");
+
+  if (!created._id) created._id = createdId;
+  return created;
+}
+
+// ------------------------------
+// Calendar: wire Save button
+// ------------------------------
+function initCalendarSave() {
+  const btn = document.getElementById("save-calendar-button");
+  if (!btn) return;
+
+  btn.addEventListener("click", async (e) => {
+    e.preventDefault();
+
+    try {
+      // must be logged in
+      const auth = await initHeaderAuth();
+      if (!auth.loggedIn) {
+        alert("Please log in first.");
+        return;
+      }
+
+      const businessId = document.getElementById("dropdown-calendar-business")?.value?.trim();
+      const created = await createCalendarRecord({ businessId });
+
+      alert("Calendar saved!");
+      closeAddCalendarPopup();
+await loadCalendarsForSelectedBusiness();
+      // refresh businesses (optional) + future: refresh calendars list
+      // (If you later build loadMyCalendars(), call it here)
+      // await loadMyCalendars();
+
+      console.log("[calendar] created:", created);
+    } catch (err) {
+      console.error("[calendar] save failed", err);
+      alert(err?.message || "Calendar save failed");
+    }
+  });
+}
+
+/////////////////////////////////////////////////
+//  Update Calendar
+/////////////////////////////////////////////////
+
+/////////////////////////////////////////////////
+//  Delete Calendar
+/////////////////////////////////////////////////
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/////////////////////////////End DOM
+
 
 /////////////////////////////////////////////////
 // 3) INIT (SINGLE DOMContentLoaded)
@@ -214,61 +475,78 @@ document.addEventListener("DOMContentLoaded", async () => {
   // --- Menu section / business UI (below) ---
   wireBusinessDropdownUI();
 
-  // Always wire save handler
+  // Always wire save handler (works even if user logs in later)
   initBusinessSave();
 
-  // ✅ Add Business button → CREATE MODE
-  document
-    .getElementById("open-business-popup-button")
-    ?.addEventListener("click", () => {
-      setBusinessPopupCreateMode();   // <-- switch to create mode
-      openAddBusinessPopup();         // <-- then open popup
-    });
+  initCalendarSave();
 
-  // Close popup via X
-  document
-    .getElementById("close-add-business-popup-btn")
-    ?.addEventListener("click", closeAddBusinessPopup);
 
-  // Close popup via overlay
-  document
-    .getElementById("popup-overlay")
-    ?.addEventListener("click", () => {
-      closeAddBusinessPopup();
-      closeLoginPopup(); // closes whichever is open
-    });
+  // ✅ Business popup: Add button → CREATE MODE
+  document.getElementById("open-business-popup-button")?.addEventListener("click", () => {
+    setBusinessPopupCreateMode();
+    openAddBusinessPopup();
+  });
 
-  // Close popup with ESC
+  // ✅ Business popup close
+  document.getElementById("close-add-business-popup-btn")?.addEventListener("click", closeAddBusinessPopup);
+
+  // ✅ Calendar popup open
+  document.getElementById("open-calendar-button")?.addEventListener("click", () => {
+    // make sure calendar dropdown has latest businesses
+    renderCalendarBusinessDropdown(MY_BUSINESSES);
+    openAddCalendarPopup();
+  });
+
+  // ✅ Calendar popup close (make sure your X button has an id in HTML)
+  document.getElementById("close-add-calendar-popup-btn")?.addEventListener("click", closeAddCalendarPopup);
+
+  // ✅ Overlay click closes whichever popups are open
+  document.getElementById("popup-overlay")?.addEventListener("click", () => {
+    closeAddBusinessPopup();
+    closeAddCalendarPopup();
+    closeLoginPopup();
+  });
+
+  // ✅ ESC closes whichever popups are open
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
       closeAddBusinessPopup();
+      closeAddCalendarPopup();
       closeLoginPopup();
     }
   });
 
-  // If already logged in on load, populate businesses
+  // --- Login popup wiring ---
+  document.getElementById("open-login-popup-btn")?.addEventListener("click", openLoginPopup);
+  document.getElementById("close-login-popup-btn")?.addEventListener("click", closeLoginPopup);
+
+  // --- Logout ---
+  document.getElementById("logout-btn")?.addEventListener("click", async () => {
+    await apiFetch("/api/logout", { method: "POST" }).catch(() => {});
+    setHeaderLoggedOut();
+    renderBusinessDropdown([]);
+    renderBusinessSection([]);
+    renderCalendarBusinessDropdown([]);
+    MY_BUSINESSES = [];
+    const title = document.getElementById("selected-business-name");
+    if (title) title.textContent = "Choose business to manage";
+  });
+
+  // Tabs
+  initTopTabs();
+
+  // ✅ If logged in on load, populate businesses
   if (auth.loggedIn && auth.user?._id) {
     await loadMyBusinesses();
   }
 
-  // --- Login popup wiring ---
-  document
-    .getElementById("open-login-popup-btn")
-    ?.addEventListener("click", openLoginPopup);
-
-  document
-    .getElementById("close-login-popup-btn")
-    ?.addEventListener("click", closeLoginPopup);
-
-
   // --- Login submit ---
-  const LOGIN_PATH = "/login"; // your server route
+  const LOGIN_PATH = "/login";
   document.getElementById("login-form")?.addEventListener("submit", async (e) => {
     e.preventDefault();
 
     const email = document.getElementById("login-email")?.value?.trim();
     const password = document.getElementById("login-password")?.value;
-
     if (!email || !password) return alert("Enter email + password");
 
     const { res, data } = await apiJSON(LOGIN_PATH, {
@@ -280,30 +558,62 @@ document.addEventListener("DOMContentLoaded", async () => {
     console.log(`[login] POST ${LOGIN_PATH}`, res.status, data);
     if (!res.ok) return alert(data?.message || data?.error || "Login failed");
 
-    // Re-check session (source of truth)
     const auth2 = await initHeaderAuth();
-
-    // Populate businesses immediately after login
     if (auth2.loggedIn && auth2.user?._id) {
-      await loadMyBusinesses();
+      await loadMyBusinesses(); // ✅ this sets MY_BUSINESSES
     }
 
     closeLoginPopup();
     const pw = document.getElementById("login-password");
     if (pw) pw.value = "";
   });
-
-  // --- Logout ---
-  document.getElementById("logout-btn")?.addEventListener("click", async () => {
-    await apiFetch("/api/logout", { method: "POST" }).catch(() => {});
-    setHeaderLoggedOut();
-
-    // clear businesses UI
-    renderBusinessDropdown([]);
-    const title = document.getElementById("selected-business-name");
-    if (title) title.textContent = "Choose business to manage";
-  });
 });
+
+
+/////////////////////////////////////////////////
+// Tab Switching
+/////////////////////////////////////////////////
+function initTopTabs() {
+  const tabs = Array.from(document.querySelectorAll(".option-bar .option"));
+  if (!tabs.length) return;
+
+  const SECTION_MAP = {
+    business: "business-section",
+    calendar: "calendar-section",
+    category: "category-section",
+    service: "service-section",
+    booking: "booking-section",
+  };
+
+function showSection(tabId) {
+  // 1) set active tab style
+  tabs.forEach((t) => t.classList.toggle("active", t.dataset.id === tabId));
+
+  // 2) show/hide sections
+  Object.entries(SECTION_MAP).forEach(([key, sectionId]) => {
+    const el = document.getElementById(sectionId);
+    if (!el) return;
+    el.style.display = key === tabId ? "block" : "none";
+  });
+
+  // ✅ 3) run section-specific loaders AFTER it's visible
+  if (tabId === "calendar") {
+    loadCalendarsForSelectedBusiness();
+  }
+}
+
+  // click handlers
+  tabs.forEach((tab) => {
+    tab.addEventListener("click", () => {
+      const tabId = tab.dataset.id;
+      if (!tabId) return;
+      showSection(tabId);
+    });
+  });
+
+  // default tab on page load
+  showSection("business");
+}
 
 
 
@@ -509,6 +819,10 @@ function initBusinessSave() {
 let CURRENT_BUSINESS = null;     // full record
 let CURRENT_BUSINESS_ID = null;  // string id
 let BUSINESS_CACHE = [];         // last loaded list
+let MY_BUSINESSES = [];
+let SELECTED_BUSINESS_ID = "";   // the business currently selected in the main dropdown
+let CALENDAR_CACHE = [];         // last loaded calendars list (optional)
+
 
 //Helpers to read/write your Business "values"
 function getVal(row, fieldName) {
@@ -748,3 +1062,40 @@ nameDiv.addEventListener("click", () => {
 
   console.log("[business-section] rendered businesses:", rows.map(getBusinessName));
 }
+
+
+
+
+
+
+             /////////////////////////////////////////////////
+                   // Calendar Section End
+             /////////////////////////////////////////////////
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+              /////////////////////////////////////////////////
+                   // Category Section
+             /////////////////////////////////////////////////   
+             
+              /////////////////////////////////////////////////
+                   // Service Section
+             /////////////////////////////////////////////////            
