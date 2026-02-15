@@ -220,6 +220,47 @@ function wireBusinessDropdownUI() {
 /////////////////////////////////////////////////
                  // Calendar Section 
 /////////////////////////////////////////////////
+//helper
+function getCalendarBusinessId(row) {
+  const v = row?.values || row || {};
+  if (!v || typeof v !== "object") return "";
+
+  // Try the most common names first
+  const candidates = ["Business", "business", "businessId", "Business Id", "Parent Business"];
+
+  for (const key of candidates) {
+    if (!(key in v)) continue;
+    const raw = v[key];
+
+    if (typeof raw === "string") return raw.trim();
+    if (raw && typeof raw === "object") {
+      const id = raw._id || raw.id;
+      if (id) return String(id).trim();
+    }
+    if (Array.isArray(raw) && raw.length) {
+      const first = raw[0];
+      if (typeof first === "string") return first.trim();
+      if (first && typeof first === "object") {
+        const id = first._id || first.id;
+        if (id) return String(id).trim();
+      }
+    }
+  }
+
+  // If your field is named something else, detect any key containing "business"
+  const autoKey = Object.keys(v).find((k) => k.toLowerCase().includes("business"));
+  if (autoKey) {
+    const raw = v[autoKey];
+    if (typeof raw === "string") return raw.trim();
+    if (raw && typeof raw === "object") {
+      const id = raw._id || raw.id;
+      if (id) return String(id).trim();
+    }
+  }
+
+  return "";
+}
+
 //Fill Calendar Section Based on if business is clicked 
 function getCalendarBusinessId(row) {
   const v = row?.values || row || {};
@@ -256,37 +297,36 @@ function getCalendarBusinessId(row) {
 async function loadCalendarsForSelectedBusiness() {
   const businessId = String(SELECTED_BUSINESS_ID || "").trim();
 
-  // If no business selected, clear calendar UI
   if (!businessId) {
     renderCalendarSection([]);
     return [];
   }
 
-  // ✅ Use where= filter (your API supports this pattern)
-  const where = encodeURIComponent(JSON.stringify({ "values.Business": businessId }));
-  const path = `/api/records/Calendar?where=${where}&limit=200`;
-
+  // ✅ pull all calendars (for this user/session) then filter client-side
+  const path = `/api/records/Calendar?limit=200`;
   const { res, data } = await apiJSON(path, { method: "GET" });
+
   console.log("[calendar] RAW response from", path, "status:", res.status, data);
 
   if (!res.ok) {
-    console.warn("[calendar] load failed", res.status, data);
     renderCalendarSection([]);
     return [];
   }
 
   const items = normalizeItems(data);
 
-  // ✅ SAFETY: filter again on the client in case API still returns extra
+  // 🔍 debug: see what keys exist in values
+  if (items[0]?.values) {
+    console.log("[calendar] sample keys:", Object.keys(items[0].values));
+    console.log("[calendar] sample businessId:", getCalendarBusinessId(items[0]));
+  }
+
   const filtered = items.filter((row) => getCalendarBusinessId(row) === businessId);
 
-  // ✅ prevent “stale” renders if user changes dropdown fast
-  if (businessId !== String(SELECTED_BUSINESS_ID || "").trim()) return [];
+  console.log("[calendar-section] filtered count:", filtered.length);
 
   CALENDAR_CACHE = filtered;
   renderCalendarSection(filtered);
-
-  console.log("[calendar-section] filtered count:", filtered.length);
   return filtered;
 }
 
@@ -469,10 +509,17 @@ function initCalendarSave() {
 
       alert("Calendar saved!");
       closeAddCalendarPopup();
-await loadCalendarsForSelectedBusiness();
-      // refresh businesses (optional) + future: refresh calendars list
-      // (If you later build loadMyCalendars(), call it here)
-      // await loadMyCalendars();
+
+      // ✅ IMPORTANT: sync the main dropdown to the business selected in the calendar popup
+      const mainDD = document.getElementById("business-dropdown");
+      if (mainDD && businessId) {
+        mainDD.value = businessId;
+        mainDD.dispatchEvent(new Event("change")); // triggers your handler + reloadCalendars
+      } else {
+        // fallback if dropdown not found for some reason
+        SELECTED_BUSINESS_ID = businessId || "";
+        await loadCalendarsForSelectedBusiness();
+      }
 
       console.log("[calendar] created:", created);
     } catch (err) {
