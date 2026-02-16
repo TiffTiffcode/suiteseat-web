@@ -223,16 +223,14 @@ function wireBusinessDropdownUI() {
 function normalizeImageUrl(url) {
   const u = String(url || "").trim();
   if (!u) return "";
-
-  // already absolute URL (cloudinary, s3, etc.)
   if (u.startsWith("http://") || u.startsWith("https://")) return u;
 
-  // stored as /uploads/... -> serve from API domain, not www
+  // if older records saved /uploads/... then serve from API domain
   if (u.startsWith("/uploads/")) return `${API_BASE}${u}`;
   if (u.startsWith("uploads/")) return `${API_BASE}/${u}`;
-
   return u;
 }
+
 
 
 /////////////////////////////////////////////////
@@ -1804,19 +1802,144 @@ async function setServicePopupEditMode(serviceRow) {
   document.getElementById("delete-service-button")?.style.setProperty("display", "inline-block");
 
   // image preview (see URL fix below)
-  const img = document.getElementById("service-image-preview");
-const rawUrl = String(v["Image"] || "").trim();
-const imageUrl = normalizeImageUrl(rawUrl);
+const img = document.getElementById("service-image-preview");
+const raw = String(v["Image"] || "").trim();
+const imageUrl = normalizeImageUrl(raw);
 
 if (img && imageUrl) {
   img.src = imageUrl;
   img.style.display = "block";
+} else if (img) {
+  img.src = "";
+  img.style.display = "none";
 }
 
+
 }
 
+async function updateServiceRecord({ serviceId, userId, imageUrl }) {
+  if (!serviceId) throw new Error("Missing service id");
 
+  const name = document.getElementById("popup-service-name-input")?.value?.trim();
+  const priceRaw = document.getElementById("popup-service-price-input")?.value;
+  const description = document.getElementById("popup-service-description-input")?.value?.trim() || "";
+  const durationRaw = document.getElementById("dropdown-duration")?.value;
 
+  const businessId = document.getElementById("dropdown-service-business")?.value?.trim();
+  const calendarId = document.getElementById("dropdown-service-calendar")?.value?.trim();
+  const categoryId = document.getElementById("dropdown-service-category")?.value?.trim();
+
+  const price = Number(priceRaw);
+  const duration = Number(durationRaw);
+
+  if (!businessId) throw new Error("Please choose a business.");
+  if (!calendarId) throw new Error("Please choose a calendar.");
+  if (!categoryId) throw new Error("Please choose a category.");
+  if (!name) throw new Error("Service name is required.");
+  if (!Number.isFinite(price)) throw new Error("Price must be a number.");
+  if (!Number.isFinite(duration)) throw new Error("Duration is required.");
+
+  // keep existing image if no new upload
+  const existing = String((CURRENT_SERVICE?.values || CURRENT_SERVICE || {})["Image"] || "").trim();
+  const finalImage = imageUrl || existing || "";
+
+  const values = {
+    "Business": [businessId],
+    "Calendar": [calendarId],
+    "Category": [categoryId],
+    "Created By": [userId],
+
+    "Name": name,
+    "Price": price,
+    "Description": description,
+    "duration": duration,
+    "Image": finalImage,
+  };
+
+  const { res, data } = await apiJSON(
+    `/api/records/Service/${encodeURIComponent(serviceId)}`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ values }),
+    }
+  );
+
+  console.log("[service] PATCH", res.status, data);
+  if (!res.ok) throw new Error(data?.message || data?.error || "Failed to update service");
+
+  return data?.item || (Array.isArray(data?.items) ? data.items[0] : data);
+}
+
+async function deleteServiceRecord(serviceId) {
+  if (!serviceId) throw new Error("Missing service id");
+
+  const { res, data } = await apiJSON(
+    `/api/records/Service/${encodeURIComponent(serviceId)}`,
+    { method: "DELETE" }
+  );
+
+  console.log("[service] DELETE", res.status, data);
+  if (!res.ok) throw new Error(data?.message || data?.error || "Failed to delete service");
+}
+
+function initServiceUpdateDelete() {
+  // Update
+  document.getElementById("update-service-button")?.addEventListener("click", async (e) => {
+    e.preventDefault();
+
+    try {
+      if (!CURRENT_SERVICE_ID) return alert("No service selected.");
+
+      const auth = await initHeaderAuth();
+      const userId = auth?.user?._id || auth?.user?.id;
+      if (!auth.loggedIn || !userId) return alert("Please log in first.");
+
+      // optional: upload new image (if none selected, this returns "" in your code)
+      const imageUrl = await uploadServiceImageIfAny().catch(() => "");
+
+      await updateServiceRecord({
+        serviceId: CURRENT_SERVICE_ID,
+        userId,
+        imageUrl,
+      });
+
+      alert("Service updated!");
+      closeServicePopup();
+
+      // refresh list
+      await loadServicesForSelectedBusiness();
+    } catch (err) {
+      console.error("[service] update failed", err);
+      alert(err?.message || "Service update failed");
+    }
+  });
+
+  // Delete
+  document.getElementById("delete-service-button")?.addEventListener("click", async (e) => {
+    e.preventDefault();
+
+    try {
+      if (!CURRENT_SERVICE_ID) return alert("No service selected.");
+      if (!confirm("Delete this service?")) return;
+
+      await deleteServiceRecord(CURRENT_SERVICE_ID);
+
+      alert("Service deleted!");
+      closeServicePopup();
+
+      // refresh list
+      await loadServicesForSelectedBusiness();
+    } catch (err) {
+      console.error("[service] delete failed", err);
+      alert(err?.message || "Service delete failed");
+    }
+  });
+}
+
+///////////////////
+//Delete  Service
+///////////////////////////
 
 
 
@@ -1847,6 +1970,7 @@ wireServicePopupDropdowns();
   wireServiceSectionCalendarFilter();
 
   wireServiceImagePreview();
+initServiceUpdateDelete();
 
   // ✅ Business popup: Add button → CREATE MODE
   document.getElementById("open-business-popup-button")?.addEventListener("click", () => {
