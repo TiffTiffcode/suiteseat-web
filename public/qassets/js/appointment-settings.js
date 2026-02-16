@@ -219,6 +219,20 @@ function wireBusinessDropdownUI() {
   
   });
 }
+//Image Helper 
+function normalizeImageUrl(url) {
+  const u = String(url || "").trim();
+  if (!u) return "";
+
+  // already absolute URL (cloudinary, s3, etc.)
+  if (u.startsWith("http://") || u.startsWith("https://")) return u;
+
+  // stored as /uploads/... -> serve from API domain, not www
+  if (u.startsWith("/uploads/")) return `${API_BASE}${u}`;
+  if (u.startsWith("uploads/")) return `${API_BASE}/${u}`;
+
+  return u;
+}
 
 
 /////////////////////////////////////////////////
@@ -1495,8 +1509,11 @@ async function loadCategoriesForBusiness(businessId) {
   const items = normalizeItems(data);
   return items.filter((row) => String(getCategoryBusinessId(row) || "").trim() === id);
 }
+
 let SERVICE_CALENDAR_CACHE = [];
 let SERVICE_CATEGORY_CACHE = [];
+
+let SERVICE_POPUP_LOADING_PROMISE = Promise.resolve();
 
 function wireServicePopupDropdowns() {
   const bizDD = document.getElementById("dropdown-service-business");
@@ -1504,35 +1521,39 @@ function wireServicePopupDropdowns() {
   const catDD = document.getElementById("dropdown-service-category");
   if (!bizDD || !calDD || !catDD) return;
 
-  // start blank + disabled
   renderServiceCalendarDropdown([]);
   renderServiceCategoryDropdown([]);
 
-  bizDD.addEventListener("change", async () => {
+  bizDD.addEventListener("change", () => {
     const businessId = bizDD.value.trim();
 
-    // clear + disable immediately
+    // clear immediately
     renderServiceCalendarDropdown([]);
     renderServiceCategoryDropdown([]);
     SERVICE_CALENDAR_CACHE = [];
     SERVICE_CATEGORY_CACHE = [];
 
-    if (!businessId) return;
+    if (!businessId) {
+      SERVICE_POPUP_LOADING_PROMISE = Promise.resolve();
+      return;
+    }
 
-    // load both in parallel
-    const [calendars, categories] = await Promise.all([
-      loadCalendarsForBusiness(businessId),
-      loadCategoriesForBusiness(businessId),
-    ]);
+    // ✅ store a promise we can await from edit mode
+    SERVICE_POPUP_LOADING_PROMISE = (async () => {
+      const [calendars, categories] = await Promise.all([
+        loadCalendarsForBusiness(businessId),
+        loadCategoriesForBusiness(businessId),
+      ]);
 
-    SERVICE_CALENDAR_CACHE = calendars;
-    SERVICE_CATEGORY_CACHE = categories;
+      SERVICE_CALENDAR_CACHE = calendars;
+      SERVICE_CATEGORY_CACHE = categories;
 
-    renderServiceCalendarDropdown(calendars);
-    renderServiceCategoryDropdown(categories);
+      renderServiceCalendarDropdown(calendars);
+      renderServiceCategoryDropdown(categories);
+    })();
   });
 
-  // OPTIONAL: if you want category list to depend on selected calendar:
+  // calendar -> filter categories
   calDD.addEventListener("change", () => {
     const calendarId = calDD.value.trim();
     if (!calendarId) {
@@ -1540,24 +1561,15 @@ function wireServicePopupDropdowns() {
       return;
     }
 
-    // filter categories by their Calendar reference
     const filtered = (SERVICE_CATEGORY_CACHE || []).filter((row) => {
       const v = row?.values || row || {};
-      const raw = v["Calendar"] ?? v.calendar ?? v.calendarId;
-
-      if (typeof raw === "string") return raw.trim() === calendarId;
-      if (raw && typeof raw === "object") return String(raw._id || raw.id || "").trim() === calendarId;
-      if (Array.isArray(raw) && raw.length) {
-        const first = raw[0];
-        if (typeof first === "string") return first.trim() === calendarId;
-        if (first && typeof first === "object") return String(first._id || first.id || "").trim() === calendarId;
-      }
-      return false;
+      return firstRefId(v["Calendar"] ?? v.calendar ?? v.calendarId) === calendarId;
     });
 
     renderServiceCategoryDropdown(filtered);
   });
 }
+
 
    /////////////////////////////////////////////////
 //Save Service 
@@ -1749,53 +1761,60 @@ async function setServicePopupEditMode(serviceRow) {
   CURRENT_SERVICE = row;
   CURRENT_SERVICE_ID = String(row?._id || row?.id || "").trim();
 
-  // fill inputs
-  const nameEl = document.getElementById("popup-service-name-input");
-  if (nameEl) nameEl.value = String(v["Name"] || "").trim();
+  // inputs
+  document.getElementById("popup-service-name-input").value = String(v["Name"] || "").trim();
+  document.getElementById("popup-service-price-input").value = String(v["Price"] ?? "").trim();
+  document.getElementById("popup-service-description-input").value = String(v["Description"] || "").trim();
+  document.getElementById("dropdown-duration").value = String(v["duration"] ?? v["Duration"] ?? "").trim();
 
-  const priceEl = document.getElementById("popup-service-price-input");
-  if (priceEl) priceEl.value = String(v["Price"] ?? "").trim();
-
-  const descEl = document.getElementById("popup-service-description-input");
-  if (descEl) descEl.value = String(v["Description"] || "").trim();
-
-  const durEl = document.getElementById("dropdown-duration");
-  if (durEl) durEl.value = String(v["duration"] ?? v["Duration"] ?? "").trim();
-
-  // dropdowns: business -> triggers calendars/categories
-  renderServiceBusinessDropdown(MY_BUSINESSES);
-
+  // ids
   const bizId = firstRefId(v["Business"] ?? v.business ?? v.businessId);
   const calId = firstRefId(v["Calendar"] ?? v.calendar ?? v.calendarId);
   const catId = firstRefId(v["Category"] ?? v.category ?? v.categoryId);
 
+  // ensure business options exist
+  renderServiceBusinessDropdown(MY_BUSINESSES);
+
   const bizDD = document.getElementById("dropdown-service-business");
+  const calDD = document.getElementById("dropdown-service-calendar");
+  const catDD = document.getElementById("dropdown-service-category");
+
+  // set business + trigger async load
   if (bizDD) {
     bizDD.value = bizId || "";
     bizDD.dispatchEvent(new Event("change"));
   }
 
-  // wait a tick so change handler fills dropdowns
-  await new Promise((r) => setTimeout(r, 0));
+  // ✅ WAIT until calendars/categories finish loading
+  await SERVICE_POPUP_LOADING_PROMISE;
 
-  const calDD = document.getElementById("dropdown-service-calendar");
-  const catDD = document.getElementById("dropdown-service-category");
-  if (calDD) calDD.value = calId || "";
+  // now set calendar
+  if (calDD) {
+    calDD.value = calId || "";
+    calDD.dispatchEvent(new Event("change")); // filters category list
+  }
+
+  // ✅ after calendar change filters categories, wait one microtask then set category
+  await Promise.resolve();
   if (catDD) catDD.value = catId || "";
 
-  // buttons (edit)
+  // buttons
   document.getElementById("save-service-button")?.style.setProperty("display", "none");
   document.getElementById("update-service-button")?.style.setProperty("display", "inline-block");
   document.getElementById("delete-service-button")?.style.setProperty("display", "inline-block");
 
-  // preview existing image if you store it
+  // image preview (see URL fix below)
   const img = document.getElementById("service-image-preview");
-  const imageUrl = String(v["Image"] || "").trim();
-  if (img && imageUrl) {
-    img.src = imageUrl;
-    img.style.display = "block";
-  }
+const rawUrl = String(v["Image"] || "").trim();
+const imageUrl = normalizeImageUrl(rawUrl);
+
+if (img && imageUrl) {
+  img.src = imageUrl;
+  img.style.display = "block";
 }
+
+}
+
 
 
 
