@@ -193,6 +193,11 @@ async function loadMyBusinesses() {
 
   // ✅ cache globally
   MY_BUSINESSES = items;
+if (!items.length) {
+  lockAppUntilBusinessCreated();
+} else {
+  unlockAppAfterBusinessCreated();
+}
 
   console.log("[business] items count:", items.length);
   console.log("[business] names:", items.map(getBusinessName));
@@ -2020,23 +2025,30 @@ initServiceUpdateDelete();
   document.getElementById("close-add-calendar-popup-btn")?.addEventListener("click", closeAddCalendarPopup);
 
   // ✅ Overlay click closes whichever popups are open
-  document.getElementById("popup-overlay")?.addEventListener("click", () => {
-    closeAddBusinessPopup();
-    closeAddCalendarPopup();
-      closeCategoryPopup(); 
-     closeServicePopup();
-    closeLoginPopup();
+document.getElementById("popup-overlay")?.addEventListener("click", () => {
+  const overlay = document.getElementById("popup-overlay");
+  if (overlay?.dataset.locked === "1") return; // locked: do nothing
+
+  closeAddBusinessPopup();
+  closeAddCalendarPopup();
+  closeCategoryPopup();
+  closeServicePopup();
+  closeLoginPopup();
   });
 
   // ✅ ESC closes whichever popups are open
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") {
-      closeAddBusinessPopup();
-      closeAddCalendarPopup();
-         closeCategoryPopup();
-      closeServicePopup(); 
-      closeLoginPopup();
-    }
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+
+  const overlay = document.getElementById("popup-overlay");
+  if (overlay?.dataset.locked === "1") return; // locked: do nothing
+
+  closeAddBusinessPopup();
+  closeAddCalendarPopup();
+  closeCategoryPopup();
+  closeServicePopup();
+  closeLoginPopup();
+    
   });
 
   // --- Login popup wiring ---
@@ -2326,6 +2338,7 @@ function initBusinessSave() {
       // 4) close popup + refresh dropdown
       closeAddBusinessPopup();
      await loadMyBusinesses();
+unlockAppAfterBusinessCreated();
 
 
       // auto-select the new business
@@ -2621,11 +2634,35 @@ goDiv.addEventListener("click", () => {
   console.log("[business-section] rendered businesses:", rows.map(getBusinessName));
 }
 
+//Redirect to business Slug 
+  function lockAppUntilBusinessCreated() {
+  // open popup + show overlay
+  setBusinessPopupCreateMode();
+  openAddBusinessPopup();
 
-             /////////////////////////////////////////////////
-                   // Calendar Section End
-             /////////////////////////////////////////////////
+  // hide the X so they can’t close it
+  const closeBtn = document.getElementById("close-add-business-popup-btn");
+  if (closeBtn) closeBtn.style.display = "none";
 
+  // prevent overlay click from closing anything
+  const overlay = document.getElementById("popup-overlay");
+  if (overlay) overlay.dataset.locked = "1";
+
+  // disable background interactions
+  document.body.classList.add("app-locked");
+}
+
+function unlockAppAfterBusinessCreated() {
+  const closeBtn = document.getElementById("close-add-business-popup-btn");
+  if (closeBtn) closeBtn.style.display = "inline-block";
+
+  const overlay = document.getElementById("popup-overlay");
+  if (overlay) overlay.dataset.locked = "0";
+
+  document.body.classList.remove("app-locked");
+  closeAddBusinessPopup();
+}
+     
               /////////////////////////////////////////////////
                    // Category Section
              /////////////////////////////////////////////////   
