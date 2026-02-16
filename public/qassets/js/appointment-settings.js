@@ -161,6 +161,13 @@ function renderBusinessDropdown(items) {
     rendered.push({ id, name });
   });
 
+  // ✅ preselect last edited business if it exists
+  const lastId = localStorage.getItem("lastBusinessId");
+  if (lastId && dd.querySelector(`option[value="${lastId}"]`)) {
+    dd.value = lastId;
+    dd.dispatchEvent(new Event("change")); // triggers calendars/categories/services loaders
+  }
+
   // ✅ log what’s actually in the dropdown now
   console.log("[dropdown] options rendered:", rendered);
   console.log("[dropdown] business names:", rendered.map((x) => x.name));
@@ -223,11 +230,21 @@ function wireBusinessDropdownUI() {
 function normalizeImageUrl(url) {
   const u = String(url || "").trim();
   if (!u) return "";
+
+  // already absolute
   if (u.startsWith("http://") || u.startsWith("https://")) return u;
 
-  // if older records saved /uploads/... then serve from API domain
+  // "/uploads/..." => serve from API domain
   if (u.startsWith("/uploads/")) return `${API_BASE}${u}`;
+
+  // "uploads/..." => serve from API domain
   if (u.startsWith("uploads/")) return `${API_BASE}/${u}`;
+
+  // "1771121536439-xxx.jpg" => treat as uploads filename
+  if (!u.includes("/") && /\.(png|jpe?g|webp|gif)$/i.test(u)) {
+    return `${API_BASE}/uploads/${u}`;
+  }
+
   return u;
 }
 
@@ -722,7 +739,6 @@ async function loadCategoriesForSelectedBusiness() {
     return [];
   }
 
-  // ✅ load all categories then filter client-side (same as calendars)
   const path = `/api/records/Category?limit=500`;
   const { res, data } = await apiJSON(path, { method: "GET" });
   console.log("[category] RAW response", res.status, data);
@@ -736,17 +752,28 @@ async function loadCategoriesForSelectedBusiness() {
 
   const items = normalizeItems(data);
 
-  // filter to selected business
+  // ✅ filter to selected business
   const byBiz = items.filter((row) => getCategoryBusinessId(row) === businessId);
-
   CATEGORY_CACHE = byBiz;
 
-  // ✅ Fill calendar filter dropdown using your loaded calendars for this business
-  // CALENDAR_CACHE should already be filtered to the selected business
+  // ✅ preserve currently selected calendar before re-rendering dropdown
+  const calDD = document.getElementById("category-calendar-dropdown");
+  const prevSelected = String(calDD?.value || "").trim();
+
+  // ✅ Fill calendar filter dropdown using business calendars
   renderCategoryCalendarFilterDropdown(CALENDAR_CACHE);
 
-  // apply calendar dropdown filter (if one is selected)
+  // ✅ restore selection if still present
+  if (prevSelected) {
+    const stillExists = document.querySelector(
+      `#category-calendar-dropdown option[value="${prevSelected}"]`
+    );
+    if (stillExists) document.getElementById("category-calendar-dropdown").value = prevSelected;
+  }
+
+  // ✅ now apply calendar filter
   const selectedCalId = String(document.getElementById("category-calendar-dropdown")?.value || "").trim();
+
   const finalRows = selectedCalId
     ? byBiz.filter((row) => getCategoryCalendarId(row) === selectedCalId)
     : byBiz;
@@ -754,6 +781,7 @@ async function loadCategoriesForSelectedBusiness() {
   renderCategorySection(finalRows);
   return finalRows;
 }
+
 function renderCategorySection(items) {
   const nameCol = document.getElementById("category-name-column");
   const calCol = document.getElementById("category-calendar-column");
@@ -2339,8 +2367,10 @@ function setHeroPreview(url) {
   const txt = document.getElementById("no-image-text");
   if (!img || !txt) return;
 
-  if (url) {
-    img.src = url;
+  const fixed = normalizeImageUrl(url);
+
+  if (fixed) {
+    img.src = fixed;
     img.style.display = "block";
     txt.style.display = "none";
   } else {
@@ -2349,6 +2379,7 @@ function setHeroPreview(url) {
     txt.style.display = "block";
   }
 }
+
 
 const setVal = (id, val) => {
   const el = document.getElementById(id);
@@ -2377,6 +2408,11 @@ function setBusinessPopupEditMode(businessRow) {
 
   CURRENT_BUSINESS = row;
   CURRENT_BUSINESS_ID = String(row?._id || row?.id || "").trim();
+
+    // ✅ remember last edited
+  if (CURRENT_BUSINESS_ID) {
+    localStorage.setItem("lastBusinessId", CURRENT_BUSINESS_ID);
+  }
 
   const title = document.getElementById("popup-title");
   if (title) title.textContent = "Edit Business";
@@ -2482,6 +2518,23 @@ document.getElementById("delete-button")?.addEventListener("click", async () => 
 ////////////////
 //Fill COlumns in Business Section 
 /////////////////////
+function getBusinessSlug(row) {
+  const v = row?.values || row || {};
+  return String(v["slug"] || v.slug || "").trim();
+}
+
+function toPublicBusinessUrl(row) {
+  const slug = getBusinessSlug(row);
+
+  // best case: you already store slug
+  if (slug) return `https://www.suiteseat.io/${encodeURIComponent(slug)}`;
+
+  // fallback: generate from business name (not ideal if duplicates, but works)
+  const name = getBusinessName(row);
+  const fallback = slugify(name);
+  return `https://www.suiteseat.io/${encodeURIComponent(fallback)}`;
+}
+
 function renderBusinessSection(items) {
   const nameCol = document.getElementById("business-name-column");
   const servicesCol = document.getElementById("services-column");
@@ -2551,10 +2604,12 @@ nameDiv.addEventListener("click", () => {
     goDiv.title = "Open business";
     goDiv.dataset.id = id;
 
-    goDiv.addEventListener("click", () => {
-  setBusinessPopupEditMode(row);
-  openAddBusinessPopup();
+goDiv.addEventListener("click", () => {
+  const url = toPublicBusinessUrl(row);
+  window.location.href = url; // redirect same tab
+  // or: window.open(url, "_blank"); // open new tab
 });
+
 
     // Append to each column
     nameCol.appendChild(nameDiv);
