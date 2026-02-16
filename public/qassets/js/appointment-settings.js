@@ -770,21 +770,31 @@ function renderCategoryCalendarDropdown(calendars) {
     dd.appendChild(opt);
   });
 
-  dd.disabled = !(calendars && calendars.length);
+  // ✅ enable only if we have calendars
+  dd.disabled = !(calendars && calendars.length > 0);
 }
+
 
 async function loadCalendarsForBusiness(businessId) {
   const id = String(businessId || "").trim();
   if (!id) return [];
 
-  const where = encodeURIComponent(JSON.stringify({ "values.Business": id }));
-  const path = `/api/records/Calendar?where=${where}&limit=200`;
-
+  // ✅ Load all then filter (same pattern as your calendar section)
+  const path = `/api/records/Calendar?limit=200`;
   const { res, data } = await apiJSON(path, { method: "GET" });
+
   console.log("[category-popup] calendars RAW", res.status, data);
 
   if (!res.ok) return [];
-  return normalizeItems(data);
+
+  const items = normalizeItems(data);
+
+  // ✅ Use your helper so it works for string/object/array ref shapes
+  const filtered = items.filter((row) => String(getCalendarBusinessId(row) || "").trim() === id);
+
+  console.log("[category-popup] filtered calendars count:", filtered.length);
+
+  return filtered;
 }
 
 function wireCategoryPopupDropdowns() {
@@ -792,19 +802,17 @@ function wireCategoryPopupDropdowns() {
   const calDD = document.getElementById("dropdown-business-calendar");
   if (!bizDD || !calDD) return;
 
-  // start empty + disabled
-  renderCategoryCalendarDropdown([]);
+  renderCategoryCalendarDropdown([]); // starts disabled
 
   bizDD.addEventListener("change", async () => {
     const businessId = bizDD.value.trim();
 
-    // clear calendars immediately
-    renderCategoryCalendarDropdown([]);
+    renderCategoryCalendarDropdown([]); // clear + disable
 
     if (!businessId) return;
 
     const calendars = await loadCalendarsForBusiness(businessId);
-    renderCategoryCalendarDropdown(calendars);
+    renderCategoryCalendarDropdown(calendars); // fills + enables if any
   });
 }
 
@@ -1569,17 +1577,6 @@ nameDiv.addEventListener("click", () => {
               /////////////////////////////////////////////////
                    // Category Section
              /////////////////////////////////////////////////   
-             document.getElementById("open-category-popup-button")?.addEventListener("click", () => {
-  // optional: if you have a create mode function
-  // setCategoryPopupCreateMode();
-
-  openCategoryPopup();
-});
-
-// If your close X has an id, wire it too (recommended)
-document.getElementById("close-add-category-popup-btn")?.addEventListener("click", closeCategoryPopup);
-
-
 document.getElementById("open-category-popup-button")?.addEventListener("click", () => {
   renderCategoryBusinessDropdown(MY_BUSINESSES);
 
