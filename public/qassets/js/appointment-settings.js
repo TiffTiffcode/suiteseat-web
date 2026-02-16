@@ -380,6 +380,13 @@ function renderCalendarSection(items) {
     nameDiv.textContent = name;
     nameDiv.dataset.id = id;
 
+nameDiv.addEventListener("click", () => {
+  renderCalendarBusinessDropdown(MY_BUSINESSES); // build options FIRST
+  openAddCalendarPopup();                        // show popup
+  setCalendarPopupEditMode(row);                 // fill + select business LAST
+});
+
+
     // Default cell (simple indicator for now)
     const defDiv = document.createElement("div");
     defDiv.className = "business-result";
@@ -532,10 +539,122 @@ function initCalendarSave() {
 /////////////////////////////////////////////////
 //  Update Calendar
 /////////////////////////////////////////////////
+let CURRENT_CALENDAR = null;
+let CURRENT_CALENDAR_ID = null;
+
+function setCalendarPopupCreateMode() {
+  CURRENT_CALENDAR = null;
+  CURRENT_CALENDAR_ID = null;
+
+  // clear inputs
+  const nameEl = document.getElementById("popup-calendar-name-input");
+  if (nameEl) nameEl.value = "";
+
+  // default business dropdown in popup = currently selected business (nice UX)
+  const bizDD = document.getElementById("dropdown-calendar-business");
+  if (bizDD && SELECTED_BUSINESS_ID) bizDD.value = SELECTED_BUSINESS_ID;
+
+  // buttons
+  document.getElementById("save-calendar-button")?.style.setProperty("display", "inline-block");
+  document.getElementById("update-calendar-button")?.style.setProperty("display", "none");
+  document.getElementById("delete-calendar-button")?.style.setProperty("display", "none");
+}
+
+function setCalendarPopupEditMode(calendarRow) {
+  const row = calendarRow || {};
+  const v = row?.values || row || {};
+
+  CURRENT_CALENDAR = row;
+  CURRENT_CALENDAR_ID = String(row?._id || row?.id || "").trim();
+
+  // Fill calendar name
+  const nameEl = document.getElementById("popup-calendar-name-input");
+  if (nameEl) nameEl.value = String(v["Name"] || v["Calendar Name"] || "").trim();
+
+  // ✅ Use your helper so it works no matter how "Business" is stored
+  const businessId = String(getCalendarBusinessId(row) || "").trim();
+
+  // ✅ Select it in dropdown (assumes options were rendered already)
+  const bizDD = document.getElementById("dropdown-calendar-business");
+  if (bizDD) bizDD.value = businessId || "";
+
+  // Buttons (edit mode)
+  document
+    .getElementById("save-calendar-button")
+    ?.style.setProperty("display", "none");
+  document
+    .getElementById("update-calendar-button")
+    ?.style.setProperty("display", "inline-block");
+  document
+    .getElementById("delete-calendar-button")
+    ?.style.setProperty("display", "inline-block");
+}
+
+
+document.getElementById("open-calendar-button")?.addEventListener("click", () => {
+  renderCalendarBusinessDropdown(MY_BUSINESSES);
+  setCalendarPopupCreateMode();
+  openAddCalendarPopup();
+});
+
+async function updateCalendarRecord() {
+  if (!CURRENT_CALENDAR_ID) throw new Error("No calendar selected.");
+
+  const businessId = document.getElementById("dropdown-calendar-business")?.value?.trim();
+  const name = document.getElementById("popup-calendar-name-input")?.value?.trim();
+
+  if (!businessId) throw new Error("Choose a business.");
+  if (!name) throw new Error("Calendar name is required.");
+
+  const values = { Name: name, Business: businessId };
+
+  const { res, data } = await apiJSON(`/api/records/Calendar/${encodeURIComponent(CURRENT_CALENDAR_ID)}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ values }),
+  });
+
+  console.log("[calendar] PATCH", res.status, data);
+  if (!res.ok) throw new Error(data?.message || data?.error || "Update failed");
+}
+
+document.getElementById("update-calendar-button")?.addEventListener("click", async () => {
+  try {
+    await updateCalendarRecord();
+    closeAddCalendarPopup();
+
+    // refresh list for selected business
+    await loadCalendarsForSelectedBusiness();
+  } catch (e) {
+    console.error(e);
+    alert(e?.message || "Update failed");
+  }
+});
+
 
 /////////////////////////////////////////////////
 //  Delete Calendar
 /////////////////////////////////////////////////
+document.getElementById("delete-calendar-button")?.addEventListener("click", async () => {
+  try {
+    if (!CURRENT_CALENDAR_ID) return;
+    if (!confirm("Delete this calendar?")) return;
+
+    const { res, data } = await apiJSON(`/api/records/Calendar/${encodeURIComponent(CURRENT_CALENDAR_ID)}`, {
+      method: "DELETE",
+    });
+
+    console.log("[calendar] DELETE", res.status, data);
+    if (!res.ok) throw new Error(data?.message || data?.error || "Delete failed");
+
+    closeAddCalendarPopup();
+    setCalendarPopupCreateMode();
+    await loadCalendarsForSelectedBusiness();
+  } catch (e) {
+    console.error(e);
+    alert(e?.message || "Delete failed");
+  }
+});
 
 
 
