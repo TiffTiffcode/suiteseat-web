@@ -9,11 +9,23 @@ const API_ORIGIN = isProdHost
   : "http://localhost:8400";
 
 
-  function apiFetch(path, opts = {}) {
-  const url = `${API_ORIGIN}${path.startsWith("/") ? path : `/${path}`}`;
-  return fetch(url, { credentials: "include", cache: "no-store", ...opts });
-}
+// shared fetch helper for /api/* (ONLY ONE VERSION!!)
+const apiFetch = (path, opts = {}) => {
+  // path: "/me"  →  /api/me
+  // path: "/api/records" → /api/records
+  const p = path.startsWith("/api/")
+    ? path
+    : path.startsWith("/")
+    ? `/api${path}`
+    : `/api/${path}`;
 
+  return fetch(apiUrl(p), {
+    credentials: "include",
+    headers: { Accept: "application/json", ...(opts.headers || {}) },
+    cache: "no-store",
+    ...opts,
+  });
+};
 async function apiJSON(path, opts = {}) {
   const res = await apiFetch(path, {
     headers: { Accept: "application/json", ...(opts.headers || {}) },
@@ -62,56 +74,22 @@ async function fetchJSON(url, init = {}) {
 
 // POST /api/login
 async function apiLogin(email, password) {
-  await fetchJSON(apiUrl("/api/login"), {
-    method: "POST",
-    credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json",
-    },
-    body: JSON.stringify({ email, password }),
-  });
+await apiFetch("/login", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ email, password }),
+});
+
 }
 
 // GET /api/me  (same pattern as accept-appointments)
 async function getMe() {
-  const res = await fetch(apiUrl("/api/me?ts=" + Date.now()), {
-    credentials: "include",
-    cache: "no-store",
-  });
-
-  const text = await res.text();
-  if (!res.ok) {
-    console.warn("[getMe] HTTP error", res.status, text.slice(0, 200));
-    return null;
-  }
-
-  try {
-    const data = JSON.parse(text);
-    return data?.user || null;
-  } catch (err) {
-    console.error("[getMe] JSON parse failed", err, text.slice(0, 200));
-    return null;
-  }
+  const res = await apiFetch("/me?ts=" + Date.now());
+  const data = await res.json().catch(() => ({}));
+  return data?.user || null;
 }
 
-// shared fetch helper for /api/* (ONLY ONE VERSION!!)
-const apiFetch = (path, opts = {}) => {
-  // path: "/me"  →  /api/me
-  // path: "/api/records" → /api/records
-  const p = path.startsWith("/api/")
-    ? path
-    : path.startsWith("/")
-    ? `/api${path}`
-    : `/api/${path}`;
 
-  return fetch(apiUrl(p), {
-    credentials: "include",
-    headers: { Accept: "application/json", ...(opts.headers || {}) },
-    cache: "no-store",
-    ...opts,
-  });
-};
 
 // Optional: button-based login handler (if you keep #btn-login-avail)
 async function onAvailabilityLoginClick() {
