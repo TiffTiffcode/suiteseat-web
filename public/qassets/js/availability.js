@@ -2,13 +2,26 @@ console.log('[availability v2 loaded]');
 
 // ---------- API base (match accept-appointments) ----------
 const host = window.location.hostname;
-const isProdHost =
-  host === "suiteseat.io" ||
-  host === "www.suiteseat.io";
+const isProdHost = host === "suiteseat.io" || host === "www.suiteseat.io";
 
 const API_ORIGIN = isProdHost
-  ? "https://suiteseat-app1.onrender.com"
+  ? "https://api.suiteseat.io"
   : "http://localhost:8400";
+
+
+  function apiFetch(path, opts = {}) {
+  const url = `${API_ORIGIN}${path.startsWith("/") ? path : `/${path}`}`;
+  return fetch(url, { credentials: "include", cache: "no-store", ...opts });
+}
+
+async function apiJSON(path, opts = {}) {
+  const res = await apiFetch(path, {
+    headers: { Accept: "application/json", ...(opts.headers || {}) },
+    ...opts,
+  });
+  const data = await res.json().catch(() => ({}));
+  return { res, data };
+}
 
 // Helper to build full API URLs on the same origin
 function apiUrl(path) {
