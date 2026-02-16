@@ -221,24 +221,6 @@ function wireBusinessDropdownUI() {
 }
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 /////////////////////////////////////////////////
                  // Calendar Section 
 /////////////////////////////////////////////////
@@ -679,31 +661,6 @@ document.getElementById("delete-calendar-button")?.addEventListener("click", asy
 });
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
               /////////////////////////////////////////////////
                    // Category Section
              /////////////////////////////////////////////////  
@@ -859,6 +816,10 @@ function renderCategorySection(items) {
     nameDiv.textContent = catName;
     nameDiv.dataset.id = id;
 
+    nameDiv.addEventListener("click", async () => {
+  openCategoryPopup();
+  await setCategoryPopupEditMode(row);
+});
     const calDiv = document.createElement("div");
     calDiv.className = "business-result";
     calDiv.textContent = calName;
@@ -1439,10 +1400,6 @@ function renderServiceSection(items) {
     nameDiv.textContent = sName;
     nameDiv.dataset.id = id;
 
-    nameDiv.addEventListener("click", async () => {
-  openCategoryPopup();                 // show popup first
-  await setCategoryPopupEditMode(row); // then fill everything
-});
 
     // (Optional) click to open popup edit mode later
     // nameDiv.addEventListener("click", () => { openServiceEdit(row); });
@@ -1548,30 +1505,24 @@ async function loadCalendarsForBusiness(businessId) {
   const id = String(businessId || "").trim();
   if (!id) return [];
 
-  const where = encodeURIComponent(JSON.stringify({ "values.Business": id }));
-  const path = `/api/records/Calendar?where=${where}&limit=200`;
-
+  const path = `/api/records/Calendar?limit=500`;
   const { res, data } = await apiJSON(path, { method: "GET" });
-  console.log("[service-popup] calendars RAW", res.status, data);
   if (!res.ok) return [];
 
-  return normalizeItems(data);
+  const items = normalizeItems(data);
+  return items.filter((row) => String(getCalendarBusinessId(row) || "").trim() === id);
 }
-
 async function loadCategoriesForBusiness(businessId) {
   const id = String(businessId || "").trim();
   if (!id) return [];
 
-  const where = encodeURIComponent(JSON.stringify({ "values.Business": id }));
-  const path = `/api/records/Category?where=${where}&limit=200`;
-
+  const path = `/api/records/Category?limit=500`;
   const { res, data } = await apiJSON(path, { method: "GET" });
-  console.log("[service-popup] categories RAW", res.status, data);
   if (!res.ok) return [];
 
-  return normalizeItems(data);
+  const items = normalizeItems(data);
+  return items.filter((row) => String(getCategoryBusinessId(row) || "").trim() === id);
 }
-
 let SERVICE_CALENDAR_CACHE = [];
 let SERVICE_CATEGORY_CACHE = [];
 
@@ -1772,89 +1723,6 @@ function initServiceSave() {
 }
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 /////////////////////////////End DOM
 
 
@@ -1903,6 +1771,7 @@ wireServicePopupDropdowns();
   document.getElementById("popup-overlay")?.addEventListener("click", () => {
     closeAddBusinessPopup();
     closeAddCalendarPopup();
+      closeCategoryPopup(); 
      closeServicePopup();
     closeLoginPopup();
   });
@@ -1912,6 +1781,7 @@ wireServicePopupDropdowns();
     if (e.key === "Escape") {
       closeAddBusinessPopup();
       closeAddCalendarPopup();
+         closeCategoryPopup();
       closeServicePopup(); 
       closeLoginPopup();
     }
@@ -2473,38 +2343,16 @@ nameDiv.addEventListener("click", () => {
 }
 
 
-
-
-
-
              /////////////////////////////////////////////////
                    // Calendar Section End
              /////////////////////////////////////////////////
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
               /////////////////////////////////////////////////
                    // Category Section
              /////////////////////////////////////////////////   
 document.getElementById("open-category-popup-button")?.addEventListener("click", () => {
+  setCategoryPopupCreateMode(); // ✅ reset everything for a new category
+
   renderCategoryBusinessDropdown(MY_BUSINESSES);
 
   const bizDD = document.getElementById("dropdown-category-business");
@@ -2515,6 +2363,7 @@ document.getElementById("open-category-popup-button")?.addEventListener("click",
 
   openCategoryPopup();
 });
+
 document.getElementById("category-calendar-dropdown")?.addEventListener("change", () => {
   // just re-render categories using the selected calendar filter
   loadCategoriesForSelectedBusiness();
@@ -2525,26 +2374,16 @@ document.getElementById("category-calendar-dropdown")?.addEventListener("change"
               /////////////////////////////////////////////////
                    // Service Section
              ///////////////////////////////////////////////// 
- document.getElementById("open-service-popup-button")?.addEventListener("click", () => {
-  // optional: setServicePopupCreateMode();
-  openServicePopup();
-});
-
-document.getElementById("close-add-service-popup-btn")?.addEventListener("click", closeServicePopup);
-                       
 document.getElementById("open-service-popup-button")?.addEventListener("click", () => {
-  // build business options
   renderServiceBusinessDropdown(MY_BUSINESSES);
 
-  // auto-select the main selected business
   const bizDD = document.getElementById("dropdown-service-business");
   if (bizDD && SELECTED_BUSINESS_ID) {
     bizDD.value = SELECTED_BUSINESS_ID;
-    bizDD.dispatchEvent(new Event("change")); // ✅ loads calendars + categories
+    bizDD.dispatchEvent(new Event("change")); // loads calendars + categories
   }
 
   openServicePopup();
 });
 
-  document.getElementById("close-add-service-popup-btn")
-    ?.addEventListener("click", closeServicePopup);
+document.getElementById("close-add-service-popup-btn")?.addEventListener("click", closeServicePopup);
