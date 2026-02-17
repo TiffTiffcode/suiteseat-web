@@ -61,17 +61,18 @@ function resolveAsset(raw?: string | null) {
   const s = String(raw).trim();
   if (!s) return null;
 
-  // cloudinary or any full url
+  // full url
   if (s.startsWith("http://") || s.startsWith("https://")) return s;
 
-  // already absolute
+  // normalize relative uploads
+  if (s.startsWith("/uploads/")) return `${API_BASE}${s}`;
+  if (s.startsWith("uploads/")) return `${API_BASE}/${s}`;
+
+  // other absolute path (rare)
   if (s.startsWith("/")) return s;
 
-  // already includes uploads prefix
-  if (s.startsWith("uploads/")) return `/${s}`;
-
-  // default: treat as filename
-  return `/uploads/${s}`;
+  // filename only
+  return `${API_BASE}/uploads/${s}`;
 }
 
 
@@ -268,12 +269,13 @@ export default function BasicBookingTemplate({ business }: { business?: any }) {
   }, [title]);
 
   useEffect(() => {
-    const rawHero =
-      business?.values?.HeroImage ||
-      business?.values?.heroImage ||
-      business?.heroImageUrl ||
-      business?.heroImage ||
-      business?.values?.Hero;
+const rawHero =
+  business?.values?.["Hero Image"] ||   // ✅ correct field name
+  business?.values?.heroImage ||
+  business?.values?.HeroImage ||
+  business?.heroImageUrl ||
+  business?.heroImage ||
+  business?.values?.Hero;
 
     const firstTry = resolveAsset(rawHero ?? null);
     if (firstTry) {

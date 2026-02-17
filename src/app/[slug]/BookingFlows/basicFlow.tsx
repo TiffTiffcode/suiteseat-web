@@ -60,6 +60,8 @@ type FlowContextType = {
   loading: boolean;
   selectedCalendarId: string | null;
   handleCalendarSelect: (calId: string) => Promise<void>;
+heroUrl: string;
+businessRec: any | null;
 
   categories: any[];
   loadingCats: boolean;
@@ -220,6 +222,13 @@ async function fetchBusinessRecordById(businessId: string) {
     : (data?.items || data?.records || data?.data || []);
 
   return rows[0] || null; // ✅ THIS is the Business record
+}
+
+function normalizeImageUrl(url: string, API: string) {
+  if (!url) return "";
+  if (url.startsWith("http")) return url;
+  if (url.startsWith("/")) return `${API}${url}`;
+  return `${API}/${url}`;
 }
 
 async function fetchCategoriesForCalendar(businessId: string, calendarId: string) {
@@ -570,6 +579,10 @@ const currentHoldIdRef = useRef<string | null>(null);
 
 const [needsName, setNeedsName] = useState(false);
 
+const [businessRec, setBusinessRec] = useState<any | null>(null);
+const [heroUrl, setHeroUrl] = useState<string>("");
+
+
 function addPick(id: string, svc: any) {
   const key = String(id);
 
@@ -607,6 +620,29 @@ function clearPicks() {
 function isPicked(id: string) {
   return pickedServiceIds.includes(String(id));
 }
+useEffect(() => {
+  if (!businessId) return;
+
+  (async () => {
+    const biz = await fetchBusinessRecordById(businessId);
+
+    console.log("[biz] fetched business record:", biz);
+    console.log("[biz] values keys:", Object.keys(biz?.values || {}));
+    console.log("[biz] Hero Image:", biz?.values?.["Hero Image"]);
+
+    setBusinessRec(biz);
+
+    const v = biz?.values || biz || {};
+    const raw =
+      v["Hero Image"] ||
+      v.heroImage ||
+      v.heroUrl ||
+      "";
+
+    const fixed = raw ? normalizeImageUrl(String(raw), API) : "";
+    setHeroUrl(fixed);
+  })();
+}, [businessId]);
 
 useEffect(() => {
     if (!businessId) return;
@@ -2435,6 +2471,8 @@ const value: FlowContextType = {
   isLoggedIn, isAuthOpen, openAuth, closeAuth, login, requireAuthThen,
 
   createAppointment, removeBookedFromSlots,
+heroUrl,
+businessRec,
 
   isReschedule, rescheduleApptId, onConfirm,
 
