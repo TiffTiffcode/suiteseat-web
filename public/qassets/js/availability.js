@@ -132,15 +132,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
 // replace old check-login with this:
 async function checkLogin() {
- const res  = await apiFetch('/api/me');    // GET /api/me
-  const text = await res.text();
-  try {
-    const data = JSON.parse(text);         // { ok:boolean, user:null|{...} }
-    return { loggedIn: !!(data?.ok && data.user), user: data?.user || null };
-  } catch {
-    // got HTML or invalid JSON
-    return { loggedIn: false, user: null };
-  }
+  const res = await apiFetch("/api/me", { cache: "no-store" });
+  const data = await res.json().catch(() => ({}));
+
+  const user =
+    (data?.ok && data?.user) ? data.user :
+    (data?._id || data?.id) ? data :
+    null;
+
+  return { loggedIn: !!user, user };
 }
 
 // Loader for UpcomingAvailability (adjust field names if yours differ)
@@ -194,40 +194,36 @@ function displayNameFrom(d) {
 // ---- Login init – use /api/me instead of /check-login ----
 async function initLogin() {
   try {
-    // use the apiFetch helper + /api/me on API_ORIGIN
-    const res  = await apiFetch('/api/me');
-    const text = await res.text();
-    let data = {};
-    try {
-      data = JSON.parse(text);
-    } catch {
-      data = {};
-    }
+    const res  = await apiFetch("/api/me", { cache: "no-store" });
+    const data = await res.json().catch(() => ({}));
 
-    const user = data.user || null;
+    const user =
+      (data?.ok && data?.user) ? data.user :
+      (data?._id || data?.id) ? data :
+      null;
+
     const loggedIn = !!user;
 
     if (loggedIn) {
       const name =
         displayNameFrom(user) ||
-        (user.email ? user.email.split('@')[0] : '') ||
-        (user._id ? `User ${String(user._id).slice(-4)}` : '');
+        (user.email ? user.email.split("@")[0] : "") ||
+        (user._id ? `User ${String(user._id).slice(-4)}` : "");
 
-      if (loginStatus)  loginStatus.textContent = name ? `Hi, ${name} 👋` : 'Hi 👋';
-      if (logoutBtn)    logoutBtn.style.display = 'inline-block';
-      if (openLoginBtn) openLoginBtn.style.display = 'none';
+      if (loginStatus)  loginStatus.textContent = name ? `Hi, ${name} 👋` : "Hi 👋";
+      if (logoutBtn)    logoutBtn.style.display = "inline-block";
+      if (openLoginBtn) openLoginBtn.style.display = "none";
 
-      // after detecting login, wire dropdowns
       await initBusinessDropdown();
       await initCalendarDropdown();
     } else {
-      if (loginStatus)  loginStatus.textContent = 'Not logged in';
-      if (logoutBtn)    logoutBtn.style.display = 'none';
-      if (openLoginBtn) openLoginBtn.style.display = 'inline-block';
+      if (loginStatus)  loginStatus.textContent = "Not logged in";
+      if (logoutBtn)    logoutBtn.style.display = "none";
+      if (openLoginBtn) openLoginBtn.style.display = "inline-block";
     }
   } catch (e) {
-    console.error('initLogin failed:', e);
-    if (loginStatus) loginStatus.textContent = 'Not logged in';
+    console.error("initLogin failed:", e);
+    if (loginStatus) loginStatus.textContent = "Not logged in";
   }
 }
 
