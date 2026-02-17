@@ -1294,6 +1294,7 @@ async function loadCalendarOptions(selectId, businessId, {
   const sel = document.getElementById(selectId);
   if (!sel) return;
 
+  // no business selected
   if (!businessId) {
     sel.innerHTML = `<option value="">${placeholder}</option>`;
     sel.disabled = true;
@@ -1304,7 +1305,7 @@ async function loadCalendarOptions(selectId, businessId, {
   sel.disabled = true;
 
   try {
-    const res = await fetch(`${API_ORIGIN}/api/records/Calendar?ts=${Date.now()}`, {
+    const res = await fetch(`${API_ORIGIN}/api/records/Calendar?limit=500&ts=${Date.now()}`, {
       credentials: "include",
       cache: "no-store",
       headers: { Accept: "application/json" },
@@ -1317,50 +1318,58 @@ async function loadCalendarOptions(selectId, businessId, {
     }
 
     const payload = await res.json().catch(() => ({}));
+    const all = Array.isArray(payload) ? payload : (payload?.items || payload?.records || payload?.data || []);
 
-    const all = Array.isArray(payload)
-      ? payload
-      : (payload?.items || payload?.records || payload?.data || []);
-
-    const rows = all
+    // ✅ filter calendars by selected business
+    const rows = (all || [])
       .filter(c => !c?.deletedAt)
       .filter(c => {
         const v = c.values || {};
         const calBizId =
-          refId(v.businessId) ||
-          refId(v.Business) ||
-          refId(v.business) ||
+          refId(v["Business"]) ||        // ✅ your main one
+          refId(v["business"]) ||
+          refId(v["businessId"]) ||
           refId(v["Business Id"]) ||
-          refId(v["business id"]);
+          "";
 
         return String(calBizId) === String(businessId);
       })
       .sort((a, b) => {
-        const an = a?.values?.calendarName || a?.values?.name || "";
-        const bn = b?.values?.calendarName || b?.values?.name || "";
-        return String(an).localeCompare(String(bn));
+        const an = String(a?.values?.["Name"] || a?.values?.["Calendar Name"] || a?.values?.name || "").trim();
+        const bn = String(b?.values?.["Name"] || b?.values?.["Calendar Name"] || b?.values?.name || "").trim();
+        return an.localeCompare(bn);
       });
 
+    // ✅ render options
     sel.innerHTML = `<option value="">${placeholder}</option>`;
-    for (const cal of rows) {
-      const label = cal?.values?.calendarName ?? cal?.values?.name ?? "(Untitled)";
+    rows.forEach((cal) => {
+      const v = cal.values || {};
+      const label =
+        String(v["Name"] || v["Calendar Name"] || v.name || "").trim() || "(Untitled)";
       const opt = document.createElement("option");
-      opt.value = cal._id;
+      opt.value = String(cal._id || cal.id || "");
       opt.textContent = label;
       sel.appendChild(opt);
-    }
+    });
 
+    // ✅ default selection if exists
     if (defaultId && sel.querySelector(`option[value="${defaultId}"]`)) {
       sel.value = defaultId;
     }
 
+    // ✅ enable if we have calendars
     sel.disabled = rows.length === 0;
+
+    console.log("[cal] loaded calendars:", rows.map(r => r.values?.["Name"] || r.values?.["Calendar Name"]));
   } catch (e) {
     console.error("[cal] loadCalendarOptions error:", e);
     sel.innerHTML = `<option value="">${placeholder}</option>`;
     sel.disabled = true;
   }
 }
+
+const calSel = document.getElementById("dropdown-availability-calendar");
+if (calSel) calSel.disabled = false;
 
 // Optional: close helper for the login popup
 function closeLoginPopup() {
