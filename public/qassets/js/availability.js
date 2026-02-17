@@ -592,6 +592,7 @@ collapseBtn?.addEventListener('click', (e) => {
 
   // Kick things off
   initLogin();
+bindUpcomingSaveOnce();
 
 document.getElementById('close-sidebar-btn')
   ?.addEventListener('click', () => closeSidebar && closeSidebar());
@@ -1697,24 +1698,22 @@ function populateTimeSelect24(selectId) {
   }
 }
 /* ---------- bind Save button ---------- */
-(function bindUpcomingSaveOnce() {
+function bindUpcomingSaveOnce() {
   const btn = document.getElementById("save-upcoming-day-availability");
   if (!btn || btn.dataset.bound) return;
 
   btn.addEventListener("click", async () => {
-    const businessId =
-      document.getElementById("dropdown-category-business")?.value || "";
-    const calendarId =
-      document.getElementById("dropdown-availability-calendar")?.value || "";
+    console.log("[save] clicked ✅"); // <-- quick proof it’s bound
+
+    const businessId = document.getElementById("dropdown-category-business")?.value || "";
+    const calendarId = document.getElementById("dropdown-availability-calendar")?.value || "";
 
     const start = to24h(document.getElementById("current-day-start")?.value || "");
     const end   = to24h(document.getElementById("current-day-end")?.value || "");
 
     let jsDate = window.upcomingSelectedDate;
     if (!jsDate) {
-      const attr = document
-        .getElementById("availability-popup")
-        ?.getAttribute("data-date");
+      const attr = document.getElementById("availability-popup")?.getAttribute("data-date");
       if (attr) jsDate = new Date(attr + "T00:00:00");
     }
 
@@ -1722,109 +1721,73 @@ function populateTimeSelect24(selectId) {
     if (!calendarId) return alert("Choose a calendar first.");
     if (!jsDate)     return alert("Pick a date on the calendar.");
 
-    // allow clearing a day by leaving both blank
-    const clearing = !start && !end;
-
-    if (!clearing) {
-      if (!start || !end) return alert("Choose both start and end time, or leave both blank to clear.");
-
-      const [sh, sm] = start.split(":").map(Number);
-      const [eh, em] = end.split(":").map(Number);
-      const startMin = sh * 60 + sm;
-      const endMin   = eh * 60 + em;
-      if (endMin <= startMin) return alert("End time must be after start time.");
-    }
-
     const ymd = toYMD(jsDate);
 
-    const prev = btn.textContent;
-    btn.disabled = true;
-    btn.textContent = "Saving…";
+    const whereObj = { Business: businessId, Calendar: calendarId, Date: ymd };
+    const where = encodeURIComponent(JSON.stringify(whereObj));
 
     try {
-   const whereObj = { Business: businessId, Calendar: calendarId, Date: ymd };
+      const checkUrl = `${API(TYPE_UPCOMING)}?where=${where}&limit=5&ts=${Date.now()}`;
+      console.log("[save] checkUrl:", checkUrl);
 
-      const where = encodeURIComponent(JSON.stringify(whereObj));
+      const checkRes = await fetch(checkUrl, { credentials: "include", cache: "no-store" });
+      const checkText = await checkRes.text().catch(() => "");
+      console.log("[save] checkRes:", checkRes.status, checkText.slice(0, 300));
 
-      // ✅ IMPORTANT: server now returns {items: []}
-      const checkRes = await fetch(`${API(TYPE_UPCOMING)}?where=${where}&limit=5&ts=${Date.now()}`, {
-        credentials: "include",
-        cache: "no-store",
-      });
+      if (!checkRes.ok) throw new Error(`Check failed: HTTP ${checkRes.status}`);
 
-      if (!checkRes.ok) throw new Error(`HTTP ${checkRes.status}`);
+      const payload = checkText ? JSON.parse(checkText) : {};
+      const existing = Array.isArray(payload) ? payload : (payload.items || []);
 
-      const payload = await checkRes.json().catch(() => ({}));
-      const existing = Array.isArray(payload)
-        ? payload
-        : (payload?.items || payload?.records || payload?.data || []);
-
-      const values = clearing
-        ? {
-            Business: businessId,
-            Calendar: calendarId,
-            Date: ymd,
-            Start: "",
-            End: "",
-            "Start Time": "",
-            "End Time": "",
-            "is Available": false,
-          }
-        : {
-            Business: businessId,
-            Calendar: calendarId,
-            Date: ymd,
-            Start: start,
-            End: end,
-            "Start Time": start,
-            "End Time": end,
-            "is Available": true,
-          };
+      const values = {
+        Business: businessId,
+        Calendar: calendarId,
+        Date: ymd,
+        Start: start,
+        End: end,
+        "Start Time": start,
+        "End Time": end,
+        "is Available": true,
+      };
 
       if (existing.length) {
         const id = existing[0]._id || existing[0].id;
-        const upRes = await fetch(`${API(TYPE_UPCOMING)}/${encodeURIComponent(id)}`, {
+        const upUrl = `${API(TYPE_UPCOMING)}/${encodeURIComponent(id)}`;
+        console.log("[save] update:", upUrl, values);
+
+        const upRes = await fetch(upUrl, {
           method: "PATCH",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ values }),
         });
+        const upText = await upRes.text().catch(() => "");
+        console.log("[save] updateRes:", upRes.status, upText.slice(0, 300));
         if (!upRes.ok) throw new Error(`Update failed: HTTP ${upRes.status}`);
-        await upRes.json().catch(() => ({}));
       } else {
-        const createRes = await fetch(API(TYPE_UPCOMING), {
+        const createUrl = API(TYPE_UPCOMING);
+        console.log("[save] create:", createUrl, values);
+
+        const createRes = await fetch(createUrl, {
           method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ values }),
         });
+        const createText = await createRes.text().catch(() => "");
+        console.log("[save] createRes:", createRes.status, createText.slice(0, 300));
         if (!createRes.ok) throw new Error(`Create failed: HTTP ${createRes.status}`);
-        await createRes.json().catch(() => ({}));
       }
 
-      // ✅ update local cache so the cell shows new hours immediately
-      window.upcomingHoursMap = window.upcomingHoursMap || {};
-      if (clearing) delete window.upcomingHoursMap[ymd];
-      else window.upcomingHoursMap[ymd] = { start, end };
-
-      // close popup + refresh month UI
-      closeAvailabilityModal?.(); // if you’re using modal helpers
-      document.getElementById("availability-popup").style.display = "none";
-
-      if (typeof window.loadAndGenerateCalendar === "function") {
-        await window.loadAndGenerateCalendar();
-      }
-
-      // optional
-      // alert("Saved!");
+      alert("Saved ✅");
+      window.loadAndGenerateCalendar?.();
+      window.closeAvailabilityModal?.();
     } catch (e) {
-      console.error(e);
+      console.error("[save] error:", e);
       alert("Error saving: " + (e?.message || e));
-    } finally {
-      btn.disabled = false;
-      btn.textContent = prev;
     }
   });
 
   btn.dataset.bound = "1";
-})();
+}
+
