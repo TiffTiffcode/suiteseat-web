@@ -20,7 +20,11 @@ type SlotGroups = { morning: string[]; afternoon: string[]; evening: string[] };
 type ConfirmStage = "review" | "book";
 
 // basicFlow.tsx (and anywhere else the client calls the API)
-const API = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8400";
+const API =
+  process.env.NEXT_PUBLIC_API_BASE ||
+  (process.env.NODE_ENV === "production"
+    ? "https://api.suiteseat.io"
+    : "http://localhost:8400");
 
 
 function unpackRows(payload: any): any[] {
