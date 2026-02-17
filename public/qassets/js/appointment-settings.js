@@ -2445,6 +2445,9 @@ function setBusinessPopupEditMode(businessRow) {
 
   const heroUrl = String(v["Hero Image"] || "").trim();
   setHeroPreview(heroUrl);
+if (heroUrl.startsWith("/uploads/")) {
+  console.warn("[hero] This business is still using local uploads. Re-upload to move to Cloudinary.", heroUrl);
+}
 
   document.getElementById("business-name-warning")?.style.setProperty("display", "none");
 }
