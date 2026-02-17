@@ -2233,7 +2233,8 @@ async function uploadHeroImageIfAny() {
   const fd = new FormData();
   fd.append("file", file);
 
-  const url = `${API_BASE}/api/upload`;
+ const url = `${API_BASE}/api/upload?folder=${encodeURIComponent("suiteseat/business-heroes")}`;
+
   const res = await fetch(url, { method: "POST", body: fd, credentials: "include" });
   const data = await res.json().catch(() => ({}));
 
