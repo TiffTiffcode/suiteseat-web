@@ -725,6 +725,7 @@ const end   = v['End']   || v['End Time']   || '';
   let viewYear  = today.getFullYear();
   let viewMonth = today.getMonth();
 
+// ✅ EDITED: load from /api/records (not /public/records) + query values.*
 async function loadAndGenerateCalendar() {
   console.log("[avail] REAL loader running ✅", {
     biz: document.getElementById("dropdown-category-business")?.value,
@@ -735,6 +736,7 @@ async function loadAndGenerateCalendar() {
     document.getElementById("dropdown-category-business")?.value || "";
   const calendarId =
     document.getElementById("dropdown-availability-calendar")?.value || "";
+
   console.log("[avail] loadAndGenerateCalendar", {
     businessId,
     calendarId,
@@ -746,17 +748,21 @@ async function loadAndGenerateCalendar() {
   const start = new Date(viewYear, viewMonth, 1);
   const end = new Date(viewYear, viewMonth + 1, 0);
 
-  // IMPORTANT: match the popup query (values fields, not values.Date)
-  const where = { Date: { $gte: toYMD(start), $lte: toYMD(end) } };
-  if (businessId) where.Business = businessId;
-  if (calendarId) where.Calendar = calendarId;
+  // ✅ IMPORTANT: your /api/records queries must use values.*
+  const where = {
+    "values.Date": { $gte: toYMD(start), $lte: toYMD(end) },
+  };
+  if (businessId) where["values.Business"] = businessId;
+  if (calendarId) where["values.Calendar"] = calendarId;
 
-  // ✅ Use the SAME endpoint the popup uses
-  const url =
-    `${API_ORIGIN}/public/records` +
-    `?dataType=${encodeURIComponent(TYPE_UPCOMING)}` +
-    `&where=${encodeURIComponent(JSON.stringify(where))}` +
-    `&limit=500&sort=-updatedAt&ts=${Date.now()}`;
+  const qs = new URLSearchParams({
+    where: JSON.stringify(where),
+    limit: "500",
+    sort: "-updatedAt",
+    ts: String(Date.now()),
+  });
+
+  const url = `${API(TYPE_UPCOMING)}?${qs.toString()}`;
 
   console.log("[avail] request url:", url);
   console.log("[avail] request where:", where);
@@ -764,75 +770,31 @@ async function loadAndGenerateCalendar() {
   let savedMap = {};
 
   try {
-    const res = await fetch(url, { credentials: "include", cache: "no-store" });
-
+    const res = await apiFetch(url, { method: "GET", cache: "no-store" });
     console.log("[avail] response status:", res.status);
 
-    const rawText = await res.text().catch(() => "");
-    console.log("[avail] raw response (preview):", rawText.slice(0, 1500));
+    const payload = await res.json().catch(() => ({}));
 
-    if (!res.ok) {
-      throw new Error(
-        `HTTP ${res.status} ${res.statusText} — ${rawText.slice(0, 200)}`
-      );
+    // ✅ list endpoints should be { items: rows }
+    const rows = Array.isArray(payload)
+      ? payload
+      : (payload?.items || payload?.records || payload?.data || []);
+
+    // ✅ If no biz selected, show nothing
+    if (!businessId) {
+      window.upcomingHoursMap = {};
+      renderMonth(viewYear, viewMonth, {});
+      setRelativeMonthBadge(viewYear, viewMonth);
+      return;
     }
 
-    let payload = null;
-    try {
-      payload = rawText ? JSON.parse(rawText) : null;
-    } catch (e) {
-      console.error("[avail] JSON parse failed:", e);
-      payload = null;
-    }
+    console.log("[avail] rows raw:", rows.length);
 
-// public/records usually returns { items: [...] } but handle all shapes
-const rows = Array.isArray(payload)
-  ? payload
-  : (payload?.items || payload?.records || payload?.data || []);
+    // ✅ Build map from rows (already filtered by where)
+    savedMap = rowsToSavedHoursMap(rows);
+    window.upcomingHoursMap = savedMap;
 
-// ✅ Selected filters
-const selectedBizId =
-  document.getElementById("dropdown-category-business")?.value || "";
-const selectedCalId =
-  document.getElementById("dropdown-availability-calendar")?.value || "";
-
-// ✅ If no biz selected, show nothing
-if (!selectedBizId) {
-  window.upcomingHoursMap = {};
-  renderMonth(viewYear, viewMonth, {});
-  setRelativeMonthBadge(viewYear, viewMonth);
-  return;
-}
-
-// ✅ Filter by Business + (optional) Calendar
-const filteredRows = rows.filter((r) => {
-  const v = r.values || r || {};
-
-  const b = v.Business || v.businessId || v.business || "";
-  const c = v.Calendar || v.calendarId || v.calendar || "";
-
-  if (String(b) !== String(selectedBizId)) return false;
-  if (selectedCalId && String(c) !== String(selectedCalId)) return false;
-
-  return true;
-});
-
-console.log("[avail] rows raw:", rows.length);
-console.log("[avail] rows filtered:", filteredRows.length, {
-  selectedBizId,
-  selectedCalId,
-});
-
-// ✅ Build map ONLY from filteredRows
-savedMap = rowsToSavedHoursMap(filteredRows);
-window.upcomingHoursMap = savedMap;
-
-
-
-
-
-
-    // 🔥 easiest way to SEE what’s actually in the records:
+    // (optional) peek at rows
     if (rows.length) {
       console.table(
         rows.slice(0, 15).map((r) => {
@@ -849,8 +811,6 @@ window.upcomingHoursMap = savedMap;
         })
       );
     }
-
- 
   } catch (e) {
     console.error("[avail] Load upcoming hours failed:", e);
   }
@@ -863,6 +823,7 @@ window.upcomingHoursMap = savedMap;
   renderMonth(viewYear, viewMonth, savedMap);
   setRelativeMonthBadge(viewYear, viewMonth);
 }
+
 
 
 const calName =
@@ -1563,14 +1524,19 @@ Expecting each day cell to look like:
 */
 
 /* ---------- popup open for the new calendar ---------- */
+// ✅ EDITED: openAvailabilityPopup reads from /api/records (not /public/records) + values.*
 async function openAvailabilityPopup(dateOrYear, month, day) {
-  const popup     = document.getElementById("availability-popup");
+  const popup = document.getElementById("availability-popup");
   const dateLabel = document.getElementById("popup-date-label");
 
   // Accept Date | ISO string | (y,m,d)
   let jsDate;
   if (dateOrYear instanceof Date) {
-    jsDate = new Date(dateOrYear.getFullYear(), dateOrYear.getMonth(), dateOrYear.getDate());
+    jsDate = new Date(
+      dateOrYear.getFullYear(),
+      dateOrYear.getMonth(),
+      dateOrYear.getDate()
+    );
   } else if (typeof dateOrYear === "string") {
     const d = new Date(dateOrYear + "T00:00:00");
     jsDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
@@ -1582,12 +1548,16 @@ async function openAvailabilityPopup(dateOrYear, month, day) {
   const ymd = toYMD(jsDate);
   window.upcomingSelectedDate = jsDate;
 
-  popup.setAttribute("data-date", ymd);
-  dateLabel.textContent = jsDate.toLocaleDateString(undefined, {
-    weekday: "long", month: "long", day: "numeric", year: "numeric",
-  });
+  popup?.setAttribute("data-date", ymd);
+  if (dateLabel) {
+    dateLabel.textContent = jsDate.toLocaleDateString(undefined, {
+      weekday: "long",
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    });
+  }
 
-  // ✅ Selected Business + Calendar
   const businessId =
     document.getElementById("dropdown-category-business")?.value || "";
   const calendarId =
@@ -1597,36 +1567,35 @@ async function openAvailabilityPopup(dateOrYear, month, day) {
   console.log("[availability popup] calendarId:", calendarId);
   console.log("[availability popup] date:", ymd);
 
-  // ✅ Fix: was checking businessId but you had selectedBusinessId before
   if (!businessId || !calendarId) {
     alert("Please select a business and calendar first.");
     return;
   }
 
-  // 1) Build the selects first
+  // 1) Build selects
   populateTimeSelect24("current-day-start");
   populateTimeSelect24("current-day-end");
   setTimeSelect("current-day-start", "");
   setTimeSelect("current-day-end", "");
 
-  // 2) Fetch existing values and preselect
+  // 2) Load existing row (from /api/records, values.* where)
   try {
-    // ✅ Query by Business + Calendar + Date
-    const where = encodeURIComponent(
-      JSON.stringify({ Business: businessId, Calendar: calendarId, Date: ymd })
-    );
+    const whereObj = {
+      "values.Business": businessId,
+      "values.Calendar": calendarId,
+      "values.Date": ymd,
+    };
 
-    const url =
-      `${API_ORIGIN}/public/records` +
-      `?dataType=${encodeURIComponent("Upcoming Hours")}` +
-      `&where=${where}` +
-      `&limit=1&ts=${Date.now()}`;
-
-    const res = await fetch(url, {
-      credentials: "include",
-      cache: "no-store",
+    const qs = new URLSearchParams({
+      where: JSON.stringify(whereObj),
+      limit: "1",
+      ts: String(Date.now()),
     });
 
+    const url = `${API(TYPE_UPCOMING)}?${qs.toString()}`;
+    console.log("[availability popup] fetch url:", url);
+
+    const res = await apiFetch(url, { method: "GET", cache: "no-store" });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
     const payload = await res.json().catch(() => ({}));
@@ -1638,16 +1607,14 @@ async function openAvailabilityPopup(dateOrYear, month, day) {
 
     if (row?.values) {
       const v = row.values;
-
-      // These can be "HH:MM" or "h:mm AM/PM" – setTimeSelect normalizes for you
       setTimeSelect("current-day-start", v.Start || v["Start Time"] || "");
-      setTimeSelect("current-day-end",   v.End   || v["End Time"]   || "");
+      setTimeSelect("current-day-end", v.End || v["End Time"] || "");
     }
   } catch (err) {
     console.error("Error loading availability:", err);
   }
 
-  popup.style.display = "block";
+  if (popup) popup.style.display = "block";
 }
 
 
@@ -1704,46 +1671,59 @@ function populateTimeSelect24(selectId) {
   }
 }
 /* ---------- bind Save button ---------- */
+// ✅ EDITED: bindUpcomingSaveOnce (your where already fixed) + use apiFetch for consistency
 function bindUpcomingSaveOnce() {
   const btn = document.getElementById("save-upcoming-day-availability");
   if (!btn || btn.dataset.bound) return;
 
   btn.addEventListener("click", async () => {
-    console.log("[save] clicked ✅"); // <-- quick proof it’s bound
+    console.log("[save] clicked ✅");
 
-    const businessId = document.getElementById("dropdown-category-business")?.value || "";
-    const calendarId = document.getElementById("dropdown-availability-calendar")?.value || "";
+    const businessId =
+      document.getElementById("dropdown-category-business")?.value || "";
+    const calendarId =
+      document.getElementById("dropdown-availability-calendar")?.value || "";
 
-    const start = to24h(document.getElementById("current-day-start")?.value || "");
-    const end   = to24h(document.getElementById("current-day-end")?.value || "");
+    const start = to24h(
+      document.getElementById("current-day-start")?.value || ""
+    );
+    const end = to24h(document.getElementById("current-day-end")?.value || "");
 
     let jsDate = window.upcomingSelectedDate;
     if (!jsDate) {
-      const attr = document.getElementById("availability-popup")?.getAttribute("data-date");
+      const attr =
+        document.getElementById("availability-popup")?.getAttribute("data-date");
       if (attr) jsDate = new Date(attr + "T00:00:00");
     }
 
     if (!businessId) return alert("Choose a business first.");
     if (!calendarId) return alert("Choose a calendar first.");
-    if (!jsDate)     return alert("Pick a date on the calendar.");
+    if (!jsDate) return alert("Pick a date on the calendar.");
 
     const ymd = toYMD(jsDate);
 
-    const whereObj = { Business: businessId, Calendar: calendarId, Date: ymd };
+    // ✅ IMPORTANT: /api/records must query values.*
+    const whereObj = {
+      "values.Business": businessId,
+      "values.Calendar": calendarId,
+      "values.Date": ymd,
+    };
     const where = encodeURIComponent(JSON.stringify(whereObj));
 
     try {
       const checkUrl = `${API(TYPE_UPCOMING)}?where=${where}&limit=5&ts=${Date.now()}`;
       console.log("[save] checkUrl:", checkUrl);
 
-      const checkRes = await fetch(checkUrl, { credentials: "include", cache: "no-store" });
+      const checkRes = await apiFetch(checkUrl, { cache: "no-store" });
       const checkText = await checkRes.text().catch(() => "");
       console.log("[save] checkRes:", checkRes.status, checkText.slice(0, 300));
 
       if (!checkRes.ok) throw new Error(`Check failed: HTTP ${checkRes.status}`);
 
       const payload = checkText ? JSON.parse(checkText) : {};
-      const existing = Array.isArray(payload) ? payload : (payload.items || []);
+      const existing = Array.isArray(payload)
+        ? payload
+        : (payload.items || payload.records || payload.data || []);
 
       const values = {
         Business: businessId,
@@ -1761,12 +1741,12 @@ function bindUpcomingSaveOnce() {
         const upUrl = `${API(TYPE_UPCOMING)}/${encodeURIComponent(id)}`;
         console.log("[save] update:", upUrl, values);
 
-        const upRes = await fetch(upUrl, {
+        const upRes = await apiFetch(upUrl, {
           method: "PATCH",
-          credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ values }),
         });
+
         const upText = await upRes.text().catch(() => "");
         console.log("[save] updateRes:", upRes.status, upText.slice(0, 300));
         if (!upRes.ok) throw new Error(`Update failed: HTTP ${upRes.status}`);
@@ -1774,12 +1754,12 @@ function bindUpcomingSaveOnce() {
         const createUrl = API(TYPE_UPCOMING);
         console.log("[save] create:", createUrl, values);
 
-        const createRes = await fetch(createUrl, {
+        const createRes = await apiFetch(createUrl, {
           method: "POST",
-          credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ values }),
         });
+
         const createText = await createRes.text().catch(() => "");
         console.log("[save] createRes:", createRes.status, createText.slice(0, 300));
         if (!createRes.ok) throw new Error(`Create failed: HTTP ${createRes.status}`);
