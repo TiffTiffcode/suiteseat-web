@@ -236,15 +236,20 @@ function normalizeImageUrl(url) {
   const s = String(url || "").trim();
   if (!s) return "";
 
-  // ✅ if already absolute (Cloudinary), use as-is
+  // Already absolute (Cloudinary / remote)
   if (s.startsWith("http://") || s.startsWith("https://")) return s;
 
-  // if it's a relative path, keep your old logic
-  // (example)
-  if (s.startsWith("/")) return s;
+  // If it's already an uploads path
+  if (s.startsWith("/uploads/")) return `${API_BASE}${s}`;
 
-  return s;
+  // If it's some other absolute path on the API
+  if (s.startsWith("/")) return `${API_BASE}${s}`;
+
+  // ✅ Bare filename: treat as uploads file
+  // (this is what your network log shows)
+  return `${API_BASE}/uploads/${encodeURIComponent(s)}`;
 }
+
 
 
 /////////////////////////////////////////////////
