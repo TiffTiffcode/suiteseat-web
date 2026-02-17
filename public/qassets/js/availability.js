@@ -8,7 +8,12 @@ const API_BASE = location.hostname.includes("localhost")
   const API_ORIGIN = API_BASE; 
 // ALWAYS include cookies
 function apiFetch(path, options = {}) {
-  const url = `${API_BASE}${path.startsWith("/") ? path : `/${path}`}`;
+  const isAbsolute = /^https?:\/\//i.test(path);
+
+  const url = isAbsolute
+    ? path
+    : `${API_BASE}${path.startsWith("/") ? path : `/${path}`}`;
+
   return fetch(url, { credentials: "include", ...options });
 }
 
