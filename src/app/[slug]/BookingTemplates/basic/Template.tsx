@@ -261,6 +261,19 @@ export default function BasicBookingTemplate({ business }: { business?: any }) {
 
   // ---------- HERO ----------
   const [heroSrc, setHeroSrc] = useState<string | null>(null);
+
+  const v = business?.values || business || {};
+
+const heroUrl =
+  business?.heroUrl ||
+  v["Hero Image"] ||
+  v.HeroImage ||
+  v.heroImage ||
+  v.heroImageUrl ||
+  v.heroUrl ||
+  v.Hero ||
+  null;
+
   const title = business?.values?.Name || business?.name || "Business";
   const desc = business?.values?.Description || "Book an appointment";
 
@@ -268,49 +281,22 @@ export default function BasicBookingTemplate({ business }: { business?: any }) {
     document.title = title;
   }, [title]);
 
-  useEffect(() => {
-const rawHero =
-  business?.values?.["Hero Image"] ||   // ✅ correct field name
-  business?.values?.heroImage ||
-  business?.values?.HeroImage ||
-  business?.heroImageUrl ||
-  business?.heroImage ||
-  business?.values?.Hero;
+useEffect(() => {
+  // 1) prefer the already-normalized heroUrl from page.tsx
+  if (heroUrl) {
+    const resolved = resolveAssetUrl(heroUrl);
+    setHeroSrc(resolved);
+    console.log("[hero] using heroUrl:", { heroUrl, resolved });
+    return;
+  }
 
-    const firstTry = resolveAsset(rawHero ?? null);
-    if (firstTry) {
-      setHeroSrc(firstTry);
-      return;
-    }
+  // 2) if nothing exists, clear it
+  setHeroSrc(null);
+  console.log("[hero] no hero found on business record", {
+    keys: Object.keys(v || {}),
+  });
+}, [business?._id, business?.heroUrl]);
 
-    const slug = business?.slug;
-    if (!slug) return;
-
-    (async () => {
-      try {
-        const url = `${API_BASE}/public/records?dataType=Business&values.slug=${encodeURIComponent(
-          slug
-        )}&limit=1`;
-        const res = await fetch(url, { cache: "no-store" });
-        if (!res.ok) return;
-        const data = await res.json();
-        const item = Array.isArray(data) ? data[0] : data?.items?.[0] ?? data;
-        const v = item?.values ?? item ?? {};
-        const raw2 =
-          v.heroImageUrl ||
-          v.heroImage ||
-          v["Hero Image"] ||
-          v.hero_image ||
-          v.imageUrl ||
-          v.image ||
-          (Array.isArray(v.images) ? v.images[0] : null);
-
-        setHeroSrc(resolveAsset(raw2 ?? null));
-      } catch {
-        /* ignore */
-      }
-    })();
-  }, [business?._id, business?.slug]);
 
   // ---------- MULTI-SELECT DATA (our own copy) ----------
   const pickedList = useMemo(
@@ -430,7 +416,12 @@ const rawHero =
       {heroSrc ? (
         <header className="bk-hero bk-hero--image bk-hero--contain bk-hero-full">
           <div className="bk-hero-imgwrap">
-            <img src={heroSrc} alt={`${title} hero`} className="bk-hero-img" />
+            <img
+  src={heroSrc || ""}
+  alt={`${title} hero`}
+  className="bk-hero-img"
+  onError={() => console.log("[hero] IMG FAILED", heroSrc)}
+/>
           </div>
         </header>
       ) : (
