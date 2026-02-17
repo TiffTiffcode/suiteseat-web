@@ -233,26 +233,18 @@ function wireBusinessDropdownUI() {
 }
 //Image Helper 
 function normalizeImageUrl(url) {
-  const u = String(url || "").trim();
-  if (!u) return "";
+  const s = String(url || "").trim();
+  if (!s) return "";
 
-  // already absolute
-  if (u.startsWith("http://") || u.startsWith("https://")) return u;
+  // ✅ if already absolute (Cloudinary), use as-is
+  if (s.startsWith("http://") || s.startsWith("https://")) return s;
 
-  // "/uploads/..." => serve from API domain
-  if (u.startsWith("/uploads/")) return `${API_BASE}${u}`;
+  // if it's a relative path, keep your old logic
+  // (example)
+  if (s.startsWith("/")) return s;
 
-  // "uploads/..." => serve from API domain
-  if (u.startsWith("uploads/")) return `${API_BASE}/${u}`;
-
-  // "1771121536439-xxx.jpg" => treat as uploads filename
-  if (!u.includes("/") && /\.(png|jpe?g|webp|gif)$/i.test(u)) {
-    return `${API_BASE}/uploads/${u}`;
-  }
-
-  return u;
+  return s;
 }
-
 
 
 /////////////////////////////////////////////////
@@ -1387,7 +1379,8 @@ function renderServiceSection(items) {
   // Build name maps (uses caches if you have them)
   // If you don’t have CATEGORY_CACHE yet, you can still render ids.
   const calendarMap = makeNameMap(CALENDAR_CACHE, (r) => String(r?._id || r?.id || ""), getCalendarNameFromRow);
-  const categoryMap = makeNameMap((window.CATEGORY_CACHE || []), (r) => String(r?._id || r?.id || ""), getCategoryNameFromRow);
+const categoryMap = makeNameMap(CATEGORY_CACHE || [], (r) => String(r?._id || r?.id || ""), getCategoryNameFromRow);
+
 
   // newest first
   const rows = [...items].sort((a, b) => {
@@ -2076,7 +2069,8 @@ document.addEventListener("keydown", (e) => {
   }
 
   // --- Login submit ---
-  const LOGIN_PATH = "/login";
+ const LOGIN_PATH = "/api/login";
+
   document.getElementById("login-form")?.addEventListener("submit", async (e) => {
     e.preventDefault();
 
