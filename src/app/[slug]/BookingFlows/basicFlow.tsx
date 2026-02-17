@@ -26,7 +26,7 @@ const API =
     ? "https://api.suiteseat.io"
     : "http://localhost:8400");
 
-
+    console.log("[flow] API base is:", API);
 function unpackRows(payload: any): any[] {
   if (Array.isArray(payload)) return payload;
   return payload?.items || payload?.records || payload?.rows || [];
