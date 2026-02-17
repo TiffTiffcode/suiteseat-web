@@ -232,24 +232,25 @@ function wireBusinessDropdownUI() {
   });
 }
 //Image Helper 
-function normalizeImageUrl(url) {
-  const s = String(url || "").trim();
+function normalizeImageUrl(raw) {
+  const s = String(raw || "").trim();
   if (!s) return "";
 
-  // Already absolute (Cloudinary / remote)
+  // already absolute (Cloudinary, etc.)
   if (s.startsWith("http://") || s.startsWith("https://")) return s;
 
-  // If it's already an uploads path
+  // "/uploads/xyz.png" -> "https://api.suiteseat.io/uploads/xyz.png"
   if (s.startsWith("/uploads/")) return `${API_BASE}${s}`;
 
-  // If it's some other absolute path on the API
-  if (s.startsWith("/")) return `${API_BASE}${s}`;
+  // "uploads/xyz.png" -> "https://api.suiteseat.io/uploads/xyz.png"
+  if (s.startsWith("uploads/")) return `${API_BASE}/${s}`;
 
-  // ✅ Bare filename: treat as uploads file
-  // (this is what your network log shows)
-  return `${API_BASE}/uploads/${encodeURIComponent(s)}`;
+  // bare filename "xyz.png" -> "https://api.suiteseat.io/uploads/xyz.png"
+  if (/\.(png|jpg|jpeg|webp|gif)$/i.test(s)) return `${API_BASE}/uploads/${s}`;
+
+  // fallback
+  return s;
 }
-
 
 
 /////////////////////////////////////////////////
