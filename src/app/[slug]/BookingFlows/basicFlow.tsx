@@ -25,6 +25,7 @@ const API =
   (process.env.NODE_ENV === "production"
     ? "https://api.suiteseat.io"
     : "http://localhost:8400");
+console.log("[flow] FILE CHECK basicFlow.tsx path marker: 2026-02-17 A");
 
     console.log("[flow] API base is:", API);
 function unpackRows(payload: any): any[] {
