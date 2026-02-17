@@ -416,12 +416,17 @@ useEffect(() => {
       {heroSrc ? (
         <header className="bk-hero bk-hero--image bk-hero--contain bk-hero-full">
           <div className="bk-hero-imgwrap">
-            <img
+<img
   src={heroSrc || ""}
   alt={`${title} hero`}
   className="bk-hero-img"
-  onError={() => console.log("[hero] IMG FAILED", heroSrc)}
+  onError={(e) => {
+    console.log("[hero] IMG FAILED", heroSrc);
+    // optional: hide the broken img so it doesn't show the broken icon
+    (e.currentTarget as HTMLImageElement).style.display = "none";
+  }}
 />
+
           </div>
         </header>
       ) : (
