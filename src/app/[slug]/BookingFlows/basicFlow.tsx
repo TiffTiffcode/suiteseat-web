@@ -21,7 +21,7 @@ type ConfirmStage = "review" | "book";
 
 // basicFlow.tsx (and anywhere else the client calls the API)
 const API =
-  process.env.NEXT_PUBLIC_API_BASE ||
+  process.env.NEXT_PUBLIC_API_BASE_URL ||
   (process.env.NODE_ENV === "production"
     ? "https://api.suiteseat.io"
     : "http://localhost:8400");
