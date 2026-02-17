@@ -7,8 +7,11 @@ import SuiteClient from "./SuiteClient";
 import CourseClient from "./CourseClient"; 
 
 import ThemeLoader from "./StoreTemplates/ThemeLoader";
-
-const API = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8400";
+const API =
+  process.env.NEXT_PUBLIC_API_BASE_URL ||
+  (process.env.NODE_ENV === "production"
+    ? "https://api.suiteseat.io"
+    : "http://localhost:8400");
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
 
@@ -24,6 +27,7 @@ function pickHeroUrlAny(v: any): string | null {
   if (!v) return null;
 
   const candidates: any[] = [
+    v["Hero Image"], 
     v.HeroImage,
     v.heroImage,
     v.hero_image,
