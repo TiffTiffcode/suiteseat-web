@@ -37,7 +37,7 @@ async function getMe() {
 
 // IMPORTANT: your auth routes are mounted at /api via app.use("/api", require("./routes/auth"))
 async function apiLogin(email, password) {
-  const { res, data } = await apiJSON("/api/login", {
+ const { res, data } = await apiJSON("/api/signin", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password }),
