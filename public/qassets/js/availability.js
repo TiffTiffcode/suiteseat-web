@@ -1508,16 +1508,22 @@ async function getTypeIdByName(name) {
 
 // READ (list rows for a month)
 async function listUpcomingHours(where, limit = 500) {
-  const url = `${API_ORIGIN}/public/records`
-    + `?dataType=${encodeURIComponent('Upcoming Hours')}`
-    + `&where=${encodeURIComponent(JSON.stringify(where))}`
-    + `&limit=${limit}&sort=-updatedAt&ts=${Date.now()}`;
+const qs = new URLSearchParams({
+  where: JSON.stringify(where),
+  limit: "500",
+  sort: "-updatedAt",
+  ts: String(Date.now()),
+});
 
-  const res = await fetch(url, { credentials: 'include', cache: 'no-store' });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+const url = `${API(TYPE_UPCOMING)}?${qs.toString()}`;
+console.log("[avail] request url:", url);
 
-  const data = await res.json();
-  const rows = Array.isArray(data) ? data : (data.items || data.records || []);
+const res = await apiFetch(url, { method: "GET", cache: "no-store" });
+const payload = await res.json().catch(() => ({}));
+
+// IMPORTANT: list endpoints should be { items: rows }
+const rows = Array.isArray(payload) ? payload : (payload.items || payload.records || payload.data || []);
+
   return rows; // 👈 return rows, not the raw payload
 }
 
