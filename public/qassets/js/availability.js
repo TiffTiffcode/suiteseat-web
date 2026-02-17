@@ -1,100 +1,77 @@
-console.log('[availability v2 loaded]');
+console.log("[availability v2 loaded]");
 
-// ---------- API base (match accept-appointments) ----------
-const host = window.location.hostname;
-const isProdHost = host === "suiteseat.io" || host === "www.suiteseat.io";
+// ---------- API base (same as appointment-settings.js) ----------
+const API_BASE = location.hostname.includes("localhost")
+  ? "http://localhost:8400"
+  : "https://api.suiteseat.io";
 
-const API_ORIGIN = isProdHost
-  ? "https://api.suiteseat.io"
-  : "http://localhost:8400";
+  const API_ORIGIN = API_BASE; 
+// ALWAYS include cookies
+function apiFetch(path, options = {}) {
+  const url = `${API_BASE}${path.startsWith("/") ? path : `/${path}`}`;
+  return fetch(url, { credentials: "include", ...options });
+}
 
-
-// shared fetch helper for /api/* (ONLY ONE VERSION!!)
-const apiFetch = (path, opts = {}) => {
-  // path: "/me"  →  /api/me
-  // path: "/api/records" → /api/records
-  const p = path.startsWith("/api/")
-    ? path
-    : path.startsWith("/")
-    ? `/api${path}`
-    : `/api/${path}`;
-
-  return fetch(apiUrl(p), {
-    credentials: "include",
-    headers: { Accept: "application/json", ...(opts.headers || {}) },
-    cache: "no-store",
-    ...opts,
-  });
-};
-async function apiJSON(path, opts = {}) {
+async function apiJSON(path, options = {}) {
   const res = await apiFetch(path, {
-    headers: { Accept: "application/json", ...(opts.headers || {}) },
-    ...opts,
+    cache: "no-store",
+    headers: { Accept: "application/json", ...(options.headers || {}) },
+    ...options,
   });
   const data = await res.json().catch(() => ({}));
   return { res, data };
 }
 
-// Helper to build full API URLs on the same origin
-function apiUrl(path) {
-  return `${API_ORIGIN}${path.startsWith('/') ? path : `/${path}`}`;
+// GET /api/me can return:
+// A) { ok:true, user:{...} }  OR
+// B) { _id/id/email/firstName/lastName } OR
+// C) { ok:false, user:null }
+async function getMe() {
+  const res = await apiFetch("/api/me", { method: "GET", cache: "no-store" });
+  const data = await res.json().catch(() => ({}));
+
+  if (data?.ok && data?.user) return data.user;
+  if (data?._id || data?.id) return data;
+  return null;
+}
+
+// IMPORTANT: your auth routes are mounted at /api via app.use("/api", require("./routes/auth"))
+async function apiLogin(email, password) {
+  const { res, data } = await apiJSON("/api/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+  return { res, data };
+}
+
+async function apiLogout() {
+  // if your auth router uses POST /api/logout
+  return apiFetch("/api/logout", { method: "POST" });
 }
 
 // For /api/records/<Type>
 const TYPE_UPCOMING = "Upcoming Hours";
-const API = (type) => `${API_ORIGIN}/api/records/${encodeURIComponent(type)}`;
+const API = (type) => `${API_ORIGIN}/api/records/${encodeURIComponent(type)}`; // ✅ PUT IT HERE
 
 // Remember last-used selections across page loads
 const LS_BIZ = "lastBusinessId";
 const LS_CAL = "lastCalendarId";
 
-// --- small fetch helper that can handle JSON or text ---
-async function fetchJSON(url, init = {}) {
-  const res = await fetch(url, init);
-  const text = await res.text().catch(() => "");
-  const ct = res.headers.get("content-type") || "";
 
-  if (!res.ok) {
-    const preview = text.slice(0, 200);
-    throw new Error(`${res.status} ${res.statusText} — ${preview}`);
-  }
-
-  if (ct.includes("application/json")) {
-    try {
-      return JSON.parse(text);
-    } catch {
-      throw new Error("Response was not valid JSON");
-    }
-  }
-
-  return text;
-}
 
 // ---------- login + /me helpers that ALWAYS use API_ORIGIN ----------
 
-// POST /api/login
-async function apiLogin(email, password) {
-await apiFetch("/login", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ email, password }),
-});
 
-}
 
-// GET /api/me  (same pattern as accept-appointments)
-async function getMe() {
-  const res = await apiFetch("/me?ts=" + Date.now());
-  const data = await res.json().catch(() => ({}));
-  return data?.user || null;
-}
 
 
 
 // Optional: button-based login handler (if you keep #btn-login-avail)
 async function onAvailabilityLoginClick() {
   const email = document.querySelector("#login-email")?.value?.trim();
-  const pass = document.querySelector("#login-pass")?.value?.trim();
+ const pass = document.querySelector("#login-password")?.value?.trim();
+
   if (!email || !pass) {
     alert("Enter email and password");
     return;
@@ -155,7 +132,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 // replace old check-login with this:
 async function checkLogin() {
-  const res  = await apiFetch('/me');      // GET /api/me
+ const res  = await apiFetch('/api/me');    // GET /api/me
   const text = await res.text();
   try {
     const data = JSON.parse(text);         // { ok:boolean, user:null|{...} }
@@ -218,7 +195,7 @@ function displayNameFrom(d) {
 async function initLogin() {
   try {
     // use the apiFetch helper + /api/me on API_ORIGIN
-    const res  = await apiFetch('/me');  // GET /api/me on live-353x
+    const res  = await apiFetch('/api/me');
     const text = await res.text();
     let data = {};
     try {
@@ -259,24 +236,16 @@ async function initLogin() {
 if (logoutBtn) {
   logoutBtn.addEventListener("click", async () => {
     try {
-      const res = await apiFetch("/logout", {
-        method: "POST",
-      });
-
-      if (res.ok) {
-        alert("👋 Logged out!");
-        // simplest: reload this page so login status updates
-        window.location.reload();
-      } else {
-        const result = await res.json().catch(() => ({}));
-        alert(result.message || "Logout failed.");
-      }
-    } catch (err) {
-      console.error("Logout error:", err);
-      alert("Something went wrong during logout.");
+      const res = await apiLogout();
+      if (res.ok) window.location.reload();
+      else alert("Logout failed.");
+    } catch (e) {
+      console.error("Logout error:", e);
+      alert("Logout error.");
     }
   });
 }
+
 
 
   if (openLoginBtn) {
@@ -291,36 +260,34 @@ if (loginForm) {
   loginForm.addEventListener("submit", async (e) => {
     e.preventDefault();
 
-    const email    = document.getElementById("login-email").value.trim();
-    const password = document.getElementById("login-password").value.trim();
-    if (!email || !password) {
-      alert("Please enter both email and password.");
-      return;
-    }
+    const email = document.getElementById("login-email")?.value?.trim();
+    const password = document.getElementById("login-password")?.value?.trim();
+    if (!email || !password) return alert("Please enter both email and password.");
 
     try {
-      // use the shared helper → POST /api/login
-      await apiLogin(email, password);
+      const { res, data } = await apiLogin(email, password);
 
-      // confirm we’re actually logged in
-      const me = await getMe();
-      if (!me) {
-        alert("Login failed. Please check your email and password.");
-        return;
+      if (!res.ok) {
+        console.warn("[login] failed", res.status, data);
+        return alert(data?.message || "Login failed.");
       }
 
-      alert("✅ Logged in!");
-      closeLoginPopup?.();
+      const me = await getMe();
+      if (!me) return alert("Login failed. Please check your credentials.");
 
-      // refresh the greeting + dropdowns
-      await initLogin();
+      alert("✅ Logged in!");
+      // close popup (use YOUR ids)
+      document.getElementById("popup-login")?.style?.setProperty("display", "none");
+      document.getElementById("popup-overlay")?.style?.setProperty("display", "none");
+      document.body.classList.remove("popup-open");
+
+      await initLogin(); // refresh greeting + dropdown loads
     } catch (err) {
-      console.error("Login error:", err);
-      alert(`Login error: ${err.message || err}`);
+      console.error("[login] error", err);
+      alert("Login error: " + (err?.message || err));
     }
   });
 }
-
 
 
 
