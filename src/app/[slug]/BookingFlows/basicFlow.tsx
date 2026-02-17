@@ -251,22 +251,25 @@ const rows = unpackRows(payload);
   const url2 = `${API}/public/records?dataType=Category&Business=${encodeURIComponent(businessId)}&ts=${Date.now()}`;
   console.log("[cats] fallback", url2);
 
-  const r2 = await fetch(url2, { cache: "no-store" });
-  const rows2 = r2.ok ? await r2.json() : [];
-  return Array.isArray(rows2)
-    ? rows2.map((doc: any) => {
-        const v = doc.values || {};
-        const name = v.Name || v.name || v["Category Name"] || v.categoryName || "Category";
-        const desc = v.Description || v.description || v.Details || v.details || "";
-        return {
-          _id: String(doc._id),
-          name: String(name),
-          desc: String(desc || ""),
-          calendarId: refId(v.Calendar || v.calendarId),
-          businessId: refId(v.Business || v.businessId),
-        };
-      })
-    : [];
+const r2 = await fetch(url2, { cache: "no-store" });
+const payload2 = r2.ok ? await r2.json().catch(() => null) : null;
+const rows2 = unpackRows(payload2);
+
+return Array.isArray(rows2)
+  ? rows2.map((doc: any) => {
+      const v = doc.values || {};
+      const name = v.Name || v.name || v["Category Name"] || v.categoryName || "Category";
+      const desc = v.Description || v.description || v.Details || v.details || "";
+      return {
+        _id: String(doc._id),
+        name: String(name),
+        desc: String(desc || ""),
+        calendarId: refId(v.Calendar || v.calendarId),
+        businessId: refId(v.Business || v.businessId),
+      };
+    })
+  : [];
+
 }
 
 
@@ -277,12 +280,20 @@ async function fetchServicesForCategory(businessId: string, categoryId: string) 
 
   // 1) Try by category id with a few common field names
   for (const key of ["Category", "categoryId", "Categories"]) {
-    URLS.push(`${API}/public/records?dataType=Service&${encodeURIComponent(key)}=${encodeURIComponent(categoryId)}&ts=${Date.now()}`);
+    URLS.push(
+      `${API}/public/records?dataType=Service&${encodeURIComponent(key)}=${encodeURIComponent(
+        categoryId
+      )}&ts=${Date.now()}`
+    );
   }
 
-  // 2) (Optional) some backends support dotted lookups — harmless if ignored
-  for (const key of ["values.Category", "values.categoryId", "values.Categories"]) {
-    URLS.push(`${API}/public/records?dataType=Service&${encodeURIComponent(key)}=${encodeURIComponent(categoryId)}&ts=${Date.now()}`);
+  // 2) (Optional) dotted lookups — harmless if ignored
+  for (const key of ["Category._id", "Categories._id"]) {
+    URLS.push(
+      `${API}/public/records?dataType=Service&${encodeURIComponent(key)}=${encodeURIComponent(
+        categoryId
+      )}&ts=${Date.now()}`
+    );
   }
 
   // try each URL until one returns rows
@@ -291,39 +302,53 @@ async function fetchServicesForCategory(businessId: string, categoryId: string) 
     try {
       const r = await fetch(url, { cache: "no-store" });
       if (!r.ok) continue;
-     const payload = await r.json().catch(() => null);
-const rows = unpackRows(payload);
 
+      const payload = await r.json().catch(() => null);
+      const rows = unpackRows(payload);
+
+      console.log("[services] rows from try:", rows.length);
       if (Array.isArray(rows) && rows.length) return rows.map(mapServiceDoc);
     } catch {}
   }
 
-  // 3) Fallback: fetch all services for the Business, then filter locally
-  //    (covers datasets that only store Business and embed Category inside values)
-  {
-    const url = `${API}/public/records?dataType=Service&Business=${encodeURIComponent(businessId)}&ts=${Date.now()}`;
-    console.log("[services] fallback (by Business) → filter locally", url);
-    try {
-      const r = await fetch(url, { cache: "no-store" });
-      if (r.ok) {
-        const all = await r.json();
-        const filtered = (Array.isArray(all) ? all : []).filter((doc: any) => {
-          const v = doc?.values || doc || {};
-          // common ways a category could be stored
-          const hit =
-            String(v.categoryId || "") === String(categoryId) ||
-            String(v.Category?._id || "") === String(categoryId) ||
-            (Array.isArray(v.Categories) && v.Categories.some((c: any) => String(c?._id || c) === String(categoryId))) ||
-            String(v.Category || "") === String(categoryId);
-          return hit;
-        });
-        if (filtered.length) return filtered.map(mapServiceDoc);
-      }
-    } catch {}
-  }
+  // 3) Fallback: fetch ALL services for the business, then filter locally
+  const url = `${API}/public/records?dataType=Service&Business=${encodeURIComponent(
+    businessId
+  )}&ts=${Date.now()}`;
 
-  return [];
+  console.log("[services] fallback (by Business) → filter locally", url);
+
+  try {
+    const r = await fetch(url, { cache: "no-store" });
+    if (!r.ok) return [];
+
+    const payload = await r.json().catch(() => null);
+    const rows = unpackRows(payload); // ✅ THIS is the missing part in your code
+
+    console.log("[services] business rows:", rows.length);
+
+    const filtered = rows.filter((doc: any) => {
+      const v = doc?.values || doc || {};
+
+      const hit =
+        String(v.categoryId || "") === String(categoryId) ||
+        String(v.Category?._id || "") === String(categoryId) ||
+        String(v.Category || "") === String(categoryId) ||
+        (Array.isArray(v.Categories) &&
+          v.Categories.some((c: any) => String(c?._id || c) === String(categoryId)));
+
+      return hit;
+    });
+
+    console.log("[services] filtered rows:", filtered.length, { categoryId });
+
+    return filtered.map(mapServiceDoc);
+  } catch (e) {
+    console.warn("[services] fallback error", e);
+    return [];
+  }
 }
+
 
 // normalizer
 function mapServiceDoc(doc: any) {
