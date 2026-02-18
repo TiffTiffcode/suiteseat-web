@@ -2260,11 +2260,11 @@ async function createBusinessRecord({ userId, heroUrl }) {
   const slug = slugify(businessName);
 
   // ✅ ADD THESE TWO LINES RIGHT HERE
-  console.log("[business] saving heroUrl:", heroUrl);
+console.log("[business] saving heroUrl:", heroUrl);
 
-  if (heroUrl && heroUrl.includes("/uploads/")) {
-    throw new Error("Hero Image is using local /uploads path. Must be Cloudinary URL.");
-  }
+if (heroUrl && heroUrl.startsWith("/uploads/")) {
+  throw new Error("Hero Image is still local. Fix /api/upload to return Cloudinary secure_url.");
+}
 
   // 👇 now build values
   const values = {
