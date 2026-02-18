@@ -320,47 +320,70 @@ async function fetchServicesForCategory(businessId: string, categoryId: string) 
       const payload = await r.json().catch(() => null);
       const rows = unpackRows(payload);
 
-      console.log("[services] rows from try:", rows.length);
+      console.log("[services] rows from try:", Array.isArray(rows) ? rows.length : 0);
       if (Array.isArray(rows) && rows.length) return rows.map(mapServiceDoc);
     } catch {}
   }
 
-  // 3) Fallback: fetch ALL services for the business, then filter locally
-  const url = `${API}/public/records?dataType=Service&Business=${encodeURIComponent(
-    businessId
-  )}&ts=${Date.now()}`;
+  // 3) Fallback: fetch services by business (try multiple keys) then filter locally
+  const businessFallbackUrls = [
+    `${API}/public/records?dataType=Service&Business=${encodeURIComponent(businessId)}&ts=${Date.now()}`,
+    `${API}/public/records?dataType=Service&businessId=${encodeURIComponent(businessId)}&ts=${Date.now()}`,
+    `${API}/public/records?dataType=Service&Business._id=${encodeURIComponent(businessId)}&ts=${Date.now()}`,
+  ];
 
-  console.log("[services] fallback (by Business) → filter locally", url);
+  let businessRows: any[] = [];
 
-  try {
-    const r = await fetch(url, { cache: "no-store" });
-    if (!r.ok) return [];
+  for (const url of businessFallbackUrls) {
+    console.log("[services] business fallback try:", url);
+    try {
+      const r = await fetch(url, { cache: "no-store" });
+      if (!r.ok) continue;
 
-    const payload = await r.json().catch(() => null);
-    const rows = unpackRows(payload); // ✅ THIS is the missing part in your code
+      const payload = await r.json().catch(() => null);
+      const rows = unpackRows(payload);
 
-    console.log("[services] business rows:", rows.length);
+      console.log("[services] business fallback rows:", Array.isArray(rows) ? rows.length : 0);
 
-    const filtered = rows.filter((doc: any) => {
-      const v = doc?.values || doc || {};
-
-      const hit =
-        String(v.categoryId || "") === String(categoryId) ||
-        String(v.Category?._id || "") === String(categoryId) ||
-        String(v.Category || "") === String(categoryId) ||
-        (Array.isArray(v.Categories) &&
-          v.Categories.some((c: any) => String(c?._id || c) === String(categoryId)));
-
-      return hit;
-    });
-
-    console.log("[services] filtered rows:", filtered.length, { categoryId });
-
-    return filtered.map(mapServiceDoc);
-  } catch (e) {
-    console.warn("[services] fallback error", e);
-    return [];
+      if (Array.isArray(rows) && rows.length) {
+        businessRows = rows;
+        break;
+      }
+    } catch {}
   }
+
+  // FINAL fallback: if still none, pull ALL services and filter locally
+  if (!businessRows.length) {
+    const allUrl = `${API}/public/records?dataType=Service&ts=${Date.now()}`;
+    console.warn("[services] no business rows — final fallback:", allUrl);
+
+    try {
+      const rAll = await fetch(allUrl, { cache: "no-store" });
+      if (rAll.ok) {
+        const payloadAll = await rAll.json().catch(() => null);
+        const rowsAll = unpackRows(payloadAll);
+        if (Array.isArray(rowsAll)) businessRows = rowsAll;
+      }
+    } catch {}
+  }
+
+  const filtered = (businessRows || []).filter((doc: any) => {
+    const v = doc?.values || doc || {};
+
+    const cat =
+      v.Category?._id ||
+      v.Category ||
+      v.categoryId ||
+      (Array.isArray(v.Categories)
+        ? (v.Categories[0]?._id || v.Categories[0])
+        : null);
+
+    return String(cat || "") === String(categoryId);
+  });
+
+  console.log("[services] fallback filtered:", filtered.length, { categoryId });
+
+  return filtered.map(mapServiceDoc);
 }
 
 
@@ -681,9 +704,9 @@ async function handleCalendarSelect(calId: string) {
 }
 
 async function handleCategorySelect(catId: string) {
-  setSelectedCategoryId(catId);
+  console.log("[ui] category clicked:", catId);
 
-  // 🔄 reset everything downstream of Category
+  setSelectedCategoryId(catId);
   setSelectedServiceId(null);
   setSelectedDateISO(null);
   setSlots({ morning: [], afternoon: [], evening: [] });
@@ -691,11 +714,13 @@ async function handleCategorySelect(catId: string) {
   setLoadingServices(true);
   try {
     const svcs = await fetchServicesForCategory(businessId, catId);
+    console.log("[ui] services returned:", svcs.length, svcs.map(s => s.name));
     setServices(svcs);
   } finally {
     setLoadingServices(false);
   }
 }
+
 
 
   useEffect(() => {
@@ -853,8 +878,11 @@ async function fetchServicesByIds(ids: string[]): Promise<any[]> {
     try {
       const r = await fetch(url, { cache: "no-store" });
       if (!r.ok) continue;
-      const arr = await r.json();
-      const doc = Array.isArray(arr) ? arr[0] : arr;
+const payload = await r.json().catch(() => null);
+const rows = unpackRows(payload);
+const doc = Array.isArray(rows) ? rows[0] : null;
+if (!doc) continue;
+
       if (!doc) continue;
 
       const v = (doc?.values || doc || {}) as any;
@@ -2300,6 +2328,7 @@ const values: any = {
   ClientFirstName: firstName,
   ClientLastName: lastName,
 
+  
   businessId,
   calendarId: selectedCalendarId,
   clientId: currentUserId,
