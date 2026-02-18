@@ -2259,12 +2259,12 @@ async function createBusinessRecord({ userId, heroUrl }) {
 
   const slug = slugify(businessName);
 
-  // ✅ ADD THESE TWO LINES RIGHT HERE
-console.log("[business] saving heroUrl:", heroUrl);
+  // ✅ debug + protect against saving local Render uploads
+  console.log("[business] saving heroUrl:", heroUrl);
 
-if (heroUrl && heroUrl.startsWith("/uploads/")) {
-  throw new Error("Hero Image is still local. Fix /api/upload to return Cloudinary secure_url.");
-}
+  if (heroUrl && heroUrl.startsWith("/uploads/")) {
+    throw new Error("Hero Image is still local. Fix /api/upload to return Cloudinary secure_url.");
+  }
 
   // 👇 now build values
   const values = {
@@ -2276,6 +2276,8 @@ if (heroUrl && heroUrl.startsWith("/uploads/")) {
     "Email": email || "",
     "Hero Image": heroUrl || "",
     "slug": slug,
+
+    // Reference fields (safe shapes)
     "Pro": userId,
     "Created By": userId,
   };
@@ -2290,10 +2292,7 @@ if (heroUrl && heroUrl.startsWith("/uploads/")) {
 
   if (!res.ok) throw new Error(data?.message || data?.error || "Failed to save business");
 
-  // ✅ handle multiple shapes:
-  // - { items: [doc] }
-  // - { item: doc }
-  // - doc
+  // ✅ handle multiple response shapes
   const created =
     (Array.isArray(data?.items) && data.items[0]) ||
     data?.item ||
@@ -2310,7 +2309,6 @@ if (heroUrl && heroUrl.startsWith("/uploads/")) {
   if (!created._id) created._id = createdId;
 
   return created;
-
 }
 
 // Wire the Save button (form submit)
