@@ -3,7 +3,7 @@ console.log("[appointment-settings] loaded");
 
 const API_BASE = location.hostname.includes("localhost")
   ? "http://localhost:8400"
-  : "https://api.suiteseat.io";
+  : "https://api2.suiteseat.io";
 
 // ALWAYS include cookies
 function apiFetch(path, options = {}) {
