@@ -35,7 +35,12 @@ function svcMinutes(s: any): number {
 type Calendar = { _id: string; name: string };
 type TemplateProps = { calendars: Calendar[] };
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8400";
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_BASE_URL ??
+  (process.env.NODE_ENV === "production"
+    ? "https://api2.suiteseat.io"
+    : "http://localhost:8400");
+
 const ASSET_BASE = process.env.NEXT_PUBLIC_ASSET_BASE ?? "";
 
 
