@@ -4,7 +4,7 @@ console.log("[accept-appointments] web loaded");
 const API_BASE =
   location.hostname.includes("localhost")
     ? "http://localhost:8400"
-    : "https://api.suiteseat.io";
+    : "https://api2.suiteseat.io";
 
 // ✅ Always produce a /api/... URL (same behavior as suite-settings + signup page)
 function apiUrl(path = "") {

@@ -3,7 +3,7 @@ console.log("[availability v2 loaded]");
 // ---------- API base (same as appointment-settings.js) ----------
 const API_BASE = location.hostname.includes("localhost")
   ? "http://localhost:8400"
-  : "https://api.suiteseat.io";
+  : "https://api2.suiteseat.io";
 
   const API_ORIGIN = API_BASE; 
 // ALWAYS include cookies

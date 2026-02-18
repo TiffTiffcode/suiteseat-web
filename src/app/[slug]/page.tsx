@@ -10,7 +10,7 @@ import ThemeLoader from "./StoreTemplates/ThemeLoader";
 const API =
   process.env.NEXT_PUBLIC_API_BASE_URL ||
   (process.env.NODE_ENV === "production"
-    ? "https://api.suiteseat.io"
+    ? "https://api2.suiteseat.io"
     : "http://localhost:8400");
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
