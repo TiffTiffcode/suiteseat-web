@@ -2259,14 +2259,14 @@ async function createBusinessRecord({ userId, heroUrl }) {
 
   const slug = slugify(businessName);
 
-  // ✅ debug + protect against saving local Render uploads
+  // ✅ DEBUG: log what you're about to save
   console.log("[business] saving heroUrl:", heroUrl);
 
-  if (heroUrl && heroUrl.startsWith("/uploads/")) {
-    throw new Error("Hero Image is still local. Fix /api/upload to return Cloudinary secure_url.");
+  // ✅ Guard: never allow local /uploads paths in production DB
+  if (heroUrl && String(heroUrl).startsWith("/uploads/")) {
+    throw new Error("Hero Image is still local. /api/upload must return Cloudinary secure_url.");
   }
 
-  // 👇 now build values
   const values = {
     "Name": businessName,
     "Pro Name": proName,
@@ -2276,8 +2276,6 @@ async function createBusinessRecord({ userId, heroUrl }) {
     "Email": email || "",
     "Hero Image": heroUrl || "",
     "slug": slug,
-
-    // Reference fields (safe shapes)
     "Pro": userId,
     "Created By": userId,
   };
@@ -2292,24 +2290,18 @@ async function createBusinessRecord({ userId, heroUrl }) {
 
   if (!res.ok) throw new Error(data?.message || data?.error || "Failed to save business");
 
-  // ✅ handle multiple response shapes
   const created =
     (Array.isArray(data?.items) && data.items[0]) ||
     data?.item ||
     data;
 
   const createdId = created?._id || created?.id;
+  if (!createdId) throw new Error("Business saved but missing id");
 
-  if (!createdId) {
-    console.warn("[business] create response missing id fields:", created);
-    throw new Error("Business saved but missing id");
-  }
-
-  // normalize: ensure _id exists so the rest of your code is consistent
   if (!created._id) created._id = createdId;
-
   return created;
 }
+
 
 // Wire the Save button (form submit)
 function initBusinessSave() {
