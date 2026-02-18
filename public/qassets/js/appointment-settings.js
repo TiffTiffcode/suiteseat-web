@@ -2259,9 +2259,14 @@ async function createBusinessRecord({ userId, heroUrl }) {
 
   const slug = slugify(businessName);
 
-  // 👇 IMPORTANT: match your Field names EXACTLY as they exist in your DataType editor
-  // From your list:
-  // Name, Pro Name, Phone Number, Location Name, Location Address, Email, Hero Image, slug, Pro, Created By
+  // ✅ ADD THESE TWO LINES RIGHT HERE
+  console.log("[business] saving heroUrl:", heroUrl);
+
+  if (heroUrl && heroUrl.includes("/uploads/")) {
+    throw new Error("Hero Image is using local /uploads path. Must be Cloudinary URL.");
+  }
+
+  // 👇 now build values
   const values = {
     "Name": businessName,
     "Pro Name": proName,
@@ -2271,14 +2276,11 @@ async function createBusinessRecord({ userId, heroUrl }) {
     "Email": email || "",
     "Hero Image": heroUrl || "",
     "slug": slug,
-
-    // Reference fields:
-    // Your system matches ref fields in many shapes. These are safe:
     "Pro": userId,
     "Created By": userId,
   };
 
-   const { res, data } = await apiJSON("/api/records/Business", {
+  const { res, data } = await apiJSON("/api/records/Business", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ values }),
