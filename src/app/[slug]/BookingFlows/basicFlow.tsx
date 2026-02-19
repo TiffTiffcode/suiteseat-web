@@ -508,6 +508,7 @@ async function getTypeIdByName(apiBase: string, typeName: string): Promise<strin
   return id;
 }
 
+type CacheEntry = { ts: number; rows: any[] };
 
 
 //State
@@ -550,6 +551,13 @@ const [needsName, setNeedsName] = useState(false);
 const [businessRec, setBusinessRec] = useState<any | null>(null);
 const [heroUrl, setHeroUrl] = useState<string>("");
 
+
+const UH_TTL_MS = 30_000; // 30s cache
+const uhCacheRef = useRef<Record<string, CacheEntry>>({});
+const apptCacheRef = useRef<Record<string, CacheEntry>>({});
+
+const monthAbortRef = useRef<AbortController | null>(null);
+const dayAbortRef = useRef<AbortController | null>(null);
 
 function addPick(id: string, svc: any) {
   const key = String(id);
@@ -773,6 +781,38 @@ async function handleServiceSelect(serviceId: string) {
   setSlots({ morning: [], afternoon: [], evening: [] });
 }
 
+//Helper for time 
+function apptsToBookedByDate(appts: any[], calendarId: string) {
+  const map: Record<string, { start: string; end: string }[]> = {};
+
+  for (const doc of appts || []) {
+    const v = doc.values || doc;
+
+    const calId = refId(v.Calendar) || v.calendarId || v.CalendarId;
+    if (String(calId || "") !== String(calendarId)) continue;
+
+    const iso = pickISODateLoose(v, v?.Date);
+    if (!iso) continue;
+
+    const canceled = String(v["is Canceled"] ?? v.canceled ?? false).toLowerCase() === "true";
+    if (canceled) continue;
+
+    const hold = String(v.Hold ?? v.hold ?? false).toLowerCase() === "true";
+    if (hold) continue;
+
+    const start = normalizeHHMM(v.Time ?? v.StartTime ?? v["Start Time"] ?? v.start);
+    if (!start) continue;
+
+    let dur = Number(v.DurationMin ?? v.Duration ?? v["Duration (min)"] ?? v.duration ?? 0);
+    if (!Number.isFinite(dur) || dur <= 0) continue;
+
+    const end = addMinutesHHMM(start, dur);
+    map[iso] ||= [];
+    map[iso].push({ start, end });
+  }
+
+  return map;
+}
 
 // helper inside basicFlow.ts (near top)
 function svcMinutes(s: any): number {
@@ -1029,27 +1069,29 @@ function readDurationMin(s: any): number {
   const n = Number(raw);
   return Number.isFinite(n) && n > 0 ? n : 0;
 }
+async function getUpcomingHoursRows(businessId: string, calendarId: string, signal?: AbortSignal): Promise<any[]> {
+  const key = `${businessId}:${calendarId}`;
+  const now = Date.now();
 
-  async function getUpcomingHoursRows(businessId: string, calendarId: string): Promise<any[]> {
-  const qsVariants = [
-    `Business=${encodeURIComponent(businessId)}&Calendar=${encodeURIComponent(calendarId)}`,
-    `Business._id=${encodeURIComponent(businessId)}&Calendar._id=${encodeURIComponent(calendarId)}`,
-    `Calendar=${encodeURIComponent(calendarId)}`,
-    `Calendar._id=${encodeURIComponent(calendarId)}`,
-    `businessId=${encodeURIComponent(businessId)}&calendarId=${encodeURIComponent(calendarId)}`,
-  ];
-  let all: any[] = [];
-  for (const qs of qsVariants) {
-    const url = `${API}/public/records?dataType=Upcoming%20Hours&${qs}&ts=${Date.now()}`;
-    const r = await fetch(url, { cache: "no-store", credentials: "include" });
-    if (!r.ok) continue;
-   const payload = await r.json().catch(() => null);
-const rows = unpackRows(payload);
-
-    if (Array.isArray(rows)) all = all.concat(rows);
+  // ✅ cache hit
+  const cached = uhCacheRef.current[key];
+  if (cached && now - cached.ts < UH_TTL_MS) {
+    return cached.rows;
   }
+
+  // ✅ single canonical request (NOT 5 variants)
+  const url = `${API}/public/records?dataType=Upcoming%20Hours&Business=${encodeURIComponent(
+    businessId
+  )}&Calendar=${encodeURIComponent(calendarId)}&ts=${now}`;
+
+ const r = await fetch(url, { cache: "no-store", credentials: "include", signal });
+  if (!r.ok) return [];
+
+  const payload = await r.json().catch(() => null);
+  const rows = unpackRows(payload);
+
   const wantId = String(calendarId);
-  const filtered = (all || []).filter((row) => {
+  const filtered = (rows || []).filter((row: any) => {
     const v = row?.values || row || {};
     const calId =
       refId(v.Calendar) ||
@@ -1058,28 +1100,37 @@ const rows = unpackRows(payload);
       v.calendarId ||
       v.CalendarId ||
       null;
+
     const sameCalendar = calId && String(calId) === wantId;
+
     const enabledField = v.Enabled ?? v.enabled ?? v["Is Enabled"];
     const availField = v["is Available"] ?? v.isAvailable ?? v.available;
+
     const passesEnabled = enabledField === undefined ? true : truthyBool(enabledField);
     const passesAvail = availField === undefined ? true : truthyBool(availField);
+
     return !!sameCalendar && passesEnabled && passesAvail;
   });
+
+  // ✅ dedup
   const seen = new Set<string>();
-  const dedup = filtered.filter((r) => {
-    const id = String(r._id || r.id || Math.random());
+  const dedup = filtered.filter((x: any) => {
+    const id = String(x._id || x.id || "");
+    if (!id) return true;
     if (seen.has(id)) return false;
     seen.add(id);
     return true;
   });
 
-  console.log("[UH] filtered UH rows:", filtered.length, "deduped:", dedup.length);
+  // ✅ store in cache
+  uhCacheRef.current[key] = { ts: now, rows: dedup };
+
   return dedup;
 }
 
 
+async function fetchAppointmentsForCalendar(calendarId: string, signal?: AbortSignal): Promise<any[]> {
 
-async function fetchAppointmentsForCalendar(calendarId: string): Promise<any[]> {
   const qsVariants = [
     `Calendar=${encodeURIComponent(calendarId)}`,
     `Calendar._id=${encodeURIComponent(calendarId)}`,
@@ -1089,7 +1140,7 @@ async function fetchAppointmentsForCalendar(calendarId: string): Promise<any[]> 
   for (const qs of qsVariants) {
     const url = `${API}/public/records?dataType=Appointment&${qs}&ts=${Date.now()}`;
     try {
-      const r = await fetch(url, { cache: "no-store", credentials: "include" });
+       const r = await fetch(url, { cache: "no-store", credentials: "include", signal });
       if (!r.ok) continue;
      const payload = await r.json().catch(() => null);
 const rows = unpackRows(payload);
@@ -1307,49 +1358,76 @@ const onConfirm = async () => {
 };
 
 
-async function fetchMonthAvailabilityClient(opts: {
+async function fetchMonthAvailabilityClientFast(opts: {
   businessId: string;
   calendarId: string;
   year: number;
   monthZeroBased: number;
   minMinutes: number;
+  signal?: AbortSignal;
 }): Promise<Set<string>> {
-  const rows = await getUpcomingHoursRows(opts.businessId, opts.calendarId);
-  console.log("[monthAvail] UH rows fetched:", rows.length, "calendarId:", opts.calendarId);
+  const cacheKey = `${opts.businessId}:${opts.calendarId}`;
 
+  // 1) Upcoming Hours (cached as {ts, rows})
+  let uhEntry = uhCacheRef.current[cacheKey];
+  if (!uhEntry) {
+    const rows = await getUpcomingHoursRows(opts.businessId, opts.calendarId, opts.signal);
+    uhEntry = { ts: Date.now(), rows };
+    uhCacheRef.current[cacheKey] = uhEntry;
+  }
+  const uhRows = uhEntry.rows; // ✅ THIS is the array
+
+  // 2) Appointments (cached as {ts, rows})
+  let apptEntry = apptCacheRef.current[opts.calendarId];
+  if (!apptEntry) {
+    const rows = await fetchAppointmentsForCalendar(opts.calendarId, opts.signal);
+    apptEntry = { ts: Date.now(), rows };
+    apptCacheRef.current[opts.calendarId] = apptEntry;
+  }
+  const appts = apptEntry.rows; // ✅ array
+
+  const bookedByDate = apptsToBookedByDate(appts, opts.calendarId);
+
+  // Candidate dates from UH rows for this month
   const monthDates = new Set<string>();
-  for (const r of rows) {
+  for (const r of uhRows) {
+    if (opts.signal?.aborted) throw new DOMException("Aborted", "AbortError");
+
     const v = r.values || r;
     const iso = pickISODate(v);
     if (!iso) continue;
+
     const d = new Date(iso + "T00:00:00");
     if (d.getFullYear() === opts.year && d.getMonth() === opts.monthZeroBased) {
       monthDates.add(iso);
     }
   }
-  console.log("[monthAvail] unique UH dates in month:", [...monthDates]);
 
   const valid = new Set<string>();
+
   for (const iso of monthDates) {
-    const grouped = await fetchDaySlotsClient({
-      businessId: opts.businessId,
-      calendarId: opts.calendarId,
-      dateISO: iso,
-      minMinutes: opts.minMinutes,
+    if (opts.signal?.aborted) throw new DOMException("Aborted", "AbortError");
+
+    const starts = collectFlatStartsForDate(uhRows, iso); // ✅ pass array
+    const fitStarts = filterStartsByDuration(starts, opts.minMinutes);
+    if (!fitStarts.length) continue;
+
+    const booked = bookedByDate[iso] || [];
+
+    const hasOneFree = fitStarts.some((s) => {
+      const slotEnd = addMinutesHHMM(s, opts.minMinutes);
+      return !booked.some((b: any) => overlap(s, slotEnd, b.start, b.end));
     });
-    const counts = {
-      morning: grouped.morning.length,
-      afternoon: grouped.afternoon.length,
-      evening: grouped.evening.length,
-    };
-    console.log("[monthAvail] day", iso, "slot counts:", counts, "min:", opts.minMinutes);
-    if (counts.morning + counts.afternoon + counts.evening > 0) {
-      valid.add(iso);
-    }
+
+    if (hasOneFree) valid.add(iso);
   }
-  console.log("[monthAvail] final valid days:", [...valid]);
+
   return valid;
 }
+
+
+
+
 
 function collectFlatStartsForDate(rows: any[], dateISO: string): string[] {
   console.log("[UH] collectFlatStartsForDate date:", dateISO);
@@ -1754,83 +1832,57 @@ async function loadMonth({ base, minOverride }: { base: Date; minOverride?: numb
 
   const hasSvc = !!selectedServiceId || (Number.isFinite(effMin) && effMin > 0);
 
-  console.log("[loadMonth] params", {
-    calendarId: selectedCalendarId,
-    serviceId: selectedServiceId,
-    effMin,
-    base: base.toISOString().slice(0, 7),
-  });
+  if (!businessId || !selectedCalendarId || !hasSvc || !effMin) return;
 
-  if (!businessId || !selectedCalendarId || !hasSvc || !effMin) {
-    console.warn("[loadMonth] guard blocked", {
-      hasBiz: !!businessId,
-      hasCal: !!selectedCalendarId,
-      hasSvc,
-      effMin,
-    });
-    return;
-  }
+  // ✅ abort previous month load
+  monthAbortRef.current?.abort();
+  monthAbortRef.current = new AbortController();
+  const signal = monthAbortRef.current.signal;
 
   setLoadingMonth(true);
 
-  const avail = await fetchMonthAvailabilityClient({
-    businessId,
-    calendarId: selectedCalendarId!,
-    year: base.getFullYear(),
-    monthZeroBased: base.getMonth(),
-    minMinutes: effMin,
-  });
-
-  const { start, end } = monthBoundaries(base);
-  const toYMD = (d: Date) =>
-    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-  const todayYMD = toYMD(new Date());
-
-  const days: { dateISO: string; isToday: boolean; isAvailable: boolean }[] = [];
-  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-    const ymd = toYMD(d);
-    days.push({
-      dateISO: ymd,
-      isToday: ymd === todayYMD,
-      isAvailable: avail.has(ymd),
+  try {
+    const avail = await fetchMonthAvailabilityClientFast({
+      businessId,
+      calendarId: selectedCalendarId!,
+      year: base.getFullYear(),
+      monthZeroBased: base.getMonth(),
+      minMinutes: effMin,
+      signal,
     });
+
+    const { start, end } = monthBoundaries(base);
+    const toYMD = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    const todayYMD = toYMD(new Date());
+
+    const days: { dateISO: string; isToday: boolean; isAvailable: boolean }[] = [];
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      const ymd = toYMD(d);
+      days.push({
+        dateISO: ymd,
+        isToday: ymd === todayYMD,
+        isAvailable: avail.has(ymd),
+      });
+    }
+
+    const today0 = startOfDayLocal(new Date());
+    const daysWithPast = days.map((d) => {
+      const day0 = parseISOToLocalStart(d.dateISO);
+      const isPast = day0 < today0;
+      return { ...d, isPast, isAvailable: !isPast && d.isAvailable };
+    });
+
+    setMonthDays(daysWithPast);
+    setMonthLabel(base.toLocaleString(undefined, { month: "long", year: "numeric" }));
+  } catch (e: any) {
+    if (e?.name === "AbortError") return; // ✅ ignore abort
+    console.error("[loadMonth] error", e);
+  } finally {
+    setLoadingMonth(false); // ✅ ALWAYS ends loading (abort or success)
   }
-
-// ✅ after you finish building `days` in the for-loop:
-const today0 = startOfDayLocal(new Date());
-
-const daysWithPast = days.map((d) => {
-  const day0 = parseISOToLocalStart(d.dateISO);
-  const isPast = day0 < today0;
-
-  return {
-    ...d,
-    isPast,
-    isAvailable: !isPast && d.isAvailable, // 👈 kills green highlight on past dates
-  };
-});
-
-setMonthDays(daysWithPast);
-
-// logs should use daysWithPast now
-const availDays = daysWithPast.filter((d) => d.isAvailable).map((d) => d.dateISO);
-console.debug("[avail] month days available", {
-  month: base.toISOString().slice(0, 7),
-  count: availDays.length,
-  days: availDays,
-  minMinutes: effMin,
-});
-
-
-  setMonthLabel(base.toLocaleString(undefined, { month: "long", year: "numeric" }));
-  setLoadingMonth(false);
-
-  console.log("[flow] monthDays built:", {
-    month: base.toISOString().slice(0, 7),
-    total: days.length,
-    availableCount: days.filter((d) => d.isAvailable).length,
-  });
 }
+
 
 // keep the label in sync when just the cursor changes
 useEffect(() => {
