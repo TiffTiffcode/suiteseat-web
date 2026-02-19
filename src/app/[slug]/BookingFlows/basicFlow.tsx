@@ -342,6 +342,23 @@ async function fetchServicesForCategory(businessId: string, categoryId: string) 
     const payload = await r.json().catch(() => null);
     const rows = unpackRows(payload);
 
+    const wantBiz = String(businessId);
+const wantCat = String(categoryId);
+
+const filtered = (rows || []).filter((doc: any) => {
+  const v = doc?.values || doc || {};
+
+  const bizIds = extractIdList(v.Business ?? v.business ?? v.businessId);
+  if (!bizIds.some((id) => String(id) === wantBiz)) return false;
+
+  const catIds = extractIdList(
+    v.Category ?? v.category ?? v.categoryId ?? v.Categories ?? v["Category Ref"]
+  );
+  return catIds.some((id) => String(id) === wantCat);
+});
+
+return filtered.map(mapServiceDoc);
+
     if (Array.isArray(rows) && rows.length) {
       console.log("[services] category query HIT:", { qs, count: rows.length });
       return rows.map(mapServiceDoc);
