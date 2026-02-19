@@ -1727,6 +1727,29 @@ function initServiceSave() {
         imageUrl,
       });
 
+      console.log("[service] created:", created);
+
+// ✅ read-back check (PRIVATE)
+try {
+  const checkPriv = await apiJSON(`/api/records/Service/${encodeURIComponent(created._id)}`, { method: "GET" });
+  console.log("[service] read-back PRIVATE", checkPriv.res.status, checkPriv.data);
+} catch (e) {
+  console.warn("[service] PRIVATE read-back failed", e);
+}
+
+// ✅ read-back check (PUBLIC)
+try {
+  const pubRes = await fetch(
+    `${API_BASE}/public/records?dataType=Service&_id=${encodeURIComponent(created._id)}&ts=${Date.now()}`,
+    { credentials: "include", cache: "no-store" }
+  );
+  const pubText = await pubRes.text().catch(() => "");
+  console.log("[service] read-back PUBLIC status:", pubRes.status);
+  console.log("[service] read-back PUBLIC body:", pubText);
+} catch (e) {
+  console.warn("[service] PUBLIC read-back failed", e);
+}
+
       alert("Service saved!");
       closeServicePopup();
 

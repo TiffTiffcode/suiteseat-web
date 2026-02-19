@@ -333,7 +333,7 @@ async function fetchServicesForCategory(businessId: string, categoryId: string) 
   ];
 
   for (const qs of categoryQueries) {
-    const url = `${API}/public/records?dataType=Service&${qs}&ts=${now}`;
+  const url = `${API}/public/records?dataType=Service&limit=500&ts=${now}`;
     console.log("[services] try category url:", url);
 
     const r = await fetch(url, { cache: "no-store", credentials: "include" });
