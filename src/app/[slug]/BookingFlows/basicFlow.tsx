@@ -289,34 +289,52 @@ return Array.isArray(rows2)
 
 
 // REPLACE your fetchServicesForCategory with this version
+// ✅ Fetch services for a category (using PUBLIC endpoint like everything else)
 async function fetchServicesForCategory(businessId: string, categoryId: string) {
-  const url = `${API}/api/records/Service?Business=${encodeURIComponent(
-    businessId
-  )}&ts=${Date.now()}`;
+  const now = Date.now();
 
-  console.log("[services] fetch by business", url);
+  // ✅ canonical fetch: grab services by Business (fast + consistent)
+  const url = `${API}/public/records?dataType=Service&Business=${encodeURIComponent(
+    businessId
+  )}&ts=${now}`;
+
+  console.log("[services] fetch url", url);
 
   const r = await fetch(url, { cache: "no-store", credentials: "include" });
-  if (!r.ok) return [];
+  if (!r.ok) {
+    console.warn("[services] fetch failed", r.status, await r.text().catch(() => ""));
+    return [];
+  }
 
   const payload = await r.json().catch(() => null);
   const rows = unpackRows(payload);
 
+  // ✅ Filter down to this category
+  const wantCat = String(categoryId);
+
   const filtered = (rows || []).filter((doc: any) => {
     const v = doc?.values || doc || {};
 
-    // ✅ Category can be: string | {_id} | ["id"] | [{_id}]
-    const raw = v.Category ?? v.categoryId ?? v.Categories ?? null;
+    // Category field can be stored in different shapes
+    const raw =
+      v.Category ??
+      v.category ??
+      v.categoryId ??
+      v["Category Ref"] ??
+      v.Categories ??
+      v["Categories"] ??
+      null;
 
     // normalize to array of ids
     const ids: string[] = Array.isArray(raw)
       ? raw.map((x: any) => String(x?._id ?? x ?? "")).filter(Boolean)
       : [String(raw?._id ?? raw ?? "")].filter(Boolean);
 
-    return ids.includes(String(categoryId));
+    return ids.some((id) => String(id) === wantCat);
   });
 
-  console.log("[services] filtered by category", {
+  console.log("[services] filtered", {
+    businessId,
     categoryId,
     total: Array.isArray(rows) ? rows.length : 0,
     filtered: filtered.length,
@@ -324,6 +342,7 @@ async function fetchServicesForCategory(businessId: string, categoryId: string) 
 
   return filtered.map(mapServiceDoc);
 }
+
 
 //Service Helper 
 function pickIdish(x: any) {
