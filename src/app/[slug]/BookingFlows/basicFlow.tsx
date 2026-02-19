@@ -332,8 +332,8 @@ async function fetchServicesForCategory(businessId: string, categoryId: string) 
     `Category%20Ref=${encodeURIComponent(wantCat)}`, // "Category Ref"
   ];
 
-  for (const qs of categoryQueries) {
-  const url = `${API}/public/records?dataType=Service&limit=500&ts=${now}`;
+for (const qs of categoryQueries) {
+  const url = `${API}/public/records?dataType=Service&${qs}&limit=500&ts=${now}`;
     console.log("[services] try category url:", url);
 
     const r = await fetch(url, { cache: "no-store", credentials: "include" });
