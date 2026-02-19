@@ -367,6 +367,18 @@ async function fetchServicesForCategory(businessId: string, categoryId: string) 
     } catch {}
   }
 
+  // ✅ PUT YOUR DEBUG LOGS RIGHT HERE
+  console.log("[services debug] categoryId we are filtering for:", categoryId);
+
+  const catHits = (businessRows || []).filter((doc: any) => {
+    const v = doc?.values || doc || {};
+    return JSON.stringify(v).includes(categoryId); // brute force debug only
+  });
+
+  console.log("[services debug] brute-force matches found:", catHits.length);
+  console.log("[services debug] first brute-force match:", catHits[0]);
+
+  // then your real filter starts here
   const filtered = (businessRows || []).filter((doc: any) => {
     const v = doc?.values || doc || {};
 
@@ -386,6 +398,12 @@ async function fetchServicesForCategory(businessId: string, categoryId: string) 
   return filtered.map(mapServiceDoc);
 }
 
+//Service Helper 
+function pickIdish(x: any) {
+  if (!x) return null;
+  if (typeof x === "string") return x;
+  return String(x._id || x.id || x.value || x.$id || "").trim() || null;
+}
 
 // normalizer
 function mapServiceDoc(doc: any) {
