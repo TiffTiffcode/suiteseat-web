@@ -289,52 +289,34 @@ return Array.isArray(rows2)
 
 
 // REPLACE your fetchServicesForCategory with this version
-// ✅ Fetch services for a category (using PUBLIC endpoint like everything else)
 async function fetchServicesForCategory(businessId: string, categoryId: string) {
-  const now = Date.now();
-
-  // ✅ canonical fetch: grab services by Business (fast + consistent)
-  const url = `${API}/public/records?dataType=Service&Business=${encodeURIComponent(
+  const url = `${API}/api/records/Service?Business=${encodeURIComponent(
     businessId
-  )}&ts=${now}`;
+  )}&ts=${Date.now()}`;
 
-  console.log("[services] fetch url", url);
+  console.log("[services] fetch by business", url);
 
   const r = await fetch(url, { cache: "no-store", credentials: "include" });
-  if (!r.ok) {
-    console.warn("[services] fetch failed", r.status, await r.text().catch(() => ""));
-    return [];
-  }
+  if (!r.ok) return [];
 
   const payload = await r.json().catch(() => null);
   const rows = unpackRows(payload);
 
-  // ✅ Filter down to this category
-  const wantCat = String(categoryId);
-
   const filtered = (rows || []).filter((doc: any) => {
     const v = doc?.values || doc || {};
 
-    // Category field can be stored in different shapes
-    const raw =
-      v.Category ??
-      v.category ??
-      v.categoryId ??
-      v["Category Ref"] ??
-      v.Categories ??
-      v["Categories"] ??
-      null;
+    // ✅ Category can be: string | {_id} | ["id"] | [{_id}]
+    const raw = v.Category ?? v.categoryId ?? v.Categories ?? null;
 
     // normalize to array of ids
     const ids: string[] = Array.isArray(raw)
       ? raw.map((x: any) => String(x?._id ?? x ?? "")).filter(Boolean)
       : [String(raw?._id ?? raw ?? "")].filter(Boolean);
 
-    return ids.some((id) => String(id) === wantCat);
+    return ids.includes(String(categoryId));
   });
 
-  console.log("[services] filtered", {
-    businessId,
+  console.log("[services] filtered by category", {
     categoryId,
     total: Array.isArray(rows) ? rows.length : 0,
     filtered: filtered.length,
@@ -342,7 +324,6 @@ async function fetchServicesForCategory(businessId: string, categoryId: string) 
 
   return filtered.map(mapServiceDoc);
 }
-
 
 //Service Helper 
 function pickIdish(x: any) {
@@ -1087,11 +1068,8 @@ function readDurationMin(s: any): number {
 
   const n = Number(raw);
   return Number.isFinite(n) && n > 0 ? n : 0;
-}async function getUpcomingHoursRows(
-  businessId: string,
-  calendarId: string,
-  signal?: AbortSignal
-): Promise<any[]> {
+}
+async function getUpcomingHoursRows(businessId: string, calendarId: string, signal?: AbortSignal): Promise<any[]> {
   const key = `${businessId}:${calendarId}`;
   const now = Date.now();
 
@@ -1106,7 +1084,7 @@ function readDurationMin(s: any): number {
     businessId
   )}&Calendar=${encodeURIComponent(calendarId)}&ts=${now}`;
 
-  const r = await fetch(url, { cache: "no-store", credentials: "include", signal });
+ const r = await fetch(url, { cache: "no-store", credentials: "include", signal });
   if (!r.ok) return [];
 
   const payload = await r.json().catch(() => null);
@@ -1128,8 +1106,7 @@ function readDurationMin(s: any): number {
     const enabledField = v.Enabled ?? v.enabled ?? v["Is Enabled"];
     const availField = v["is Available"] ?? v.isAvailable ?? v.available;
 
-    const passesEnabled =
-      enabledField === undefined ? true : truthyBool(enabledField);
+    const passesEnabled = enabledField === undefined ? true : truthyBool(enabledField);
     const passesAvail = availField === undefined ? true : truthyBool(availField);
 
     return !!sameCalendar && passesEnabled && passesAvail;
@@ -1150,6 +1127,7 @@ function readDurationMin(s: any): number {
 
   return dedup;
 }
+
 
 async function fetchAppointmentsForCalendar(calendarId: string, signal?: AbortSignal): Promise<any[]> {
 
@@ -1446,6 +1424,7 @@ async function fetchMonthAvailabilityClientFast(opts: {
 
   return valid;
 }
+
 
 
 
@@ -1980,8 +1959,7 @@ function openAuth() {
 async function login(email: string, password: string): Promise<boolean> {
   try {
     // 1) Log in
-    const r = await fetch(`${API}/api/login`, {
-
+    const r = await fetch(`${API}/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
