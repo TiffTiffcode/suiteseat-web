@@ -334,36 +334,20 @@ async function fetchServicesForCategory(businessId: string, categoryId: string) 
 
 for (const qs of categoryQueries) {
   const url = `${API}/public/records?dataType=Service&${qs}&limit=500&ts=${now}`;
-    console.log("[services] try category url:", url);
+  console.log("[services] try category url:", url);
 
-    const r = await fetch(url, { cache: "no-store", credentials: "include" });
-    if (!r.ok) continue;
+  const r = await fetch(url, { cache: "no-store", credentials: "include" });
+  if (!r.ok) continue;
 
-    const payload = await r.json().catch(() => null);
-    const rows = unpackRows(payload);
+  const payload = await r.json().catch(() => null);
+  const rows = unpackRows(payload);
 
-    const wantBiz = String(businessId);
-const wantCat = String(categoryId);
-
-const filtered = (rows || []).filter((doc: any) => {
-  const v = doc?.values || doc || {};
-
-  const bizIds = extractIdList(v.Business ?? v.business ?? v.businessId);
-  if (!bizIds.some((id) => String(id) === wantBiz)) return false;
-
-  const catIds = extractIdList(
-    v.Category ?? v.category ?? v.categoryId ?? v.Categories ?? v["Category Ref"]
-  );
-  return catIds.some((id) => String(id) === wantCat);
-});
-
-return filtered.map(mapServiceDoc);
-
-    if (Array.isArray(rows) && rows.length) {
-      console.log("[services] category query HIT:", { qs, count: rows.length });
-      return rows.map(mapServiceDoc);
-    }
+  if (Array.isArray(rows) && rows.length) {
+    console.log("[services] category query HIT:", { qs, count: rows.length });
+    return rows.map(mapServiceDoc);
   }
+}
+
 
   // 2) ✅ Fallback: fetch by Business using multiple possible keys
   const businessQueries = [
