@@ -151,7 +151,7 @@ async function fetchCalendarsForBusiness(businessId: string) {
   const keys = ["Business", "businessId"];
   for (const k of keys) {
     const url = `${API}/public/records?dataType=Calendar&${encodeURIComponent(k)}=${encodeURIComponent(businessId)}&ts=${Date.now()}`;
-    const r = await fetch(url, { cache: "no-store" });
+    const r = await fetch(url, { cache: "no-store", credentials: "include" });
     if (!r.ok) continue;
  const payload = await r.json().catch(() => null);
 const rows = unpackRows(payload);
@@ -236,7 +236,7 @@ async function fetchCategoriesForCalendar(businessId: string, calendarId: string
   const url = `${API}/public/records?dataType=Category&Calendar=${encodeURIComponent(calendarId)}&ts=${Date.now()}`;
   console.log("[cats] url", url);
 
-  const r = await fetch(url, { cache: "no-store" });
+  const r = await fetch(url, { cache: "no-store", credentials: "include" });
   if (r.ok) {
   const payload = await r.json().catch(() => null);
 const rows = unpackRows(payload);
@@ -293,13 +293,13 @@ async function fetchServicesForCategory(businessId: string, categoryId: string) 
   const URLS: string[] = [];
 
   // 1) Try by category id with a few common field names
-  for (const key of ["Category", "categoryId", "Categories"]) {
-    URLS.push(
-      `${API}/public/records?dataType=Service&${encodeURIComponent(key)}=${encodeURIComponent(
-        categoryId
-      )}&ts=${Date.now()}`
-    );
-  }
+// ✅ Use /api/records/Service instead of /public/records?dataType=Service
+for (const key of ["Category", "categoryId", "Categories", "Category._id", "Categories._id"]) {
+  URLS.push(
+    `${API}/api/records/Service?Business=${encodeURIComponent(businessId)}&ts=${Date.now()}`
+  );
+}
+
 
   // 2) (Optional) dotted lookups — harmless if ignored
   for (const key of ["Category._id", "Categories._id"]) {
@@ -314,7 +314,7 @@ async function fetchServicesForCategory(businessId: string, categoryId: string) 
   for (const url of URLS) {
     console.log("[services] try", url);
     try {
-      const r = await fetch(url, { cache: "no-store" });
+      const r = await fetch(url, { cache: "no-store", credentials: "include" });
       if (!r.ok) continue;
 
       const payload = await r.json().catch(() => null);
@@ -326,18 +326,18 @@ async function fetchServicesForCategory(businessId: string, categoryId: string) 
   }
 
   // 3) Fallback: fetch services by business (try multiple keys) then filter locally
-  const businessFallbackUrls = [
-    `${API}/public/records?dataType=Service&Business=${encodeURIComponent(businessId)}&ts=${Date.now()}`,
-    `${API}/public/records?dataType=Service&businessId=${encodeURIComponent(businessId)}&ts=${Date.now()}`,
-    `${API}/public/records?dataType=Service&Business._id=${encodeURIComponent(businessId)}&ts=${Date.now()}`,
-  ];
+const businessFallbackUrls = [
+  `${API}/api/records/Service?Business=${encodeURIComponent(businessId)}&ts=${Date.now()}`,
+  `${API}/api/records/Service?businessId=${encodeURIComponent(businessId)}&ts=${Date.now()}`,
+  `${API}/api/records/Service?Business._id=${encodeURIComponent(businessId)}&ts=${Date.now()}`,
+];
 
   let businessRows: any[] = [];
 
   for (const url of businessFallbackUrls) {
     console.log("[services] business fallback try:", url);
     try {
-      const r = await fetch(url, { cache: "no-store" });
+      const r = await fetch(url, { cache: "no-store", credentials: "include" });
       if (!r.ok) continue;
 
       const payload = await r.json().catch(() => null);
@@ -894,7 +894,7 @@ async function fetchServicesByIds(ids: string[]): Promise<any[]> {
   for (const id of ids) {
     const url = `${API}/public/records?dataType=Service&_id=${encodeURIComponent(id)}&ts=${Date.now()}`;
     try {
-      const r = await fetch(url, { cache: "no-store" });
+      const r = await fetch(url, { cache: "no-store", credentials: "include" });
       if (!r.ok) continue;
 const payload = await r.json().catch(() => null);
 const rows = unpackRows(payload);
@@ -1114,7 +1114,7 @@ function readDurationMin(s: any): number {
   let all: any[] = [];
   for (const qs of qsVariants) {
     const url = `${API}/public/records?dataType=Upcoming%20Hours&${qs}&ts=${Date.now()}`;
-    const r = await fetch(url, { cache: "no-store" });
+    const r = await fetch(url, { cache: "no-store", credentials: "include" });
     if (!r.ok) continue;
    const payload = await r.json().catch(() => null);
 const rows = unpackRows(payload);
@@ -1162,7 +1162,7 @@ async function fetchAppointmentsForCalendar(calendarId: string): Promise<any[]> 
   for (const qs of qsVariants) {
     const url = `${API}/public/records?dataType=Appointment&${qs}&ts=${Date.now()}`;
     try {
-      const r = await fetch(url, { cache: "no-store" });
+      const r = await fetch(url, { cache: "no-store", credentials: "include" });
       if (!r.ok) continue;
      const payload = await r.json().catch(() => null);
 const rows = unpackRows(payload);
