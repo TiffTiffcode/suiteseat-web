@@ -1959,7 +1959,7 @@ function openAuth() {
 async function login(email: string, password: string): Promise<boolean> {
   try {
     // 1) Log in
-    const r = await fetch(`${API}/auth/login`, {
+   const r = await fetch(`${API}/api/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
