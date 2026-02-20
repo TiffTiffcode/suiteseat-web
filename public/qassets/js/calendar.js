@@ -894,17 +894,35 @@ async function fetchServicesForBusiness(businessId) {
   const rows = toItems(data);
 
   // filter client-side by business id (handles any field name weirdness)
-  const filtered = rows.filter(s => {
-    const v = s.values || {};
-    const b =
-      (v.Business && (v.Business._id || v.Business.id)) ||
-      v.businessId ||
-      v.BusinessId ||
-      v["Business Id"] ||
-      v["BusinessID"] ||
-      "";
-    return String(b).trim() === String(businessId).trim();
-  });
+const filtered = rows.filter((s) => {
+  const v = s.values || {};
+
+  // handle Business stored as:
+  // 1) ["bizId"]
+  // 2) "bizId"
+  // 3) { _id: "bizId" }
+  // 4) businessId / BusinessId
+  const b = v.Business ?? v.business ?? null;
+
+  let biz =
+    v.businessId ||
+    v.BusinessId ||
+    v["Business Id"] ||
+    v["BusinessID"] ||
+    "";
+
+  // If Business is array: ["id"]
+  if (!biz && Array.isArray(b) && b[0]) biz = b[0];
+
+  // If Business is object: {_id:"id"}
+  if (!biz && b && typeof b === "object") biz = b._id || b.id || b.value || "";
+
+  // If Business is string
+  if (!biz && typeof b === "string") biz = b;
+
+  return String(biz).trim() === String(businessId).trim();
+});
+
 
   console.log("[services] total:", rows.length, "filtered:", filtered.length);
   
@@ -934,18 +952,17 @@ async function fetchServicesForBusiness(businessId) {
 
 function getServiceName(s) {
   const v = s?.values || s || {};
-  const name =
+  return String(
+    v.Name ||
+    v.name ||
     v.serviceName ||
     v.ServiceName ||
     v["Service Name"] ||
-    v.name ||
-    v.Name ||
     v.title ||
-    v.Title ||
-    "";
-
-  return String(name).trim() || "(Unnamed service)";
+    "(Unnamed service)"
+  ).trim() || "(Unnamed service)";
 }
+
 
 async function loadServicesForSelectedBusiness() {
   const bizId = String(document.getElementById("appointment-business")?.value || "").trim();
