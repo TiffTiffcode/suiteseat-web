@@ -1079,15 +1079,6 @@ useEffect(() => {
       )}
 
 
-
-
-
-
-
-
-
-
-
       {/* Success modal */}
       {showNextModal && (
         <div

@@ -2116,11 +2116,11 @@ async function login(email: string, password: string): Promise<boolean> {
     }
 
     // 2) Confirm session is actually set (cookie -> session -> user)
-    const meRes = await fetch(`${API}/check-login?ts=${Date.now()}`, {
-      credentials: "include",
-      cache: "no-store",
-      headers: { Accept: "application/json" },
-    });
+const meRes = await fetch(`${API}/api/check-login?ts=${Date.now()}`, {
+  credentials: "include",
+  cache: "no-store",
+  headers: { Accept: "application/json" },
+});
 
     if (!meRes.ok) {
       setIsLoggedIn(false);
@@ -2590,7 +2590,11 @@ if (saved?._id) {
 useEffect(() => {
   (async () => {
     try {
-      const r = await fetch(`${API}/check-login?ts=${Date.now()}`, { credentials: "include" });
+    const r = await fetch(`${API}/api/check-login?ts=${Date.now()}`, {
+  credentials: "include",
+  cache: "no-store",
+});
+
       if (!r.ok) { setIsLoggedIn(false); setCurrentUserId(null); return; }
       const data = await r.json().catch(() => ({}));
       const uid  = data?.userId || data?._id || data?.id || null;
