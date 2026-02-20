@@ -844,6 +844,7 @@ function getServiceDurationMin(service) {
   const v = service?.values || service || {};
 
   const candidates = [
+    v.durationMinutes, 
     v.DurationMin,
     v["DurationMin"],
     v["Duration (min)"],
@@ -906,6 +907,27 @@ async function fetchServicesForBusiness(businessId) {
   });
 
   console.log("[services] total:", rows.length, "filtered:", filtered.length);
+  
+  if (!filtered.length) {
+  const ids = Array.from(
+    new Set(
+      rows.map(s => {
+        const v = s.values || {};
+        return String(
+          (v.Business && (v.Business._id || v.Business.id)) ||
+          v.businessId ||
+          v.BusinessId ||
+          ""
+        ).trim();
+      }).filter(Boolean)
+    )
+  );
+
+  console.warn("[services] NO matches for bizId:", businessId);
+  console.warn("[services] services belong to businessIds:", ids);
+  console.warn("[services] selected bizId:", businessId);
+}
+
   return filtered;
 }
 
