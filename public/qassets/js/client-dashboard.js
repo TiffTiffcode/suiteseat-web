@@ -647,28 +647,32 @@ async function fetchClientAppointments(clientId, clientEmail) {
 
   // Try authenticated endpoint first (if session works)
   const urls = [
-    `${API_BASE}/api/records/Appointment?limit=500&ts=${Date.now()}`,
+   `${API_BASE}/api/records?dataType=Appointment&limit=500&ts=${Date.now()}`,
     `${API_BASE}/public/records?dataType=Appointment&limit=500&ts=${Date.now()}`,
   ];
 
   let rows = [];
-  for (const url of urls) {
-    try {
-      const r = await fetch(url, {
-        credentials: "include",
-        headers: { Accept: "application/json" },
-        cache: "no-store",
-      });
+ for (const url of urls) {
+  try {
+    const r = await fetch(url, {
+      credentials: "include",
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+    });
 
-      if (!r.ok) continue;
-
-      const data = await r.json().catch(() => ({}));
-      rows = rowsFromAnyPayload(data);
-      if (rows.length) break;
-    } catch (e) {
-      console.warn("[appt] fetch failed:", url, e);
+    if (!r.ok) {
+      const txt = await r.text().catch(() => "");
+      console.warn("[appt] HTTP fail", r.status, url, txt);
+      continue;
     }
+
+    const data = await r.json().catch(() => ({}));
+    rows = rowsFromAnyPayload(data);
+    if (rows.length) break;
+  } catch (e) {
+    console.warn("[appt] fetch failed:", url, e);
   }
+}
 
   if (!rows.length) {
     console.log("[appt] no rows returned from API");
