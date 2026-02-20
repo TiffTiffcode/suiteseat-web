@@ -9,10 +9,9 @@ window.STATE.refreshToken = 0; // ✅ MUST exist before any refresh calls
 const ALLOW_OVERLAPS_FOR_PRO = true;
 
 // ---- API ORIGIN (single source of truth) ----
-const API_ORIGIN =
-  window.location.hostname === "localhost"
-    ? "http://localhost:8400"
-    : "https://suiteseat-app1.onrender.com"; // <-- your prod API
+const API_BASE = location.hostname.includes("localhost")
+  ? "http://localhost:8400"
+  : "https://api2.suiteseat.io";
 
 async function api(path, init = {}) {
   const res = await fetch(`${API_ORIGIN}${path}`, {

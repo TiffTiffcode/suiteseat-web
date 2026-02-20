@@ -2,9 +2,9 @@
 const host = window.location.hostname;
 const isProdHost = host === "suiteseat.io" || host === "www.suiteseat.io";
 
-const API_BASE = isProdHost
-  ? "https://suiteseat-app1.onrender.com"
-  : "http://localhost:8400";
+const API_BASE = location.hostname.includes("localhost")
+  ? "http://localhost:8400"
+  : "https://api2.suiteseat.io";
 
 console.log("[client-dashboard] API_BASE:", API_BASE);
 
