@@ -1,3 +1,4 @@
+//C:\Users\tiffa\OneDrive\Desktop\suiteseat-web\public\qassets\js\calendar.js
 // ==============================
 // ✅ AUTH + HEADER (fresh rebuild)
 // ==============================
@@ -14,7 +15,7 @@ const API_BASE = location.hostname.includes("localhost")
   : "https://api2.suiteseat.io";
 
 async function api(path, init = {}) {
-  const res = await fetch(`${API_ORIGIN}${path}`, {
+  const res = await fetch(`${API_BASE}${path}`, {
     credentials: "include",
     cache: "no-store",
     headers: { Accept: "application/json", ...(init.headers || {}) },
@@ -22,6 +23,7 @@ async function api(path, init = {}) {
   });
   return res;
 }
+
 
 // ---- popup helpers (match your HTML ids) ----
 function openLoginPopup() {
