@@ -770,12 +770,11 @@ function wireAppointmentBusinessChange() {
 bizDD.addEventListener("change", async () => {
   console.log("[appt popup] business changed:", bizDD.value);
   await loadServicesForSelectedBusiness();
-
-  // only filter-by-business clients when showAll is OFF
   if (!window.STATE?.showAllClients) {
     await loadClientsForSelectedBusiness();
   }
 });
+
 }
 
                  
@@ -877,23 +876,53 @@ function getServiceDurationMin(service) {
 async function fetchServicesForBusiness(businessId) {
   if (!businessId) return [];
 
-  const res = await api(
-    `/public/records?dataType=Service&businessId=${encodeURIComponent(businessId)}&limit=5000&ts=${Date.now()}`
-  );
+  const url = `/api/records/Service?limit=5000&ts=${Date.now()}`;
+  const res = await api(url);
 
-  const data = await res.json().catch(() => ({}));
-  return toItems(data);
+  const raw = await res.text().catch(() => "");
+  let data = null;
+  try { data = raw ? JSON.parse(raw) : null; } catch {}
+
+  console.log("[services] url:", url);
+  console.log("[services] status:", res.status);
+  console.log("[services] raw:", raw);
+  console.log("[services] parsed:", data);
+
+  if (!res.ok) throw new Error((data && data.message) || "Failed to load services");
+
+  const rows = toItems(data);
+
+  // filter client-side by business id (handles any field name weirdness)
+  const filtered = rows.filter(s => {
+    const v = s.values || {};
+    const b =
+      (v.Business && (v.Business._id || v.Business.id)) ||
+      v.businessId ||
+      v.BusinessId ||
+      v["Business Id"] ||
+      v["BusinessID"] ||
+      "";
+    return String(b).trim() === String(businessId).trim();
+  });
+
+  console.log("[services] total:", rows.length, "filtered:", filtered.length);
+  return filtered;
 }
+
 
 function getServiceName(s) {
   const v = s?.values || s || {};
-  return (
+  const name =
     v.serviceName ||
+    v.ServiceName ||
     v["Service Name"] ||
     v.name ||
+    v.Name ||
     v.title ||
-    "(Unnamed service)"
-  );
+    v.Title ||
+    "";
+
+  return String(name).trim() || "(Unnamed service)";
 }
 
 async function loadServicesForSelectedBusiness() {
@@ -912,6 +941,7 @@ if (durInput && !editingId) durInput.value = ""; // reset only in create mode
 
   try {
     const rows = await fetchServicesForBusiness(bizId);
+console.log("[services] rows for biz", bizId, rows);
 
     // ✅ cache for later lookup when user changes dropdown
     window.STATE.servicesByBiz[bizId] = rows;
