@@ -10,7 +10,12 @@ type SlotGroups = { morning: string[]; afternoon: string[]; evening: string[] };
 type ConfirmStage = "review" | "book";
 
 // basicFlow.tsx (and anywhere else the client calls the API)
-const API = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8400";
+const API =
+  process.env.NEXT_PUBLIC_API_BASE_URL ||
+  (process.env.NODE_ENV === "production"
+    ? "https://api2.suiteseat.io"
+    : "http://localhost:8400");
+console.log("[flow] FILE CHECK basicFlow.tsx path marker: 2026-02-17 A");
 
 const DEFAULT_MIN_FOR_UNKNOWN = 15;
 

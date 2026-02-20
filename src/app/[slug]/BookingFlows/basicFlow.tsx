@@ -318,100 +318,150 @@ function extractIdList(raw: any): string[] {
   return one ? [one] : [];
 }
 
+// REPLACE your fetchServicesForCategory with this version
 async function fetchServicesForCategory(businessId: string, categoryId: string) {
-  const now = Date.now();
-  const wantCat = String(categoryId);
+  const URLS: string[] = [];
 
-  // 1) ✅ Try direct Category queries first (if your API supports querying reference fields)
-  const categoryQueries = [
-    `Category=${encodeURIComponent(wantCat)}`,
-    `Category._id=${encodeURIComponent(wantCat)}`,
-    `Categories=${encodeURIComponent(wantCat)}`,
-    `Categories._id=${encodeURIComponent(wantCat)}`,
-    `categoryId=${encodeURIComponent(wantCat)}`,
-    `Category%20Ref=${encodeURIComponent(wantCat)}`, // "Category Ref"
-  ];
-
-for (const qs of categoryQueries) {
-  const url = `${API}/public/records?dataType=Service&${qs}&limit=500&ts=${now}`;
-  console.log("[services] try category url:", url);
-
-  const r = await fetch(url, { cache: "no-store", credentials: "include" });
-  if (!r.ok) continue;
-
-  const payload = await r.json().catch(() => null);
-  const rows = unpackRows(payload);
-
-  if (Array.isArray(rows) && rows.length) {
-    console.log("[services] category query HIT:", { qs, count: rows.length });
-    return rows.map(mapServiceDoc);
-  }
-}
-
-
-  // 2) ✅ Fallback: fetch by Business using multiple possible keys
-  const businessQueries = [
-    `Business=${encodeURIComponent(businessId)}`,
-    `Business._id=${encodeURIComponent(businessId)}`,
-    `businessId=${encodeURIComponent(businessId)}`,
-    `BusinessId=${encodeURIComponent(businessId)}`,
-  ];
-
-  let all: any[] = [];
-  for (const qs of businessQueries) {
-    const url = `${API}/public/records?dataType=Service&${qs}&ts=${now}`;
-    console.log("[services] try business url:", url);
-
-    const r = await fetch(url, { cache: "no-store", credentials: "include" });
-    if (!r.ok) continue;
-
-    const payload = await r.json().catch(() => null);
-    const rows = unpackRows(payload);
-    if (Array.isArray(rows) && rows.length) {
-      all = all.concat(rows);
-    }
+  for (const key of ["Category", "categoryId", "Categories", "Category._id", "Categories._id"]) {
+    // (Key isn't used here — kept for compatibility + future server filtering)
+    URLS.push(
+      `${API}/api/records/Service?Business=${encodeURIComponent(businessId)}&limit=2000&ts=${Date.now()}`
+    );
   }
 
-  // dedup
-  const seen = new Set<string>();
-  all = all.filter((d: any) => {
-    const id = String(d?._id || "");
-    if (!id) return true;
-    if (seen.has(id)) return false;
-    seen.add(id);
-    return true;
-  });
+  // 2) (Optional) dotted lookups — harmless if ignored
+  // (If your server ever supports these directly, they’ll start working)
+  for (const key of ["Category._id", "Categories._id"]) {
+    URLS.push(
+      `${API}/public/records?dataType=Service&Business=${encodeURIComponent(
+        businessId
+      )}&${encodeURIComponent(key)}=${encodeURIComponent(categoryId)}&limit=2000&ts=${Date.now()}`
+    );
+  }
 
-  console.log("[services] business fallback total rows:", all.length);
+  // try each URL until one returns rows
+  for (const url of URLS) {
+    console.log("[services] try", url);
+    try {
+      const r = await fetch(url, { cache: "no-store", credentials: "include" });
+      if (!r.ok) continue;
 
-  // 3) ✅ Filter by category with stronger matching
-  const filtered = all.filter((doc: any) => {
+      const payload = await r.json().catch(() => null);
+      const rows = unpackRows(payload);
+
+      console.log(
+        "[services] rows from try:",
+        Array.isArray(rows) ? rows.length : 0
+      );
+
+      if (Array.isArray(rows) && rows.length) {
+        // We got services — filter locally by category
+        const filtered = rows.filter((doc: any) => {
+          const v = doc?.values || doc || {};
+
+          const cat =
+            v.Category?._id ||
+            v.Category ||
+            v.categoryId ||
+            (Array.isArray(v.Categories)
+              ? v.Categories[0]?._id || v.Categories[0]
+              : null);
+
+          return String(cat || "") === String(categoryId);
+        });
+
+        console.log("[services] filtered from try:", filtered.length, {
+          categoryId,
+        });
+
+        return filtered.map(mapServiceDoc);
+      }
+    } catch {}
+  }
+
+  // 3) Fallback: fetch services by business (try multiple keys) then filter locally
+  const businessFallbackUrls = [
+    `${API}/api/records/Service?Business=${encodeURIComponent(
+      businessId
+    )}&limit=2000&ts=${Date.now()}`,
+    `${API}/api/records/Service?businessId=${encodeURIComponent(
+      businessId
+    )}&limit=2000&ts=${Date.now()}`,
+    `${API}/api/records/Service?Business._id=${encodeURIComponent(
+      businessId
+    )}&limit=2000&ts=${Date.now()}`,
+  ];
+
+  let businessRows: any[] = [];
+
+  for (const url of businessFallbackUrls) {
+    console.log("[services] business fallback try:", url);
+    try {
+      const r = await fetch(url, { cache: "no-store", credentials: "include" });
+      if (!r.ok) continue;
+
+      const payload = await r.json().catch(() => null);
+      const rows = unpackRows(payload);
+
+      console.log(
+        "[services] business fallback rows:",
+        Array.isArray(rows) ? rows.length : 0
+      );
+
+      if (Array.isArray(rows) && rows.length) {
+        businessRows = rows;
+        break;
+      }
+    } catch {}
+  }
+
+  // FINAL fallback: if still none, pull ALL services (public) and filter locally
+  if (!businessRows.length) {
+    const allUrl = `${API}/public/records?dataType=Service&Business=${encodeURIComponent(
+      businessId
+    )}&limit=2000&ts=${Date.now()}`;
+
+    console.warn("[services] no business rows — final fallback:", allUrl);
+
+    try {
+      const rAll = await fetch(allUrl, { cache: "no-store" });
+      if (rAll.ok) {
+        const payloadAll = await rAll.json().catch(() => null);
+        const rowsAll = unpackRows(payloadAll);
+        if (Array.isArray(rowsAll)) businessRows = rowsAll;
+      }
+    } catch {}
+  }
+
+  // ✅ DEBUG LOGS
+  console.log("[services debug] categoryId we are filtering for:", categoryId);
+
+  const catHits = (businessRows || []).filter((doc: any) => {
     const v = doc?.values || doc || {};
-
-    const raw =
-      v.Category ??
-      v["Category Ref"] ??
-      v.Categories ??
-      v["Categories"] ??
-      v.category ??
-      v.categoryId ??
-      v["Service Category"] ??
-      null;
-
-    const ids = extractIdList(raw);
-    return ids.some((id) => String(id) === wantCat);
+    return JSON.stringify(v).includes(categoryId); // brute force debug only
   });
 
-  console.log("[services] filtered by category:", {
-    businessId,
-    categoryId,
-    total: all.length,
-    filtered: filtered.length,
+  console.log("[services debug] brute-force matches found:", catHits.length);
+  console.log("[services debug] first brute-force match:", catHits[0]);
+
+  // Real filter
+  const filtered = (businessRows || []).filter((doc: any) => {
+    const v = doc?.values || doc || {};
+    const cat =
+      v.Category?._id ||
+      v.Category ||
+      v.categoryId ||
+      (Array.isArray(v.Categories)
+        ? v.Categories[0]?._id || v.Categories[0]
+        : null);
+
+    return String(cat || "") === String(categoryId);
   });
+
+  console.log("[services] fallback filtered:", filtered.length, { categoryId });
 
   return filtered.map(mapServiceDoc);
 }
-
 
 
 //Service Helper 
