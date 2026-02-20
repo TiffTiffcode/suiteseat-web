@@ -106,9 +106,7 @@ const tryRefresh = () => {
     window.refreshCalendarAppointments?.(window.currentWeekDates);
   }
 };
-setTimeout(tryRefresh, 0);
-setTimeout(tryRefresh, 50);
-setTimeout(tryRefresh, 200);
+
 
 
 
@@ -2271,30 +2269,36 @@ async function fetchAppointmentsWhereImPro() {
   const myId = String(window.STATE?.userId || "").trim();
   if (!myId) return [];
 
-  // ✅ fetch ALL appointments, then filter client-side
-const res = await api(`/api/records/Appointment?limit=5000&ts=${Date.now()}`);
+  // ✅ use /api/me/records (scoped to logged-in user)
+  const params = new URLSearchParams({
+    dataType: "Appointment",
+    includeCreatedBy: "1",
+    includeRefField: "1",
+    myRefField: "values.proUserId",  // ✅ matches what you save on appointments
+    limit: "5000",
+  });
 
-const raw = await res.text().catch(() => "");
-let data = null;
-try { data = raw ? JSON.parse(raw) : null; } catch {}
+  const res = await api(`/api/me/records?${params.toString()}&ts=${Date.now()}`);
 
-console.log("[appts] status:", res.status);
-console.log("[appts] raw:", raw);
-console.log("[appts] parsed:", data);
+  const raw = await res.text().catch(() => "");
+  let data = null;
+  try { data = raw ? JSON.parse(raw) : null; } catch {}
 
-if (!res.ok) {
-  throw new Error("Failed to load records");
-}
+  console.log("[appts] status:", res.status);
+  console.log("[appts] raw:", raw);
+  console.log("[appts] parsed:", data);
 
+  if (!res.ok) {
+    throw new Error(data?.message || data?.error || "Failed to load records");
+  }
 
-  const rows = toItems(data);
+  // /api/me/records returns { data: [...] }
+  const rows = Array.isArray(data?.data) ? data.data : toItems(data);
 
-  // ✅ filter where Pro matches me
+  // extra safety filter (optional)
   return rows.filter(a => {
     const v = a?.values || {};
-    const pro = v.Pro || v.proUserId || v.proId || "";
-    const proId = typeof pro === "string" ? pro : (pro._id || pro.id || "");
-    return String(proId) === myId;
+    return String(v.proUserId || (v.Pro && (v.Pro._id || v.Pro.id)) || "") === myId;
   });
 }
 
