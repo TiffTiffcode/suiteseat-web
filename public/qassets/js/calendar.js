@@ -1928,13 +1928,21 @@ function toItems(data) {
 
 function getBizName(b) {
   const v = b?.values || b || {};
-  return (
-    v["Business Name"] ||
+
+  const name =
     v.businessName ||
+    v.BusinessName ||
+    v["Business Name"] ||
+    v["Business name"] ||
     v.name ||
+    v.Name ||
     v.title ||
-    "(Unnamed business)"
-  );
+    v.Title ||
+    v.displayName ||
+    v.DisplayName ||
+    "";
+
+  return String(name).trim() || "(Unnamed business)";
 }
 
 async function loadUserBusinesses() {
@@ -1970,6 +1978,8 @@ async function loadUserBusinesses() {
         })
         .join("");
   }
+console.log("[biz] first record:", businesses[0]);
+console.log("[biz] first record values:", businesses[0]?.values);
 
   console.log("[biz] loaded:", businesses.length);
 }
