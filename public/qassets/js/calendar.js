@@ -2272,14 +2272,20 @@ async function fetchAppointmentsWhereImPro() {
   if (!myId) return [];
 
   // ✅ fetch ALL appointments, then filter client-side
-  const res = await api(`/api/records/Appointment?limit=5000&ts=${Date.now()}`);
-  const text = await res.text();
-  let data = {};
-  try { data = JSON.parse(text); } catch {}
+const res = await api(`/api/records/Appointment?limit=5000&ts=${Date.now()}`);
 
-  if (!res.ok) {
-    throw new Error(data?.message || data?.error || `Appointments HTTP ${res.status}: ${text.slice(0,200)}`);
-  }
+const raw = await res.text().catch(() => "");
+let data = null;
+try { data = raw ? JSON.parse(raw) : null; } catch {}
+
+console.log("[appts] status:", res.status);
+console.log("[appts] raw:", raw);
+console.log("[appts] parsed:", data);
+
+if (!res.ok) {
+  throw new Error("Failed to load records");
+}
+
 
   const rows = toItems(data);
 
