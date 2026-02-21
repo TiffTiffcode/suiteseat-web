@@ -2455,32 +2455,16 @@ function parseTimeTo24h(timeStr) {
 
   return { h, min };
 }
-
 function getApptStartDateTime(appt) {
   const v = appt?.values || {};
 
-  // 1) ISO candidates (best)
-  const iso =
-    v.startDateTime ||
-    v.StartDateTime ||
-    v["Start DateTime"] ||
-    v["Start Date"] ||
-    appt.startDateTime ||
-    appt.Start ||
-    null;
-
-  if (iso) {
-    const d = new Date(iso);
-    if (!isNaN(d.getTime())) return d;
-  }
-
-  // 2) Date + Time fields
+  // 1) Prefer Date + Time fields (local-safe)
   const dateOnly =
     v.Date ||
     v["Date"] ||
     v.AppointmentDate ||
     v["Appointment Date"] ||
-    appt.Date ||
+    appt?.Date ||
     null;
 
   const timeOnly =
@@ -2488,7 +2472,7 @@ function getApptStartDateTime(appt) {
     v["Time"] ||
     v.StartTime ||
     v["Start Time"] ||
-    appt.Time ||
+    appt?.Time ||
     null;
 
   // If dateOnly is already a full ISO date-time, try it
@@ -2505,16 +2489,29 @@ function getApptStartDateTime(appt) {
       const t = parseTimeTo24h(timeOnly);
       if (t) {
         base.setHours(t.h, t.min, 0, 0);
-        return base;
       }
     }
-
-    // Date only fallback
     return base;
+  }
+
+  // 2) Fallback to ISO candidates (can be UTC and shift)
+  const iso =
+    v.startDateTime ||
+    v.StartDateTime ||
+    v["Start DateTime"] ||
+    v["Start Date"] ||
+    appt?.startDateTime ||
+    appt?.Start ||
+    null;
+
+  if (iso) {
+    const d = new Date(iso);
+    if (!isNaN(d.getTime())) return d;
   }
 
   return null;
 }
+
 
 
 function inRange(dt, start, end) {
