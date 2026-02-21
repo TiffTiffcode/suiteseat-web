@@ -2402,39 +2402,21 @@ window.addEventListener("resize", () => {
  /////////////////////////////////////////////////////
                   // Appointment Card
 async function fetchAppointmentsWhereImPro() {
+  const res = await api(`/api/records/Appointment?limit=5000&ts=${Date.now()}`);
+  const data = await res.json().catch(() => ({}));
+  const rows = toItems(data);
+
+  // Safety filter (optional)
   const myId = String(window.STATE?.userId || "").trim();
   if (!myId) return [];
 
-  // ✅ use /api/me/records (scoped to logged-in user)
-  const params = new URLSearchParams({
-    dataType: "Appointment",
-    includeCreatedBy: "1",
-    includeRefField: "1",
-    myRefField: "values.proUserId",  // ✅ matches what you save on appointments
-    limit: "5000",
-  });
-
-  const res = await api(`/api/me/records?${params.toString()}&ts=${Date.now()}`);
-
-  const raw = await res.text().catch(() => "");
-  let data = null;
-  try { data = raw ? JSON.parse(raw) : null; } catch {}
-
-  console.log("[appts] status:", res.status);
-  console.log("[appts] raw:", raw);
-  console.log("[appts] parsed:", data);
-
-  if (!res.ok) {
-    throw new Error(data?.message || data?.error || "Failed to load records");
-  }
-
-  // /api/me/records returns { data: [...] }
-  const rows = Array.isArray(data?.data) ? data.data : toItems(data);
-
-  // extra safety filter (optional)
   return rows.filter(a => {
     const v = a?.values || {};
-    return String(v.proUserId || (v.Pro && (v.Pro._id || v.Pro.id)) || "") === myId;
+    const pro =
+      v.proUserId ||
+      (v.Pro && (v.Pro._id || v.Pro.id)) ||
+      "";
+    return String(pro) === myId;
   });
 }
 
