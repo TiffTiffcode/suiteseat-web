@@ -296,6 +296,18 @@ function showClientDetail(client) {
   window.STATE = window.STATE || {};
   window.STATE.selectedClientId = id;
 
+  // Save the selected client + their business so the appt popup can preselect both
+const v = client?.values || {};
+const clientBizId = String(
+  v.businessId ||
+  v.BusinessId ||
+  (v.Business && (v.Business._id || v.Business.id || v.Business.value)) ||
+  (Array.isArray(v.Business) ? v.Business[0] : "") ||
+  ""
+).trim();
+
+window.STATE.selectedClientBusinessId = clientBizId;
+
   const nameEl  = document.getElementById("detail-name");
   const emailEl = document.getElementById("detail-email");
   const phoneEl = document.getElementById("detail-phone");
@@ -305,13 +317,15 @@ function showClientDetail(client) {
   if (phoneEl) phoneEl.textContent = phone ? `Phone: ${phone}` : "";
 
   // ✅ Add Appointment button (optional): open appointment popup and preselect client
-  document.getElementById("btn-client-add-appt")?.addEventListener("click", async () => {
-    try {
-      await openAppointmentPopup?.();
-      const dd = document.getElementById("appointment-client");
-      if (dd) dd.value = id;
-    } catch {}
-  }, { once: true });
+// ✅ Add Appointment button (optional): open appointment popup and preselect client
+document.getElementById("btn-client-add-appt")?.addEventListener("click", async () => {
+  try {
+    await openAppointmentPopup?.();
+    const dd = document.getElementById("appointment-client");
+    if (dd) dd.value = id;
+  } catch {}
+}, { once: true });
+
 }
 
 function backToClientList() {
@@ -1955,21 +1969,33 @@ function wireCancelAppointmentButton() {
 
 // Open appointment popup from inside the VIEW CLIENTS popup (closes that popup first)
 window.openAppointmentFromClientPopup = async function () {
-  // close the "View All Clients" popup (THIS is the one on screen)
+  const clientId = String(window.STATE?.selectedClientId || "").trim();
+  const clientBizId = String(window.STATE?.selectedClientBusinessId || "").trim();
+
+  // close the View Clients popup (this is the one on screen)
   closeClientListPopup();
 
-  // open appointment popup next paint (prevents overlap flash)
   requestAnimationFrame(async () => {
+    // open appointment popup (loads businesses + default stuff)
     await openAppointmentPopup();
 
-    // optional: auto-select the client you clicked
-    const clientId = String(window.STATE?.selectedClientId || "").trim();
-    const dd = document.getElementById("appointment-client");
-    if (dd && clientId) dd.value = clientId;
+    // ✅ force business dropdown to the client’s business
+    if (clientBizId) {
+      const bizDD = document.getElementById("appointment-business");
+      if (bizDD) bizDD.value = clientBizId;
+
+      // now reload dependent dropdowns for THAT business
+      await loadServicesForSelectedBusiness();
+      await loadClientsForSelectedBusiness();
+    }
+
+    // ✅ finally select the client
+    if (clientId) {
+      const cliDD = document.getElementById("appointment-client");
+      if (cliDD) cliDD.value = clientId;
+    }
   });
 };
-
-
 
 
 
