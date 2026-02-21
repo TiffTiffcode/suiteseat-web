@@ -207,15 +207,31 @@ function getBusinessNameFromRecord(rec: any): string {
 }
 
 function getProIdFromBusinessRecord(bizRec: any) {
-  const v = bizRec?.values || {};
-  return (
-    bizRec?.createdBy ||
-    v?.proUserId ||          // ✅ this will now exist
-    v?.ownerUserId ||
-    v?.providerId ||
-    null
-  );
+  if (!bizRec) return null;
+
+  const v = bizRec.values || {};
+
+  // ✅ Your Business record has: values.Pro: { _id: "..." }  (from your logs)
+  const pro =
+    (v.Pro && (v.Pro._id || v.Pro.id)) ||
+    v.Pro ||
+    null;
+
+  if (pro) return String(pro);
+
+  // Optional fallbacks (only if you ever store these)
+  const createdByValue = v["Created By"] || v.createdBy || bizRec.createdBy || null;
+
+  if (createdByValue && typeof createdByValue === "object") {
+    const id = createdByValue._id || createdByValue.id;
+    if (id) return String(id);
+  }
+
+  if (createdByValue) return String(createdByValue);
+
+  return null;
 }
+
 
 
 
@@ -2452,8 +2468,17 @@ console.log("[bizRec.values]", bizRec?.values);
   }
 }
 
-
+// ✅ PUT THE GUARD RIGHT HERE
+if (!providerId) {
+  console.error("❌ No providerId derived from Business. Blocking booking.", {
+    businessId,
+    selectedCalendarId,
+  });
+  alert("Booking failed: this business is missing a Pro link. Please contact the business owner.");
+  return false;
+}
 const serviceNames = allPicked.map(s => s?.name).filter(Boolean).join(", ");
+const proId = String(providerId); // providerId is guaranteed now because of the guard
 
 const values: any = {
   BusinessName: businessName,
@@ -2467,12 +2492,13 @@ const values: any = {
   ClientFirstName: firstName,
   ClientLastName: lastName,
 
-  
   businessId,
   calendarId: selectedCalendarId,
   clientId: currentUserId,
 
-...(providerId ? { Pro: { _id: providerId }, proUserId: providerId } : {}),
+  // ✅ critical for pro calendar visibility
+  Pro: { _id: proId },
+  proUserId: proId,
 
   Date: selectedDateISO,
   StartTime: selectedTimeHHMM,
@@ -2483,7 +2509,6 @@ const values: any = {
 
   "Service(s)": serviceIds.map((id) => ({ _id: id })),
 };
-
 
 
     // ✅ DEBUG: appointment payload we are about to save
