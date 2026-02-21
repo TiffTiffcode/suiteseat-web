@@ -607,8 +607,8 @@ function wireClientSearch() {
 
 
 
-////////////////////////////////////////////////////
-                  // New Client Popup
+                                                ////////////////////////////////////////////////////
+                                                      // New Client Popup
 function openClientPopup() {
   const pop = document.getElementById("popup-create-client");
   const ovl = document.getElementById("popup-overlay");
@@ -727,39 +727,8 @@ window.wireCreateClientForm = wireCreateClientForm;
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-////////////////////////////////////////////////////
-                  // Add Appointment
+                                              ////////////////////////////////////////////////////
+                                                             // Add Appointment
 function wireAppointmentBusinessChange() {
   const bizDD = document.getElementById("appointment-business");
   if (!bizDD) return;
@@ -1983,6 +1952,16 @@ function wireCancelAppointmentButton() {
 }
 
 
+// Open appointment popup from inside the client popup (closes client popup first)
+window.openAppointmentFromClientPopup = async function () {
+  // 1) close client popup
+  closeClientPopup();
+
+  // 2) next paint, open appointment popup (prevents seeing both at once)
+  requestAnimationFrame(async () => {
+    await openAppointmentPopup();
+  });
+};
 
 
 
