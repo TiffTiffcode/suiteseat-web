@@ -1952,17 +1952,22 @@ function wireCancelAppointmentButton() {
 }
 
 
-// Open appointment popup from inside the client popup (closes client popup first)
-window.openAppointmentFromClientPopup = async function () {
-  // 1) close client popup
-  closeClientPopup();
 
-  // 2) next paint, open appointment popup (prevents seeing both at once)
+// Open appointment popup from inside the VIEW CLIENTS popup (closes that popup first)
+window.openAppointmentFromClientPopup = async function () {
+  // close the "View All Clients" popup (THIS is the one on screen)
+  closeClientListPopup();
+
+  // open appointment popup next paint (prevents overlap flash)
   requestAnimationFrame(async () => {
     await openAppointmentPopup();
+
+    // optional: auto-select the client you clicked
+    const clientId = String(window.STATE?.selectedClientId || "").trim();
+    const dd = document.getElementById("appointment-client");
+    if (dd && clientId) dd.value = clientId;
   });
 };
-
 
 
 
