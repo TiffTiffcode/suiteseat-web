@@ -1075,9 +1075,14 @@ async function createClientForSelectedBusiness(payload) {
   const data = await readJsonSafe(res);
   if (!res.ok) throw new Error(data?.message || "Failed to create client");
 
-  // ✅ always return the created record (not wrapper object)
-  return data?.item || data?.record || data;
+  return (
+    data?.item ||
+    data?.record ||
+    (Array.isArray(data?.items) ? data.items[0] : null) ||
+    data
+  );
 }
+
 
 // IMPORTANT: this function must already exist in your code.
 // If your function has a different name, change it below.
@@ -1346,7 +1351,6 @@ function extractClientFromAppt(a) {
   return { id: String(id), name: String(apptName || "") };
 }
 
-
 async function loadClientsForSelectedBusiness() {
   const bizId = String(document.getElementById("appointment-business")?.value || "").trim();
   const dd = document.getElementById("appointment-client");
@@ -1363,25 +1367,60 @@ async function loadClientsForSelectedBusiness() {
     return;
   }
 
-  const res = await api(`/api/records/Client?limit=5000&ts=${Date.now()}`);
-  const data = await res.json().catch(() => ({}));
+  const url = `/api/records/Client?limit=5000&ts=${Date.now()}`;
+  let res, raw, data;
+
+  try {
+    res = await api(url);
+    raw = await res.text().catch(() => "");
+    try { data = raw ? JSON.parse(raw) : {}; } catch { data = {}; }
+
+    console.log("[clients] url:", url);
+    console.log("[clients] status:", res.status);
+    console.log("[clients] raw:", raw);
+
+    if (!res.ok) {
+      dd.innerHTML = `<option value="">(Clients failed to load)</option>`;
+      return; // ✅ do NOT throw
+    }
+  } catch (e) {
+    console.error("[clients] fetch failed:", e);
+    dd.innerHTML = `<option value="">(Clients failed to load)</option>`;
+    return;
+  }
+
   const rows = toItems(data);
 
+  // ✅ handle business saved as array OR string OR object (same issue as Services)
   const clients = showAll
     ? rows
-    : rows.filter(c => {
+    : rows.filter((c) => {
         const v = c.values || {};
-        return String(v.businessId || v.BusinessId || "").trim() === bizId;
+        const b = v.Business ?? v.business ?? null;
+
+        let bid =
+          v.businessId ||
+          v.BusinessId ||
+          v["Business Id"] ||
+          v["BusinessID"] ||
+          "";
+
+        if (!bid && Array.isArray(b) && b[0]) bid = b[0];
+        if (!bid && b && typeof b === "object") bid = b._id || b.id || b.value || "";
+        if (!bid && typeof b === "string") bid = b;
+
+        return String(bid).trim() === bizId;
       });
 
   dd.innerHTML =
     `<option value="">-- Select Client --</option>` +
-    clients.map(c => {
+    clients.map((c) => {
       const id = String(c._id || c.id || "");
       const v = c.values || {};
       const name =
-        `${v.firstName || ""} ${v.lastName || ""}`.trim() ||
+        `${v.firstName || v.FirstName || ""} ${v.lastName || v.LastName || ""}`.trim() ||
         v.email ||
+        v.Email ||
         "(Client)";
       return `<option value="${id}">${name}</option>`;
     }).join("");
@@ -1624,6 +1663,8 @@ function getServiceCalendarId(service) {
   const cal =
     v.Calendar || v.calendar || null;
 
+    if (Array.isArray(cal) && cal[0]) return String(cal[0]).trim();
+     
   // if stored as object
   if (cal && typeof cal === "object") {
     return String(cal._id || cal.id || cal.value || "").trim();
