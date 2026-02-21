@@ -325,31 +325,37 @@ window.STATE.selectedClientBusinessId = clientBizId;
   if (emailEl) emailEl.textContent = email ? `Email: ${email}` : "";
   if (phoneEl) phoneEl.textContent = phone ? `Phone: ${phone}` : "";
 
-  // ✅ Add Appointment button (optional): open appointment popup and preselect client
-// ✅ Add Appointment: open popup + preselect BUSINESS + CLIENT (no addEventListener)
+// ✅ Add Appointment: close clients popup → open appointment popup + preselect biz/client
 const addApptBtn = document.getElementById("btn-client-add-appt");
 if (addApptBtn) {
   addApptBtn.onclick = async () => {
     try {
+      // store selection for the appointment popup to use
       window.STATE = window.STATE || {};
-      window.STATE.preselectClientId = id;
-      window.STATE.preselectBusinessId = String(window.STATE.selectedClientBusinessId || "").trim();
+      window.STATE.selectedClientId = id;
+      window.STATE.selectedClientBusinessId = String(clientBizId || "").trim();
 
-      await openAppointmentPopup?.();
+      // ✅ close the "View Clients" popup first
+      closeClientListPopup();
 
-      // ✅ force business first so the client dropdown loads for that business
-      const bizDD = document.getElementById("appointment-business");
-      if (bizDD && window.STATE.preselectBusinessId) {
-        bizDD.value = window.STATE.preselectBusinessId;
-        await loadServicesForSelectedBusiness?.();
-        await loadClientsForSelectedBusiness?.();
-      }
+      // ✅ then open appointment popup on next frame (prevents overlay flicker)
+      requestAnimationFrame(async () => {
+        await openAppointmentPopup?.();
 
-      // ✅ now set the client
-      const cliDD = document.getElementById("appointment-client");
-      if (cliDD && window.STATE.preselectClientId) {
-        cliDD.value = window.STATE.preselectClientId;
-      }
+        const preferredBiz = String(window.STATE?.selectedClientBusinessId || "").trim();
+
+        // set business first
+        const bizDD = document.getElementById("appointment-business");
+        if (bizDD && preferredBiz) {
+          bizDD.value = preferredBiz;
+          await loadServicesForSelectedBusiness?.();
+          await loadClientsForSelectedBusiness?.();
+        }
+
+        // then select client
+        const cliDD = document.getElementById("appointment-client");
+        if (cliDD) cliDD.value = String(window.STATE?.selectedClientId || "").trim();
+      });
     } catch (e) {
       console.error("[client → appt] failed:", e);
     }
