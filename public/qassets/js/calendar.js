@@ -296,6 +296,15 @@ function showClientDetail(client) {
   window.STATE = window.STATE || {};
   window.STATE.selectedClientId = id;
 
+  // ✅ Edit Client button → open quick edit mode
+const editBtn = document.getElementById("btn-client-edit");
+if (editBtn) {
+  editBtn.onclick = () => {
+    setClientsPopupView("quickEdit");  // show detail + quick edit form
+    showQuickEditForm();              // prefill the form from selected client
+  };
+}
+
   // Save the selected client + their business so the appt popup can preselect both
 const v = client?.values || {};
 const clientBizId = String(
@@ -317,14 +326,62 @@ window.STATE.selectedClientBusinessId = clientBizId;
   if (phoneEl) phoneEl.textContent = phone ? `Phone: ${phone}` : "";
 
   // ✅ Add Appointment button (optional): open appointment popup and preselect client
-// ✅ Add Appointment button (optional): open appointment popup and preselect client
-document.getElementById("btn-client-add-appt")?.addEventListener("click", async () => {
-  try {
-    await openAppointmentPopup?.();
-    const dd = document.getElementById("appointment-client");
-    if (dd) dd.value = id;
-  } catch {}
-}, { once: true });
+// ✅ Add Appointment: open popup + preselect BUSINESS + CLIENT (no addEventListener)
+const addApptBtn = document.getElementById("btn-client-add-appt");
+if (addApptBtn) {
+  addApptBtn.onclick = async () => {
+    try {
+      window.STATE = window.STATE || {};
+      window.STATE.preselectClientId = id;
+      window.STATE.preselectBusinessId = String(window.STATE.selectedClientBusinessId || "").trim();
+
+      await openAppointmentPopup?.();
+
+      // ✅ force business first so the client dropdown loads for that business
+      const bizDD = document.getElementById("appointment-business");
+      if (bizDD && window.STATE.preselectBusinessId) {
+        bizDD.value = window.STATE.preselectBusinessId;
+        await loadServicesForSelectedBusiness?.();
+        await loadClientsForSelectedBusiness?.();
+      }
+
+      // ✅ now set the client
+      const cliDD = document.getElementById("appointment-client");
+      if (cliDD && window.STATE.preselectClientId) {
+        cliDD.value = window.STATE.preselectClientId;
+      }
+    } catch (e) {
+      console.error("[client → appt] failed:", e);
+    }
+  };
+}
+
+const delBtn = document.getElementById("btn-client-delete");
+if (delBtn) {
+  delBtn.onclick = async () => {
+    const id = String(window.STATE?.selectedClientId || "").trim();
+    if (!id) return alert("No client selected.");
+
+    if (!confirm("Soft delete this client? (You can restore later)")) return;
+
+    try {
+      await softDeleteClientById(id);
+
+      // ✅ Remove from local list so it disappears immediately
+      window.STATE.allClients = (window.STATE.allClients || []).filter(c => {
+        const cid = String(c._id || c.id || "").trim();
+        return cid !== id;
+      });
+
+      // ✅ Refresh list + go back
+      renderClientsList(window.STATE.allClients || []);
+      backToClientList();
+    } catch (err) {
+      console.error("[client] soft delete failed:", err);
+      alert(err?.message || "Could not delete client");
+    }
+  };
+}
 
 }
 
@@ -351,6 +408,7 @@ async function loadAllClientsList() {
 
   rows = rows.filter(clientBelongsToMe);
   rows.sort((a, b) => getClientName(a).localeCompare(getClientName(b)));
+rows = rows.filter(c => !(c?.deletedAt || c?.values?.deletedAt || c?.values?.isDeleted));
 
   window.STATE = window.STATE || {};
   window.STATE.allClients = rows;
@@ -395,8 +453,6 @@ function showQuickEditForm() {
   }
 }
 
-// make onclick="showAddClientSection()" work
-window.showAddClientSection = showQuickEditForm;
 
 function hideQuickEditFormBackToList() {
   document.getElementById("client-quick-edit-form").style.display = "none";
@@ -437,6 +493,36 @@ function hideAddClientSection() {
 }
 
 window.hideAddClientSection = hideAddClientSection;
+
+// ==============================
+// ✅ Update  Client 
+// ==============================
+
+
+
+
+
+// ==============================
+// ✅ Delete Client 
+// ==============================
+async function softDeleteClientById(clientId) {
+  const res = await api(`/api/records/Client/${encodeURIComponent(clientId)}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify({
+      values: {
+        deletedAt: new Date().toISOString(),
+        isDeleted: true, // optional but helpful
+      },
+    }),
+  });
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data?.message || "Soft delete failed");
+  return data?.item || data?.record || data;
+}
+
+
 
 // ==============================
 // ✅ Clients Popup View Controller
@@ -785,9 +871,14 @@ wireCreateAppointmentForm(); // ✅ IMPORTANT: lets Save submit run
   await loadUserBusinesses();
 
   // ✅ optionally preselect same business as main dropdown
-  const mainBiz = document.getElementById("business-dropdown")?.value || "";
-  const apptBiz = document.getElementById("appointment-business");
-  if (apptBiz && mainBiz) apptBiz.value = mainBiz;
+// ✅ prefer business coming from client-detail click
+const preferredBiz =
+  String(window.STATE?.preselectBusinessId || "").trim() ||
+  String(document.getElementById("business-dropdown")?.value || "").trim();
+
+const apptBiz = document.getElementById("appointment-business");
+if (apptBiz && preferredBiz) apptBiz.value = preferredBiz;
+
 
   // ✅ after setting the value, manually load dependent dropdowns once
   await loadServicesForSelectedBusiness();
@@ -1372,12 +1463,13 @@ async function loadClientsForSelectedBusiness() {
     return;
   }
 
-  const rows = toItems(data);
+const rows = toItems(data);
+const aliveRows = rows.filter(c => !(c?.deletedAt || c?.values?.deletedAt || c?.values?.isDeleted));
 
   // ✅ handle business saved as array OR string OR object (same issue as Services)
  const clients = showAll
-  ? rows
-  : rows.filter((c) => {
+ ? aliveRows
+  : aliveRows.filter((c) =>  {
       const v = c.values || {};
 
       // possible storage shapes:
