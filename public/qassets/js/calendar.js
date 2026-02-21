@@ -1392,36 +1392,52 @@ async function loadClientsForSelectedBusiness() {
   const rows = toItems(data);
 
   // ✅ handle business saved as array OR string OR object (same issue as Services)
-  const clients = showAll
-    ? rows
-    : rows.filter((c) => {
-        const v = c.values || {};
-        const b = v.Business ?? v.business ?? null;
+ const clients = showAll
+  ? rows
+  : rows.filter((c) => {
+      const v = c.values || {};
 
-        let bid =
-          v.businessId ||
-          v.BusinessId ||
-          v["Business Id"] ||
-          v["BusinessID"] ||
-          "";
+      // possible storage shapes:
+      // v.businessId = "..."
+      // v.BusinessId = "..."
+      // v.Business = ["..."]
+      // v.Business = { _id: "..." }
 
-        if (!bid && Array.isArray(b) && b[0]) bid = b[0];
-        if (!bid && b && typeof b === "object") bid = b._id || b.id || b.value || "";
-        if (!bid && typeof b === "string") bid = b;
+      let bid =
+        v.businessId ||
+        v.BusinessId ||
+        v["Business Id"] ||
+        v["BusinessID"] ||
+        "";
 
-        return String(bid).trim() === bizId;
-      });
+      const b = v.Business ?? v.business ?? null;
+
+      if (!bid && Array.isArray(b) && b[0]) bid = b[0];
+      if (!bid && b && typeof b === "object") bid = b._id || b.id || b.value || "";
+      if (!bid && typeof b === "string") bid = b;
+
+      return String(bid).trim() === String(bizId).trim();
+    });
+
 
   dd.innerHTML =
     `<option value="">-- Select Client --</option>` +
     clients.map((c) => {
       const id = String(c._id || c.id || "");
       const v = c.values || {};
-      const name =
-        `${v.firstName || v.FirstName || ""} ${v.lastName || v.LastName || ""}`.trim() ||
-        v.email ||
-        v.Email ||
-        "(Client)";
+const name =
+  String(
+    `${v.firstName || v.FirstName || ""} ${v.lastName || v.LastName || ""}`.trim() ||
+    v.Name ||
+    v["Client Name"] ||
+    v.fullName ||
+    v.email ||
+    v.Email ||
+    v.phone ||
+    v.Phone ||
+    ""
+  ).trim() || "(Client)";
+
       return `<option value="${id}">${name}</option>`;
     }).join("");
 
@@ -1664,7 +1680,7 @@ function getServiceCalendarId(service) {
     v.Calendar || v.calendar || null;
 
     if (Array.isArray(cal) && cal[0]) return String(cal[0]).trim();
-     
+
   // if stored as object
   if (cal && typeof cal === "object") {
     return String(cal._id || cal.id || cal.value || "").trim();
