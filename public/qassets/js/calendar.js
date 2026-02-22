@@ -1887,6 +1887,8 @@ async function fetchAppointmentById(apptId) {
 }
 
 async function openAppointmentPopupEditById(apptId) {
+  setLastBusinessId(businessId);
+
   try {
     const appt = await fetchAppointmentById(apptId);
 
@@ -2268,6 +2270,22 @@ console.log("[biz] first record:", businesses[0]);
 console.log("[biz] first record values:", businesses[0]?.values);
 
   console.log("[biz] loaded:", businesses.length);
+}
+
+//Preselect last edited business in dropdown 
+// ==============================
+// ✅ Remember last edited business
+// ==============================
+const LAST_BIZ_KEY = "suiteseat:lastBusinessId";
+
+function setLastBusinessId(bizId) {
+  const id = String(bizId || "").trim();
+  if (!id) return;
+  localStorage.setItem(LAST_BIZ_KEY, id);
+}
+
+function getLastBusinessId() {
+  return String(localStorage.getItem(LAST_BIZ_KEY) || "").trim();
 }
 
 
