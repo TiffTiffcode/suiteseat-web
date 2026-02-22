@@ -2396,9 +2396,9 @@ function getWeekDates(weekStart){
   return Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 }
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
   const hdrMonth    = $("#month-year");
-  const subLabel    = $("#week-offset-label"); // ✅ you already have this element
+  const subLabel    = $("#week-offset-label");
   const weekDatesEl = $$(".day-date");
   const hoursCol    = $(".hour-column");
   const slotsWrap   = $(".time-slots-container");
@@ -2406,7 +2406,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const btnNext     = $("#next-week");
   const btnToday    = $("#today-btn");
 
-  const CAL_HEIGHT_PX = 1440; // 24h * 60px
+  const CAL_HEIGHT_PX = 1440;
 
   let weekStart = startOfWeek(new Date());
   let currentWeekDates = [];
@@ -2474,23 +2474,28 @@ document.addEventListener("DOMContentLoaded", () => {
     buildHourLabels();
     buildDayColumns();
 
-    currentWeekDates = getWeekDates(weekStart);      // [Sun..Sat] LOCAL
+    currentWeekDates = getWeekDates(weekStart);
     window.currentWeekDates = currentWeekDates;
 
-    // paint appointments (if your function exists)
     window.refreshCalendarAppointments?.(currentWeekDates);
   }
 
-  // initial paint
+  // ✅ 1) Load businesses first (fills the dropdown options)
+  await loadUserBusinesses();
+
+  // ✅ 2) Force "All Businesses" on first load
+  const dd = document.getElementById("business-dropdown");
+  if (dd) dd.value = "";
+
+  // ✅ 3) Now paint the calendar + appointments
   setWeek(weekStart);
 
   // listeners
-  const repaint = () => window.refreshCalendarAppointments?.(window.currentWeekDates || []);
- document.getElementById("business-dropdown")?.addEventListener("change", (e) => {
-  const id = String(e.target.value || "").trim();
-  if (id) setLastBusinessId(id);
-  window.refreshCalendarAppointments?.(window.currentWeekDates || []);
-});
+  document.getElementById("business-dropdown")?.addEventListener("change", (e) => {
+    const id = String(e.target.value || "").trim();
+    if (id) setLastBusinessId(id); // only remember when user picks one
+    window.refreshCalendarAppointments?.(window.currentWeekDates || []);
+  });
 
   btnPrev?.addEventListener("click", () => setWeek(addDays(weekStart, -7)));
   btnNext?.addEventListener("click", () => setWeek(addDays(weekStart,  7)));
@@ -2796,7 +2801,10 @@ async function refreshCalendarAppointments(weekDates) {
   const weekEnd = new Date(weekDates[6]);
   weekEnd.setHours(23, 59, 59, 999);
 
-  const bizId = String(document.getElementById("business-dropdown")?.value || "").trim();
+ const bizId = String(document.getElementById("business-dropdown")?.value || "").trim();
+// ✅ treat "" as "ALL businesses"
+const filterByBusiness = !!bizId;
+
 
   let rows = [];
   try {
@@ -2816,20 +2824,21 @@ async function refreshCalendarAppointments(weekDates) {
   });
 
   // optional: filter by selected business
-  if (bizId) {
-    weekRows = weekRows.filter((a) => {
-      const v = a.values || {};
-      const b =
-        (v.Business && (v.Business._id || v.Business.id)) ||
-        (a.Business && (a.Business._id || a.Business.id)) ||
-        v.businessId ||
-        v.BusinessId ||
-        v["Business Id"] ||
-        v["BusinessID"] ||
-        "";
-      return String(b) === String(bizId);
-    });
-  }
+if (filterByBusiness) {
+  weekRows = weekRows.filter((a) => {
+    const v = a.values || {};
+    const b =
+      (v.Business && (v.Business._id || v.Business.id)) ||
+      (a.Business && (a.Business._id || a.Business.id)) ||
+      v.businessId ||
+      v.BusinessId ||
+      v["Business Id"] ||
+      v["BusinessID"] ||
+      "";
+    return String(b) === String(bizId);
+  });
+}
+
 
   console.log("[appts] rows:", rows.length, "weekRows:", weekRows.length);
 
