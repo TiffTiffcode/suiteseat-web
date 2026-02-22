@@ -289,10 +289,12 @@
   <div id="client-detail-section" style="display:none;">
     <button onclick="backToClientList()" class="orange-sign-up">← Back to Clients</button>
 
+    <div id="client-detail-summary">
     <h2 id="detail-name" class="section-title"></h2>
     <p id="detail-email"></p>
     <p id="detail-phone"></p>
     <p id="detail-stats" style="display:none;"></p>
+</div>
 
     <div class="client-detail-actions" style="display:flex; gap:10px; margin:14px 0;">
       <button id="btn-client-add-appt" class="orange-sign-up"onclick="openAppointmentFromClientPopup()">➕ Add Appointment</button>
@@ -307,6 +309,8 @@
       <div class="form-row"><label>Email</label><input id="qe-email" type="email"></div>
       <div class="form-row"><label>Phone</label><input id="qe-phone" type="text"></div>
       <div style="display:flex;gap:10px;margin-top:10px;">
+      
+        <button type="button" id="qe-delete" class="btn btn-danger">Delete Client</button>
         <button type="submit" class="orange-sign-up">Save Changes</button>
         <button type="button" id="qe-cancel" class="grey-btn">Cancel</button>
       </div>

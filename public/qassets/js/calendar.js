@@ -450,13 +450,26 @@ function showQuickEditForm() {
   const clients = window.STATE?.allClients || [];
   const client = clients.find(c => String(c._id || c.id || "") === selectedId);
 
-  if (client) {
-    const v = client.values || {};
-    document.getElementById("qe-first").value = v.firstName || "";
-    document.getElementById("qe-last").value  = v.lastName  || "";
-    document.getElementById("qe-email").value = v.email     || "";
-    document.getElementById("qe-phone").value = v.phone     || "";
-  }
+if (client) {
+  const v = client.values || {};
+
+  const first = String(v.firstName || v.FirstName || "").trim();
+  const last  = String(v.lastName  || v.LastName  || "").trim();
+
+  const email = getClientEmail(client); // ✅ use helper
+  const phone = getClientPhone(client); // ✅ use helper
+
+  const firstEl = document.getElementById("qe-first");
+  const lastEl  = document.getElementById("qe-last");
+  const emailEl = document.getElementById("qe-email");
+  const phoneEl = document.getElementById("qe-phone");
+
+  if (firstEl) firstEl.value = first;
+  if (lastEl)  lastEl.value  = last;
+  if (emailEl) emailEl.value = email || "";
+  if (phoneEl) phoneEl.value = phone || "";
+}
+
 }
 
 
@@ -535,41 +548,80 @@ async function softDeleteClientById(clientId) {
 // ==============================
 
 function setClientsPopupView(view) {
+   const summary = document.getElementById("client-detail-summary"); 
+  const actionsTop = document.getElementById("client-detail-actions"); // ✅ top 3 buttons container
+  const qeDelete   = document.getElementById("qe-delete");            // ✅ bottom delete button
+
   const addBtn   = document.getElementById("toggle-add-client-btn");
   const addSec   = document.getElementById("inline-add-client-section");
   const list     = document.getElementById("client-list-container");
   const detail   = document.getElementById("client-detail-section");
   const quick    = document.getElementById("client-quick-edit-form");
 
-  // safety
+  // safety hide
   if (addBtn) addBtn.style.display = "none";
   if (addSec) addSec.style.display = "none";
   if (list)   list.style.display   = "none";
   if (detail) detail.style.display = "none";
   if (quick)  quick.style.display  = "none";
+   if (summary) summary.style.display = "block";
 
-  // views
+  // default show/hide for these
+  if (actionsTop) actionsTop.style.display = "none";   // ✅ default hidden
+  if (qeDelete)   qeDelete.style.display   = "none";   // ✅ default hidden
+
   if (view === "list") {
-    if (addBtn) addBtn.style.display = "inline-flex"; // ✅ show button only on list view
+    if (addBtn) addBtn.style.display = "inline-flex";
     if (list)   list.style.display   = "block";
   }
 
   if (view === "detail") {
     if (detail) detail.style.display = "block";
-    // keep add button hidden here (your screenshot shows you want it gone)
-  }
+    if (actionsTop) actionsTop.style.display = "flex"; // ✅ show top buttons ONLY in detail mode
+   if (summary) summary.style.display = "block"; // ✅ show email/phone in detail mode
+   }
 
   if (view === "add") {
     if (addSec) addSec.style.display = "block";
-    // button stays hidden ✅
   }
 
   if (view === "quickEdit") {
     if (detail) detail.style.display = "block";
     if (quick)  quick.style.display  = "block";
-    // button stays hidden ✅
-  }
+
+    if (actionsTop) actionsTop.style.display = "none"; // ✅ hide top buttons in edit mode
+    if (qeDelete)   qeDelete.style.display   = "inline-flex"; // ✅ show bottom delete
+     if (summary) summary.style.display = "none"; // ✅ HIDE email/phone at top in edit mode
+     }
 }
+
+document.addEventListener("DOMContentLoaded", () => {
+  const qeDelete = document.getElementById("qe-delete");
+  if (!qeDelete) return;
+
+  qeDelete.addEventListener("click", async () => {
+    const id = String(window.STATE?.selectedClientId || "").trim();
+    if (!id) return alert("No client selected.");
+
+    if (!confirm("Soft delete this client? (You can restore later)")) return;
+
+    try {
+      await softDeleteClientById(id);
+
+      window.STATE.allClients = (window.STATE.allClients || []).filter(c => {
+        const cid = String(c._id || c.id || "").trim();
+        return cid !== id;
+      });
+
+      // go back to list after delete
+      renderClientsList(window.STATE.allClients || []);
+      setClientsPopupView("list");
+    } catch (err) {
+      console.error("[client] soft delete failed:", err);
+      alert(err?.message || "Could not delete client");
+    }
+  });
+});
 
 function showAddClientSection() {
   setClientsPopupView("add");         // ✅ hides the button automatically
