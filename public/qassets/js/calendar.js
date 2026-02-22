@@ -1887,12 +1887,19 @@ async function fetchAppointmentById(apptId) {
 }
 
 async function openAppointmentPopupEditById(apptId) {
-  setLastBusinessId(businessId);
-
   try {
     const appt = await fetchAppointmentById(apptId);
 
-    console.log("loaded appt", appt); // ✅ HERE
+    // ✅ Extract businessId from the appointment
+    const v = appt?.values || appt || {};
+    const bizId =
+      extractId(v.Business) ||
+      String(v.businessId || v.BusinessId || "").trim();
+
+    // ✅ Remember it
+    if (bizId) setLastBusinessId(bizId);
+
+    console.log("loaded appt", appt);
 
     await openAppointmentPopupEdit(appt);
   } catch (err) {
@@ -2266,6 +2273,19 @@ async function loadUserBusinesses() {
         })
         .join("");
   }
+    // ✅ Preselect last edited business ONLY for the main dropdown
+  const mainDD = document.getElementById("business-dropdown");
+  if (mainDD) {
+    const savedId = getLastBusinessId();
+
+    if (savedId && mainDD.querySelector(`option[value="${CSS.escape(savedId)}"]`)) {
+      mainDD.value = savedId;
+
+      // ✅ trigger your repaint / filtering
+      mainDD.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+  }
+
 console.log("[biz] first record:", businesses[0]);
 console.log("[biz] first record values:", businesses[0]?.values);
 
@@ -2466,7 +2486,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // listeners
   const repaint = () => window.refreshCalendarAppointments?.(window.currentWeekDates || []);
-  document.getElementById("business-dropdown")?.addEventListener("change", repaint);
+ document.getElementById("business-dropdown")?.addEventListener("change", (e) => {
+  const id = String(e.target.value || "").trim();
+  if (id) setLastBusinessId(id);
+  window.refreshCalendarAppointments?.(window.currentWeekDates || []);
+});
 
   btnPrev?.addEventListener("click", () => setWeek(addDays(weekStart, -7)));
   btnNext?.addEventListener("click", () => setWeek(addDays(weekStart,  7)));
