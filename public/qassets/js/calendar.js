@@ -2259,9 +2259,10 @@ async function loadUserBusinesses() {
   ].filter(Boolean);
 
   for (const sel of selects) {
-    const keep = sel.id === "business-dropdown"
-      ? `<option value="">-- Choose Business --</option>`
-      : `<option value="">-- Select Business --</option>`;
+const keep = sel.id === "business-dropdown"
+  ? `<option value="__ALL__">All Appointments</option>`
+  : `<option value="">-- Select Business --</option>`;
+
 
     sel.innerHTML =
       keep +
@@ -2273,39 +2274,11 @@ async function loadUserBusinesses() {
         })
         .join("");
   }
-    // ✅ Preselect last edited business ONLY for the main dropdown
-  const mainDD = document.getElementById("business-dropdown");
-  if (mainDD) {
-    const savedId = getLastBusinessId();
-
-    if (savedId && mainDD.querySelector(`option[value="${CSS.escape(savedId)}"]`)) {
-      mainDD.value = savedId;
-
-      // ✅ trigger your repaint / filtering
-      mainDD.dispatchEvent(new Event("change", { bubbles: true }));
-    }
-  }
 
 console.log("[biz] first record:", businesses[0]);
 console.log("[biz] first record values:", businesses[0]?.values);
 
   console.log("[biz] loaded:", businesses.length);
-}
-
-//Preselect last edited business in dropdown 
-// ==============================
-// ✅ Remember last edited business
-// ==============================
-const LAST_BIZ_KEY = "suiteseat:lastBusinessId";
-
-function setLastBusinessId(bizId) {
-  const id = String(bizId || "").trim();
-  if (!id) return;
-  localStorage.setItem(LAST_BIZ_KEY, id);
-}
-
-function getLastBusinessId() {
-  return String(localStorage.getItem(LAST_BIZ_KEY) || "").trim();
 }
 
 
@@ -2484,8 +2457,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   await loadUserBusinesses();
 
   // ✅ 2) Force "All Businesses" on first load
-  const dd = document.getElementById("business-dropdown");
-  if (dd) dd.value = "";
+const dd = document.getElementById("business-dropdown");
+if (dd) dd.value = "__ALL__";
 
   // ✅ 3) Now paint the calendar + appointments
   setWeek(weekStart);
@@ -2493,7 +2466,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   // listeners
   document.getElementById("business-dropdown")?.addEventListener("change", (e) => {
     const id = String(e.target.value || "").trim();
-    if (id) setLastBusinessId(id); // only remember when user picks one
+  
     window.refreshCalendarAppointments?.(window.currentWeekDates || []);
   });
 
@@ -2803,8 +2776,8 @@ async function refreshCalendarAppointments(weekDates) {
 
  const bizId = String(document.getElementById("business-dropdown")?.value || "").trim();
 // ✅ treat "" as "ALL businesses"
-const filterByBusiness = !!bizId;
-
+// ✅ "__ALL__" means show everything
+const filterByBusiness = bizId && bizId !== "__ALL__";
 
   let rows = [];
   try {
