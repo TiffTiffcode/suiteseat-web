@@ -2006,9 +2006,15 @@ return (
 
 {!isLoggedIn ? (
   <section className="landing-section">
-    {/* =======================
-        Top Nav Header (PUBLIC)
-    ======================= */}
+                                     
+                                     
+                                     
+                                     
+                                     
+                                          {/* =======================
+                                                      Header                                          
+                                             Top Nav Header (PUBLIC)
+                                            ======================= */}
     <header className="course-topnav">
       <div className="course-topnav__inner">
         {/* Left */}
@@ -2043,6 +2049,19 @@ return (
           >
             About
           </button>
+
+          <button
+  type="button"
+  className="course-tab"
+  onClick={() =>
+    document
+      .getElementById("buy")
+      ?.scrollIntoView({ behavior: "smooth", block: "start" })
+  }
+>
+  Buy Now
+</button>
+
         </nav>
 
         {/* Right buttons */}
