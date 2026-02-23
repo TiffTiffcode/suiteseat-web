@@ -329,7 +329,7 @@ window.STATE = window.STATE || {
       await window.requireUser().catch(() => null);
 
       // reuse the same helper you already have
-      const courses = await listCoursesForCurrentUser(); // returns [{id, title}, ...]
+     const courses = await listCoursesForCurrentUser(); // returns full Course records
 
       // 🔢 Active courses = number of records
       if (dashActiveEl) {
@@ -350,29 +350,32 @@ window.STATE = window.STATE || {
           return;
         }
 
-        courses.forEach((c) => {
-          const pill = document.createElement('button');
-          pill.type = 'button';
-          pill.className = 'dash-course-pill'; // style this in CSS
-          pill.textContent = c.title || '(Untitled course)';
+  courses.forEach((c) => {
+  const v = c?.values || c || {};
+  const id = String(c?._id || c?.id || "");
+  const title =
+    v["Course Title"] || v["Title"] || v["Name"] || v.title || v.name || "";
 
-          // When you click a course on the dashboard:
-          //  - select it in the Courses dropdown
-          //  - scroll to the Courses section
-          pill.addEventListener('click', () => {
-            const select = document.getElementById('courses-select');
-            if (select) {
-              select.value = c.id;
-              select.dispatchEvent(new Event('change'));
-            }
-            const coursesSection = document.getElementById('courses');
-            if (coursesSection) {
-              coursesSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }
-          });
+  const pill = document.createElement("button");
+  pill.type = "button";
+  pill.className = "dash-course-pill";
+  pill.textContent = title || "(Untitled course)";
 
-          dashCoursesList.appendChild(pill);
-        });
+  pill.addEventListener("click", () => {
+    const select = document.getElementById("courses-select");
+    if (select && id) {
+      select.value = id;
+      select.dispatchEvent(new Event("change"));
+    }
+    document.getElementById("courses")?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  });
+
+  dashCoursesList.appendChild(pill);
+});
+
       }
     } catch (err) {
       console.error('[dashboard] hydrateDashboard failed', err);
