@@ -422,7 +422,7 @@ async function handleBuyNowClick() {
 
   // not logged in → go to checkout and let checkout page handle login
   if (r.status === 401) {
-    window.location.href = `/checkout?addCourse=${encodeURIComponent(courseId)}&qty=1`;
+    window.location.href = `/checkout.html?addCourse=${encodeURIComponent(courseId)}&qty=1`;
     return;
   }
 
@@ -432,7 +432,8 @@ async function handleBuyNowClick() {
     return;
   }
 
-  window.location.href = "/checkout";
+window.location.href = `/checkout.html?addCourse=${encodeURIComponent(courseId)}&qty=1`;
+
 }
 
 
