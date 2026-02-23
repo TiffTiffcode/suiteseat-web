@@ -11,10 +11,9 @@ if (window.__COURSE_SETTINGS_INIT__) {
 }
 
 // ✅ Define the base ONE time
-// ---- API ORIGIN (single source of truth) ----
-const API_BASE = location.hostname.includes("localhost")
-  ? "http://localhost:8400"
-  : "https://api2.suiteseat.io";
+const API_ORIGIN =
+  window.API_ORIGIN ||
+  (location.hostname === "localhost" ? "http://localhost:8400" : "");
 
 // (Optional) expose for console testing
 window.API_ORIGIN = API_ORIGIN;
