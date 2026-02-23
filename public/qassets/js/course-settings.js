@@ -16,7 +16,7 @@ if (window.__COURSE_SETTINGS_INIT__) {
 const API_BASE =
   location.hostname.includes("localhost")
     ? "http://localhost:8400"
-    : "https://api.suiteseat.io";
+    : "https://api2.suiteseat.io";
 
 // expose for debugging if you want
 window.API_BASE = API_BASE;
