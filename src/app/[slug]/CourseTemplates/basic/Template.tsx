@@ -403,50 +403,48 @@ useEffect(() => {
 ////////////////////////////////////////////
 //Buy Now Set up 
 
-const [pendingBuyNow, setPendingBuyNow] = useState(false);
+
 
 // put near your other handlers inside the component
+// Buy Now: try to add to checkout (if logged in). If not logged in, go to checkout anyway.
 async function handleBuyNowClick() {
+  const courseId = String(courseRec?._id || course?._id || "");
+  if (!courseId) {
+    alert("Missing course id");
+    return;
+  }
+
   try {
-    // 1) if not logged in, open login (or your lead popup)
-    if (!isLoggedIn) {
-       setPendingBuyNow(true);
-      setShowLogin(true); // or setShowBuyNow(true) if you want lead popup first
-      return;
-    }
-
-    // 2) we need the course record id
-const courseId = String(courseRec?._id || "");
-
-
-    if (!courseId) {
-      alert("Missing course id");
-      return;
-    }
-
-    // 3) add course to checkout
-    const r = await fetch("https://api2.suiteseat.io/api/checkout/items/add-course", {
+    const r = await fetch(`${API}/api/checkout/items/add-course`, {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ courseId, quantity: 1 }),
     });
 
-    const data = await r.json().catch(() => ({}));
-    if (!r.ok) {
-      console.error("add-course failed:", data);
-      alert(data?.error || "Failed to add course to checkout");
+    // Not logged in → go to checkout, it will handle login/add there
+    if (r.status === 401) {
+      window.location.href = `/checkout?addCourse=${encodeURIComponent(courseId)}&qty=1`;
       return;
     }
 
-    // 4) go to checkout page
+    // Other errors
+    if (!r.ok) {
+      const data = await r.json().catch(() => ({}));
+      console.error("add-course failed:", data);
+      alert(data?.error || "Failed to add course");
+      return;
+    }
+
+    // Success → checkout
     window.location.href = "/checkout";
   } catch (err) {
     console.error("handleBuyNowClick error:", err);
     alert("Something went wrong. Please try again.");
   }
 }
- 
+
+
 ///////////////////////////////////////////////////////////////////////////////
   // ---------- Log in ----------
 const [showLogin, setShowLogin] = useState(false);
@@ -481,10 +479,6 @@ const res = await fetch(`${API}/api/login`, {
     setLoginMsg("Logged in!");
     setShowLogin(false);
 
-if (pendingBuyNow) {
-  setPendingBuyNow(false);
-  await handleBuyNowClick();
-}
 
   } catch (err: any) {
     setIsLoggedIn(false);
@@ -2107,13 +2101,10 @@ return (
             About
           </button>
 
-<button
-  type="button"
-  className="course-tab"
-  onClick={handleBuyNowClick}
->
+<button type="button" className="course-tab" onClick={handleBuyNowClick}>
   Buy Now
 </button>
+
 
 
         </nav>
