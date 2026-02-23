@@ -37,9 +37,16 @@ function joinUrl(base, path) {
 
 function apiUrl(path) {
   const p = path.startsWith("/") ? path : `/${path}`;
-  // ✅ ONLY for real /api routes
-  return `${API_BASE}${p}`;
+
+  // ✅ leave these as-is (no /api prefix)
+  if (p.startsWith("/api/") || p.startsWith("/public/") || p.startsWith("/uploads/")) {
+    return `${API_BASE}${p}`;
+  }
+
+  // ✅ everything else gets /api prefix
+  return `${API_BASE}/api${p}`;
 }
+
 
 function publicUrl(path) {
   const p = path.startsWith("/") ? path : `/${path}`;
@@ -3238,7 +3245,8 @@ async function saveLessonOrderToDB(sectionId) {
         params.set("Course", currentCourseId);
       }
 
-      const url = `${API_ORIGIN}/public/records?${params.toString()}`;
+   const url = apiUrl(`/public/records?${params.toString()}`);
+
 
       const res = await fetch(url, {
         credentials: "include",
@@ -3734,7 +3742,8 @@ async function hydrateSectionsForCourse(courseId) {
   params.set("Course", courseId);
   params.set("ts", String(Date.now())); // cache buster
 
-  const url = `${API_ORIGIN}/public/records?${params.toString()}`;
+const url = apiUrl(`/public/records?${params.toString()}`);
+
   console.log("[outline] sections url:", url);
 
   try {
@@ -5965,7 +5974,8 @@ async function listCoursesForUser() {
   // params.set('Owner', currentUserId);
   // but we’ll just pull all “Course” records and let your permissions handle it.
 
-  const url = `${API_ORIGIN}/public/records?${params.toString()}`;
+const url = apiUrl(`/public/records?${params.toString()}`);
+
 
   const res = await fetch(url, {
     credentials: 'include',
