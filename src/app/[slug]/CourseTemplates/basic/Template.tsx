@@ -461,12 +461,12 @@ async function handleLoginSubmit(e: React.FormEvent) {
   setLoginMsg(null);
 
   try {
-    const res = await fetch(`${API}/login`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify({ email: loginEmail, password: loginPassword }),
-    });
+const res = await fetch(`${API}/api/login`, {
+  method: "POST",
+  credentials: "include",
+  headers: { "Content-Type": "application/json", Accept: "application/json" },
+  body: JSON.stringify({ email: loginEmail, password: loginPassword }),
+});
 
     const data = await res.json().catch(() => null);
 
