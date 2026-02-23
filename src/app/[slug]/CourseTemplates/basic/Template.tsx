@@ -397,6 +397,56 @@ useEffect(() => {
 }, [isLoggedIn, courseRec?._id]);
 
 
+
+
+
+////////////////////////////////////////////
+//Buy Now Set up 
+
+const [pendingBuyNow, setPendingBuyNow] = useState(false);
+
+// put near your other handlers inside the component
+async function handleBuyNowClick() {
+  try {
+    // 1) if not logged in, open login (or your lead popup)
+    if (!isLoggedIn) {
+       setPendingBuyNow(true);
+      setShowLogin(true); // or setShowBuyNow(true) if you want lead popup first
+      return;
+    }
+
+    // 2) we need the course record id
+const courseId = String(courseRec?._id || "");
+
+
+    if (!courseId) {
+      alert("Missing course id");
+      return;
+    }
+
+    // 3) add course to checkout
+    const r = await fetch("https://api2.suiteseat.io/api/checkout/items/add-course", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ courseId, quantity: 1 }),
+    });
+
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      console.error("add-course failed:", data);
+      alert(data?.error || "Failed to add course to checkout");
+      return;
+    }
+
+    // 4) go to checkout page
+    window.location.href = "/checkout";
+  } catch (err) {
+    console.error("handleBuyNowClick error:", err);
+    alert("Something went wrong. Please try again.");
+  }
+}
+ 
 ///////////////////////////////////////////////////////////////////////////////
   // ---------- Log in ----------
 const [showLogin, setShowLogin] = useState(false);
@@ -430,6 +480,12 @@ async function handleLoginSubmit(e: React.FormEvent) {
     setIsLoggedIn(true);
     setLoginMsg("Logged in!");
     setShowLogin(false);
+
+if (pendingBuyNow) {
+  setPendingBuyNow(false);
+  await handleBuyNowClick();
+}
+
   } catch (err: any) {
     setIsLoggedIn(false);
     setLoginMsg(err?.message || "Network error logging in.");
@@ -530,6 +586,7 @@ const guaranteePlain = pickText(courseV, ["Guarantee"], "");
 // FAQ
 const faqRich = String(courseV["FAQ Rich"] || "").trim();
 const faqPlain = pickText(courseV, ["FAQ"], "");
+
 
 //Primary CTA button 
 const PrimaryCtaLabel = () => {
@@ -2050,17 +2107,14 @@ return (
             About
           </button>
 
-          <button
+<button
   type="button"
   className="course-tab"
-  onClick={() =>
-    document
-      .getElementById("buy")
-      ?.scrollIntoView({ behavior: "smooth", block: "start" })
-  }
+  onClick={handleBuyNowClick}
 >
   Buy Now
 </button>
+
 
         </nav>
 
