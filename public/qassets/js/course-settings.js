@@ -18,8 +18,22 @@ const API_BASE =
     ? "http://localhost:8400"
     : "https://api2.suiteseat.io";
 
+(async () => {
+  try {
+    const r = await fetch(`${API_BASE}/api/me`, { credentials: "include" });
+    console.log("[api-check]", API_BASE, "status:", r.status);
+  } catch (e) {
+    console.error("[api-check] cannot reach API_BASE:", API_BASE, e);
+  }
+})();
+
 // expose for debugging if you want
 window.API_BASE = API_BASE;
+
+function joinUrl(base, path) {
+  const p = path.startsWith("/") ? path : `/${path}`;
+  return `${base}${p}`;
+}
 
 function apiUrl(path) {
   const p = path.startsWith("/") ? path : `/${path}`;
@@ -470,7 +484,8 @@ async function listCoursesForCurrentUser() {
   params.set("ts", String(Date.now()));
 
   // ✅ IMPORTANT: hit /public/records exactly (no /api prefix)
-  const url = publicUrl(`/public/records?${params.toString()}`);
+const url = joinUrl(API_BASE, `/public/records?${params.toString()}`);
+
 
   const res = await fetch(url, {
     credentials: "include",
