@@ -10,26 +10,94 @@ if (window.__COURSE_SETTINGS_INIT__) {
   window.__COURSE_SETTINGS_INIT__ = true;
 }
 
-// ✅ Define the base ONE time
-const API_ORIGIN =
-  window.API_ORIGIN ||
-  (location.hostname === "localhost" ? "http://localhost:8400" : "");
+// ==============================
+// ✅ API BASE (single source of truth)
+// ==============================
+const API_BASE =
+  location.hostname.includes("localhost")
+    ? "http://localhost:8400"
+    : "https://api2.suiteseat.io";
 
-// (Optional) expose for console testing
-window.API_ORIGIN = API_ORIGIN;
-window.API_BASE = API_ORIGIN; // <-- now API_BASE exists (via API_ORIGIN)
+// expose for debugging if you want
+window.API_BASE = API_BASE;
 
+function apiUrl(path) {
+  // allow passing "/api/..." OR "api/..." OR "/records/..."
+  const p = path.startsWith("/") ? path : `/${path}`;
+  return p.startsWith("/api/") ? `${API_BASE}${p}` : `${API_BASE}/api${p}`;
+}
+
+async function apiFetch(path, opts = {}) {
+  return fetch(apiUrl(path), {
+    credentials: "include",
+    cache: "no-store",
+    headers: { Accept: "application/json", ...(opts.headers || {}) },
+    ...opts,
+  });
+}
+
+async function fetchJSON(path, opts = {}) {
+  const res = await apiFetch(path, {
+    headers: { "Content-Type": "application/json", ...(opts.headers || {}) },
+    ...opts,
+  });
+
+  // If we accidentally hit HTML (service suspended / cloudflare), surface it clearly
+  const contentType = res.headers.get("content-type") || "";
+  const text = await res.text();
+
+  if (!res.ok) {
+    // try json first
+    try {
+      const data = JSON.parse(text);
+      throw new Error(data?.error || data?.message || `HTTP ${res.status}`);
+    } catch {
+      throw new Error(
+        contentType.includes("text/html")
+          ? `API returned HTML (wrong host or blocked). HTTP ${res.status}`
+          : (text || `HTTP ${res.status}`)
+      );
+    }
+  }
+
+  // ok response
+  if (!text) return {};
+  try { return JSON.parse(text); }
+  catch { return { raw: text }; }
+}
+
+window.apiFetch = apiFetch;
+window.fetchJSON = fetchJSON;
+
+
+// JSON helper for /api/*
+window.fetchJSON = async function fetchJSON(path, opts = {}) {
+  const res = await apiFetch(path, {
+    headers: { "Content-Type": "application/json", ...(opts.headers || {}) },
+    ...opts,
+  });
+
+  const text = await res.text();
+  let data;
+  try { data = JSON.parse(text); } catch { data = { error: text }; }
+
+  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  return data;
+};
+
+
+/////////////////////////////////////////////////////
+//Helpers
 //helper to Save videos to cloud 
 async function getCloudinarySignature(folder) {
-  const res = await fetch(`/api/cloudinary/sign?folder=${encodeURIComponent(folder)}`, {
-    credentials: "include",
+  const res = await apiFetch(`/api/cloudinary/sign?folder=${encodeURIComponent(folder)}`, {
     headers: { Accept: "application/json" },
   });
-  if (!res.ok) throw new Error("Could not get upload signature");
-  const data = await res.json();
-  if (!data?.ok) throw new Error(data?.error || "Signature failed");
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data?.ok) throw new Error(data?.error || "Signature failed");
   return data;
 }
+
 
 // ✅ Direct upload to Cloudinary (video OR raw)
 async function uploadToCloudinary(file, { folder, resourceType }) {
@@ -73,39 +141,6 @@ async function uploadToCloudinary(file, { folder, resourceType }) {
     originalFilename: out.original_filename,
   };
 }
-
-// Build full URL for /api routes (private/auth routes)
-function apiUrl(path) {
-  const base = path.startsWith("/api")
-    ? path
-    : `/api${path.startsWith("/") ? path : `/${path}`}`;
-  return `${API_ORIGIN}${base}`;
-}
-
-// Low-level fetch wrapper for /api/*
-async function apiFetch(path, opts = {}) {
-  return fetch(apiUrl(path), {
-    credentials: "include",
-    headers: { Accept: "application/json", ...(opts.headers || {}) },
-    ...opts,
-  });
-}
-
-// JSON helper for /api/*
-window.fetchJSON = async function fetchJSON(path, opts = {}) {
-  const res = await apiFetch(path, {
-    headers: { "Content-Type": "application/json", ...(opts.headers || {}) },
-    ...opts,
-  });
-
-  const text = await res.text();
-  let data;
-  try { data = JSON.parse(text); } catch { data = { error: text }; }
-
-  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-  return data;
-};
-
 /* ============== GLOBAL STATE ============== */
 
 window.STATE = window.STATE || {
