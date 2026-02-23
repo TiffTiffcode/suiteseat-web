@@ -5,7 +5,8 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 
-const API = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8400";
+const API = process.env.NEXT_PUBLIC_API_BASE || "https://api2.suiteseat.io";
+
 
 // ✅ change these names if your DataTypes are named differently
 const DT_COURSE = "Course";
@@ -140,11 +141,12 @@ useEffect(() => {
 
   async function checkSession() {
     try {
-      const res = await fetch(`${API}/api/me`, {
-        credentials: "include",
-        headers: { Accept: "application/json" },
-        cache: "no-store",
-      });
+const res = await fetch(`${API}/api/api/me`, {
+  credentials: "include",
+  headers: { Accept: "application/json" },
+  cache: "no-store",
+});
+
 
       const data = await res.json().catch(() => null);
 
@@ -409,40 +411,31 @@ useEffect(() => {
 // Buy Now: try to add to checkout (if logged in). If not logged in, go to checkout anyway.
 async function handleBuyNowClick() {
   const courseId = String(courseRec?._id || course?._id || "");
-  if (!courseId) {
-    alert("Missing course id");
+  if (!courseId) return alert("Missing course id");
+
+  const r = await fetch(`${API}/api/checkout/items/add-course`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ courseId, quantity: 1 }),
+  });
+
+  // not logged in → go to checkout and let checkout page handle login
+  if (r.status === 401) {
+    window.location.href = `/checkout?addCourse=${encodeURIComponent(courseId)}&qty=1`;
     return;
   }
 
-  try {
-    const r = await fetch(`${API}/api/checkout/items/add-course`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ courseId, quantity: 1 }),
-    });
-
-    // Not logged in → go to checkout, it will handle login/add there
-    if (r.status === 401) {
-      window.location.href = `/checkout?addCourse=${encodeURIComponent(courseId)}&qty=1`;
-      return;
-    }
-
-    // Other errors
-    if (!r.ok) {
-      const data = await r.json().catch(() => ({}));
-      console.error("add-course failed:", data);
-      alert(data?.error || "Failed to add course");
-      return;
-    }
-
-    // Success → checkout
-    window.location.href = "/checkout";
-  } catch (err) {
-    console.error("handleBuyNowClick error:", err);
-    alert("Something went wrong. Please try again.");
+  if (!r.ok) {
+    const data = await r.json().catch(() => ({}));
+    alert(data?.error || "Failed to add course");
+    return;
   }
+
+  window.location.href = "/checkout";
 }
+
+
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -459,7 +452,7 @@ async function handleLoginSubmit(e: React.FormEvent) {
   setLoginMsg(null);
 
   try {
-const res = await fetch(`${API}/api/login`, {
+const res = await fetch(`${API}/api/api/login`, {
   method: "POST",
   credentials: "include",
   headers: { "Content-Type": "application/json", Accept: "application/json" },
@@ -490,11 +483,12 @@ const res = await fetch(`${API}/api/login`, {
 
 async function handleLogout() {
   try {
-    await fetch(`${API}/auth/logout`, {
-      method: "POST",
-      credentials: "include",
-      headers: { Accept: "application/json" },
-    });
+await fetch(`${API}/api/api/logout`, {
+  method: "POST",
+  credentials: "include",
+  headers: { Accept: "application/json" },
+});
+
   } catch {}
 
   setIsLoggedIn(false);
@@ -2104,6 +2098,7 @@ return (
 <button type="button" className="course-tab" onClick={handleBuyNowClick}>
   Buy Now
 </button>
+
 
 
 
