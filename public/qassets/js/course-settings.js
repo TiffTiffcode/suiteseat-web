@@ -367,8 +367,9 @@ window.STATE = window.STATE || {
 
   // run once on load (if user is already known, this will work immediately;
   // otherwise it'll do nothing until auth:ready fires below)
+ document.addEventListener("auth:ready", () => {
   hydrateDashboard().catch(() => {});
-
+});
 
 
 
@@ -465,7 +466,6 @@ viewBtn?.addEventListener("click", () => {
 // === Load "Your courses" dropdown ===
 
 // 1. Fetch all Course records created by the current user
-
 async function listCoursesForCurrentUser() {
   const uid = window.STATE?.user?.userId;
   if (!uid) return [];
@@ -476,7 +476,8 @@ async function listCoursesForCurrentUser() {
   params.set("Created By", uid);
   params.set("ts", String(Date.now())); // cache buster
 
-  const url = `${API_ORIGIN}/public/records?${params.toString()}`;
+  // ✅ use API_BASE via apiUrl helper
+  const url = apiUrl(`/public/records?${params.toString()}`);
 
   const res = await fetch(url, {
     credentials: "include",
@@ -489,21 +490,22 @@ async function listCoursesForCurrentUser() {
   const data = await res.json().catch(() => null);
   const rows = Array.isArray(data) ? data : (data?.items || data?.records || []);
 
-  // ✅ filter deleted client-side too (even though server already filters deletedAt:null)
+  // ✅ filter deleted client-side too
   const active = rows.filter((r) => {
     const deletedAt = r?.deletedAt || r?.values?.deletedAt || null;
     return !deletedAt;
   });
 
-  // ✅ rebuild cache from scratch (no stale deleted items)
+  // ✅ rebuild cache
   window.__COURSE_CACHE = {};
   active.forEach((r) => {
     const id = String(r._id || r.id || "");
     if (id) window.__COURSE_CACHE[id] = r;
   });
 
-  return active; // ✅ return full records (not {id,title})
+  return active;
 }
+
 
 
 // 2. Populate the <select id="courses-select">
