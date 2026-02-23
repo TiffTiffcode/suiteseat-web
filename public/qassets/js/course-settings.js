@@ -16,15 +16,21 @@ if (window.__COURSE_SETTINGS_INIT__) {
 const API_BASE =
   location.hostname.includes("localhost")
     ? "http://localhost:8400"
-    : "https://api2.suiteseat.io";
+    : "https://api.suiteseat.io";
 
 // expose for debugging if you want
 window.API_BASE = API_BASE;
 
 function apiUrl(path) {
-  // allow passing "/api/..." OR "api/..." OR "/records/..."
   const p = path.startsWith("/") ? path : `/${path}`;
-  return p.startsWith("/api/") ? `${API_BASE}${p}` : `${API_BASE}/api${p}`;
+  // ✅ ONLY for real /api routes
+  return `${API_BASE}${p}`;
+}
+
+function publicUrl(path) {
+  const p = path.startsWith("/") ? path : `/${path}`;
+  // ✅ for non-/api routes (like /public/records)
+  return `${API_BASE}${p}`;
 }
 
 async function apiFetch(path, opts = {}) {
@@ -70,20 +76,7 @@ window.apiFetch = apiFetch;
 window.fetchJSON = fetchJSON;
 
 
-// JSON helper for /api/*
-window.fetchJSON = async function fetchJSON(path, opts = {}) {
-  const res = await apiFetch(path, {
-    headers: { "Content-Type": "application/json", ...(opts.headers || {}) },
-    ...opts,
-  });
 
-  const text = await res.text();
-  let data;
-  try { data = JSON.parse(text); } catch { data = { error: text }; }
-
-  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-  return data;
-};
 
 
 /////////////////////////////////////////////////////
@@ -474,10 +467,10 @@ async function listCoursesForCurrentUser() {
   params.set("dataType", "Course");
   params.set("limit", "200");
   params.set("Created By", uid);
-  params.set("ts", String(Date.now())); // cache buster
+  params.set("ts", String(Date.now()));
 
-  // ✅ use API_BASE via apiUrl helper
-  const url = apiUrl(`/public/records?${params.toString()}`);
+  // ✅ IMPORTANT: hit /public/records exactly (no /api prefix)
+  const url = publicUrl(`/public/records?${params.toString()}`);
 
   const res = await fetch(url, {
     credentials: "include",
@@ -490,13 +483,8 @@ async function listCoursesForCurrentUser() {
   const data = await res.json().catch(() => null);
   const rows = Array.isArray(data) ? data : (data?.items || data?.records || []);
 
-  // ✅ filter deleted client-side too
-  const active = rows.filter((r) => {
-    const deletedAt = r?.deletedAt || r?.values?.deletedAt || null;
-    return !deletedAt;
-  });
+  const active = rows.filter((r) => !(r?.deletedAt || r?.values?.deletedAt));
 
-  // ✅ rebuild cache
   window.__COURSE_CACHE = {};
   active.forEach((r) => {
     const id = String(r._id || r.id || "");
