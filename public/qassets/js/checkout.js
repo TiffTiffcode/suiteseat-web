@@ -164,27 +164,73 @@ async function loadCheckoutView(loggedIn) {
       return;
     }
 
-    wrap.innerHTML = items
-      .map((it) => {
-        const v = it?.values || it || {};
-        const label = v["Label"] || v.label || v["Kind"] || "Item";
-        const qty = Number(v["Quantity"] || v.quantity || 1);
-        const unit = Number(v["Unit Amount"] || v.unitAmount || 0);
-        const total = Number(v["Total Amount"] || v.totalAmount || unit * qty);
+wrap.innerHTML = items
+  .map((it) => {
+    const id = it?._id || it?.id || ""; // record id
+    const v = it?.values || it || {};
+    const label = v["Label"] || v.label || v["Kind"] || "Item";
+    const qty = Number(v["Quantity"] || v.quantity || 1);
+    const unit = Number(v["Unit Amount"] || v.unitAmount || 0);
+    const total = Number(v["Total Amount"] || v.totalAmount || unit * qty);
 
-        return `
-          <div style="border:1px solid #e5e5e5;border-radius:12px;padding:12px;display:flex;justify-content:space-between;gap:12px;">
-            <div>
-              <div style="font-weight:700;">${escapeHtml(label)}</div>
-              <div style="font-size:12px;opacity:.75;margin-top:4px;">
-                Qty: ${qty} • Unit: ${moneyFromCents(unit)}
-              </div>
-            </div>
-            <div style="font-weight:800;">${moneyFromCents(total)}</div>
+    const canRemove = !!id; // guest “virtual items” won't have _id
+
+    return `
+      <div style="border:1px solid #e5e5e5;border-radius:12px;padding:12px;display:flex;justify-content:space-between;gap:12px;align-items:flex-start;">
+        <div style="min-width:0;">
+          <div style="font-weight:700;">${escapeHtml(label)}</div>
+          <div style="font-size:12px;opacity:.75;margin-top:4px;">
+            Qty: ${qty} • Unit: ${moneyFromCents(unit)}
           </div>
-        `;
-      })
-      .join("");
+        </div>
+
+        <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
+          <div style="font-weight:800;">${moneyFromCents(total)}</div>
+          ${
+            canRemove
+              ? `<button class="ss-trash-btn" data-remove-id="${escapeHtml(id)}" title="Remove" aria-label="Remove item"
+                   style="border:1px solid #ddd;background:#fff;border-radius:10px;padding:8px 10px;cursor:pointer;">
+                   🗑️
+                 </button>`
+              : ``
+          }
+        </div>
+      </div>
+    `;
+  })
+  .join("");
+
+  // remove handlers
+wrap.querySelectorAll("[data-remove-id]").forEach((btn) => {
+  btn.addEventListener("click", async () => {
+    const id = btn.getAttribute("data-remove-id");
+    if (!id) return;
+
+    btn.disabled = true;
+
+    const ok = confirm("Remove this item from checkout?");
+    if (!ok) { btn.disabled = false; return; }
+
+    const { res, data } = await apiFetch(`/api/checkout/items/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+    });
+
+    if (!res.ok) {
+      console.error("remove failed", res.status, data);
+      alert(data?.error || data?.message || "Could not remove item.");
+      btn.disabled = false;
+      return;
+    }
+
+    // reload view + rerender
+    const me = await apiFetch("/api/me", { method: "GET" }).catch(() => null);
+    const loggedIn = !!me?.data?.ok;
+
+    const view = await loadCheckoutView(loggedIn).catch(() => ({ items: [] }));
+    renderItems(view.items);
+  });
+});
+
 
 document.getElementById("payNowBtn")?.addEventListener("click", async () => {
   try {
