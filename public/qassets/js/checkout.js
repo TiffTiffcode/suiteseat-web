@@ -237,8 +237,9 @@ document.getElementById("payNowBtn")?.addEventListener("click", async () => {
     $("logout-btn")?.addEventListener("click", async () => {
       await apiFetch("/api/logout", { method: "POST" }).catch(() => null);
       setLoggedOutUI();
-      const items = await loadCheckoutItems().catch(() => []);
-      renderItems(items);
+const view = await loadCheckoutView(false);
+renderItems(view.items);
+
     });
 
     // modal close
@@ -255,8 +256,9 @@ document.getElementById("payNowBtn")?.addEventListener("click", async () => {
     await maybeAddCourseFromUrl(loggedIn);
 
     // render items
-    const items = await loadCheckoutItems().catch(() => []);
-    renderItems(items);
+const view = await loadCheckoutView(loggedIn);
+renderItems(view.items);
+
 
     // login submit
     $("authForm")?.addEventListener("submit", async (e) => {
@@ -287,8 +289,9 @@ document.getElementById("payNowBtn")?.addEventListener("click", async () => {
 
       // now add the course from URL (if present), then refresh list
       await maybeAddCourseFromUrl(true);
-      const items2 = await loadCheckoutItems().catch(() => []);
-      renderItems(items2);
+const view2 = await loadCheckoutView(true);
+renderItems(view2.items);
+
     });
   }
 
