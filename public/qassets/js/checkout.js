@@ -61,17 +61,23 @@ const STRIPE_PUBLISHABLE_KEY = "pk_live_xxx"; // <-- put your real publishable k
     $("logout-btn").style.display = "";
   }
 
-  function openAuth() {
-    const m = $("authModal");
-    m.hidden = false;
-    m.setAttribute("aria-hidden", "false");
-  }
+function openAuth() {
+  const m = $("authModal");
+  m.hidden = false;
+  m.setAttribute("aria-hidden", "false");
 
-  function closeAuth() {
-    const m = $("authModal");
-    m.hidden = true;
-    m.setAttribute("aria-hidden", "true");
-  }
+  // move focus into the modal
+  setTimeout(() => $("authEmail")?.focus(), 0);
+}
+
+function closeAuth() {
+  // move focus OUT of the modal first
+  $("open-login-popup-btn")?.focus();
+
+  const m = $("authModal");
+  m.hidden = true;
+  m.setAttribute("aria-hidden", "true");
+}
 
   // ---------- checkout items ----------
 async function loadCheckoutView(loggedIn) {
@@ -128,6 +134,10 @@ async function loadCheckoutView(loggedIn) {
     const main = document.querySelector("main.ss-settings-layout");
     if (!main) return;
 
+      // reset Stripe mounts because DOM is about to be replaced
+  card = null;
+  elements = null;
+  
     const subtotalCents = items.reduce((sum, it) => {
       const v = it?.values || it || {};
       return sum + Number(v["Total Amount"] || v.totalAmount || 0);
