@@ -432,7 +432,8 @@ async function handleBuyNowClick() {
     return;
   }
 
-window.location.href = `/checkout.html?addCourse=${encodeURIComponent(courseId)}&qty=1`;
+window.location.href = `/checkout.html?courseId=${encodeURIComponent(courseId)}&qty=1`;
+
 
 }
 

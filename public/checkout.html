@@ -7,6 +7,8 @@
 
   <!-- Settings styles -->
   <link rel="stylesheet" href="/qassets/css/checkout.css" />
+<script src="https://js.stripe.com/v3/"></script>
+
 
   <!-- Auth + navigation logic -->
   <script defer src="/qassets/js/checkout.js"></script>
@@ -35,8 +37,10 @@
 
      <h2 >Checkoutpage</h2>
   <!-- MAIN CONTENT -->
-   <main class="ss-settings-layout"></main>
- 
+  <main class="ss-settings-layout">
+  <div id="stripe-area" style="max-width:900px;margin:0 auto;padding:16px;"></div>
+</main>
+
 
   <!-- AUTH POPUP -->
   <div id="authModal" class="auth-modal" hidden aria-hidden="true">
