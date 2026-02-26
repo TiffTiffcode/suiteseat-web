@@ -6106,6 +6106,9 @@ function dbg(label, obj) {
   console.log(`[DBG] ${label}`, obj || "");
 }
 
+// ================================
+// Stripe (Course Settings) — uses SAME endpoints as suite-settings
+// ================================
 async function refreshStripeStatusUI() {
   const statusEl = document.getElementById("stripe-status-text");
   const btn = document.getElementById("stripe-connect-btn");
@@ -6114,8 +6117,6 @@ async function refreshStripeStatusUI() {
   btn.disabled = true;
   statusEl.textContent = "Checking Stripe connection...";
 
-  let data = null;
-
   try {
     const statusRes = await fetch(apiUrl("/api/connect/status"), {
       method: "GET",
@@ -6123,7 +6124,7 @@ async function refreshStripeStatusUI() {
       headers: { Accept: "application/json" },
     });
 
-    data = await statusRes.json().catch(() => ({}));
+    const data = await statusRes.json().catch(() => ({}));
     if (!statusRes.ok) {
       throw new Error(data.message || data.error || "Failed to check Stripe status");
     }
@@ -6134,45 +6135,36 @@ async function refreshStripeStatusUI() {
       statusEl.textContent = "⚠️ Connect Stripe to enable payouts.";
       btn.style.display = "";
       btn.disabled = false;
+      btn.textContent = "Connect Stripe";
       return;
     }
 
-   // Connected but not ready
-if (!data.chargesEnabled) {
-  statusEl.textContent = "⚠️ Stripe connected, but payments aren't enabled yet. Click to finish setup.";
-  btn.style.display = "";
-  btn.disabled = false;
-  btn.textContent = "Finish Stripe setup";
-  return;
-}
+    if (!data.chargesEnabled) {
+      statusEl.textContent =
+        "⚠️ Stripe connected, but payments aren't enabled yet. Click to finish setup.";
+      btn.style.display = "";
+      btn.disabled = false;
+      btn.textContent = "Finish Stripe setup";
+      return;
+    }
 
-// Payments enabled, but payouts not enabled yet
-if (!data.payoutsEnabled) {
-  statusEl.textContent = "✅ Payments enabled. Add bank details to enable payouts.";
-  btn.style.display = "";
-  btn.disabled = false;
-  btn.textContent = "Enable payouts";
-  return;
-}
-
-// Fully ready
-statusEl.textContent = "✅ Payments enabled. You can send invoices.";
-btn.style.display = "none";
-
+    if (!data.payoutsEnabled) {
+      statusEl.textContent = "✅ Payments enabled. Add bank details to enable payouts.";
+      btn.style.display = "";
+      btn.disabled = false;
+      btn.textContent = "Enable payouts";
+      return;
+    }
 
     statusEl.textContent = "✅ Payments enabled. You can send invoices.";
     btn.style.display = "none";
   } catch (e) {
     console.error("[stripe] refreshStripeStatusUI error", e);
-    console.log("[stripe] status response (last):", data);
     statusEl.textContent = e?.message || "Failed to load Stripe status.";
     btn.disabled = false;
+    btn.style.display = "";
   }
 }
-
-
-
-
 
 function initStripeConnectButton() {
   const btn = document.getElementById("stripe-connect-btn");
@@ -6181,51 +6173,59 @@ function initStripeConnectButton() {
   if (btn.dataset.bound === "1") return;
   btn.dataset.bound = "1";
 
-btn.addEventListener("click", async () => {
-  try {
-    btn.disabled = true;
+  btn.addEventListener("click", async () => {
+    try {
+      console.log("[stripe] Connect Stripe clicked");
+      btn.disabled = true;
 
-    const createRes = await fetch(apiUrl("/api/connect/create"), {
-      method: "POST",
-      credentials: "include",
-      headers: { Accept: "application/json" },
-    });
-    const createData = await createRes.json().catch(() => ({}));
-    if (!createRes.ok || !createData.accountId) {
-      throw new Error(createData.message || createData.error || "Failed to create Stripe account");
+      // 1) Create or fetch connect account
+      const createRes = await fetch(apiUrl("/api/connect/create"), {
+        method: "POST",
+        credentials: "include",
+        headers: { Accept: "application/json" },
+      });
+
+      const createData = await createRes.json().catch(() => ({}));
+      if (!createRes.ok || !createData.accountId) {
+        throw new Error(createData.message || createData.error || "Failed to create Stripe account");
+      }
+
+      // 2) Get onboarding link
+      const onboardRes = await fetch(apiUrl("/api/connect/onboard"), {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ accountId: createData.accountId }),
+      });
+
+      const onboardData = await onboardRes.json().catch(() => ({}));
+      if (!onboardRes.ok || !onboardData.url) {
+        throw new Error(onboardData.message || onboardData.error || "Failed to start onboarding");
+      }
+
+      // 3) Redirect to Stripe
+      window.location.href = onboardData.url;
+    } catch (e) {
+      console.error("[stripe] connect error", e);
+      alert(e?.message || "Stripe connect failed");
+      btn.disabled = false;
     }
-
-    const onboardRes = await fetch(apiUrl("/api/connect/onboard"), {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify({ accountId: createData.accountId }),
-    });
-
-    const onboardData = await onboardRes.json().catch(() => ({}));
-    if (!onboardRes.ok || !onboardData.url) {
-      throw new Error(onboardData.message || onboardData.error || "Failed to start onboarding");
-    }
-
-    window.location.href = onboardData.url;
-  } catch (e) {
-    console.error("[stripe] connect error", e);
-    alert(e?.message || "Stripe connect failed");
-    btn.disabled = false;
-  }
-});
-
+  });
 }
 
-// If Stripe sent us back here, refresh status once
-(async () => {
+// Run after auth is ready OR DOM is ready
+document.addEventListener("DOMContentLoaded", async () => {
+  initStripeConnectButton();
+  await refreshStripeStatusUI();
+
+  // If Stripe returned back with ?stripe=return or ?stripe=refresh
   const params = new URLSearchParams(window.location.search);
   const stripeFlag = params.get("stripe");
   if (stripeFlag === "return" || stripeFlag === "refresh") {
     await refreshStripeStatusUI();
     window.history.replaceState({}, "", window.location.pathname);
   }
-})();
+});
 
 
 
