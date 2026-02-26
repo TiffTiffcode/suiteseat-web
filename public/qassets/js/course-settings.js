@@ -5960,7 +5960,7 @@ async function persistChaptersToDB(reason = "chapters-change") {
                           // --- Students Section ---
 const studentsSection        = document.getElementById('students');
 const studentsCourseSelect   = document.getElementById('students-course-select');
-const studentsCourseSummary  = document.getElementById('students-course-summary');
+const studentsCourseSummary  = document.getElementById('students-course-summary');F
 const studentsList           = document.getElementById('students-list');
 
 //Courses dropdown
