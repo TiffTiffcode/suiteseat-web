@@ -1,5 +1,5 @@
  //* Course-settings.js  
-
+console.log("[course-settings] file loaded ✅", new Date().toISOString());
  
 /* ============== API HELPERS (put FIRST) ============== */
 
@@ -3248,8 +3248,7 @@ async function saveLessonOrderToDB(sectionId) {
         params.set("Course", currentCourseId);
       }
 
-   const url = apiUrl(`/public/records?${params.toString()}`);
-
+   const url = joinUrl(API_BASE, `/public/records?${params.toString()}`);
 
       const res = await fetch(url, {
         credentials: "include",
@@ -3745,8 +3744,7 @@ async function hydrateSectionsForCourse(courseId) {
   params.set("Course", courseId);
   params.set("ts", String(Date.now())); // cache buster
 
-const url = apiUrl(`/public/records?${params.toString()}`);
-
+const url = joinUrl(API_BASE, `/public/records?${params.toString()}`);
   console.log("[outline] sections url:", url);
 
   try {
@@ -5895,8 +5893,69 @@ async function persistChaptersToDB(reason = "chapters-change") {
 
 
 
+////////////////////////////////////////////////////////////////////
+                    //Settings Section 
+ ////////////////////////////////////////////////////////////////////
+// =========================
+// Stripe Connect (Settings)
+// =========================
+function initStripeSettings() {
+  const stripeBtn = document.getElementById("stripe-connect-btn");
+  const stripeStatus = document.getElementById("stripe-status-text");
 
+  if (!stripeBtn) {
+    console.warn("[stripe] #stripe-connect-btn not found");
+    return;
+  }
 
+  console.log("[stripe] wiring connect button ✅");
+
+  // Optional: check status on load (only if you have an endpoint for it)
+  // If you don’t have this route yet, you can delete this block.
+  (async () => {
+    try {
+      const me = await window.fetchJSON("/api/me"); // confirms session ok
+      // If you have a Stripe status endpoint, use it:
+      // const status = await window.fetchJSON("/api/stripe/status");
+      // stripeStatus.textContent = status.connected ? "Connected ✅" : "Not connected yet.";
+      if (stripeStatus) stripeStatus.textContent = "Ready to connect Stripe.";
+    } catch (e) {
+      console.warn("[stripe] status check failed", e);
+      if (stripeStatus) stripeStatus.textContent = "Please log in to connect Stripe.";
+    }
+  })();
+
+  stripeBtn.addEventListener("click", async () => {
+    console.log("[stripe] Connect Stripe clicked");
+
+    try {
+      // require login first (you already have this helper)
+      await window.requireUser();
+
+      stripeBtn.disabled = true;
+      if (stripeStatus) stripeStatus.textContent = "Opening Stripe…";
+
+      // IMPORTANT:
+      // This route name must match YOUR server.
+      // Common options: /api/stripe/connect, /api/stripe/onboard, /api/stripe/account-link
+      const out = await window.fetchJSON("/api/stripe/connect", { method: "POST" });
+
+      const url = out?.url || out?.accountLinkUrl || out?.onboardUrl;
+      if (!url) throw new Error("No Stripe URL returned from server.");
+
+      window.location.href = url;
+    } catch (err) {
+      console.error("[stripe] connect failed", err);
+      alert(err.message || "Stripe connect failed");
+      if (stripeStatus) stripeStatus.textContent = "Stripe connect failed. Try again.";
+    } finally {
+      stripeBtn.disabled = false;
+    }
+  });
+}
+
+// run after auth is ready (best)
+document.addEventListener("auth:ready", initStripeSettings);
 
 
 
@@ -5963,85 +6022,7 @@ const studentsCourseSelect   = document.getElementById('students-course-select')
 const studentsCourseSummary  = document.getElementById('students-course-summary');
 const studentsList           = document.getElementById('students-list');
 
-//Courses dropdown
-// 🔹 Course type (if not defined already)
-const COURSE_TYPE = (window.TYPES && window.TYPES.Course) || 'Course';
 
-// 🔹 List all courses (for dropdown in Students section)
-async function listCoursesForUser() {
-  const params = new URLSearchParams();
-  params.set('dataType', COURSE_TYPE);
-  params.set('limit', '200');
-
-  // If your backend supports filtering by current user, you can add:
-  // params.set('Owner', currentUserId);
-  // but we’ll just pull all “Course” records and let your permissions handle it.
-
-const url = apiUrl(`/public/records?${params.toString()}`);
-
-
-  const res = await fetch(url, {
-    credentials: 'include',
-    headers: { Accept: 'application/json' },
-  });
-
-  if (!res.ok) {
-    throw new Error('HTTP ' + res.status);
-  }
-
-  const data = await res.json();
-  const rows = Array.isArray(data)
-    ? data
-    : data.records || data.items || [];
-
-  return rows.map((row) => {
-    const v = row.values || row;
-    return {
-      id: row._id || row.id || '',
-      name: v['Course Name'] || v.Name || 'Untitled course',
-    };
-  });
-}
-
-
-function updateStudentsCourseSummary() {
-  if (!studentsCourseSummary || !studentsCourseSelect) return;
-
-  const courseId = studentsCourseSelect.value;
-  if (!courseId) {
-    studentsCourseSummary.textContent = 'No course selected yet.';
-    if (studentsList) {
-      studentsList.innerHTML = '<p class="muted">Select a course to see its students.</p>';
-    }
-    return;
-  }
-
-  const label =
-    studentsCourseSelect.options[studentsCourseSelect.selectedIndex]?.textContent ||
-    'Selected course';
-
-  studentsCourseSummary.textContent = `Showing students for: ${label}`;
-
-  // TODO: later we’ll call a real "load students for this course" function
-  if (studentsList) {
-    studentsList.innerHTML = `
-      <p class="muted">
-        (Hook up enrolled students list here for course: <strong>${label}</strong>.)
-      </p>
-    `;
-  }
-}
-
-// --- Students section wiring ---
-if (studentsCourseSelect) {
-  studentsCourseSelect.addEventListener('change', () => {
-    updateStudentsCourseSummary();
-    // later: loadStudentsForCourse(studentsCourseSelect.value)
-  });
-}
-
-// Call this once on page load to fill the dropdown
-hydrateStudentsCourseDropdown();
 
 
   // =========================
