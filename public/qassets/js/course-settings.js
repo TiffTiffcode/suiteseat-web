@@ -1,5 +1,5 @@
  //* Course-settings.js  
-console.log("[course-settings] file loaded ✅", new Date().toISOString());
+console.log("[course-settings] file loaded ✅2", new Date().toISOString());
  
 /* ============== API HELPERS (put FIRST) ============== */
 
