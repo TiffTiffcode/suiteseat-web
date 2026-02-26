@@ -6,11 +6,17 @@ window.STATE = window.STATE || { locations: [], user: { loggedIn:false, userId:n
 const API_ORIGIN = (location.hostname === "localhost") ? "http://localhost:8400" : "";
 
 // Always return a /api url (same pattern your working page uses)
+const API_BASE =
+  location.hostname === "localhost"
+    ? "http://localhost:8400"
+    : "https://api2.suiteseat.io";
+
 function apiUrl(path) {
-  const base = path.startsWith("/api")
+  const p = path.startsWith("/api")
     ? path
     : `/api${path.startsWith("/") ? path : `/${path}`}`;
-  return `${API_ORIGIN}${base}`;
+
+  return API_BASE + p;
 }
 
 async function apiFetch(path, opts = {}) {
