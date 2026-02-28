@@ -53,6 +53,12 @@ async function readJsonSafe(res) {
     return { raw: text };
   }
 }
+//temporary
+fetch("https://api2.suiteseat.io/api/connect/reset", {
+  method: "POST",
+  credentials: "include",
+  headers: { "Content-Type": "application/json" }
+}).then(r => r.json()).then(console.log);
 
 // ---- Get signed-in user via /check-login ----
 
