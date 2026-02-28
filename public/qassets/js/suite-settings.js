@@ -9,9 +9,15 @@ const API_BASE =
     : "https://api2.suiteseat.io";
 
 function apiUrl(path) {
-  // normalize: allow passing "/api/health" or "health"
   if (!path.startsWith("/")) path = `/${path}`;
-  return `${API_BASE}${path.startsWith("/api") ? path : `/api${path}`}`;
+
+  // ✅ allow public routes as-is
+  if (path.startsWith("/public")) return `${API_BASE}${path}`;
+
+  // ✅ api routes as-is or auto-prefix
+  if (!path.startsWith("/api")) path = `/api${path}`;
+
+  return `${API_BASE}${path}`;
 }
 
 async function apiFetch(path, opts = {}) {
