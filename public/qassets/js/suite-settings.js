@@ -406,6 +406,18 @@ function resolveImg(raw) {
   return apiUrl("/" + s);
 }
 
+//Upload Helper 
+function normalizeImageUrl(s) {
+  s = String(s || "").trim();
+  if (!s) return "";
+  if (/^https?:\/\//i.test(s)) return s;
+
+  // handle "uploads/..." and "/uploads/..."
+  if (!s.startsWith("/")) s = "/" + s;
+
+  return `https://api2.suiteseat.io${s}`;
+} 
+
 
 function renderLocations() {
   const listEl = document.getElementById("locations-list");
