@@ -53,12 +53,6 @@ async function readJsonSafe(res) {
     return { raw: text };
   }
 }
-//temporary
-fetch("https://api2.suiteseat.io/api/connect/reset", {
-  method: "POST",
-  credentials: "include",
-  headers: { "Content-Type": "application/json" }
-}).then(r => r.json()).then(console.log);
 
 // ---- Get signed-in user via /check-login ----
 
@@ -6202,7 +6196,7 @@ function initStripeConnectButton() {
         throw new Error(createData.message || createData.error || "Failed to create Stripe account");
       }
 
-      // 2) Get onboarding link
+      // 2) Get onboarding link (✅ use text first so we can log real errors)
       const onboardRes = await fetch(apiUrl("/api/connect/onboard"), {
         method: "POST",
         credentials: "include",
@@ -6210,7 +6204,12 @@ function initStripeConnectButton() {
         body: JSON.stringify({ accountId: createData.accountId }),
       });
 
-      const onboardData = await onboardRes.json().catch(() => ({}));
+      const t = await onboardRes.text().catch(() => "");
+      console.log("[stripe] onboard raw:", t);
+
+      let onboardData;
+      try { onboardData = JSON.parse(t); } catch { onboardData = { raw: t }; }
+
       if (!onboardRes.ok || !onboardData.url) {
         throw new Error(onboardData.message || onboardData.error || "Failed to start onboarding");
       }
@@ -6224,20 +6223,6 @@ function initStripeConnectButton() {
     }
   });
 }
-
-// Run after auth is ready OR DOM is ready
-document.addEventListener("DOMContentLoaded", async () => {
-  initStripeConnectButton();
-  await refreshStripeStatusUI();
-
-  // If Stripe returned back with ?stripe=return or ?stripe=refresh
-  const params = new URLSearchParams(window.location.search);
-  const stripeFlag = params.get("stripe");
-  if (stripeFlag === "return" || stripeFlag === "refresh") {
-    await refreshStripeStatusUI();
-    window.history.replaceState({}, "", window.location.pathname);
-  }
-});
 
 
 
