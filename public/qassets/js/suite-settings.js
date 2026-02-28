@@ -393,17 +393,26 @@ function resolveImg(raw) {
   // If DB stored an array, use first
   if (Array.isArray(raw)) raw = raw[0];
 
-  const s = String(raw).trim();
+  let s = String(raw).trim();
   if (!s) return "";
 
-  // already absolute
-  if (/^https?:\/\//i.test(s)) return s;
+  // already absolute (http/https)
+  if (/^https?:\/\//i.test(s)) {
+    // ✅ if it's pointing at www.suiteseat.io/uploads, rewrite to api2
+    if (s.includes("://www.suiteseat.io/uploads/")) {
+      s = s.replace("://www.suiteseat.io/uploads/", "://api2.suiteseat.io/uploads/");
+    }
+    return s;
+  }
 
-  // ✅ if it starts with "/" (ex: /uploads/xyz.png), it MUST come from API server (8400)
-  if (s.startsWith("/")) return apiUrl(s);
+  // ensure leading slash
+  if (!s.startsWith("/")) s = "/" + s;
 
-  // relative without slash
-  return apiUrl("/" + s);
+  // ✅ uploads must always come from API server
+  if (s.startsWith("/uploads/")) return `${API_BASE}${s}`;
+
+  // ✅ everything else can use apiUrl (public etc)
+  return apiUrl(s);
 }
 
 //Upload Helper 
