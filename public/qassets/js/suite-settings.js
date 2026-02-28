@@ -944,7 +944,7 @@ function renderExistingMainPhoto() {
   holder.innerHTML = `
     <div class="gallery-thumb-wrapper">
       <button type="button" class="gallery-thumb-remove" aria-label="Remove photo">×</button>
-      <img src="${existingMainPhotoUrl}" alt="Current default photo" />
+     <img src="${resolveImg(existingMainPhotoUrl)}" alt="Current default photo" />
     </div>
   `;
 
@@ -971,7 +971,7 @@ function renderExistingGallery() {
       return `
         <div class="gallery-thumb-wrapper" data-url="${url}" style="${removed ? "opacity:.35;" : ""}">
           <button type="button" class="gallery-thumb-remove" aria-label="Remove image">×</button>
-          <img src="${url}" alt="Gallery image" />
+        <img src="${resolveImg(url)}" alt="Gallery image" />
         </div>
       `;
     })
@@ -2134,7 +2134,7 @@ function initSuiteMainPhotoPreview() {
       holder.innerHTML = `
         <div class="gallery-thumb-wrapper">
           <button type="button" class="gallery-thumb-remove" aria-label="Remove photo">×</button>
-          <img src="${existingSuiteMainPhotoUrl}" alt="Current suite default photo" />
+         <img src="${resolveImg(existingSuiteMainPhotoUrl)}" alt="Current suite default photo" />
         </div>
       `;
 
@@ -2261,7 +2261,7 @@ function renderExistingSuiteGallery() {
       return `
         <div class="gallery-thumb-wrapper" data-url="${url}" style="${removed ? "opacity:.35;" : ""}">
           <button type="button" class="gallery-thumb-remove" aria-label="Remove image">×</button>
-          <img src="${url}" alt="Gallery image" />
+    <img src="${resolveImg(url)}" alt="Gallery image" />
         </div>
       `;
     })
