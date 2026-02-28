@@ -5935,11 +5935,7 @@ function initStripeSettings() {
       stripeBtn.disabled = true;
       if (stripeStatus) stripeStatus.textContent = "Opening Stripe…";
 
-      // IMPORTANT:
-      // This route name must match YOUR server.
-      // Common options: /api/stripe/connect, /api/stripe/onboard, /api/stripe/account-link
-      const out = await window.fetchJSON("/api/stripe/connect", { method: "POST" });
-
+   
       const url = out?.url || out?.accountLinkUrl || out?.onboardUrl;
       if (!url) throw new Error("No Stripe URL returned from server.");
 
@@ -5953,11 +5949,118 @@ function initStripeSettings() {
     }
   });
 }
+// ================================
+// Stripe (Course Settings) — SAME as suite-settings
+// ================================
+async function refreshStripeStatusUI() {
+  const statusEl = document.getElementById("stripe-status-text");
+  const btn = document.getElementById("stripe-connect-btn");
+  if (!statusEl || !btn) return;
 
+  btn.disabled = true;
+  statusEl.textContent = "Checking Stripe connection...";
+
+  try {
+    const statusRes = await fetch(apiUrl("/api/connect/status"), {
+      method: "GET",
+      credentials: "include",
+      headers: { Accept: "application/json" },
+    });
+
+    const data = await statusRes.json().catch(() => ({}));
+    if (!statusRes.ok) {
+      throw new Error(data.message || data.error || "Failed to check Stripe status");
+    }
+
+    // match your suite-settings behavior
+    if (!data.connected) {
+      statusEl.textContent = "⚠️ Connect Stripe to enable payouts.";
+      btn.style.display = "";
+      btn.disabled = false;
+      btn.textContent = "Connect Stripe";
+      return;
+    }
+
+    if (!data.chargesEnabled) {
+      statusEl.textContent =
+        "⚠️ Stripe connected, but payments aren't enabled yet. Click to finish setup.";
+      btn.style.display = "";
+      btn.disabled = false;
+      btn.textContent = "Finish Stripe setup";
+      return;
+    }
+
+    if (!data.payoutsEnabled) {
+      statusEl.textContent = "✅ Payments enabled. Add bank details to enable payouts.";
+      btn.style.display = "";
+      btn.disabled = false;
+      btn.textContent = "Enable payouts";
+      return;
+    }
+
+    statusEl.textContent = "✅ Payments enabled.";
+    btn.style.display = "none";
+  } catch (e) {
+    console.error("[stripe] refreshStripeStatusUI error", e);
+    statusEl.textContent = e?.message || "Failed to load Stripe status.";
+    btn.disabled = false;
+    btn.style.display = "";
+  }
+}
+
+function initStripeConnectButton() {
+  const btn = document.getElementById("stripe-connect-btn");
+  if (!btn) return;
+
+  if (btn.dataset.bound === "1") return;
+  btn.dataset.bound = "1";
+
+  btn.addEventListener("click", async () => {
+    try {
+      console.log("[stripe] Connect Stripe clicked");
+      btn.disabled = true;
+
+      // 1) create/fetch connect account
+      const createRes = await fetch(apiUrl("/api/connect/create"), {
+        method: "POST",
+        credentials: "include",
+        headers: { Accept: "application/json" },
+      });
+
+      const createData = await createRes.json().catch(() => ({}));
+      if (!createRes.ok || !createData.accountId) {
+        throw new Error(createData.message || createData.error || "Failed to create Stripe account");
+      }
+
+      // 2) get onboarding link
+      const onboardRes = await fetch(apiUrl("/api/connect/onboard"), {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ accountId: createData.accountId }),
+      });
+
+      const t = await onboardRes.text().catch(() => "");
+      let onboardData; try { onboardData = JSON.parse(t); } catch { onboardData = { raw: t }; }
+
+      if (!onboardRes.ok || !onboardData.url) {
+        throw new Error(onboardData.message || onboardData.error || "Failed to start onboarding");
+      }
+
+      // 3) redirect to Stripe
+      window.location.href = onboardData.url;
+    } catch (e) {
+      console.error("[stripe] connect error", e);
+      alert(e?.message || "Stripe connect failed");
+      btn.disabled = false;
+    }
+  });
+}
 // run after auth is ready (best)
-document.addEventListener("auth:ready", initStripeSettings);
-
-
+document.addEventListener("auth:ready", async () => {
+  initStripeConnectButton();
+  await refreshStripeStatusUI();
+});
 
 
 
