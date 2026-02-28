@@ -3,20 +3,15 @@ console.log("[suite-settings] loaded");
 window.STATE = window.STATE || { locations: [], user: { loggedIn:false, userId:null, email:"", firstName:"" } };
 
 // Dev uses API server, prod uses same-origin
-const API_ORIGIN = (location.hostname === "localhost") ? "http://localhost:8400" : "";
-
-// Always return a /api url (same pattern your working page uses)
 const API_BASE =
   location.hostname === "localhost"
     ? "http://localhost:8400"
     : "https://api2.suiteseat.io";
 
 function apiUrl(path) {
-  const p = path.startsWith("/api")
-    ? path
-    : `/api${path.startsWith("/") ? path : `/${path}`}`;
-
-  return API_BASE + p;
+  // normalize: allow passing "/api/health" or "health"
+  if (!path.startsWith("/")) path = `/${path}`;
+  return `${API_BASE}${path.startsWith("/api") ? path : `/api${path}`}`;
 }
 
 async function apiFetch(path, opts = {}) {
@@ -26,7 +21,6 @@ async function apiFetch(path, opts = {}) {
     ...opts,
   });
 }
-
 async function fetchJSON(path, opts = {}) {
   const res = await apiFetch(path, {
     headers: { "Content-Type": "application/json", ...(opts.headers || {}) },
