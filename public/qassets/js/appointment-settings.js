@@ -173,6 +173,15 @@ function renderBusinessDropdown(items) {
   console.log("[dropdown] business names:", rendered.map((x) => x.name));
 }
 
+//Show amount of services the business has 
+let SERVICE_COUNTS_CACHE = {};
+
+async function refreshBusinessSection() {
+  // must already have MY_BUSINESSES set
+  const counts = await fetchServiceCountsByBusiness();
+  SERVICE_COUNTS_CACHE = counts;
+  renderBusinessSection(MY_BUSINESSES, SERVICE_COUNTS_CACHE);
+}
 
 async function loadMyBusinesses() {
   const path = `/api/records/Business?limit=200`;
@@ -191,26 +200,29 @@ async function loadMyBusinesses() {
 
   const items = normalizeItems(data);
 
-  // ✅ cache globally
   MY_BUSINESSES = items;
-if (!items.length) {
-  lockAppUntilBusinessCreated();
-} else {
-  unlockAppAfterBusinessCreated();
-}
+
+  if (!items.length) {
+    lockAppUntilBusinessCreated();
+  } else {
+    unlockAppAfterBusinessCreated();
+  }
 
   console.log("[business] items count:", items.length);
   console.log("[business] names:", items.map(getBusinessName));
 
-  // ✅ render ONCE
+  // ✅ render dropdown
   renderBusinessDropdown(items);
-  renderBusinessSection(items);
+
+  // ✅ render business section WITH counts
+  await refreshBusinessSection();
+
+  // ✅ render other dropdowns
   renderCalendarBusinessDropdown(items);
-renderCategoryBusinessDropdown(items); 
+  renderCategoryBusinessDropdown(items);
 
   return items;
 }
-
 
 function wireBusinessDropdownUI() {
   const dd = document.getElementById("business-dropdown");
@@ -253,9 +265,17 @@ function normalizeImageUrl(raw) {
 }
 
 
-/////////////////////////////////////////////////
-                 // Calendar Section 
-/////////////////////////////////////////////////
+
+
+
+
+
+
+
+
+                        /////////////////////////////////////////////////
+                                       // Calendar Section 
+                        /////////////////////////////////////////////////
 //helper
 function getCalendarBusinessId(row) {
   const v = row?.values || row || {};
@@ -680,9 +700,9 @@ document.getElementById("delete-calendar-button")?.addEventListener("click", asy
 
 
 
-              /////////////////////////////////////////////////
-                   // Category Section
-             /////////////////////////////////////////////////  
+                        /////////////////////////////////////////////////
+                                      // Category Section
+                        /////////////////////////////////////////////////  
 
 //////////////////////////
 //  Fill Category Section  
@@ -1243,9 +1263,9 @@ document.getElementById("delete-category-button")?.addEventListener("click", asy
 
 
 
-              /////////////////////////////////////////////////
-                   // Service Section
-             /////////////////////////////////////////////////  
+                         /////////////////////////////////////////////////
+                                      // Service Section
+                        /////////////////////////////////////////////////  
  //Fill Service Section 
 function getServiceBusinessId(row) {
   const v = row?.values || row || {};
@@ -1467,9 +1487,43 @@ function openServicePopup() {
 }
 
 function closeServicePopup() {
+  clearServiceFileInputAndPreview();
   document.getElementById("popup-add-service")?.style.setProperty("display", "none");
   document.getElementById("popup-overlay")?.style.setProperty("display", "none");
 }
+
+//Clear Service image in popup 
+let CURRENT_SERVICE_PREVIEW_OBJECT_URL = null;
+
+function clearServiceFileInputAndPreview() {
+  const fileInput = document.getElementById("popup-service-image-input");
+  const previewImg = document.getElementById("service-image-preview");
+
+  const currentImg = document.getElementById("current-service-image");
+  const noTxt = document.getElementById("no-service-image-text");
+
+  // clear the file input
+  if (fileInput) fileInput.value = "";
+
+  // cleanup objectURL to avoid memory leaks
+  if (CURRENT_SERVICE_PREVIEW_OBJECT_URL) {
+    URL.revokeObjectURL(CURRENT_SERVICE_PREVIEW_OBJECT_URL);
+    CURRENT_SERVICE_PREVIEW_OBJECT_URL = null;
+  }
+
+  // hide the "new upload" preview
+  if (previewImg) {
+    previewImg.src = "";
+    previewImg.style.display = "none";
+  }
+
+  // hide the "current saved" image area too (for create mode)
+  if (currentImg) {
+    currentImg.src = "";
+    currentImg.style.display = "none";
+  }
+  if (noTxt) noTxt.style.display = "none";
+} 
 
 //Fill dropdowns 
 function renderServiceBusinessDropdown(items) {
@@ -1694,6 +1748,7 @@ async function createServiceRecord({ userId, businessId, calendarId, categoryId,
 
 
 function closeServicePopup() {
+  clearServiceFileInputAndPreview();
   document.getElementById("popup-add-service")?.style.setProperty("display", "none");
   document.getElementById("popup-overlay")?.style.setProperty("display", "none");
 }
@@ -1753,6 +1808,9 @@ try {
       alert("Service saved!");
       closeServicePopup();
 
+  // ✅ refresh service counts in Business section
+await refreshBusinessSection();
+
       // ✅ Sync main business dropdown so your page is "on" the right business after save
       const mainDD = document.getElementById("business-dropdown");
       if (mainDD && businessId) {
@@ -1784,12 +1842,22 @@ function wireServiceImagePreview() {
 
   input.addEventListener("change", () => {
     const file = input.files?.[0];
+
+    // cleanup old preview url
+    if (CURRENT_SERVICE_PREVIEW_OBJECT_URL) {
+      URL.revokeObjectURL(CURRENT_SERVICE_PREVIEW_OBJECT_URL);
+      CURRENT_SERVICE_PREVIEW_OBJECT_URL = null;
+    }
+
     if (!file) {
       img.src = "";
       img.style.display = "none";
       return;
     }
+
     const url = URL.createObjectURL(file);
+    CURRENT_SERVICE_PREVIEW_OBJECT_URL = url;
+
     img.src = url;
     img.style.display = "block";
   });
@@ -2010,10 +2078,6 @@ function initServiceUpdateDelete() {
   });
 }
 
-///////////////////
-//Delete  Service
-///////////////////////////
-
 
 
 
@@ -2030,6 +2094,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   // --- Menu section / business UI (below) ---
   wireBusinessDropdownUI();
 
+  initHeroImagePreview();
   // Always wire save handler (works even if user logs in later)
   initBusinessSave();
 
@@ -2204,9 +2269,18 @@ if (tabId === "service") {
 
 
 
-/////////////////////////////////////////////////
-//Business Section 
-/////////////////////////////////////////////////
+
+
+
+
+
+
+
+
+
+                        /////////////////////////////////////////////////
+                        //Business Section 
+                        /////////////////////////////////////////////////
 //Open Add Business Popup when Add Business button is pressed 
 function openAddBusinessPopup() {
   const popup = document.getElementById("popup-add-business");
@@ -2391,6 +2465,42 @@ unlockAppAfterBusinessCreated();
   });
 }
 
+//Show Image Preview
+// --- Hero image preview (file input) ---
+let CURRENT_PREVIEW_OBJECT_URL = null;
+
+function initHeroImagePreview() {
+  const fileInput = document.getElementById("image-upload");
+  const img = document.getElementById("current-hero-image");
+  const txt = document.getElementById("no-image-text");
+
+  if (!fileInput || !img || !txt) return;
+
+  fileInput.addEventListener("change", () => {
+    const file = fileInput.files?.[0];
+
+    // cleanup old preview url (prevents memory leaks)
+    if (CURRENT_PREVIEW_OBJECT_URL) {
+      URL.revokeObjectURL(CURRENT_PREVIEW_OBJECT_URL);
+      CURRENT_PREVIEW_OBJECT_URL = null;
+    }
+
+    if (!file) {
+      img.src = "";
+      img.style.display = "none";
+      txt.style.display = "block";
+      return;
+    }
+
+    const previewUrl = URL.createObjectURL(file);
+    CURRENT_PREVIEW_OBJECT_URL = previewUrl;
+
+    img.src = previewUrl;
+    img.style.display = "block";
+    txt.style.display = "none";
+  });
+}
+
 ////////////////
 //Open Add Business Popup when Business is clicked 
 /////////////////////
@@ -2434,6 +2544,25 @@ const setVal = (id, val) => {
   if (el) el.value = val;
 };
 
+function clearHeroFileInputPreview() {
+  const fileInput = document.getElementById("image-upload");
+  if (fileInput) fileInput.value = "";
+
+  if (CURRENT_PREVIEW_OBJECT_URL) {
+    URL.revokeObjectURL(CURRENT_PREVIEW_OBJECT_URL);
+    CURRENT_PREVIEW_OBJECT_URL = null;
+  }
+
+  // also reset the preview UI
+  const img = document.getElementById("current-hero-image");
+  const txt = document.getElementById("no-image-text");
+  if (img) {
+    img.src = "";
+    img.style.display = "none";
+  }
+  if (txt) txt.style.display = "block";
+}
+
 function setBusinessPopupCreateMode() {
   CURRENT_BUSINESS = null;
   CURRENT_BUSINESS_ID = null;
@@ -2446,6 +2575,8 @@ function setBusinessPopupCreateMode() {
   document.getElementById("delete-button")?.style.setProperty("display", "none");
 
   document.getElementById("popup-add-business-form")?.reset();
+
+  clearHeroFileInputPreview();
   setHeroPreview("");
   document.getElementById("business-name-warning")?.style.setProperty("display", "none");
 }
@@ -2586,15 +2717,18 @@ function toPublicBusinessUrl(row) {
   return `https://www.suiteseat.io/${encodeURIComponent(fallback)}`;
 }
 
-function renderBusinessSection(items) {
+function toId(row) {
+  const v = row?.values || row || {};
+  return String(row?._id || row?.id || v?._id || "").trim();
+}
+
+function renderBusinessSection(items, serviceCounts = {}, clientCounts = {}) {
   const nameCol = document.getElementById("business-name-column");
   const servicesCol = document.getElementById("services-column");
   const clientsCol = document.getElementById("clients-column");
   const gotoCol = document.getElementById("goto-column");
-
   if (!nameCol || !servicesCol || !clientsCol || !gotoCol) return;
 
-  // Clear existing
   nameCol.innerHTML = "";
   servicesCol.innerHTML = "";
   clientsCol.innerHTML = "";
@@ -2608,7 +2742,6 @@ function renderBusinessSection(items) {
     return;
   }
 
-  // Most recent first (your API already sorts newest first, but we’ll keep it safe)
   const rows = [...items].sort((a, b) => {
     const ad = new Date(a?.createdAt || a?.updatedAt || 0).getTime();
     const bd = new Date(b?.createdAt || b?.updatedAt || 0).getTime();
@@ -2616,60 +2749,76 @@ function renderBusinessSection(items) {
   });
 
   rows.forEach((row) => {
-    const v = row?.values || row || {};
-    const id = String(row?._id || row?.id || "").trim();
+    const id = toId(row);
     if (!id) return;
 
-    const name = getBusinessName(row); // ✅ uses your helper
+    const name = getBusinessName(row);
 
-    // If your business record stores arrays of refs, this will work:
-    const servicesCount = Array.isArray(v?.["Service(s)"]) ? v["Service(s)"].length : (Number(v?.servicesCount) || 0);
-    const clientsCount = Array.isArray(v?.["Client(s)"]) ? v["Client(s)"].length : (Number(v?.clientsCount) || 0);
+    const servicesCount = Number(serviceCounts[id] || 0);
+    const clientsCount = Number(clientCounts[id] || 0);
 
-    // Name cell (clickable if you want later)
     const nameDiv = document.createElement("div");
     nameDiv.className = "business-result clickable-item";
     nameDiv.textContent = name;
     nameDiv.dataset.id = id;
 
-    // ✅ Click business name -> open popup in EDIT mode
-nameDiv.addEventListener("click", () => {
-  setBusinessPopupEditMode(row);   // fills the popup
-  openAddBusinessPopup();          // shows popup
-});
+    nameDiv.addEventListener("click", () => {
+      setBusinessPopupEditMode(row);
+      openAddBusinessPopup();
+    });
 
-    // Services count cell
     const servicesDiv = document.createElement("div");
     servicesDiv.className = "business-result";
     servicesDiv.textContent = String(servicesCount);
 
-    // Clients count cell
     const clientsDiv = document.createElement("div");
     clientsDiv.className = "business-result";
     clientsDiv.textContent = String(clientsCount);
 
-    // Go to cell (arrow)
     const goDiv = document.createElement("div");
     goDiv.className = "business-result goto-arrow";
     goDiv.textContent = "➜";
     goDiv.title = "Open business";
     goDiv.dataset.id = id;
 
-goDiv.addEventListener("click", () => {
-  const url = toPublicBusinessUrl(row);
-  window.location.href = url; // redirect same tab
-  // or: window.open(url, "_blank"); // open new tab
-});
+    goDiv.addEventListener("click", () => {
+      const url = toPublicBusinessUrl(row);
+      window.location.href = url;
+    });
 
-
-    // Append to each column
     nameCol.appendChild(nameDiv);
     servicesCol.appendChild(servicesDiv);
     clientsCol.appendChild(clientsDiv);
     gotoCol.appendChild(goDiv);
   });
+}
 
-  console.log("[business-section] rendered businesses:", rows.map(getBusinessName));
+//Helper to show the number of services the business has 
+function getServiceBusinessId(row) {
+  const v = row?.values || row || {};
+  // your Service stores Business as [businessId] most likely
+  return firstRefId(v["Business"] ?? v.business ?? v.businessId);
+}
+
+function toId(row) {
+  const v = row?.values || row || {};
+  return String(row?._id || row?.id || v?._id || "").trim();
+} 
+
+async function fetchServiceCountsByBusiness() {
+  const { res, data } = await apiJSON("/api/records/Service?limit=1000", { method: "GET" });
+  if (!res.ok) return {};
+
+  const services = normalizeItems(data);
+
+  const counts = {};
+  services.forEach((s) => {
+    const bizId = String(getServiceBusinessId(s) || "").trim();
+    if (!bizId) return;
+    counts[bizId] = (counts[bizId] || 0) + 1;
+  });
+
+  return counts;
 }
 
 //Redirect to business Slug 
@@ -2701,9 +2850,27 @@ function unlockAppAfterBusinessCreated() {
   closeAddBusinessPopup();
 }
      
-              /////////////////////////////////////////////////
-                   // Category Section
-             /////////////////////////////////////////////////   
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                        /////////////////////////////////////////////////
+                                   // Category Section
+                        /////////////////////////////////////////////////   
+
 document.getElementById("open-category-popup-button")?.addEventListener("click", () => {
   setCategoryPopupCreateMode(); // ✅ reset everything for a new category
 
@@ -2731,7 +2898,10 @@ document.getElementById("close-add-category-popup-btn")
                    // Service Section
              ///////////////////////////////////////////////// 
 document.getElementById("open-service-popup-button")?.addEventListener("click", () => {
-  setServicePopupCreateMode();          // ✅ add this
+  setServicePopupCreateMode();        
+
+    // ✅ clear old image preview + old saved image UI
+  clearServiceFileInputAndPreview();
   renderServiceBusinessDropdown(MY_BUSINESSES);
 
   const bizDD = document.getElementById("dropdown-service-business");

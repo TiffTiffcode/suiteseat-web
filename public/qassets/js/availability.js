@@ -652,7 +652,10 @@ function generateTimeOptions() {
     });
   });
 }
-generateTimeOptions();
+console.log("[times] .time-select count =", document.querySelectorAll(".time-select").length);
+// after DOMContentLoaded
+generateTimeOptions();        // fills any .time-select
+initializeAllTimeSelects();   // fills start-upcoming-* / end-upcoming-* if you use them
 
 /////////////////////////////////////////////////////////////
 
@@ -712,13 +715,18 @@ const rowsToSavedHoursMap = (rows) => {
   (rows || []).forEach(r => {
     const v = r.values || {};
     // Prefer a plain dateKey if present; fallback to Date field
-    const raw = v.dateKey || v['Date'] || v.date || '';
-    const ymd = String(raw).slice(0, 10); // works for "YYYY-MM-DD" or ISO
-    if (!ymd) return;
+const raw = v.dateKey || v['Date'] || v.date || '';
+let ymd = '';
+
+if (raw instanceof Date) ymd = toYMD(raw);
+else if (typeof raw === 'string') ymd = raw.slice(0, 10);
+else ymd = String(raw || '').slice(0, 10);
+
+if (!ymd) return;
    const start = v['Start'] || v['Start Time'] || '';
 const end   = v['End']   || v['End Time']   || '';
 
- if ((start || end) && !map[ymd]) map[ymd] = { start, end };
+if (start || end) map[ymd] = { start, end };
 
   });
   // cache globally so Save can update immediately
@@ -737,35 +745,48 @@ async function loadAndGenerateCalendar() {
   const calendarId =
     document.getElementById("dropdown-availability-calendar")?.value || "";
 
-  console.log("[avail] REAL loader running ✅", { biz: businessId, cal: calendarId });
   console.log("[avail] loadAndGenerateCalendar", { businessId, calendarId, viewYear, viewMonth });
 
-  // If no biz selected, show nothing
+  // If no business selected, show empty month
   if (!businessId) {
-    window.upcomingHoursMap = {};
-    renderMonth(viewYear, viewMonth, {});
+    const empty = {};
+    window.upcomingHoursMap = empty;
+    renderMonth(viewYear, viewMonth, empty);
     setRelativeMonthBadge(viewYear, viewMonth);
     return;
   }
 
-  const start = new Date(viewYear, viewMonth, 1);
-  const end = new Date(viewYear, viewMonth + 1, 0);
-
-  // ✅ IMPORTANT: plain field names (server will map to values.*)
-  const whereObj = {
-    Date: { $gte: toYMD(start), $lte: toYMD(end) },
-    Business: businessId,
+  const bizOr = {
+    $or: [
+      { "values.Business": businessId },
+      { "values.Business._id": businessId },
+      { "values.Business.id": businessId },
+      { "values.Business.value": businessId },
+    ],
   };
-  if (calendarId) whereObj.Calendar = calendarId;
 
-  const qs = new URLSearchParams({
-    where: JSON.stringify(whereObj),
-    limit: "500",
-    sort: "-updatedAt",
-    ts: String(Date.now()),
-  });
+  const calOr = calendarId
+    ? {
+        $or: [
+          { "values.Calendar": calendarId },
+          { "values.Calendar._id": calendarId },
+          { "values.Calendar.id": calendarId },
+          { "values.Calendar.value": calendarId },
+        ],
+      }
+    : null;
 
-  // ✅ use RELATIVE PATH with apiFetch/apiJSON
+  // ✅ NO date range on server — fetch by biz/cal only
+  const whereObj = {
+    $and: [bizOr, ...(calOr ? [calOr] : [])],
+  };
+
+const qs = new URLSearchParams({
+  where: JSON.stringify(whereObj),
+  limit: "500",
+  ts: String(Date.now()),
+});
+
   const path = `/api/records/${encodeURIComponent(TYPE_UPCOMING)}?${qs.toString()}`;
 
   console.log("[avail] request path:", path);
@@ -782,14 +803,30 @@ async function loadAndGenerateCalendar() {
       throw new Error(`HTTP ${res.status}`);
     }
 
-    // ✅ list endpoints should be { items: rows }
-    const rows = Array.isArray(data) ? data : (data?.items || data?.records || data?.data || []);
+    const rows = Array.isArray(data) ? data : (data?.items || []);
     console.log("[avail] rows raw:", rows.length);
+    console.log("[avail] first row values:", rows?.[0]?.values);
 
-    savedMap = rowsToSavedHoursMap(rows);
+    // ✅ Filter to the visible month on the frontend
+    const monthKey = `${viewYear}-${String(viewMonth + 1).padStart(2, "0")}`;
+
+    const monthRows = rows.filter(r => {
+      const v = r.values || {};
+      const raw = v.dateKey || v.Date || v.date || "";
+      const ymd = typeof raw === "string"
+        ? raw.slice(0, 10)
+        : String(raw).slice(0, 10);
+
+      return ymd.startsWith(monthKey);
+    });
+
+    console.log("[avail] monthRows:", monthRows.length, "monthKey:", monthKey);
+
+    savedMap = rowsToSavedHoursMap(monthRows);
     window.upcomingHoursMap = savedMap;
 
-    console.log("[avail] savedMap sample entries:", Object.entries(savedMap).slice(0, 10));
+    console.log("[avail] savedMap keys:", Object.keys(savedMap).slice(0, 20));
+    console.log("[avail] savedMap sample entries:", Object.entries(savedMap).slice(0, 5));
   } catch (e) {
     console.error("[avail] Load upcoming hours failed:", e);
   }
@@ -797,7 +834,6 @@ async function loadAndGenerateCalendar() {
   renderMonth(viewYear, viewMonth, savedMap);
   setRelativeMonthBadge(viewYear, viewMonth);
 }
-
 
 
 const calName =
@@ -825,29 +861,50 @@ console.log(`[avail] rendering for: ${bizName} / ${calName}`);
     }
 
     // month days
-    for (let d=1; d<=numDays; d++){
-      const cell = document.createElement('div');
-      cell.className = 'day-cell';
-      cell.textContent = d;
+for (let d = 1; d <= numDays; d++) {
+  const cell = document.createElement("div");
+  cell.className = "day-cell";
 
-      const iso = `${year}-${pad(month+1)}-${pad(d)}`;
-      cell.dataset.iso = iso;
+  const iso = `${year}-${pad(month + 1)}-${pad(d)}`;
+  cell.dataset.iso = iso;
 
-      const avail = saved[iso];
-      if (avail && (avail.start || avail.end)){
-        const t = document.createElement('div');
-        t.className = 'availability-time';
-        t.textContent = `${formatTime(avail.start)} – ${formatTime(avail.end)}`;
-        cell.classList.add('has-availability');
-        cell.appendChild(t);
-      }
+  // number
+  const num = document.createElement("div");
+  num.className = "day-number";
+  num.textContent = d;
+  cell.appendChild(num);
 
-      if (d===today.getDate() && month===today.getMonth() && year===today.getFullYear()){
-        cell.classList.add('current-day');
-      }
+  // availability label
+  const avail = saved[iso];
+  if (avail && (avail.start || avail.end)) {
+    const tag = document.createElement("div");
+    tag.className = "availability-tag";
 
-      daysGridEl.appendChild(cell);
-    }
+    // show friendly time (use your formatTime)
+    const startTxt = formatTime(avail.start);
+    const endTxt   = formatTime(avail.end);
+
+    tag.innerHTML = `
+      <span class="availability-time">${startTxt}</span>
+      <span class="availability-dash">–</span>
+      <span class="availability-time">${endTxt}</span>
+    `;
+
+    cell.classList.add("has-availability");
+    cell.appendChild(tag);
+  }
+
+  // current day highlight
+  if (
+    d === today.getDate() &&
+    month === today.getMonth() &&
+    year === today.getFullYear()
+  ) {
+    cell.classList.add("current-day");
+  }
+
+  daysGridEl.appendChild(cell);
+}
   }
 
   // one delegated click handler for all days
@@ -869,6 +926,7 @@ console.log(`[avail] rendering for: ${bizName} / ${calName}`);
 
   // expose same name other code calls after save
   window.loadAndGenerateCalendar = loadAndGenerateCalendar;
+console.log("[avail] loadAndGenerateCalendar attached ✅");
 
   // initial
   loadAndGenerateCalendar();
@@ -1051,103 +1109,6 @@ function closeAvailabilityModal() {
 
 
 
-// Canonicalize: ignore spaces, punctuation, and case
-const canon = (s) =>
-  String(s ?? '')
-    .normalize('NFKD')
-    .toLowerCase()
-    .replace(/[\s\-_]+/g, '')      // drop spaces/underscores/dashes
-    .replace(/[^a-z0-9]/g, '');    // drop other punctuation
-
-// Get DataType by exact name OR canonical match
-async function getDataTypeByNameLoose(typeName) {
-  // Try your existing function first
-  const exact = await getDataTypeByName(typeName);
-  if (exact) return exact;
-
-  // Fallback: scan by canonical (add an index/cached map later if needed)
-  const all = await DataType.find({ /* scope as needed */ });
-  const want = canon(typeName);
-  return all.find(dt => canon(dt.name) === want) || null;
-}
-
-// Build quick lookup maps for field labels and option sets
-function buildFieldMaps(dt) {
-  const fields = Array.isArray(dt.fields) ? dt.fields : []; // adapt to your schema
-  const byCanon = new Map();      // canon(label) -> original label
-  const optionsByCanon = new Map(); // label -> Map(canon(optionLabel/value) -> storedValue)
-
-  for (const f of fields) {
-    const label = f.label || f.name; // whatever you store as the field label
-    if (!label) continue;
-    byCanon.set(canon(label), label);
-
-    // Option sets: accept label/value variations
-    if (Array.isArray(f.options)) {
-      const m = new Map();
-      for (const opt of f.options) {
-        const stored = opt.value ?? opt.label;     // how you store in values
-        m.set(canon(opt.label), stored);
-        m.set(canon(opt.value ?? ''), stored);
-      }
-      optionsByCanon.set(label, m);
-    }
-  }
-  return { byCanon, optionsByCanon };
-}
-
-// Map incoming {values} keys to real labels; normalize option-set values, booleans, etc.
-function normalizeIncomingValues(dt, values) {
-  const { byCanon, optionsByCanon } = buildFieldMaps(dt);
-  const out = {};
-  for (const [k, v] of Object.entries(values || {})) {
-    const realLabel = byCanon.get(canon(k)) || k;      // fall back if unknown
-    let val = v;
-
-    // Option sets: map "available"/"Available" -> stored value (e.g., "Available")
-    const optMap = optionsByCanon.get(realLabel);
-    if (optMap && typeof v === 'string') {
-      const mapped = optMap.get(canon(v));
-      if (mapped !== undefined) val = mapped;
-    }
-
-    // Booleans: accept "true"/"1"/true
-    if (typeof val === 'string' && ['true','false','1','0','yes','no'].includes(val.toLowerCase())) {
-      const t = val.toLowerCase();
-      val = (t === 'true' || t === '1' || t === 'yes');
-    }
-
-    out[realLabel] = val;
-  }
-  return out;
-}
-
-// Map `where` keys (values.*) from canonical to real labels
-function normalizeWhere(dt, whereObj) {
-  const { byCanon } = buildFieldMaps(dt);
-  const q = {};
-  for (const [k, v] of Object.entries(whereObj || {})) {
-    const realLabel = byCanon.get(canon(k)) || k;
-    q[`values.${realLabel}`] = v;
-  }
-  return q;
-}
-
-// Map `sort` keys (values.*) from canonical to real labels
-function normalizeSort(dt, sortObj) {
-  const { byCanon } = buildFieldMaps(dt);
-  const out = {};
-  for (const [k, dir] of Object.entries(sortObj || {})) {
-    if (k.startsWith('values.')) {
-      const raw = k.slice(7);
-      const realLabel = byCanon.get(canon(raw)) || raw;
-      out[`values.${realLabel}`] = dir;
-    } else {
-      out[k] = dir;
-    }
-  }
-  return out;
-}
 
 // =========================
 // REUSABLE HELPERS
@@ -1338,7 +1299,12 @@ function timeStrToMinutes(s) {
   return NaN;
 }
 
-
+function whereValues(obj = {}) {
+  // converts { Date: '2026-03-01', Business:'..' } -> { 'values.Date': '2026-03-01', 'values.Business': '..' }
+  const out = {};
+  for (const [k, v] of Object.entries(obj)) out[`values.${k}`] = v;
+  return out;
+}
 
 
 
@@ -1543,7 +1509,31 @@ async function openAvailabilityPopup(dateOrYear, month, day) {
 
   try {
     // ✅ IMPORTANT: plain field names (NOT values.*)
-    const whereObj = { Business: businessId, Calendar: calendarId, Date: ymd };
+const bizOr = {
+  $or: [
+    { "values.Business": businessId },
+    { "values.Business._id": businessId },
+    { "values.Business.id": businessId },
+    { "values.Business.value": businessId },
+  ]
+};
+
+const calOr = {
+  $or: [
+    { "values.Calendar": calendarId },
+    { "values.Calendar._id": calendarId },
+    { "values.Calendar.id": calendarId },
+    { "values.Calendar.value": calendarId },
+  ]
+};
+
+const whereObj = {
+  $and: [
+    { $or: [{ "values.dateKey": ymd }, { "values.Date": ymd }] },
+    bizOr,
+    calOr
+  ]
+};
 
     const qs = new URLSearchParams({
       where: JSON.stringify(whereObj),
@@ -1654,7 +1644,43 @@ function bindUpcomingSaveOnce() {
     const ymd = toYMD(jsDate);
 
     // ✅ IMPORTANT: plain field names (NOT values.*)
-    const whereObj = { Business: businessId, Calendar: calendarId, Date: ymd };
+const bizOr = {
+  $or: [
+    { "values.Business": businessId },
+    { "values.Business._id": businessId },
+    { "values.Business.id": businessId },
+    { "values.Business.value": businessId },
+
+    // ✅ handle saved refs as objects
+    { "values.Business": { _id: businessId } },
+    { "values.Business": { id: businessId } },
+    { "values.Business": { value: businessId } },
+  ]
+};
+
+const calOr = calendarId
+  ? {
+      $or: [
+        { "values.Calendar": calendarId },
+        { "values.Calendar._id": calendarId },
+        { "values.Calendar.id": calendarId },
+        { "values.Calendar.value": calendarId },
+
+        // ✅ handle saved refs as objects
+        { "values.Calendar": { _id: calendarId } },
+        { "values.Calendar": { id: calendarId } },
+        { "values.Calendar": { value: calendarId } },
+      ]
+    }
+  : null;
+
+const whereObj = {
+  $and: [
+    { $or: [{ "values.dateKey": ymd }, { "values.Date": ymd }] },
+    bizOr,
+    calOr
+  ]
+};
 
     try {
       // --- CHECK existing ---
@@ -1679,7 +1705,10 @@ function bindUpcomingSaveOnce() {
       const values = {
         Business: businessId,
         Calendar: calendarId,
+
+      
         Date: ymd,
+          dateKey: ymd,  
         Start: start,
         End: end,
         "Start Time": start,
@@ -1698,23 +1727,32 @@ function bindUpcomingSaveOnce() {
           body: JSON.stringify({ values }),
         });
 
+        console.log("[save] returned record:", upData);
+console.log("[save] Date stored:", upData?.values?.Date);
+console.log("[save] Business stored:", upData?.values?.Business);
+console.log("[save] Calendar stored:", upData?.values?.Calendar);
         console.log("[save] updateRes:", upRes.status, upData);
         if (!upRes.ok) throw new Error(`Update failed: HTTP ${upRes.status}`);
-      } else {
-        const createPath = `/api/records/${encodeURIComponent(TYPE_UPCOMING)}`;
-        console.log("[save] create:", createPath, values);
+    
+} else {
+  // ✅ create the record the "dynamic" way
+  const typeId = await getTypeIdByName(TYPE_UPCOMING);
+  if (!typeId) throw new Error(`Missing DataType '${TYPE_UPCOMING}'`);
 
-        const { res: createRes, data: createData } = await apiJSON(createPath, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ values }),
-        });
+  const { res: createRes, data: createData } = await apiJSON("/api/records", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ dataTypeId: typeId, values }),
+  });
 
-        console.log("[save] createRes:", createRes.status, createData);
-        if (!createRes.ok) throw new Error(`Create failed: HTTP ${createRes.status}`);
-      }
+  console.log("[save] createRes:", createRes.status, createData);
+  if (!createRes.ok) throw new Error(`Create failed: HTTP ${createRes.status}`);
+}
 
       alert("Saved ✅");
+      // ✅ update UI immediately
+window.upcomingHoursMap = window.upcomingHoursMap || {};
+window.upcomingHoursMap[ymd] = { start, end };
       await window.loadAndGenerateCalendar?.();
       window.closeAvailabilityModal?.();
     } catch (e) {

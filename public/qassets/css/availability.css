@@ -356,13 +356,6 @@ body.sidebar-collapsed #collapse-sidebar-btn{ display: none; }
 
 /* Keep your mobile overlay rules as-is; these only affect look */
 
-
-/* Desktop (default): sidebar can live inline */
-#calendar-sidebar {
-  /* keep whatever you already have for desktop */
-  /* e.g., width: 280px; */
-}
-
 /* Overlay mode on small screens */
 @media (max-width: 700px) {
   #calendar-sidebar {
@@ -1112,7 +1105,7 @@ padding:10px;}
   font-size: clamp(10px, 2.4vw, 12px);
   overflow: hidden;
   display: -webkit-box;
-  -webkit-line-clamp: 2;       /* show up to 2 lines */
+  /*-webkit-line-clamp: 2;        show up to 2 lines */
   -webkit-box-orient: vertical;
   white-space: normal;
   word-break: keep-all;
@@ -1478,3 +1471,24 @@ padding:10px;}
 #upcomingHours-section .day-cell.current-day{ background:#efb37c; color:#fff; }
 #upcomingHours-section .day-cell.empty{ background:transparent; box-shadow:none; }
 #upcomingHours-section .day-cell.has-availability{ box-shadow:0 0 0 2px #ffa94d inset; }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
