@@ -3,12 +3,14 @@ console.log("[clients] loaded");
 // ✅ MUST use api2 in production so cookies persist
 // ✅ Default to api2 (same data as production)
 // If you want local API sometimes, open: http://localhost:3000/clients.html?api=local
+
+// If you want local API sometimes, open: http://localhost:3000/clients.html?api=local
 const urlApi = new URLSearchParams(window.location.search).get("api");
 
 const API_ORIGIN =
-  urlApi === "prod"
-    ? "https://api2.suiteseat.io"
-    : "http://localhost:8400"; // default for localhost dev
+  urlApi === "local"
+    ? "http://localhost:8400"
+    : "https://api2.suiteseat.io"; // default
 
 const apiFetch = (path, opts = {}) => {
   const p = path.startsWith("/") ? path : `/${path}`;
