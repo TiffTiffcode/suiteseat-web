@@ -414,14 +414,15 @@ const { res, data } = await apiFetch(`/api/checkout/${encodeURIComponent(checkou
   body: JSON.stringify({}),
 });
 
-  
+console.log("[create PI] full response:", { status: res.status, data });
+alert(JSON.stringify(data || {}, null, 2));
 
-      if (!res.ok) {
-        console.error("create intent failed", res.status, data);
-        alert(data?.message || data?.error || "Could not start payment.");
-        document.getElementById("confirmPayBtn").disabled = false;
-        return;
-      }
+if (!res.ok) {
+  console.error("create intent failed", res.status, data);
+  alert(data?.message || data?.error || "Could not start payment.");
+  document.getElementById("confirmPayBtn").disabled = false;
+  return;
+}
 
       const clientSecret = data?.clientSecret;
       if (!clientSecret) {

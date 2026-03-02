@@ -489,69 +489,47 @@ function renderLocations() {
   });
 }
 
+function toItems(data) {
+  if (!data) return [];
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data.items)) return data.items;
+  if (Array.isArray(data.records)) return data.records;
+  return [];
+}
+
 async function loadLocations() {
   if (!currentUser?.id) {
-    console.warn("[locations] no currentUser yet");
     window.STATE.locations = [];
     renderLocations();
-
-    populateSuitiesLocationFilter(window.STATE.locations);
+    updateDashboardCounts();
     return;
   }
 
-  const url = apiUrl(
-    `/public/records?dataType=Location&limit=200&ownerUserId=${encodeURIComponent(currentUser.id)}`
-  );
-
   try {
-    const res = await fetch(url, {
-      credentials: "include",
-      headers: { Accept: "application/json" },
+    // ✅ PRIVATE AUTH LIST (server enforces "only what I can see")
+    const data = await fetchJSON(`/api/records/Location?limit=200&ts=${Date.now()}`, {
+      method: "GET",
       cache: "no-store",
     });
 
-    if (!res.ok) {
-      const errBody = await readJsonSafe(res);
-      console.warn("[locations] load failed", res.status, errBody);
-
-      window.STATE.locations = [];
-      renderLocations();
-      populateSuitiesLocationFilter(window.STATE.locations);
-      return;
-    }
-
-    const data = await res.json().catch(() => ({}));
-    const rows = Array.isArray(data)
-      ? data
-      : data.records || data.items || data.data || [];
-
+    const rows = toItems(data);
     window.STATE.locations = rows;
 
     renderLocations();
 
-    // ✅ populate dropdowns
     populateSuitiesLocationFilter(rows);
     populateSuitieLocationSelect(rows);
-    populateSuitesLocationFilter(rows); // Suites section filter dropdown
+    populateSuitesLocationFilter(rows);
 
-    
-    // ✅ update dashboard
     updateDashboardCounts();
-
-    // ✅ NOW load applications table (needs currentUser to be set already)
     await loadSuiteApplications();
-
   } catch (err) {
     console.error("[locations] load error", err);
-
     window.STATE.locations = [];
     renderLocations();
-    populateSuitiesLocationFilter(window.STATE.locations);
     updateDashboardCounts();
-
   }
 }
-
 
 
 // ================================
