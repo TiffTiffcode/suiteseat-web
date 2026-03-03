@@ -7,10 +7,11 @@ console.log("[clients] loaded");
 // If you want local API sometimes, open: http://localhost:3000/clients.html?api=local
 const urlApi = new URLSearchParams(window.location.search).get("api");
 
+// ✅ local dev default
 const API_ORIGIN =
-  urlApi === "local"
-    ? "http://localhost:8400"
-    : "https://api2.suiteseat.io"; // default
+  urlApi === "prod"
+    ? "https://api2.suiteseat.io"
+    : "http://localhost:8400";
 
 const apiFetch = (path, opts = {}) => {
   const p = path.startsWith("/") ? path : `/${path}`;
@@ -136,7 +137,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       await doLogin(email, password);
       closeLoginPopup();
       await checkLogin();
-
+await loadMyBusinessesList();
       // now load businesses (you are authenticated)
       await populateBusinessFilterDropdown();
     } catch (err) {
@@ -160,15 +161,148 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
 
   // initial login state + initial dropdown load if logged in
-  const loggedIn = await checkLogin();
-  if (loggedIn) {
-    await populateBusinessFilterDropdown();
-  } else {
+const loggedIn = await checkLogin();
+if (loggedIn) {
+  await loadMyBusinessesList();
+  await populateBusinessFilterDropdown();
+  await loadMyClients();
+
+  document.getElementById("business-filter")?.addEventListener("change", () => {
+    loadMyClients();
+  });
+} else {
     // optional: you can still show dropdown placeholder
     const bf = document.getElementById("business-filter");
     if (bf) bf.innerHTML = `<option value="all">All Businesses</option>`;
   }
+
+
+  // ✅ OPEN popup from BOTH buttons
+  document.getElementById("add-client-btn")
+    ?.addEventListener("click", openClientPopup);
+
+  document.getElementById("open-add-client-popup-btn")
+    ?.addEventListener("click", openClientPopup);
+
+  // ✅ CLOSE popup when overlay clicked
+  document.getElementById("popup-overlay")
+    ?.addEventListener("click", closeClientPopup);
+
+
+
+
+
+//////////////////////////////////////////////////////////////
 });
+
+
+
+
+
+
+
+async function loadMyBusinessesList() {
+  const el = document.getElementById("my-businesses-list");
+  if (!el) return;
+
+  el.textContent = "Loading…";
+
+  // must be logged in
+  const userId = window.currentUserId;
+  if (!userId) {
+    el.textContent = "Please log in to see your businesses.";
+    return;
+  }
+
+  try {
+    const qs = new URLSearchParams({ limit: "500", ts: String(Date.now()) });
+    const res = await apiFetch(`/api/records/Business?${qs.toString()}`);
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw new Error(`HTTP ${res.status} ${text.slice(0, 200)}`);
+    }
+
+    const payload = await res.json().catch(() => ({}));
+    const rows = Array.isArray(payload?.items) ? payload.items : [];
+
+    // --- helpers ---
+    const vget = (v, ...keys) => {
+      for (const k of keys) if (v && v[k] != null) return v[k];
+      return undefined;
+    };
+
+    const refId = (x) => {
+      if (!x) return "";
+      if (typeof x === "string") return x;
+      if (typeof x === "object") return String(x._id || x.id || "");
+      return "";
+    };
+
+    const ownedByUser = (row, userId) => {
+      const v = row?.values || row || {};
+      const createdBy = refId(v["Created By"] || v.createdBy || v.createdById);
+      const pro = refId(v["Pro"] || v.pro || v.proId);
+      const owner = refId(v["Owner"] || v.owner || v.user || v.userId);
+
+      return (
+        (createdBy && String(createdBy) === String(userId)) ||
+        (pro && String(pro) === String(userId)) ||
+        (owner && String(owner) === String(userId))
+      );
+    };
+
+    const bizLabel = (row) => {
+      const v = row?.values || row || {};
+      const name =
+        vget(v, "Business Name", "businessName", "Name", "name") ||
+        (row?._id ? `Business (${String(row._id).slice(-6)})` : "Business");
+      return String(name).trim();
+    };
+
+    // --- filter to current user's businesses ---
+    const mine = rows.filter((row) => ownedByUser(row, userId));
+
+    if (!mine.length) {
+      el.innerHTML = `<div style="opacity:.7;">No businesses found for this user.</div>`;
+      console.log("[my-businesses] total:", rows.length, "mine:", mine.length, "userId:", userId);
+      return;
+    }
+
+    // --- render ---
+    el.innerHTML = `
+      <ul style="margin:0; padding-left: 18px;">
+        ${mine
+          .map((row) => `<li data-id="${row._id}">${bizLabel(row)}</li>`)
+          .join("")}
+      </ul>
+    `;
+
+    console.log("[my-businesses] total:", rows.length, "mine:", mine.length);
+  } catch (err) {
+    console.error("[my-businesses] load error:", err);
+    el.textContent = "Error loading businesses.";
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -207,63 +341,37 @@ async function populateBusinessFilterDropdown() {
   dropdown.disabled = true;
   dropdown.innerHTML = `<option value="all">Loading…</option>`;
 
-  const normalizeItems = (payload) => {
-    if (Array.isArray(payload)) return payload;
-    if (Array.isArray(payload?.items)) return payload.items;
-    return [];
-  };
-
-  const bizLabel = (row) => {
-    const v = row?.values || row || {};
-    const name =
-      vget(v, "Business Name", "businessName", "Name", "name") ||
-      vget(row, "Business Name", "businessName", "Name", "name");
-
-    return (
-      (name && String(name).trim()) ||
-      (row?._id ? `Business (${String(row._id).slice(-6)})` : "Business")
-    );
-  };
-
   try {
-    const qs = new URLSearchParams({
-      limit: "500",
-      sort: JSON.stringify({ createdAt: -1 }),
-      ts: String(Date.now()),
-    });
+    const userId = window.currentUserId;
+    if (!userId) throw new Error("No currentUserId (not logged in?)");
 
+    const qs = new URLSearchParams({ limit: "500", ts: String(Date.now()) });
     const path = `${apiRecords("Business")}?${qs.toString()}`;
     const res = await apiFetch(path);
 
     console.log("[business-filter] GET", `${API_ORIGIN}${path}`, "status:", res.status);
 
-    if (!res.ok) {
-      const text = await res.text().catch(() => "");
-      throw new Error(`HTTP ${res.status}: ${text.slice(0, 200)}`);
-    }
-
     const payload = await res.json().catch(() => ({}));
-    console.log("[business-filter] me currentUserId:", window.currentUserId);
-console.log("[business-filter] raw payload:", payload);
-    const rows = normalizeItems(payload);
+    const rows = Array.isArray(payload?.items) ? payload.items : [];
 
-    const cleaned = rows
-      .filter((row) => {
-        const v = row?.values || row || {};
-        const softDeleted = !!(v["is Deleted"] || v.isDeleted);
-        const hardDeleted = !!row?.deletedAt;
-        return !softDeleted && !hardDeleted;
-      })
-      .sort((a, b) => bizLabel(a).localeCompare(bizLabel(b)));
+    const bizLabel = (row) => {
+      const v = row?.values || row || {};
+      return (
+        (vget(v, "Business Name", "businessName", "Name", "name") || "").trim() ||
+        `Business (${String(row._id).slice(-6)})`
+      );
+    };
+
+    const mine = rows.filter((row) => ownedByUser(row, userId));
 
     dropdown.innerHTML = "";
     dropdown.appendChild(new Option("All Businesses", "all"));
 
-    for (const row of cleaned) {
+    for (const row of mine) {
       dropdown.appendChild(new Option(bizLabel(row), String(row._id)));
     }
 
-    console.log("[business-filter] rows:", rows.length, "cleaned:", cleaned.length);
+    console.log("[business-filter] total:", rows.length, "mine:", mine.length);
   } catch (err) {
     console.error("❌ populateBusinessFilterDropdown error:", err);
     dropdown.innerHTML = "";
@@ -272,3 +380,152 @@ console.log("[business-filter] raw payload:", payload);
     dropdown.disabled = false;
   }
 }
+
+
+
+// =========================
+// CLIENTS: load + render
+// =========================
+
+function getSelectedBusinessId() {
+  const dd = document.getElementById("business-filter");
+  const val = String(dd?.value || "all");
+  return val && val !== "all" ? val : "all";
+}
+
+function clientLabel(row) {
+  const v = row?.values || row || {};
+  const first = (vget(v, "First Name", "firstName", "first_name", "First") || "").trim();
+  const last  = (vget(v, "Last Name", "lastName", "last_name", "Last") || "").trim();
+  const name  = `${first} ${last}`.trim();
+
+  const email = (vget(v, "Email", "email") || "").trim();
+  const phone = (vget(v, "Phone", "phone") || "").trim();
+
+  return {
+    name: name || "(No name)",
+    email,
+    phone,
+  };
+}
+
+function getClientBusinessId(row) {
+  const v = row?.values || row || {};
+  // try common business reference field names
+  return (
+    refId(v["Business"] || v.business || v.businessId || v["Business Id"] || v["businessId"]) ||
+    ""
+  );
+}
+
+function isDeletedRow(row) {
+  const v = row?.values || row || {};
+  const softDeleted = !!(v["is Deleted"] || v.isDeleted);
+  const hardDeleted = !!row?.deletedAt;
+  return softDeleted || hardDeleted;
+}
+
+function renderClients(rows) {
+  const container = document.getElementById("client-list-container");
+  if (!container) return;
+
+  if (!rows.length) {
+    container.innerHTML = `<div style="opacity:.7; padding: 12px 0;">No clients yet.</div>`;
+    return;
+  }
+
+  container.innerHTML = rows
+    .map((row) => {
+      const { name, email, phone } = clientLabel(row);
+      return `
+        <div class="client-row" data-id="${row._id}">
+          <div class="client-name">${name}</div>
+          <div class="client-sub" style="opacity:.8; font-size: 13px;">
+            ${email ? `<span>${email}</span>` : ""}
+            ${email && phone ? `<span style="margin:0 6px;">•</span>` : ""}
+            ${phone ? `<span>${phone}</span>` : ""}
+          </div>
+        </div>
+      `;
+    })
+    .join("");
+}
+
+async function loadMyClients() {
+  const container = document.getElementById("client-list-container");
+  if (container) container.innerHTML = `<div style="opacity:.7; padding: 12px 0;">Loading…</div>`;
+
+  const userId = window.currentUserId;
+  if (!userId) {
+    if (container) container.innerHTML = `<div style="opacity:.7; padding: 12px 0;">Please log in.</div>`;
+    return;
+  }
+
+  const selectedBusinessId = getSelectedBusinessId(); // "all" or business _id
+
+  try {
+    const qs = new URLSearchParams({ limit: "500", ts: String(Date.now()) });
+    const path = `${apiRecords("Client")}?${qs.toString()}`; // ✅ Data Type name: "Client"
+    const res = await apiFetch(path);
+
+    console.log("[clients] GET", `${API_ORIGIN}${path}`, "status:", res.status);
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw new Error(`HTTP ${res.status}: ${text.slice(0, 200)}`);
+    }
+
+    const payload = await res.json().catch(() => ({}));
+    const rows = Array.isArray(payload?.items) ? payload.items : [];
+
+    // 1) not deleted
+    // 2) owned by current user
+    // 3) matches business filter (if not "all")
+    const mine = rows
+      .filter((row) => !isDeletedRow(row))
+      .filter((row) => ownedByUser(row, userId))
+      .filter((row) => {
+        if (selectedBusinessId === "all") return true;
+        return getClientBusinessId(row) === String(selectedBusinessId);
+      });
+
+    // Optional: sort by name
+    mine.sort((a, b) => clientLabel(a).name.localeCompare(clientLabel(b).name));
+
+    console.log("[clients] total:", rows.length, "mine:", mine.length, "business:", selectedBusinessId);
+
+    renderClients(mine);
+  } catch (err) {
+    console.error("❌ loadMyClients error:", err);
+    if (container) container.innerHTML = `<div style="opacity:.7; padding: 12px 0;">Error loading clients.</div>`;
+  }
+}
+
+
+
+
+
+//Add Client Popup 
+function openClientPopup() {
+  const popup = document.getElementById("popup-add-client");
+  const overlay = document.getElementById("popup-overlay");
+
+  if (popup) popup.style.display = "block";
+  if (overlay) overlay.style.display = "block";
+
+  document.body.classList.add("popup-open");
+}
+
+function closeClientPopup() {
+  const popup = document.getElementById("popup-add-client");
+  const overlay = document.getElementById("popup-overlay");
+
+  if (popup) popup.style.display = "none";
+  if (overlay) overlay.style.display = "none";
+
+  document.body.classList.remove("popup-open");
+}
+
+// make close function global for your HTML onclick
+window.closeClientPopup = closeClientPopup;
+
