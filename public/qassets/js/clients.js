@@ -309,6 +309,214 @@ document.getElementById("business-filter")?.addEventListener("change", async () 
 });
 
 
+
+
+                   //////////////
+                   //Email 
+                   //////////////
+
+// ----------------------------
+// Email Automations (Tab 7)
+// ----------------------------
+const emailAutoTbody = document.querySelector('#email-auto-table tbody');
+const emailAutoForm  = document.getElementById('email-auto-form');
+
+const eaName    = document.getElementById('ea-name');
+const eaEnabled = document.getElementById('ea-enabled');
+const eaTrigger = document.getElementById('ea-trigger');
+const eaAudience= document.getElementById('ea-audience');
+const eaDelay   = document.getElementById('ea-delay');
+const eaSubject = document.getElementById('ea-subject');
+const eaReplyTo = document.getElementById('ea-replyto');
+const eaBody    = document.getElementById('ea-body');
+
+let emailDT = null;
+let allEmailAutos = [];
+
+async function getEmailAutomationDataType() {
+  if (emailDT) return emailDT;
+
+  const dtRes = await fetch('/api/datatypes', { headers: { 'Accept': 'application/json' } });
+  if (!dtRes.ok) throw new Error(`DataTypes HTTP ${dtRes.status}`);
+  const dts = await dtRes.json();
+
+  const found = (dts || []).find(dt =>
+    dt.name === 'EmailAutomation' ||
+    dt.nameCanonical === 'emailautomation' ||
+    dt.nameCanonical === 'email_automation'
+  );
+
+  if (!found) throw new Error('No "EmailAutomation" DataType found. Create it first in Data Types tab.');
+
+  emailDT = found;
+  return found;
+}
+
+async function loadEmailAutomations() {
+  if (!emailAutoTbody) return;
+
+  emailAutoTbody.innerHTML = `<tr><td colspan="6">Loading…</td></tr>`;
+
+  try {
+    const dt = await getEmailAutomationDataType();
+    const res = await fetch(`/api/records?dataTypeId=${dt._id}&limit=500&sort=-createdAt`, {
+      headers: { 'Accept': 'application/json' }
+    });
+    if (!res.ok) throw new Error(`Records HTTP ${res.status}`);
+
+    const body = await res.json().catch(() => ({}));
+    const rows = Array.isArray(body) ? body : (body.items || body.records || []);
+    allEmailAutos = rows;
+
+    renderEmailAutos();
+  } catch (err) {
+    console.error('[admin] loadEmailAutomations failed:', err);
+    emailAutoTbody.innerHTML = `<tr><td colspan="6">Failed: ${err.message}</td></tr>`;
+  }
+}
+
+function renderEmailAutos() {
+  if (!emailAutoTbody) return;
+
+  if (!allEmailAutos.length) {
+    emailAutoTbody.innerHTML = `<tr><td colspan="6">No automations yet</td></tr>`;
+    return;
+  }
+
+  emailAutoTbody.innerHTML = '';
+
+  allEmailAutos.forEach(rec => {
+    const v = rec.values || {};
+    const name = v.Name || v.name || '';
+    const enabled = (v.Enabled ?? v.enabled) ? 'Yes' : 'No';
+    const trigger = v.Trigger || v.trigger || '';
+    const audience = v.Audience || v.audience || '';
+    const delay = v.SendDelayMinutes || v.sendDelayMinutes || 0;
+
+    const tr = document.createElement('tr');
+
+    tr.innerHTML = `
+      <td>${name}</td>
+      <td>${enabled}</td>
+      <td>${trigger}</td>
+      <td>${audience}</td>
+      <td>${delay}</td>
+      <td style="text-align:right;"></td>
+    `;
+
+    const actionsTd = tr.querySelector('td:last-child');
+
+    const btnEdit = document.createElement('button');
+    btnEdit.textContent = 'Edit';
+    btnEdit.style.marginRight = '8px';
+
+    btnEdit.addEventListener('click', () => {
+      // fill form with this record (simple edit mode)
+      window.editingEmailAutomationId = rec._id;
+
+      eaName.value = name;
+      eaEnabled.value = String((v.Enabled ?? v.enabled) ? true : false);
+      eaTrigger.value = trigger;
+      eaAudience.value = audience;
+      eaDelay.value = delay;
+
+      eaSubject.value = v['Subject Template'] || v.SubjectTemplate || v.subjectTemplate || '';
+      eaReplyTo.value = v['ReplyToEmail'] || v['ReplyTo'] || v['FromName /ReplyTo'] || '';
+      eaBody.value = v.BodyHtmlTemplate || v['BodyHtmlTemplate'] || v.bodyHtmlTemplate || '';
+
+      emailAutoForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+
+    const btnDelete = document.createElement('button');
+    btnDelete.textContent = 'Delete';
+    btnDelete.style.background = '#d9534f';
+
+    btnDelete.addEventListener('click', async () => {
+      if (!confirm(`Delete "${name}"?`)) return;
+
+      const r = await fetch(`/api/records/${rec._id}`, { method: 'DELETE' });
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({}));
+        alert(err.error || 'Delete failed');
+        return;
+      }
+
+      allEmailAutos = allEmailAutos.filter(x => x._id !== rec._id);
+      renderEmailAutos();
+    });
+
+    actionsTd.appendChild(btnEdit);
+    actionsTd.appendChild(btnDelete);
+
+    emailAutoTbody.appendChild(tr);
+  });
+}
+
+// create/update
+window.editingEmailAutomationId = null;
+
+emailAutoForm?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+
+  const name = (eaName.value || '').trim();
+  const trigger = (eaTrigger.value || '').trim();
+  const audience = (eaAudience.value || '').trim();
+
+  if (!name) return alert('Name required');
+  if (!trigger) return alert('Trigger required');
+  if (!audience) return alert('Audience required');
+
+  const dt = await getEmailAutomationDataType();
+
+  const values = {
+    Name: name,
+    Enabled: eaEnabled.value === 'true',
+    Trigger: trigger,
+    Audience: audience,
+    SendDelayMinutes: Number(eaDelay.value || 0),
+    "Subject Template": (eaSubject.value || '').trim(),
+    BodyHtmlTemplate: eaBody.value || '',
+    ReplyToEmail: (eaReplyTo.value || '').trim() || null,
+  };
+
+  const isEdit = !!window.editingEmailAutomationId;
+
+  const url = isEdit
+    ? `/api/records/${encodeURIComponent(window.editingEmailAutomationId)}`
+    : `/api/records`;
+
+  const method = isEdit ? 'PATCH' : 'POST';
+
+  const body = isEdit
+    ? { values }
+    : { dataTypeId: dt._id, values };
+
+  const res = await fetch(url, {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    alert(err.error || 'Save failed');
+    return;
+  }
+
+  window.editingEmailAutomationId = null;
+  emailAutoForm.reset();
+  eaDelay.value = 0;
+
+  await loadEmailAutomations();
+});
+
+// load when tab clicked
+document.getElementById('tab7')?.addEventListener('click', () => {
+  loadEmailAutomations();
+}); 
+
+
+
 //////////////////////////////////////////////////////////////End
 });
 

@@ -7,8 +7,13 @@
  <!-- 
 git status
 git add .
-git commit -m "Clients 3"
+git commit -m "Email 1"
 git push
+
+
+
+i want to send an email after the client books an appt with their appt details, a l
+ink to their client dashboard,and a link to the booking page what do i need to add.
 -->
 
   <!-- Your stylesheet -->
@@ -52,7 +57,7 @@ git push
     <div class="tab" data-tab="3" id="tab3">Users</div>
   <div class="tab" data-tab="5" id="tab5">Businesses</div>
   <div class="tab" data-tab="6" id="tab6">Themes</div>
-
+<div class="tab" data-tab="7" id="tab7">Email</div>
   
   </div>
 
@@ -368,6 +373,93 @@ git push
     </div>
   </div>
 </div>
+
+
+
+<!-- 🔹 Tab 7: Email -->
+<div class="content" data-content="7" id="content7">
+  <h2>Email Automations</h2>
+
+  <p style="margin-bottom:8px;">
+    Create and manage email automations (trigger + audience + template + delay).
+  </p>
+
+  <form id="email-auto-form" style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
+    <div>
+      <label>Name</label>
+      <input id="ea-name" type="text" placeholder="e.g., Appt Confirmation" required />
+    </div>
+
+    <div>
+      <label>Enabled</label>
+      <select id="ea-enabled">
+        <option value="true" selected>Yes</option>
+        <option value="false">No</option>
+      </select>
+    </div>
+
+    <div>
+      <label>Trigger</label>
+      <input id="ea-trigger" type="text" placeholder="e.g., appointment.booked" required />
+    </div>
+
+    <div>
+      <label>Audience</label>
+      <input id="ea-audience" type="text" placeholder="e.g., client" required />
+    </div>
+
+    <div>
+      <label>Delay (minutes)</label>
+      <input id="ea-delay" type="number" value="0" min="0" />
+    </div>
+
+    <div style="flex:1; min-width:260px;">
+      <label>Subject Template</label>
+      <input id="ea-subject" type="text" placeholder="e.g., Your appointment is confirmed" />
+    </div>
+
+    <div style="flex:1; min-width:260px;">
+      <label>Reply-To Email</label>
+      <input id="ea-replyto" type="text" placeholder="e.g., support@suiteseat.io" />
+    </div>
+
+    <div style="width:100%;">
+      <label>Body Html Template</label>
+      <textarea id="ea-body" rows="6" style="width:100%;" placeholder="<h1>Hi {{client.firstName}}</h1> ..."></textarea>
+    </div>
+
+    <button type="submit">Create Automation</button>
+  </form>
+
+  <table id="email-auto-table" style="width:100%; border-collapse:collapse; margin-top:12px;">
+    <thead>
+      <tr>
+        <th style="width:18%;">Name</th>
+        <th style="width:12%;">Enabled</th>
+        <th style="width:18%;">Trigger</th>
+        <th style="width:12%;">Audience</th>
+        <th style="width:12%;">Delay</th>
+        <th style="width:28%;">Actions</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 </div>
 
