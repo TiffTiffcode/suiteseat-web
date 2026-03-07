@@ -1,3 +1,15 @@
+const API_BASE = location.hostname.includes("localhost")
+  ? "http://localhost:8400"
+  : "https://api2.suiteseat.io";
+
+function apiFetch(path, options = {}) {
+  const url = `${API_BASE}${path.startsWith("/") ? path : `/${path}`}`;
+  return fetch(url, {
+    credentials: "include",
+    ...options,
+  });
+}
+
 const osList = document.getElementById('optionset-list');
 const osDetail = document.getElementById('optionset-detail');
 const osForm = document.getElementById('optionset-form');
@@ -718,42 +730,66 @@ const slugify = s =>
     .slice(0, 64);
 
 // Load sets into the left column (optionally auto-select one by id)
+async function safeJSON(res) {
+  const text = await res.text().catch(() => "");
+  try { return text ? JSON.parse(text) : null; }
+  catch { return { _raw: text }; }
+}
+
+// Load sets into the left column (optionally auto-select one by id)
 async function loadOptionSets(preselectId = null) {
   if (!osList) return;
-  osList.innerHTML = '<li>Loading…</li>';
+  osList.innerHTML = "<li>Loading…</li>";
 
-  const res = await fetch('/api/optionsets');
-  const sets = await res.json();
+  try {
+    const res = await fetch("/api/optionsets", { headers: { Accept: "application/json" } });
+    const data = await safeJSON(res);
 
-  if (!Array.isArray(sets) || sets.length === 0) {
-    osList.innerHTML = '<li>No option sets yet</li>';
-    osDetail.style.display = 'none';
-    return;
+    if (!res.ok) {
+      console.error("[admin] /api/optionsets failed:", data);
+      throw new Error(data?.error || data?._raw || `HTTP ${res.status}`);
+    }
+
+    // ✅ support either: array OR {items:[...]}
+    const sets = Array.isArray(data) ? data : Array.isArray(data?.items) ? data.items : [];
+
+    if (!sets.length) {
+      osList.innerHTML = "<li>No option sets yet</li>";
+      if (osDetail) osDetail.style.display = "none";
+      return;
+    }
+
+    osList.innerHTML = "";
+    sets.forEach((set) => {
+      const li = document.createElement("li");
+      li.dataset.id = set._id;
+      li.className = "datatype-row";
+      li.innerHTML = `
+        <span class="os-name" style="flex:1;">${set.name || "(unnamed)"}</span>
+        <button class="edit-datatype-btn" type="button">Edit</button>
+      `;
+
+      const open = () => {
+        [...osList.children].forEach((el) => el.classList.remove("selected"));
+        li.classList.add("selected");
+        openOptionSet(set);
+      };
+
+      li.addEventListener("click", open);
+      li.querySelector("button")?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        open();
+      });
+
+      osList.appendChild(li);
+
+      if (preselectId && preselectId === set._id) open();
+    });
+  } catch (err) {
+    console.error("[admin] loadOptionSets error:", err);
+    osList.innerHTML = `<li style="color:#d9534f;">Failed to load: ${err.message}</li>`;
+    if (osDetail) osDetail.style.display = "none";
   }
-
-  osList.innerHTML = '';
-  sets.forEach(set => {
-    const li = document.createElement('li');
-    li.dataset.id = set._id;
-    li.className = 'datatype-row';
-    li.innerHTML = `
-      <span class="os-name" style="flex:1;">${set.name}</span>
-      <button class="edit-datatype-btn" type="button">Edit</button>
-    `;
-
-    const open = () => {
-      [...osList.children].forEach(el => el.classList.remove('selected'));
-      li.classList.add('selected');
-      openOptionSet(set);
-    };
-
-    li.addEventListener('click', open);
-    li.querySelector('button').addEventListener('click', (e) => { e.stopPropagation(); open(); });
-
-    osList.appendChild(li);
-
-    if (preselectId && preselectId === set._id) open(); // auto-open after create/rename
-  });
 }
 
 // Open selected set on the right
@@ -1298,5 +1334,290 @@ themeCreateForm?.addEventListener('submit', async (e) => {
 document.getElementById('tab6')?.addEventListener('click', () => {
   loadThemes();
 });
+
+
+
+
+
+//
+// =============================
+// Email Automations (Tab 7)
+// =============================
+const emailForm = document.getElementById("email-auto-form");
+const emailTableBody = document.querySelector("#email-auto-table tbody");
+
+const elName = document.getElementById("ea-name");
+const elEnabled = document.getElementById("ea-enabled");
+const elTrigger = document.getElementById("email-trigger");
+const elAudience = document.getElementById("email-audience");
+const elDelay = document.getElementById("ea-delay");
+const elSubject = document.getElementById("ea-subject");
+const elReplyTo = document.getElementById("ea-replyto");
+const elBody = document.getElementById("ea-body");
+
+let emailAutomationDT = null;
+let editingEmailAutomationId = null;
+
+// helpers for this admin page (safe JSON)
+async function safeJson(res) {
+  const text = await res.text().catch(() => "");
+  try { return text ? JSON.parse(text) : null; } catch { return { _raw: text }; }
+}
+
+// find DataType by name
+async function getEmailAutomationDataType() {
+  if (emailAutomationDT) return emailAutomationDT;
+
+  const dtRes = await fetch("/api/datatypes", { headers: { Accept: "application/json" } });
+  if (!dtRes.ok) throw new Error(`DataTypes HTTP ${dtRes.status}`);
+  const dts = await dtRes.json();
+
+  const found = (dts || []).find(dt =>
+    dt.name === "EmailAutomation" ||
+    dt.name === "Email Automation" ||
+    dt.nameCanonical === "emailautomation" ||
+    dt.nameCanonical === "email_automation"
+  );
+
+  if (!found) throw new Error('No "EmailAutomation" DataType found. Create it in Data Types tab.');
+  emailAutomationDT = found;
+  return found;
+}
+
+// load option set values by name
+async function loadOptionSetValuesByName(setName) {
+  const setsRes = await fetch("/api/optionsets", { headers: { Accept: "application/json" } });
+  if (!setsRes.ok) throw new Error(`OptionSets HTTP ${setsRes.status}`);
+  const sets = await setsRes.json();
+
+  const set = (sets || []).find(s => String(s.name).toLowerCase() === String(setName).toLowerCase());
+  if (!set) throw new Error(`Option set "${setName}" not found`);
+
+  const valsRes = await fetch(`/api/optionsets/${set._id}/values`, { headers: { Accept: "application/json" } });
+  if (!valsRes.ok) throw new Error(`OptionValues HTTP ${valsRes.status}`);
+  const vals = await valsRes.json();
+
+  // For "text" kind, your server stores label; use label as the stored key
+  return (vals || []).map(v => ({ id: v._id, label: v.label }));
+}
+
+function fillSelect(selectEl, items, placeholder = "Select…") {
+  selectEl.innerHTML = "";
+  selectEl.appendChild(new Option(placeholder, ""));
+  items.forEach(it => selectEl.appendChild(new Option(it.label, it.label)));
+}
+
+async function initEmailDropdowns() {
+  const triggers = await loadOptionSetValuesByName("EmailTriggers");
+  const audiences = await loadOptionSetValuesByName("EmailAudiences");
+
+  fillSelect(elTrigger, triggers, "Select trigger…");
+  fillSelect(elAudience, audiences, "Select audience…");
+}
+
+// load existing automations
+async function loadEmailAutomations() {
+  const dt = await getEmailAutomationDataType();
+
+  const res = await fetch(`/api/records?dataTypeId=${dt._id}&limit=500&sort=-createdAt`, {
+    headers: { Accept: "application/json" }
+  });
+  if (!res.ok) throw new Error(`Records HTTP ${res.status}`);
+
+  const body = await safeJson(res);
+  const rows = Array.isArray(body) ? body : (body.items || body.records || []);
+
+  renderEmailAutomations(rows);
+}
+
+function renderEmailAutomations(rows) {
+  if (!emailTableBody) return;
+
+  if (!rows.length) {
+    emailTableBody.innerHTML = `<tr><td colspan="6">No automations yet</td></tr>`;
+    return;
+  }
+
+  emailTableBody.innerHTML = "";
+
+  rows.forEach(rec => {
+    const v = rec.values || {};
+    const tr = document.createElement("tr");
+
+    const name = v.Name || v.name || "";
+    const enabled = !!(v.Enabled ?? v.enabled);
+    const trigger = v.Trigger || v.trigger || "";
+    const audience = v.Audience || v.audience || "";
+    const delay = v.SendDelayMinutes ?? v.delayMinutes ?? 0;
+
+    tr.innerHTML = `
+      <td>${name}</td>
+      <td>${enabled ? "Yes" : "No"}</td>
+      <td>${trigger}</td>
+      <td>${audience}</td>
+      <td>${delay}</td>
+      <td style="text-align:right;">
+        <button class="email-edit-btn">Edit</button>
+        <button class="email-del-btn" style="background:#d9534f;">Delete</button>
+      </td>
+    `;
+
+    tr.querySelector(".email-edit-btn").addEventListener("click", () => openEmailEdit(rec));
+    tr.querySelector(".email-del-btn").addEventListener("click", () => deleteEmailAutomation(rec._id));
+
+    emailTableBody.appendChild(tr);
+  });
+}
+
+function openEmailEdit(rec) {
+  const v = rec.values || {};
+  editingEmailAutomationId = rec._id;
+
+  elName.value = v.Name || "";
+  elEnabled.value = (v.Enabled ? "Yes" : "No");
+  elTrigger.value = v.Trigger || "";
+  elAudience.value = v.Audience || "";
+  elDelay.value = String(v.SendDelayMinutes ?? 0);
+  elSubject.value = v.SubjectTemplate || "";
+  elReplyTo.value = v.ReplyToEmail || "";
+  elBody.value = v.BodyHtmlTemplate || "";
+
+  // optional: scroll form into view
+  elName.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+async function deleteEmailAutomation(id) {
+  if (!confirm("Delete this automation?")) return;
+
+  const r = await fetch(`/api/records/${id}`, { method: "DELETE" });
+  if (!r.ok) {
+    const err = await safeJson(r);
+    alert(err?.error || "Delete failed");
+    return;
+  }
+  await loadEmailAutomations();
+}
+
+// create/update
+emailForm?.addEventListener("submit", async (e) => {
+  e.preventDefault();
+
+  const dt = await getEmailAutomationDataType();
+
+  // ✅ map pretty dropdown labels to machine values
+  const triggerMap = {
+    "Appointment Booked": "appointment.created",
+    "Appointment Canceled": "appointment.cancelled",
+    "Appointment Rescheduled": "appointment.rescheduled",
+    "Order Placed": "order.created",
+    "Course Enrolled": "courseenrollment.created",
+    "Course Lesson Completed": "courselesson.completed",
+  };
+
+  const audienceMap = {
+    "Clients": "client",
+    "Client": "client",
+    "Pros": "pro",
+    "Pro": "pro",
+    "Course Students": "student",
+    "Customers": "customer",
+  };
+
+  const values = {
+    Name: elName.value.trim(),
+    Enabled: elEnabled.value === "Yes",
+    Trigger: triggerMap[elTrigger.value] || elTrigger.value,
+    Audience: audienceMap[elAudience.value] || elAudience.value,
+    SendDelayMinutes: Number(elDelay.value || 0),
+    SubjectTemplate: elSubject.value.trim(),
+    ReplyToEmail: elReplyTo.value.trim(),
+    BodyHtmlTemplate: elBody.value
+  };
+
+  if (!values.Name) return alert("Name is required");
+  if (!values.Trigger) return alert("Pick a Trigger");
+  if (!values.Audience) return alert("Pick an Audience");
+  if (!values.SubjectTemplate) return alert("Subject is required");
+  if (!values.BodyHtmlTemplate) return alert("Body is required");
+
+  const isEdit = !!editingEmailAutomationId;
+
+  const url = isEdit
+    ? `/api/records/${editingEmailAutomationId}`
+    : `/api/records`;
+
+  const method = isEdit ? "PATCH" : "POST";
+
+  const payload = isEdit
+    ? { values }
+    : { dataTypeId: dt._id, values };
+
+  const r = await fetch(url, {
+    method,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+
+  if (!r.ok) {
+    const err = await safeJson(r);
+    alert(err?.error || err?.message || "Save failed");
+    return;
+  }
+
+  // reset
+  editingEmailAutomationId = null;
+  emailForm.reset();
+
+  await initEmailDropdowns(); // ✅ refill dropdowns after reset
+  await loadEmailAutomations();
+});
+
+// load when Email tab clicked
+document.getElementById("tab7")?.addEventListener("click", async () => {
+  await initEmailDropdowns();
+  await loadEmailAutomations();
+});
+
+
+////////////////
+//Send Single Message 
+///////
+const singleEmailForm = document.getElementById("single-email-form");
+const singleEmailTo = document.getElementById("single-email-to");
+const singleEmailSubject = document.getElementById("single-email-subject");
+const singleEmailReplyTo = document.getElementById("single-email-replyto");
+const singleEmailBody = document.getElementById("single-email-body");
+
+singleEmailForm?.addEventListener("submit", async (e) => {
+  e.preventDefault();
+
+  const payload = {
+    to: singleEmailTo.value.trim(),
+    subject: singleEmailSubject.value.trim(),
+    html: singleEmailBody.value,
+    replyTo: singleEmailReplyTo.value.trim() || null,
+  };
+
+  if (!payload.to) return alert("Recipient email is required");
+  if (!payload.subject) return alert("Subject is required");
+  if (!payload.html) return alert("Body is required");
+
+const r = await apiFetch("/api/email/send", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(payload),
+});
+
+  const data = await safeJson(r);
+
+  if (!r.ok) {
+    alert(data?.error || data?.message || "Failed to send email");
+    return;
+  }
+
+  alert("Email sent");
+  singleEmailForm.reset();
+});
+
 
 });

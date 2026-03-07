@@ -8,12 +8,14 @@
 git status
 git add .
 git commit -m "Email 1"
-git push
+ 
 
 
 
-i want to send an email after the client books an appt with their appt details, a l
-ink to their client dashboard,and a link to the booking page what do i need to add.
+taskkill /F /IM node.exe
+Kill all servers
+
+Email Subject Your appointment with {{appointment.BusinessName}} is confirmed
 -->
 
   <!-- Your stylesheet -->
@@ -400,12 +402,12 @@ git push
 
     <div>
       <label>Trigger</label>
-      <input id="ea-trigger" type="text" placeholder="e.g., appointment.booked" required />
+      <select id="email-trigger"></select>
     </div>
 
     <div>
       <label>Audience</label>
-      <input id="ea-audience" type="text" placeholder="e.g., client" required />
+      <select id="email-audience"></select>
     </div>
 
     <div>
@@ -423,10 +425,17 @@ git push
       <input id="ea-replyto" type="text" placeholder="e.g., support@suiteseat.io" />
     </div>
 
-    <div style="width:100%;">
-      <label>Body Html Template</label>
-      <textarea id="ea-body" rows="6" style="width:100%;" placeholder="<h1>Hi {{client.firstName}}</h1> ..."></textarea>
-    </div>
+<div style="width:100%;">
+  <label>Body Html Template</label>
+  <textarea id="ea-body" rows="6" style="width:100%;"><h2>Hi {{client.firstName}},</h2>
+<p>Your appointment with <b>{{appointment.BusinessName}}</b> is confirmed.</p>
+<p>
+  <b>Date:</b> {{appointment.Date}}<br/>
+  <b>Time:</b> {{appointment.StartTime}}<br/>
+</p>
+<p>See you soon 💛</p>
+</textarea>
+</div>
 
     <button type="submit">Create Automation</button>
   </form>
@@ -444,6 +453,34 @@ git push
     </thead>
     <tbody></tbody>
   </table>
+
+  <hr style="margin:24px 0;" />
+
+<h3>Send Single Email</h3>
+
+<form id="single-email-form" style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
+  <div style="flex:1; min-width:260px;">
+    <label>To Email</label>
+    <input id="single-email-to" type="email" placeholder="client@example.com" required />
+  </div>
+
+  <div style="flex:1; min-width:260px;">
+    <label>Subject</label>
+    <input id="single-email-subject" type="text" placeholder="Subject" required />
+  </div>
+
+  <div style="flex:1; min-width:260px;">
+    <label>Reply-To Email</label>
+    <input id="single-email-replyto" type="text" placeholder="support@suiteseat.io" />
+  </div>
+
+  <div style="width:100%;">
+    <label>Body Html</label>
+    <textarea id="single-email-body" rows="6" style="width:100%;"></textarea>
+  </div>
+
+  <button type="submit">Send Email</button>
+</form>
 </div>
 
 
