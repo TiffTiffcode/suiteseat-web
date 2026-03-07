@@ -10,31 +10,9 @@ function apiFetch(path, options = {}) {
   });
 }
 
-const osList = document.getElementById('optionset-list');
-const osDetail = document.getElementById('optionset-detail');
-const osForm = document.getElementById('optionset-form');
-const osInput = document.getElementById('new-optionset');
-const osKindCreateSelect = document.getElementById('optionset-kind-create');
-const osSelectedId = document.getElementById('selected-optionset-id');
-const osNameInput = document.getElementById('optionset-name-input');
-const osRenameBtn = document.getElementById('optionset-rename-btn');
-const osDeleteBtn = document.getElementById('optionset-delete-btn');
-const osKindSelect = document.getElementById('optionset-kind');
-const osKindSaveBtn = document.getElementById('optionset-kind-save');
 
-const ovTbody = document.getElementById('optionvalues-tbody');
-const ovForm = document.getElementById('optionvalue-form');
-const ovLabelInput = document.getElementById('ov-label');
-const ovImageUrl = document.getElementById('ov-imageUrl');
-const ovNumberValue = document.getElementById('ov-numberValue');
-const ovBoolValue = document.getElementById('ov-boolValue');
-const ovColorHex = document.getElementById('ov-colorHex');
-const ovOrderInput = document.getElementById('ov-order');
 
-const ovMetaImage = document.getElementById('ov-meta-image');
-const ovMetaNumber = document.getElementById('ov-meta-number');
-const ovMetaBoolean = document.getElementById('ov-meta-boolean');
-const ovMetaColor = document.getElementById('ov-meta-color');
+
 
 // public/js/admin.js
 document.addEventListener('DOMContentLoaded', () => {
@@ -156,7 +134,7 @@ const osKindCreateSelect = document.getElementById('optionset-kind-create'); // 
   loadDataTypes();
   refreshReferenceOptions();
   loadOptionSets();
-  loadOptionSets();
+
  populateOptionSetsInFieldType();
   // 🔹 load Business records on startup
   loadBusinessRecords();
@@ -168,7 +146,7 @@ const osKindCreateSelect = document.getElementById('optionset-kind-create'); // 
     const name = input.value.trim();
     if (!name) return;
 
-    const res = await fetch('/api/datatypes', {
+    const res = await apiFetch('/api/datatypes', {
       method: 'POST',
       headers: { 'Content-Type':'application/json' },
       body: JSON.stringify({ name })
@@ -190,7 +168,7 @@ const osKindCreateSelect = document.getElementById('optionset-kind-create'); // 
 async function loadDataTypes() {
   list.innerHTML = '<li>Loading…</li>';
   try {
-    const res = await fetch('/api/datatypes', { headers: { 'Accept': 'application/json' } });
+    const res = await apiFetch('/api/datatypes', { headers: { 'Accept': 'application/json' } });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const items = await res.json();
 
@@ -251,7 +229,7 @@ async function loadDataTypes() {
 
     try {
       // 1) get all DataTypes to find Business
-      const dtRes = await fetch('/api/datatypes', {
+   const dtRes = await apiFetch('/api/datatypes', {
         headers: { 'Accept': 'application/json' }
       });
       if (!dtRes.ok) throw new Error(`DataTypes HTTP ${dtRes.status}`);
@@ -271,7 +249,7 @@ async function loadDataTypes() {
 
       // 2) load records for that DataType
       //    👉 if your endpoint name is slightly different, tweak this URL
-      const recRes = await fetch(`/api/records?dataTypeId=${businessDT._id}&limit=500&sort=-createdAt`, {
+      const recRes = await apiFetch(`/api/records?dataTypeId=${businessDT._id}&limit=500&sort=-createdAt`, {
         headers: { 'Accept': 'application/json' }
       });
 
@@ -421,7 +399,7 @@ fieldForm.addEventListener('submit', async (e) => {
     payload.optionSetId = optionSetId;
   }
 
-  const res = await fetch('/api/fields', {
+  const res = await apiFetch('/api/fields', {
     method: 'POST',
     headers: { 'Content-Type':'application/json' },
     body: JSON.stringify(payload)
@@ -451,7 +429,7 @@ function canon(s) {
 
   /////////////////////////////////////////////
   async function refreshReferenceOptions() {
-    const res = await fetch('/api/datatypes');
+    const res = await apiFetch('/api/datatypes');
     const types = await res.json();
     const group = document.getElementById('reference-options');
     group.innerHTML = '';
@@ -470,7 +448,7 @@ async function loadFieldsForSelected() {
     if (fieldsTbody) fieldsTbody.innerHTML = '';
     return;
   }
-  const res = await fetch(`/api/fields?dataTypeId=${dataTypeId}`);
+  const res = await apiFetch(`/api/fields?dataTypeId=${dataTypeId}`);
   const fields = await res.json();
 
   fieldsTbody.innerHTML = '';
@@ -497,7 +475,7 @@ async function loadFieldsForSelected() {
       const old = f.name;
       f.name = newName;
       try {
-        const r = await fetch(`/api/fields/${f._id}`, {
+        const r = await apiFetch(`/api/fields/${f._id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name: newName })
@@ -548,7 +526,7 @@ if (f.type === 'Dropdown' && f.optionSetId) {
   // fill options from this field's option set
   (async () => {
     const setId = idOf(f.optionSetId);
-    const r = await fetch(`/api/optionsets/${setId}/values`);
+    const r = await apiFetch(`/api/optionsets/${setId}/values`);
     const vals = await r.json();
     sel.innerHTML = '';
 
@@ -576,7 +554,7 @@ if (f.type === 'Dropdown' && f.optionSetId) {
   // save default when changed
   sel.addEventListener('change', async () => {
     const defaultOptionValueId = sel.value || null;
-    const r = await fetch(`/api/fields/${f._id}`, {
+    const r = await apiFetch(`/api/fields/${f._id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ defaultOptionValueId })
@@ -628,7 +606,7 @@ tdType.appendChild(multiWrap);
 multiBox.addEventListener('change', async () => {
   const newVal = !!multiBox.checked;
   try {
-    const r = await fetch(`/api/fields/${f._id}`, {
+    const r = await apiFetch(`/api/fields/${f._id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ allowMultiple: newVal })
@@ -658,7 +636,7 @@ multiBox.addEventListener('change', async () => {
     del.addEventListener('click', async () => {
       if (!confirm(`Remove field "${f.name}"?`)) return;
       try {
-        const r = await fetch(`/api/fields/${f._id}`, { method: 'DELETE' });
+        const r = await apiFetch(`/api/fields/${f._id}`, { method: 'DELETE' });
         if (!r.ok) {
           const err = await r.json().catch(() => ({}));
           alert(err.error || 'Delete failed');
@@ -688,7 +666,7 @@ async function populateOptionSetsInFieldType() {
   group.innerHTML = '<option disabled>Loading…</option>';
 
   try {
-    const res = await fetch('/api/optionsets');
+    const res = await apiFetch('/api/optionsets');
     const sets = await res.json();
 
     group.innerHTML = '';
@@ -729,12 +707,6 @@ const slugify = s =>
     .replace(/^_+|_+$/g, '')
     .slice(0, 64);
 
-// Load sets into the left column (optionally auto-select one by id)
-async function safeJSON(res) {
-  const text = await res.text().catch(() => "");
-  try { return text ? JSON.parse(text) : null; }
-  catch { return { _raw: text }; }
-}
 
 // Load sets into the left column (optionally auto-select one by id)
 async function loadOptionSets(preselectId = null) {
@@ -742,7 +714,7 @@ async function loadOptionSets(preselectId = null) {
   osList.innerHTML = "<li>Loading…</li>";
 
   try {
-    const res = await fetch("/api/optionsets", { headers: { Accept: "application/json" } });
+    const res = await apiFetch("/api/optionsets", { headers: { Accept: "application/json" } });
     const data = await safeJSON(res);
 
     if (!res.ok) {
@@ -808,7 +780,7 @@ osForm?.addEventListener('submit', async (e) => {
 
   const kind = osKindCreateSelect?.value || 'text';
 
-  const res = await fetch('/api/optionsets', {
+  const res = await apiFetch('/api/optionsets', {
     method: 'POST',
     headers: { 'Content-Type':'application/json' },
     body: JSON.stringify({ name, kind }) // 👈 include kind
@@ -833,7 +805,7 @@ osRenameBtn?.addEventListener('click', async () => {
   const name = (osNameInput.value || '').trim();
   if (!id || !name) return;
 
-  const res = await fetch(`/api/optionsets/${id}`, {
+  const res = await apiFetch(`/api/optionsets/${id}`, {
     method: 'PATCH',
     headers: { 'Content-Type':'application/json' },
     body: JSON.stringify({ name })
@@ -854,7 +826,7 @@ osDeleteBtn?.addEventListener('click', async () => {
   if (!id) return;
   if (!confirm('Delete this option set (and its values)?')) return;
 
-  const res = await fetch(`/api/optionsets/${id}`, { method: 'DELETE' });
+ const res = await apiFetch(`/api/optionsets/${id}`, { method: 'DELETE' });
   if (!res.ok) {
     const err = await res.json().catch(()=>({}));
     alert(err.error || 'Delete failed');
@@ -869,7 +841,7 @@ osDeleteBtn?.addEventListener('click', async () => {
 // Load values for the selected set (right column table)
 async function loadOptionValues(optionSetId) {
   ovTbody.innerHTML = '<tr><td colspan="4">Loading…</td></tr>';
-  const res = await fetch(`/api/optionsets/${optionSetId}/values`);
+  const res = await apiFetch(`/api/optionsets/${optionSetId}/values`);
   const vals = await res.json();
 
   ovTbody.innerHTML = '';
@@ -943,7 +915,7 @@ del.textContent = '✕';
 del.style.background = '#d9534f';
 del.addEventListener('click', async () => {
   if (!confirm(`Remove "${v.label}"?`)) return;
-  const r = await fetch(`/api/optionvalues/${v._id}`, { method: 'DELETE' });
+  const r = await apiFetch(`/api/optionvalues/${v._id}`, { method: 'DELETE' });
   if (!r.ok) {
     const err = await r.json().catch(()=>({}));
     alert(err.error || 'Delete failed');
@@ -968,7 +940,7 @@ ovTbody.appendChild(tr);
 
 // Inline update one value
 async function updateOptionValue(id, patch) {
-  const res = await fetch(`/api/optionvalues/${id}`, {
+  const res = await apiFetch(`/api/optionvalues/${id}`, {
     method: 'PATCH',
     headers: { 'Content-Type':'application/json' },
     body: JSON.stringify(patch)
@@ -982,37 +954,31 @@ async function updateOptionValue(id, patch) {
 // Add new value to the selected set
 ovForm?.addEventListener('submit', async (e) => {
   e.preventDefault();
-
   const optionSetId = osSelectedId.value;
   if (!optionSetId) return alert('Select an option set first');
 
   const label = (ovLabelInput.value || '').trim();
   if (!label) return alert('Label is required');
 
-  const body = {
-    label,
-    order: Number(ovOrderInput.value || 0)
-  };
-
+  const body = { label, order: Number(ovOrderInput.value || 0) };
   const kind = osKindSelect.value;
   if (kind === 'image')   body.imageUrl    = ovImageUrl.value || null;
   if (kind === 'number')  body.numberValue = ovNumberValue.value;
   if (kind === 'boolean') body.boolValue   = ovBoolValue.checked;
   if (kind === 'color')   body.colorHex    = ovColorHex.value || null;
 
-  const res = await fetch(`/api/optionsets/${optionSetId}/values`, {
+  const res = await apiFetch(`/api/optionsets/${optionSetId}/values`, {
     method: 'POST',
     headers: { 'Content-Type':'application/json' },
     body: JSON.stringify(body)
   });
 
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
+    const err = await res.json().catch(()=>({}));
     alert(err.error || 'Failed to add value');
     return;
   }
 
-  // reset UI
   ovLabelInput.value = '';
   ovImageUrl.value = '';
   ovNumberValue.value = '';
@@ -1022,7 +988,6 @@ ovForm?.addEventListener('submit', async (e) => {
 
   await loadOptionValues(optionSetId);
 });
-
 
 //When opening a set, show its kind and toggle meta UI:
 function openOptionSet(set) {
@@ -1054,7 +1019,7 @@ osKindSaveBtn?.addEventListener('click', async () => {
   if (!id) return;
   const kind = osKindSelect.value;
 
-  const res = await fetch(`/api/optionsets/${id}`, {
+  const res = await apiFetch(`/api/optionsets/${id}`, {
     method: 'PATCH',
     headers: { 'Content-Type':'application/json' },
     body: JSON.stringify({ kind })
@@ -1087,18 +1052,18 @@ ovForm?.addEventListener('submit', async (e) => {
   if (kind === 'boolean') body.boolValue   = ovBoolValue.checked;
   if (kind === 'color')   body.colorHex    = ovColorHex.value || null;
 
-  const res = await fetch(`/api/optionsets/${optionSetId}/values`, {
+  const res = await apiFetch(`/api/optionsets/${optionSetId}/values`, {
     method: 'POST',
     headers: { 'Content-Type':'application/json' },
     body: JSON.stringify(body)
   });
+
   if (!res.ok) {
     const err = await res.json().catch(()=>({}));
     alert(err.error || 'Failed to add value');
     return;
   }
 
-  // reset form
   ovLabelInput.value = '';
   ovImageUrl.value = '';
   ovNumberValue.value = '';
@@ -1133,7 +1098,7 @@ let allThemes = [];
 async function getThemeDataType() {
   if (themesDT) return themesDT;
 
-  const dtRes = await fetch('/api/datatypes', { headers: { 'Accept': 'application/json' } });
+ const dtRes = await apiFetch('/api/datatypes', { headers: { 'Accept': 'application/json' } });
   if (!dtRes.ok) throw new Error(`DataTypes HTTP ${dtRes.status}`);
   const dts = await dtRes.json();
 
@@ -1157,7 +1122,7 @@ async function loadThemes() {
   try {
     const dt = await getThemeDataType();
 
-    const res = await fetch(`/api/records?dataTypeId=${dt._id}&limit=500&sort=-createdAt`, {
+    const res = await apiFetch(`/api/records?dataTypeId=${dt._id}&limit=500&sort=-createdAt`, {
       headers: { 'Accept': 'application/json' }
     });
 
@@ -1237,7 +1202,7 @@ function renderThemesTable() {
       if (!patch.values.name) return alert('Theme name is required');
       if (!patch.values.templateKey) return alert('Template key is required');
 
-      const r = await fetch(`/api/records/${rec._id}`, {
+      const r = await apiFetch(`/api/records/${rec._id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(patch)
@@ -1260,7 +1225,7 @@ function renderThemesTable() {
 
     btnDel.addEventListener('click', async () => {
       if (!confirm(`Delete theme "${name}"?`)) return;
-      const r = await fetch(`/api/records/${rec._id}`, { method: 'DELETE' });
+      const r = await apiFetch(`/api/records/${rec._id}`, { method: 'DELETE' });
       if (!r.ok) {
         const err = await r.json().catch(() => ({}));
         alert(err.error || 'Delete failed');
@@ -1305,7 +1270,7 @@ themeCreateForm?.addEventListener('submit', async (e) => {
       }
     };
 
-    const res = await fetch('/api/records', {
+    const res = await apiFetch('/api/records', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -1368,8 +1333,13 @@ async function safeJson(res) {
 async function getEmailAutomationDataType() {
   if (emailAutomationDT) return emailAutomationDT;
 
-  const dtRes = await apiFetch("/api/datatypes", { headers: { Accept: "application/json" } }); if (!dtRes.ok) throw new Error(`DataTypes HTTP ${dtRes.status}`);
-  const dts = await dtRes.json();
+ const dtRes = await apiFetch("/api/datatypes", {
+  headers: { Accept: "application/json" }
+});
+
+if (!dtRes.ok) {
+  throw new Error(`DataTypes HTTP ${dtRes.status}`);
+}  const dts = await dtRes.json();
 
   const found = (dts || []).find(dt =>
     dt.name === "EmailAutomation" ||
