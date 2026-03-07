@@ -1368,8 +1368,7 @@ async function safeJson(res) {
 async function getEmailAutomationDataType() {
   if (emailAutomationDT) return emailAutomationDT;
 
-  const dtRes = await fetch("/api/datatypes", { headers: { Accept: "application/json" } });
-  if (!dtRes.ok) throw new Error(`DataTypes HTTP ${dtRes.status}`);
+  const dtRes = await apiFetch("/api/datatypes", { headers: { Accept: "application/json" } }); if (!dtRes.ok) throw new Error(`DataTypes HTTP ${dtRes.status}`);
   const dts = await dtRes.json();
 
   const found = (dts || []).find(dt =>
@@ -1386,14 +1385,13 @@ async function getEmailAutomationDataType() {
 
 // load option set values by name
 async function loadOptionSetValuesByName(setName) {
-  const setsRes = await fetch("/api/optionsets", { headers: { Accept: "application/json" } });
-  if (!setsRes.ok) throw new Error(`OptionSets HTTP ${setsRes.status}`);
+  const setsRes = await apiFetch("/api/optionsets", { headers: { Accept: "application/json" } });if (!setsRes.ok) throw new Error(`OptionSets HTTP ${setsRes.status}`);
   const sets = await setsRes.json();
 
   const set = (sets || []).find(s => String(s.name).toLowerCase() === String(setName).toLowerCase());
   if (!set) throw new Error(`Option set "${setName}" not found`);
 
-  const valsRes = await fetch(`/api/optionsets/${set._id}/values`, { headers: { Accept: "application/json" } });
+  const valsRes = await apiFetch(`/api/optionsets/${set._id}/values`, { headers: { Accept: "application/json" } });
   if (!valsRes.ok) throw new Error(`OptionValues HTTP ${valsRes.status}`);
   const vals = await valsRes.json();
 
@@ -1419,9 +1417,10 @@ async function initEmailDropdowns() {
 async function loadEmailAutomations() {
   const dt = await getEmailAutomationDataType();
 
-  const res = await fetch(`/api/records?dataTypeId=${dt._id}&limit=500&sort=-createdAt`, {
-    headers: { Accept: "application/json" }
-  });
+const res = await apiFetch(`/api/records?dataTypeId=${dt._id}&limit=500&sort=-createdAt`, {
+  headers: { Accept: "application/json" }
+});
+
   if (!res.ok) throw new Error(`Records HTTP ${res.status}`);
 
   const body = await safeJson(res);
@@ -1489,7 +1488,7 @@ function openEmailEdit(rec) {
 async function deleteEmailAutomation(id) {
   if (!confirm("Delete this automation?")) return;
 
-  const r = await fetch(`/api/records/${id}`, { method: "DELETE" });
+const r = await apiFetch(`/api/records/${id}`, { method: "DELETE" });
   if (!r.ok) {
     const err = await safeJson(r);
     alert(err?.error || "Delete failed");
@@ -1552,7 +1551,7 @@ emailForm?.addEventListener("submit", async (e) => {
     ? { values }
     : { dataTypeId: dt._id, values };
 
-  const r = await fetch(url, {
+const r = await apiFetch(url, {
     method,
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload)
