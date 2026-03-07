@@ -715,7 +715,7 @@ async function loadOptionSets(preselectId = null) {
 
   try {
     const res = await apiFetch("/api/optionsets", { headers: { Accept: "application/json" } });
-    const data = await safeJSON(res);
+    const data = await safeJson(res);
 
     if (!res.ok) {
       console.error("[admin] /api/optionsets failed:", data);
