@@ -7,8 +7,8 @@
  <!-- 
 git status
 git add .
-git commit -m "Email 5"
- git push
+git commit -m "Email 6"
+git push
 
 
 
@@ -427,11 +427,16 @@ git push
 
 <div style="width:100%;">
   <label>Body Html Template</label>
-  <textarea id="ea-body" rows="6" style="width:100%;"><h2>Hi {{client.firstName}},</h2>
+  <textarea id="ea-body" rows="6" style="width:100%;">
+<h2>Hi {{client.firstName}},</h2>
 <p>Your appointment with <b>{{appointment.BusinessName}}</b> is confirmed.</p>
 <p>
   <b>Date:</b> {{appointment.Date}}<br/>
   <b>Time:</b> {{appointment.StartTime}}<br/>
+</p>
+<p>
+  You can manage your appointment here:
+  <a href="https://www.suiteseat.io/client-dashboard.html">Client Dashboard</a>
 </p>
 <p>See you soon 💛</p>
 </textarea>
