@@ -340,8 +340,8 @@ async function checkLogin() {
  
 function renderAuthUI(data) {
   const loggedIn = !!data?.loggedIn;
+  const settingsBtn = document.getElementById("open-settings-popup-btn");
 
-  // header text + buttons
   if (loggedIn) {
     const displayName =
       data.firstName ||
@@ -359,30 +359,31 @@ function renderAuthUI(data) {
     }
 
     if (els.loginText) els.loginText.textContent = `Hey, ${displayName}`;
-    if (els.loginBtn)  els.loginBtn.style.display = "none";
+    if (els.loginBtn) els.loginBtn.style.display = "none";
     if (els.logoutBtn) els.logoutBtn.style.display = "inline-block";
+    if (settingsBtn) settingsBtn.style.display = "inline-block";
+
   } else {
     if (els.headerRight) {
       els.headerRight.innerHTML = `<button id="open-login-popup-btn-2">Login</button>`;
       $("#open-login-popup-btn-2")?.addEventListener("click", openLoginPopup);
     }
+
     if (els.loginText) els.loginText.textContent = "";
-    if (els.loginBtn)  els.loginBtn.style.display = "inline-block";
+    if (els.loginBtn) els.loginBtn.style.display = "inline-block";
     if (els.logoutBtn) els.logoutBtn.style.display = "none";
+    if (settingsBtn) settingsBtn.style.display = "none";
   }
 
-  // profile photo (optional)
-// profile photo (optional)
-if (els.profileImg) {
-  const raw = loggedIn && (data.profilePhoto || data?.user?.profilePhoto);
-  const resolved = raw ? resolveImageUrl(raw) : "";
+  if (els.profileImg) {
+    const raw = loggedIn && (data.profilePhoto || data?.user?.profilePhoto);
+    const resolved = raw ? resolveImageUrl(raw) : "";
 
-  els.profileImg.onerror = () => { els.profileImg.src = DEFAULT_AVATAR; };
-  els.profileImg.src = resolved
-    ? `${resolved}${resolved.includes("?") ? "&" : "?"}t=${Date.now()}`
-    : DEFAULT_AVATAR;
-}
-
+    els.profileImg.onerror = () => { els.profileImg.src = DEFAULT_AVATAR; };
+    els.profileImg.src = resolved
+      ? `${resolved}${resolved.includes("?") ? "&" : "?"}t=${Date.now()}`
+      : DEFAULT_AVATAR;
+  }
 }
 
 async function doLogout() {
@@ -2114,3 +2115,36 @@ if (odDownloads) {
   orderOverlay.style.display = "flex";
   document.body.classList.add("popup-open");
 }
+
+
+// ================================
+// Settings Popup
+// ================================
+function openSettingsPopup() {
+  const popup = document.getElementById("popup-settings");
+  const overlay = document.getElementById("popup-overlay");
+
+  if (popup) popup.style.display = "block";
+  if (overlay) overlay.style.display = "block";
+  document.body.classList.add("popup-open");
+}
+
+function closeSettingsPopup() {
+  const popup = document.getElementById("popup-settings");
+  const overlay = document.getElementById("popup-overlay");
+
+  if (popup) popup.style.display = "none";
+  if (overlay) overlay.style.display = "none";
+  document.body.classList.remove("popup-open");
+}
+
+window.openSettingsPopup = openSettingsPopup;
+window.closeSettingsPopup = closeSettingsPopup;
+
+document.getElementById("open-settings-popup-btn")?.addEventListener("click", openSettingsPopup);
+document.getElementById("close-settings-popup-btn")?.addEventListener("click", closeSettingsPopup);
+
+document.getElementById("popup-overlay")?.addEventListener("click", () => {
+  closeSettingsPopup();
+  closeLoginPopup();
+});

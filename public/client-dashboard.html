@@ -16,12 +16,7 @@
         </div>
     </section>
   </header>
-<Link
-  href="/store-settings"
-  className="inline-block rounded-2xl px-4 py-2 bg-black text-white"
->
 
-</Link>
 
 <!-- In views/booking-page.ejs (or your page HTML) -->
 
@@ -36,8 +31,8 @@
   
   <section class="options-bar">
     
-<!-- Your settings button -->
-<button id="open-settings-popup-btn" style="display: none">⚙️</button>
+<!-- Your settings button style="display: inline-block;"-->
+<button id="open-settings-popup-btn" type="button" style="display: none;">⚙️</button>
  
 
   </section>
@@ -172,78 +167,86 @@
 
 
 
-<!--Settings Popup-->
- 
-  <section id="popup-settings" class="popup-add-business" style="display: none;">
-    <div class="business-section-header">
-      <div class="spacer"></div>
-      <h2 id="popup-title" class="section-title">Settings</h2>
-      
-      <button type="button" onclick="closeSettingsPopup()" style="float:right; border:none; background:none; font-size:18px;">&times;</button>
-  
+<!-- Settings Popup -->
+<section id="popup-settings" class="popup-add-business" style="display: none;">
+  <div class="business-section-header">
+    <div class="spacer"></div>
+    <h2 id="popup-title" class="section-title">Settings</h2>
+
+    <button
+      type="button"
+      id="close-settings-popup-btn"
+      style="float:right; border:none; background:none; font-size:18px;"
+    >
+      &times;
+    </button>
   </div>
-  <button id="open-reset-password-popup-btn" style="display: none;">Reset Password</button>
-    <form id="popup-add-business-form">
-      <div class="form-group">
-        <label for="popup-First-name-input">First Name*</label><br>
-        <input id="popup-First-name-input" name="businessName" type="text" placeholder="Enter business name" required>
-      </div>
-      <div class="form-group">
-        <label for="popup-Last-name-input">Last Name*</label><br>
-        <input id="popup-Last-name-input" name="yourName" type="text" placeholder="Enter your name" required>
-      </div>
-      <div class="form-group">
-        <label for="popup-phone-number-input">Phone Number*</label><br>
-        <input id="popup-phone-number-input" name="phoneNumber" type="text" placeholder="Enter phone number">
-      </div>
-      
-      <div class="form-group">
-        <label for="popup-address-input"> Address</label>
 
-        <input id="popup-address-input" name="businessAddress" type="text" placeholder="Enter business address" required>
+  <button type="button" id="open-change-password-popup-btn">Change Password</button>
+
+  <form id="settings-form">
+    <div class="form-group">
+      <label for="popup-first-name-input">First Name*</label><br>
+      <input id="popup-first-name-input" name="firstName" type="text" placeholder="Enter first name" required>
+    </div>
+
+    <div class="form-group">
+      <label for="popup-last-name-input">Last Name*</label><br>
+      <input id="popup-last-name-input" name="lastName" type="text" placeholder="Enter last name" required>
+    </div>
+
+    <div class="form-group">
+      <label for="popup-phone-number-input">Phone Number</label><br>
+      <input id="popup-phone-number-input" name="phone" type="text" placeholder="Enter phone number">
+    </div>
+
+    <div class="form-group">
+      <label for="popup-address-input">Address</label>
+      <input id="popup-address-input" name="address" type="text" placeholder="Enter address">
+    </div>
+
+    <div class="form-group">
+      <label for="popup-email-input">Email</label><br>
+      <input id="popup-email-input" name="email" type="email" placeholder="Enter email">
+    </div>
+
+    <div class="form-group">
+      <label for="image-upload">Profile Photo</label><br>
+      <input type="file" id="image-upload" name="profilePhoto" accept="image/*">
+
+      <div id="current-profile-photo-container" style="margin-top: 10px;">
+        <img id="client-profile-photo-preview" alt="Profile" style="display:none;">
+        <p id="no-image-text" style="display: none;">No image uploaded yet.</p>
       </div>
-      <div class="form-group">
-        <label for="popup--email-input">Email</label><br>
-        <input id="popup--email-input" name="businessEmail" type="text" placeholder="Enter business email">
-      </div>
-      <div class="form-group">
-        <label for="image-upload">Profile Photo</label><br>
-       <input type="file" id="image-upload" name="profilePhoto" accept="image/*">
+    </div>
 
- <div id="current-profile-photo-container" style="margin-top: 10px;">
-  <img id="client-profile-photo-preview" alt="Profile" style="display:none;">
-  <p id="no-image-text" style="display: none;">No image uploaded yet.</p>
-</div>
-
-      </div>
-      <div class="button-center-wrapper">
-        <button type="submit" id="save-button" class="save-settings">Save </button>
-         </div>
-    </form>
-  </section>
-
-  
-     <!-- Reset Password Popup -->
-        <!-- Login Popup -->
-<section id="popup-reset-password" class="popup-add-business" style="display: none;">
- <button type="button" id="close-reset-password-popup-btn" style="float:right;">&times;</button>
-
-
-<form id="change-password-form">
-  <input type="password" id="current-password" placeholder="Current Password" required />
-  <input type="password" id="new-password" placeholder="New Password" required />
-  <input type="password" id="confirm-password" placeholder="Confirm New Password" required />
-  <button type="submit">Change Password</button>
-</form>
+    <div class="button-center-wrapper">
+      <button type="submit" id="save-button" class="save-settings">Save</button>
+    </div>
+  </form>
 </section>
 
-      <!-- Login Popup -->
+  
+<!-- Change Password Popup -->
+<section id="popup-change-password" class="popup-add-business" style="display: none;">
+  <button type="button" id="close-change-password-popup-btn" style="float:right;">&times;</button>
+
+  <h2>Change Password</h2>
+
+  <form id="change-password-form">
+    <input type="password" id="current-password" placeholder="Current Password" required />
+    <input type="password" id="new-password" placeholder="New Password" required />
+    <input type="password" id="confirm-password" placeholder="Confirm New Password" required />
+    <button type="submit">Change Password</button>
+  </form>
+</section>
+
+<!-- Login Popup -->
 <section id="popup-login" class="popup-add-business" style="display: none;">
   <div class="business-section-header">
     <div class="spacer"></div>
     <h2 class="section-title">Login</h2>
-    <button type="button" onclick="closeLoginPopup()" style="float:right; border:none; background:none; font-size:18px;">&times;</button>
-
+    <button type="button" id="close-login-popup-btn" style="float:right; border:none; background:none; font-size:18px;">&times;</button>
   </div>
 
   <form id="login-form">
@@ -257,13 +260,41 @@
       <input type="password" id="login-password" required placeholder="Enter your password" />
     </div>
 
+    <p style="margin-top:10px;">
+      <button
+        type="button"
+        id="open-forgot-password-popup-btn"
+        style="border:none; background:none; color:blue; cursor:pointer; text-decoration:underline;"
+      >
+        Forgot password?
+      </button>
+    </p>
+
     <div class="button-center-wrapper">
       <button type="submit" class="add-business-button">Log In</button>
     </div>
   </form>
 </section>
  
+<!-- Forgot Password Popup -->
+<section id="popup-forgot-password" class="popup-add-business" style="display: none;">
+  <div class="business-section-header">
+    <div class="spacer"></div>
+    <h2 class="section-title">Forgot Password</h2>
+    <button type="button" id="close-forgot-password-popup-btn" style="float:right; border:none; background:none; font-size:18px;">&times;</button>
+  </div>
 
+  <form id="forgot-password-form">
+    <div class="form-group">
+      <label for="forgot-password-email">Email</label><br>
+      <input type="email" id="forgot-password-email" required placeholder="Enter your email" />
+    </div>
+
+    <div class="button-center-wrapper">
+      <button type="submit" class="add-business-button">Send Reset Link</button>
+    </div>
+  </form>
+</section>
 
 <script src="/qassets/js/client-dashboard.js" defer></script>
 </body>
