@@ -1309,6 +1309,7 @@ document.getElementById('tab6')?.addEventListener('click', () => {
 // Email Automations (Tab 7)
 // =============================
 const emailForm = document.getElementById("email-auto-form");
+const emailSubmitBtn = emailForm?.querySelector('button[type="submit"]');
 const emailTableBody = document.querySelector("#email-auto-table tbody");
 
 const elName = document.getElementById("ea-name");
@@ -1443,7 +1444,7 @@ function openEmailEdit(rec) {
   editingEmailAutomationId = rec._id;
 
   elName.value = v.Name || "";
-  elEnabled.value = (v.Enabled ? "Yes" : "No");
+elEnabled.value = v.Enabled ? "true" : "false";
   elTrigger.value = v.Trigger || "";
   elAudience.value = v.Audience || "";
   elDelay.value = String(v.SendDelayMinutes ?? 0);
@@ -1453,6 +1454,7 @@ function openEmailEdit(rec) {
 
   // optional: scroll form into view
   elName.scrollIntoView({ behavior: "smooth", block: "center" });
+  if (emailSubmitBtn) emailSubmitBtn.textContent = "Update Automation";
 }
 
 async function deleteEmailAutomation(id) {
@@ -1494,7 +1496,7 @@ emailForm?.addEventListener("submit", async (e) => {
 
   const values = {
     Name: elName.value.trim(),
-    Enabled: elEnabled.value === "Yes",
+    Enabled: elEnabled.value === "true",
     Trigger: triggerMap[elTrigger.value] || elTrigger.value,
     Audience: audienceMap[elAudience.value] || elAudience.value,
     SendDelayMinutes: Number(elDelay.value || 0),
@@ -1522,23 +1524,24 @@ emailForm?.addEventListener("submit", async (e) => {
     : { dataTypeId: dt._id, values };
 
 const r = await apiFetch(url, {
-    method,
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
-  });
+  method,
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(payload)
+});
 
-  if (!r.ok) {
-    const err = await safeJson(r);
-    alert(err?.error || err?.message || "Save failed");
-    return;
-  }
+if (!r.ok) {
+  const err = await safeJson(r);
+  alert(err?.error || err?.message || "Save failed");
+  return;
+}
 
-  // reset
-  editingEmailAutomationId = null;
-  emailForm.reset();
+// reset
+editingEmailAutomationId = null;
+emailForm.reset();
+if (emailSubmitBtn) emailSubmitBtn.textContent = "Create Automation";
 
-  await initEmailDropdowns(); // ✅ refill dropdowns after reset
-  await loadEmailAutomations();
+await initEmailDropdowns();
+await loadEmailAutomations();
 });
 
 // load when Email tab clicked
