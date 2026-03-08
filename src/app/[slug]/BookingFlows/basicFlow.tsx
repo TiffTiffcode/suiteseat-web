@@ -2477,9 +2477,11 @@ if (!res.ok) {
 }
 
 // ✅ OPTIONAL: fetch it back to confirm what actually got stored
-if (saved?._id) {
+const savedDoc = Array.isArray(saved?.items) ? saved.items[0] : saved;
+
+if (savedDoc?._id) {
   const check = await fetch(
-    `${API}/public/records?dataType=Appointment&_id=${encodeURIComponent(saved._id)}&ts=${Date.now()}`,
+    `${API}/public/records?dataType=Appointment&_id=${encodeURIComponent(savedDoc._id)}&ts=${Date.now()}`,
     { cache: "no-store" }
   )
     .then((r) => r.json())
