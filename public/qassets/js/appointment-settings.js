@@ -21,6 +21,20 @@ async function apiJSON(path, options = {}) {
   return { res, data };
 }
 
+function clearStoredBusinessIfUserChanged(user) {
+  const currentUserId = String(user?._id || user?.id || "").trim();
+  const lastUserId = localStorage.getItem("lastLoginUserId");
+
+  if (!currentUserId) return;
+
+  if (lastUserId && lastUserId !== currentUserId) {
+    localStorage.removeItem("lastBusinessId");
+    console.log("[business] cleared lastBusinessId because user changed");
+  }
+
+  localStorage.setItem("lastLoginUserId", currentUserId);
+}
+
 /////////////////////////////////////////////////
 // 1) LOGIN / HEADER (TOP OF FILE)
 /////////////////////////////////////////////////
@@ -60,15 +74,17 @@ async function initHeaderAuth() {
 
     console.log("[auth] GET /api/me", res.status, data);
 
-    if (data?.ok && data?.user) {
-      setHeaderLoggedIn(data.user);
-      return { loggedIn: true, user: data.user };
-    }
+if (data?.ok && data?.user) {
+  clearStoredBusinessIfUserChanged(data.user);
+  setHeaderLoggedIn(data.user);
+  return { loggedIn: true, user: data.user };
+}
 
-    if (data?._id || data?.id) {
-      setHeaderLoggedIn(data);
-      return { loggedIn: true, user: data };
-    }
+if (data?._id || data?.id) {
+  clearStoredBusinessIfUserChanged(data);
+  setHeaderLoggedIn(data);
+  return { loggedIn: true, user: data };
+}
 
     setHeaderLoggedOut();
     return { loggedIn: false, user: null };
@@ -231,6 +247,12 @@ function wireBusinessDropdownUI() {
   dd.addEventListener("change", async (e) => {
     const selectedId = String(e.target.value || "").trim();
     SELECTED_BUSINESS_ID = selectedId;
+
+    if (selectedId) {
+  localStorage.setItem("lastBusinessId", selectedId);
+} else {
+  localStorage.removeItem("lastBusinessId");
+}
 
     const selectedText = dd?.options?.[dd.selectedIndex]?.textContent || "";
     const title = document.getElementById("selected-business-name");
