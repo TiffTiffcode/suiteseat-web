@@ -7,7 +7,7 @@
  <!-- 
 git status
 git add .
-git commit -m "booking page 4"
+git commit -m "booking page 5"
 git push
 
 
@@ -431,8 +431,9 @@ git push
 <h2>Hi {{client.firstName}},</h2>
 <p>Your appointment with <b>{{appointment.BusinessName}}</b> is confirmed.</p>
 <p>
-  <b>Date:</b> {{appointment.Date}}<br/>
-  <b>Time:</b> {{appointment.StartTime}}<br/>
+  <b>Service:</b> {{serviceNames}}<br/>
+  <b>Date:</b> {{appointmentDatePretty}}<br/>
+  <b>Time:</b> {{appointmentTimePretty}}<br/>
 </p>
 <p>
   You can manage your appointment here:
