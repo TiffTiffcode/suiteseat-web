@@ -1,14 +1,28 @@
 console.log('[settings] loaded');
 
-// ---- Get signed-in user via /api/check-login ----
+// ---- Get signed-in user via /api/me ----
+const API_BASE = location.hostname.includes("localhost")
+  ? "http://localhost:8400"
+  : "https://api2.suiteseat.io";
+
+function apiFetch(path, options = {}) {
+  const url = `${API_BASE}${path.startsWith("/") ? path : `/${path}`}`;
+  return fetch(url, {
+    credentials: "include",
+    cache: "no-store",
+    ...options,
+  });
+}
+
 async function getSignedInUser() {
   try {
-    const res = await fetch('/api/check-login', {
-      credentials: 'include',
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    return data?.user || null;
+    const res = await apiFetch('/api/me', { method: 'GET' });
+    const data = await res.json().catch(() => ({}));
+
+    console.log('[settings] GET /api/me', res.status, data);
+
+    if (data?.ok && data?.user) return data.user;
+    return null;
   } catch (err) {
     console.warn('[settings] getSignedInUser error', err);
     return null;
@@ -32,7 +46,7 @@ function initAuthUI(currentUser) {
   const submitBtn = document.getElementById('authSubmit');
 
   function setLoggedInUI(user) {
-    const loggedIn = !!(user && user.id);
+    const loggedIn = !!(user && (user._id || user.id));
     if (loggedIn) {
       const name =
         user.firstName ||
@@ -90,12 +104,11 @@ function initAuthUI(currentUser) {
     if (errorEl) errorEl.textContent = '';
 
     try {
-      const res = await fetch('/api/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ email, password }),
-      });
+ const res = await apiFetch('/api/login', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ email, password }),
+});
       const body = await res.json().catch(() => ({}));
 
       if (!res.ok || body.ok === false) {
@@ -120,10 +133,9 @@ function initAuthUI(currentUser) {
   // logout
   logoutBtn?.addEventListener('click', async () => {
     try {
-      await fetch('/api/logout', {
-        method: 'POST',
-        credentials: 'include',
-      });
+await apiFetch('/api/logout', {
+  method: 'POST',
+});
     } catch {}
     location.reload();
   });
