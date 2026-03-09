@@ -2,15 +2,19 @@
 //at top of signup.js
 
 // ---- Simple API helper: always call Next.js API on the same origin ----
+const API_BASE = location.hostname.includes("localhost")
+  ? "http://localhost:8400"
+  : "https://api2.suiteseat.io";
+
 async function apiJSON(path, init) {
-  const url = path.startsWith('/') ? path : `/${path}`;
-  console.log('[apiJSON] calling', url); // debug so we can see the URL
+  const url = `${API_BASE}${path.startsWith('/') ? path : `/${path}`}`;
+  console.log('[apiJSON] calling', url);
 
   const res = await fetch(url, {
-    credentials: 'include', // send/receive cookies
+    credentials: 'include',
+    cache: 'no-store',
     ...(init || {}),
   });
-
   const ct = res.headers.get('content-type') || '';
   const text = await res.text();
 
@@ -108,12 +112,16 @@ document.addEventListener('DOMContentLoaded', () => {
       return alert('Password must be 8–64 characters.');
 
     try {
-      const data = await apiJSON('/api/signup/pro', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ firstName, lastName, email, password, phone }),
-      });
-      location.href = data.redirect || next || '/settings.html';
+const data = await apiJSON('/signup/pro', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ firstName, lastName, email, password, phone }),
+});
+
+const me = await apiJSON('/api/me', { method: 'GET' });
+console.log('[signup] /api/me after pro signup:', me);
+
+location.href = data.redirect || next || '/settings';
     } catch (err) {
       console.error(err);
       alert(`Sign up failed: ${err.message}`);
@@ -128,12 +136,16 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!email || !password) return alert('Enter email and password.');
 
     try {
-      const data = await apiJSON('/api/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
-      location.href = data.redirect || next || '/settings.html';
+const data = await apiJSON('/api/login', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ email, password }),
+});
+
+const me = await apiJSON('/api/me', { method: 'GET' });
+console.log('[signup] /api/me after pro login:', me);
+
+location.href = data.redirect || next || '/settings';
     } catch (err) {
       console.error(err);
       alert(`Login failed: ${err.message}`);
@@ -157,7 +169,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return alert('Password must be 8–64 characters.');
 
     try {
-      const data = await apiJSON('/api/signup', {
+      const data = await apiJSON('/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ firstName, lastName, email, password, phone }),
