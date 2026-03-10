@@ -490,12 +490,9 @@ async function listCoursesForCurrentUser() {
   const params = new URLSearchParams();
   params.set("dataType", "Course");
   params.set("limit", "200");
-  params.set("Created By", uid);
   params.set("ts", String(Date.now()));
 
-  // ✅ IMPORTANT: hit /public/records exactly (no /api prefix)
-const url = joinUrl(API_BASE, `/public/records?${params.toString()}`);
-
+  const url = joinUrl(API_BASE, `/public/records?${params.toString()}`);
 
   const res = await fetch(url, {
     credentials: "include",
@@ -508,7 +505,23 @@ const url = joinUrl(API_BASE, `/public/records?${params.toString()}`);
   const data = await res.json().catch(() => null);
   const rows = Array.isArray(data) ? data : (data?.items || data?.records || []);
 
-  const active = rows.filter((r) => !(r?.deletedAt || r?.values?.deletedAt));
+  const active = rows.filter((r) => {
+    const deletedAt = r?.deletedAt || r?.values?.deletedAt || null;
+    if (deletedAt) return false;
+
+    const v = r?.values || {};
+    const createdBy = v["Created By"];
+
+    const createdById =
+      createdBy?._id ||
+      createdBy?.id ||
+      createdBy ||
+      r?.createdBy?._id ||
+      r?.createdBy?.id ||
+      "";
+
+    return String(createdById) === String(uid);
+  });
 
   window.__COURSE_CACHE = {};
   active.forEach((r) => {
@@ -2019,6 +2032,7 @@ try {
         "Sale Price": null,
         "Created At": new Date().toISOString(),
         "Created By": { _id: uid },
+        "Created By Id": uid,
         Locked: false,
         Visible: true,
 

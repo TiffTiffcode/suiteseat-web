@@ -156,31 +156,31 @@ document.addEventListener('DOMContentLoaded', async () => {
   document
     .getElementById('btn-appointments')
     ?.addEventListener('click', () => {
-      window.location.href = '/appointment-settings.html';
+      window.location.href = '/appointment-settings';
     });
 
   document
     .getElementById('btn-suites')
     ?.addEventListener('click', () => {
-      window.location.href = '/suite-settings.html';
+      window.location.href = '/suite-settings';
     });
 
   document
     .getElementById('btn-course')
     ?.addEventListener('click', () => {
-      window.location.href = '/course-settings.html';
+      window.location.href = '/course-settings';
     });
 
   document
     .getElementById('btn-links')
     ?.addEventListener('click', () => {
-      window.location.href = '/linkpage-settings.html';
+      window.location.href = '/linkpage-settings';
     });
 
   document
     .getElementById('btn-store')
     ?.addEventListener('click', () => {
-      window.location.href = '/store-settings.html';
+      window.location.href = '/store-settings';
     });
 
 

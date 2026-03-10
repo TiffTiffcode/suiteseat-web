@@ -2,7 +2,7 @@ console.log("[clients] loaded");
 
 // ✅ MUST use api2 in production so cookies persist
 // ✅ Default to api2 (same data as production)
-// If you want local API sometimes, open: http://localhost:3000/clients.html?api=local
+// If you want local API sometimes, open: http://localhost:3000/clients?api=local
 // (Production default is api2)
 const apiMode = new URLSearchParams(window.location.search).get("api");
 

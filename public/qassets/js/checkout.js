@@ -130,136 +130,124 @@ async function loadCheckoutView(loggedIn) {
 
 
 
-  function renderItems(items) {
-    const main = document.querySelector("main.ss-settings-layout");
-    if (!main) return;
+function renderItems(items) {
+  const wrap = document.getElementById("itemsWrap");
+  if (!wrap) return;
 
-      // reset Stripe mounts because DOM is about to be replaced
+  // reset Stripe mounts if needed
   card = null;
   elements = null;
-  
-    const subtotalCents = items.reduce((sum, it) => {
-      const v = it?.values || it || {};
-      return sum + Number(v["Total Amount"] || v.totalAmount || 0);
-    }, 0);
 
-    main.innerHTML = `
-      <section style="max-width:900px;margin:24px auto;padding:16px;">
-        <h2 style="margin:0 0 12px;">Your checkout</h2>
-
-        <div id="itemsWrap" style="display:grid;gap:12px;"></div>
-
-        <div style="margin-top:18px;padding-top:12px;border-top:1px solid #ddd;display:flex;justify-content:space-between;align-items:center;">
-          <div style="font-weight:600;">Subtotal</div>
-          <div style="font-weight:700;">${moneyFromCents(subtotalCents)}</div>
-        </div>
-
-        <button id="payNowBtn" class="ss-btn ss-btn-outline" style="margin-top:16px;width:100%;">
-          Pay with Stripe
-        </button>
-
-        <div id="stripe-area" style="margin-top:14px;"></div>
-
-        <p style="margin-top:10px;font-size:12px;opacity:.7;">
-          Stripe step comes next — we’ll create a PaymentIntent using these items.
-        </p>
-      </section>
-    `;
-
-    const wrap = document.getElementById("itemsWrap");
-    if (!wrap) return;
-
-    if (!items.length) {
-      wrap.innerHTML = `<div style="padding:14px;border:1px dashed #bbb;border-radius:10px;">No items in checkout yet.</div>`;
-      return;
-    }
-
-wrap.innerHTML = items
-  .map((it) => {
-    const id = it?._id || it?.id || ""; // record id
+  const subtotalCents = items.reduce((sum, it) => {
     const v = it?.values || it || {};
-    const label = v["Label"] || v.label || v["Kind"] || "Item";
-    const qty = Number(v["Quantity"] || v.quantity || 1);
-    const unit = Number(v["Unit Amount"] || v.unitAmount || 0);
-    const total = Number(v["Total Amount"] || v.totalAmount || unit * qty);
+    return sum + Number(v["Total Amount"] || v.totalAmount || 0);
+  }, 0);
 
-    const canRemove = !!id; // guest “virtual items” won't have _id
+  const subtotalEl = document.getElementById("subtotalAmount");
+  const totalEl = document.getElementById("totalAmount");
 
-    return `
-      <div style="border:1px solid #e5e5e5;border-radius:12px;padding:12px;display:flex;justify-content:space-between;gap:12px;align-items:flex-start;">
-        <div style="min-width:0;">
-          <div style="font-weight:700;">${escapeHtml(label)}</div>
-          <div style="font-size:12px;opacity:.75;margin-top:4px;">
-            Qty: ${qty} • Unit: ${moneyFromCents(unit)}
-          </div>
-        </div>
+  if (subtotalEl) subtotalEl.textContent = moneyFromCents(subtotalCents);
+  if (totalEl) totalEl.textContent = moneyFromCents(subtotalCents);
 
-        <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
-          <div style="font-weight:800;">${moneyFromCents(total)}</div>
-          ${
-            canRemove
-              ? `<button class="ss-trash-btn" data-remove-id="${escapeHtml(id)}" title="Remove" aria-label="Remove item"
-                   style="border:1px solid #ddd;background:#fff;border-radius:10px;padding:8px 10px;cursor:pointer;">
-                   🗑️
-                 </button>`
-              : ``
-          }
-        </div>
+  if (!items.length) {
+    wrap.innerHTML = `
+      <div class="empty-checkout">
+        No items in checkout yet.
       </div>
     `;
-  })
-  .join("");
+    return;
+  }
 
-  // remove handlers
-wrap.querySelectorAll("[data-remove-id]").forEach((btn) => {
-  btn.addEventListener("click", async () => {
-    const id = btn.getAttribute("data-remove-id");
-    if (!id) return;
+  wrap.innerHTML = items
+    .map((it) => {
+      const id = it?._id || it?.id || "";
+      const v = it?.values || it || {};
+      const label = v["Label"] || v.label || v["Kind"] || "Item";
+      const qty = Number(v["Quantity"] || v.quantity || 1);
+      const unit = Number(v["Unit Amount"] || v.unitAmount || 0);
+      const total = Number(v["Total Amount"] || v.totalAmount || unit * qty);
 
-    btn.disabled = true;
+      const canRemove = !!id;
 
-    const ok = confirm("Remove this item from checkout?");
-    if (!ok) { btn.disabled = false; return; }
+      return `
+        <div class="summary-item">
+          <div>
+            <div class="summary-name">${escapeHtml(label)}</div>
+            <div class="summary-meta">
+              Qty: ${qty} • Unit: ${moneyFromCents(unit)}
+            </div>
+          </div>
 
-    const { res, data } = await apiFetch(`/api/checkout/items/${encodeURIComponent(id)}`, {
-      method: "DELETE",
+          <div class="summary-item-right">
+            <div class="summary-price">${moneyFromCents(total)}</div>
+            ${
+              canRemove
+                ? `
+                  <button
+                    class="remove-item-btn"
+                    data-remove-id="${escapeHtml(id)}"
+                    title="Remove"
+                    aria-label="Remove item"
+                    type="button"
+                  >
+                    🗑️
+                  </button>
+                `
+                : ``
+            }
+          </div>
+        </div>
+      `;
+    })
+    .join("");
+
+  wrap.querySelectorAll("[data-remove-id]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const id = btn.getAttribute("data-remove-id");
+      if (!id) return;
+
+      btn.disabled = true;
+
+      const ok = confirm("Remove this item from checkout?");
+      if (!ok) {
+        btn.disabled = false;
+        return;
+      }
+
+      const { res, data } = await apiFetch(`/api/checkout/items/${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      });
+
+      if (!res.ok) {
+        console.error("remove failed", res.status, data);
+        alert(data?.error || data?.message || "Could not remove item.");
+        btn.disabled = false;
+        return;
+      }
+
+      const me = await apiFetch("/api/me", { method: "GET" }).catch(() => null);
+      const loggedIn = !!me?.data?.ok;
+
+      const view = await loadCheckoutView(loggedIn).catch(() => ({ items: [] }));
+      renderItems(view.items);
     });
-
-    if (!res.ok) {
-      console.error("remove failed", res.status, data);
-      alert(data?.error || data?.message || "Could not remove item.");
-      btn.disabled = false;
-      return;
-    }
-
-    // reload view + rerender
-    const me = await apiFetch("/api/me", { method: "GET" }).catch(() => null);
-    const loggedIn = !!me?.data?.ok;
-
-    const view = await loadCheckoutView(loggedIn).catch(() => ({ items: [] }));
-    renderItems(view.items);
   });
-});
 
+  document.getElementById("payNowBtn")?.addEventListener("click", async () => {
+    try {
+      const me = await apiFetch("/api/me", { method: "GET" });
+      if (!me?.data?.ok) {
+        openAuth();
+        return;
+      }
 
-document.getElementById("payNowBtn")?.addEventListener("click", async () => {
-  try {
-    // must be logged in to charge + attach to customer
-    const me = await apiFetch("/api/me", { method: "GET" });
-    if (!me?.data?.ok) {
-      openAuth();
-      return;
+      await showStripeCardFormAndPay();
+    } catch (e) {
+      console.error(e);
+      alert("Could not start Stripe checkout.");
     }
-
-    // show stripe UI area
-    await showStripeCardFormAndPay();
-  } catch (e) {
-    console.error(e);
-    alert("Could not start Stripe checkout.");
-  }
-});
-
-  }
+  });
+}
 
   // ---------- add course from URL ----------
   async function maybeAddCourseFromUrl(isLoggedIn) {
@@ -358,18 +346,18 @@ renderItems(view2.items);
   if (!stripeWrap) return alert("Missing #stripe-area");
 
   // build UI once
-  stripeWrap.innerHTML = `
-    <section style="border:1px solid #e5e5e5;border-radius:12px;padding:14px;">
-      <h3 style="margin:0 0 10px;">Payment</h3>
+stripeWrap.innerHTML = `
+  <section class="stripe-card-box">
+    <h3 class="stripe-card-title">Enter your card details</h3>
 
-      <div id="card-element" style="padding:12px;border:1px solid #ddd;border-radius:10px;"></div>
-      <div id="card-error" style="color:#b00020;margin-top:10px;min-height:18px;"></div>
+    <div id="card-element" class="card-element-box"></div>
+    <div id="card-error" class="card-error-text"></div>
 
-      <button id="confirmPayBtn" class="ss-btn ss-btn-outline" style="margin-top:12px;width:100%;">
-        Pay now
-      </button>
-    </section>
-  `;
+    <button id="confirmPayBtn" class="confirm-pay-btn" type="button">
+      Confirm payment
+    </button>
+  </section>
+`;
 
   if (!stripe) stripe = window.Stripe(STRIPE_PUBLISHABLE_KEY);
   if (!elements) elements = stripe.elements();
@@ -451,8 +439,9 @@ if (!res.ok) {
         }).catch(() => null);
 
         alert("Payment successful ✅");
-        window.location.href = "/checkout-success.html";
-      } else {
+        window.location.href = "/checkout-success";
+      } 
+      else {
         alert(`Payment status: ${result.paymentIntent?.status}`);
         document.getElementById("confirmPayBtn").disabled = false;
       }

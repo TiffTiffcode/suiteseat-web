@@ -35,10 +35,64 @@
     </div>
   </header>
 
-     <h2 >Checkoutpage</h2>
+
   <!-- MAIN CONTENT -->
-  <main class="ss-settings-layout">
+<main class="checkout-page">
+  <div class="checkout-shell">
+
+    <div class="checkout-top">
+      <div>
+        <p class="checkout-breadcrumb">Cart / Checkout</p>
+        <h1 class="checkout-title">Checkout</h1>
+        <p class="checkout-subtitle">Complete your payment to finish your order.</p>
+      </div>
+      <div class="checkout-lock">Secure checkout</div>
+    </div>
+
+    <div class="checkout-grid">
+      
+      <!-- LEFT SIDE -->
+      <section class="checkout-card checkout-payment-card">
+        <h2 class="card-title">Payment</h2>
+        <p class="card-subtext">All transactions are secure and encrypted.</p>
+
  
+
+        <button id="payNowBtn" type="button" class="pay-now-btn">Pay now</button>
+
+        <div id="stripe-area" class="stripe-area"></div>
+
+ 
+      </section>
+
+      <!-- RIGHT SIDE -->
+      <aside class="checkout-card checkout-summary-card">
+        <h2 class="card-title">Order summary</h2>
+
+        <div id="itemsWrap" class="items-wrap"></div>
+
+        <div class="summary-row">
+          <span>Subtotal</span>
+          <span id="subtotalAmount">$0.00</span>
+        </div>
+
+        <div class="summary-row">
+          <span>Processing</span>
+          <span>$0.00</span>
+        </div>
+
+        <div class="summary-total">
+          <span>Total</span>
+          <span id="totalAmount">$0.00</span>
+        </div>
+
+        <p class="summary-note">
+          By completing your purchase, you agree to our terms and payment policy.
+        </p>
+      </aside>
+
+    </div>
+  </div>
 </main>
 
 

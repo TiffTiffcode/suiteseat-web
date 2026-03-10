@@ -95,7 +95,7 @@ const DEFAULT_AVATAR    = "/uploads/default-avatar.png";
         const result = await res.json();
         if (res.ok) {
           alert("👋 Logged out!");
-          window.location.href = "index.html";
+          window.location.href = "index";
         } else {
           alert(result?.message || "Logout failed.");
         }
