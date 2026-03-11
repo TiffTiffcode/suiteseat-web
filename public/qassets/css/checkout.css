@@ -351,3 +351,89 @@ body.ss-page {
   background: #EFB37C;
   color: white;
 }
+
+.stripe-area {
+  margin-top: 20px;
+}
+
+.stripe-card-box {
+  margin-top: 18px;
+}
+
+.stripe-card-title {
+  margin: 0 0 18px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #111;
+}
+
+.stripe-fields-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  gap: 14px;
+  align-items: start;
+}
+
+.stripe-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.stripe-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #111;
+}
+
+.stripe-input-box {
+  height: 54px;
+  border: 1px solid #dcdce3;
+  border-radius: 14px;
+  background: #fff;
+  box-sizing: border-box;
+  padding: 16px 14px;
+  display: block;
+}
+
+.stripe-input-box .StripeElement,
+.stripe-input-box .StripeElement iframe {
+  width: 100% !important;
+}
+
+#card-number-element,
+#card-expiry-element,
+#card-cvc-element {
+  width: 100%;
+}
+
+.stripe-input-box:focus-within {
+  border-color: #111;
+  box-shadow: 0 0 0 2px rgba(17, 17, 17, 0.05);
+}
+
+.card-error-text {
+  color: #c62828;
+  font-size: 14px;
+  min-height: 20px;
+  margin-top: 12px;
+}
+
+.confirm-pay-btn {
+  margin-top: 14px;
+  width: 220px;
+  height: 54px;
+  border: none;
+  border-radius: 14px;
+  background: #111;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+@media (max-width: 700px) {
+  .stripe-fields-grid {
+    grid-template-columns: 1fr;
+  }
+}

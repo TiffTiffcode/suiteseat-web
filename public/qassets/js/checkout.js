@@ -3,7 +3,9 @@
   const API = "https://api2.suiteseat.io";
 let stripe = null;
 let elements = null;
-let card = null;
+let cardNumber = null;
+let cardExpiry = null;
+let cardCvc = null;
 
 const STRIPE_PUBLISHABLE_KEY = "pk_live_xxx"; // <-- put your real publishable key here
 
@@ -135,8 +137,10 @@ function renderItems(items) {
   if (!wrap) return;
 
   // reset Stripe mounts if needed
-  card = null;
-  elements = null;
+cardNumber = null;
+cardExpiry = null;
+cardCvc = null;
+elements = null;
 
   const subtotalCents = items.reduce((sum, it) => {
     const v = it?.values || it || {};
@@ -350,7 +354,23 @@ stripeWrap.innerHTML = `
   <section class="stripe-card-box">
     <h3 class="stripe-card-title">Enter your card details</h3>
 
-    <div id="card-element" class="card-element-box"></div>
+    <div class="stripe-fields-grid">
+      <div class="stripe-field stripe-field-large">
+        <label class="stripe-label">Card number</label>
+        <div id="card-number-element" class="stripe-input-box"></div>
+      </div>
+
+      <div class="stripe-field">
+        <label class="stripe-label">Expiration date</label>
+        <div id="card-expiry-element" class="stripe-input-box"></div>
+      </div>
+
+      <div class="stripe-field">
+        <label class="stripe-label">CVC</label>
+        <div id="card-cvc-element" class="stripe-input-box"></div>
+      </div>
+    </div>
+
     <div id="card-error" class="card-error-text"></div>
 
     <button id="confirmPayBtn" class="confirm-pay-btn" type="button">
@@ -363,14 +383,37 @@ stripeWrap.innerHTML = `
   if (!elements) elements = stripe.elements();
 
   // mount card element once
-  if (!card) {
-    card = elements.create("card");
-    card.mount("#card-element");
+const stripeStyle = {
+  base: {
+    fontSize: "16px",
+    color: "#171717",
+    fontFamily: "Arial, sans-serif",
+    "::placeholder": {
+      color: "#9ca3af",
+    },
+  },
+  invalid: {
+    color: "#c62828",
+  },
+};
 
-    card.on("change", (event) => {
-      document.getElementById("card-error").textContent = event.error ? event.error.message : "";
-    });
-  }
+if (!cardNumber) {
+  cardNumber = elements.create("cardNumber", { style: stripeStyle });
+  cardExpiry = elements.create("cardExpiry", { style: stripeStyle });
+  cardCvc = elements.create("cardCvc", { style: stripeStyle });
+
+  cardNumber.mount("#card-number-element");
+  cardExpiry.mount("#card-expiry-element");
+  cardCvc.mount("#card-cvc-element");
+
+  const handleChange = (event) => {
+    document.getElementById("card-error").textContent = event.error ? event.error.message : "";
+  };
+
+  cardNumber.on("change", handleChange);
+  cardExpiry.on("change", handleChange);
+  cardCvc.on("change", handleChange);
+}
 
   // click confirm pay
   document.getElementById("confirmPayBtn").onclick = async () => {
@@ -420,9 +463,11 @@ if (!res.ok) {
       }
 
       // 2) confirm card payment
-      const result = await stripe.confirmCardPayment(clientSecret, {
-        payment_method: { card },
-      });
+const result = await stripe.confirmCardPayment(clientSecret, {
+  payment_method: {
+    card: cardNumber,
+  },
+});
 
       if (result.error) {
         document.getElementById("card-error").textContent = result.error.message || "Payment failed.";
