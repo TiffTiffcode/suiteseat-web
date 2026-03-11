@@ -7,7 +7,7 @@ let cardNumber = null;
 let cardExpiry = null;
 let cardCvc = null;
 
-const STRIPE_PUBLISHABLE_KEY = "pk_live_xxx"; // <-- put your real publishable key here
+const STRIPE_PUBLISHABLE_KEY = "pk_live_51OUNpKIQ1nIGUF4eTF7bnLg90u4IDbaHyrZ4wHrPAIjneesni2ZSd5a7hl92Cp32KtaYC646eZXifZp62WLwtivh003OiMqPmY"; // <-- put your real publishable key here
 
   // ---------- helpers ----------
   const $ = (id) => document.getElementById(id);
