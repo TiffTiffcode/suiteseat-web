@@ -20,8 +20,9 @@ const fromLinkPage = urlParams.get("from") === "link";
 
 // ---- flags for what this user actually has ----
 let hasAnyAppointments = false;
+let hasAnyCourses = false;
 let hasAnyOrders = false;
-let userSelectedMainTab = null; // "appointments-tab" | "orders-tab" | null
+let userSelectedMainTab = null; // "appointments-tab" | "courses-tab" | "orders-tab" | null
 
 function pickServiceNameFromAny(obj) {
   const v = (obj && (obj.values || obj)) || {};
@@ -260,32 +261,26 @@ mainTabButtons.forEach((btn) => {
 
 // decide which tabs to show + which is active
 function updateMainTabs() {
-  const apptBtn = document.querySelector(
-    '.tab-button[data-tab="appointments-tab"]'
-  );
-  const ordersBtn = document.querySelector(
-    '.tab-button[data-tab="orders-tab"]'
-  );
+  const apptBtn = document.querySelector('.tab-button[data-tab="appointments-tab"]');
+  const coursesBtn = document.querySelector('.tab-button[data-tab="courses-tab"]');
+  const ordersBtn = document.querySelector('.tab-button[data-tab="orders-tab"]');
 
-  if (!apptBtn || !ordersBtn) return;
+  if (!apptBtn || !coursesBtn || !ordersBtn) return;
 
-  // ✅ Always show both buttons
   apptBtn.style.display = "inline-block";
+  coursesBtn.style.display = "inline-block";
   ordersBtn.style.display = "inline-block";
 
   let activeTabId = null;
 
-  // 1️⃣ If the user clicked a tab, respect that choice
   if (userSelectedMainTab) {
     activeTabId = userSelectedMainTab;
-  }
-  // 2️⃣ Otherwise, auto-decide like before
-  else if (hasAnyAppointments && hasAnyOrders) {
-    activeTabId = fromLinkPage ? "orders-tab" : "appointments-tab";
-  } else if (hasAnyOrders) {
-    activeTabId = "orders-tab";
   } else if (hasAnyAppointments) {
     activeTabId = "appointments-tab";
+  } else if (hasAnyCourses) {
+    activeTabId = "courses-tab";
+  } else if (hasAnyOrders) {
+    activeTabId = "orders-tab";
   } else {
     activeTabId = "appointments-tab";
   }
@@ -508,7 +503,7 @@ const APPT_SECTIONS = {
   past:     document.getElementById('past-appointments'),
 };
 const ORDERS_SECTION = document.getElementById('orders-list');
-
+const COURSES_SECTION = document.getElementById('courses-list');
 // Small helpers
 const fmt2 = (n) => String(n).padStart(2,'0');
 function fmtDateTime(dt) {
@@ -1173,8 +1168,9 @@ console.log("[serviceCache] first name:", pickServiceNameFromRecord(window.servi
 // Initial paint: load appointments + orders, then decide tabs
 document.addEventListener("DOMContentLoaded", () => {
   // 1) Initial data load
-  window.fetchAndRenderClientAppointments({ filter: "upcoming" });
-  window.fetchAndRenderClientOrders();
+window.fetchAndRenderClientAppointments({ filter: "upcoming" });
+window.fetchAndRenderClientCourses();
+window.fetchAndRenderClientOrders();
 
   // 2) Wire the Orders tab to refresh orders when clicked
   const ordersTab = document.querySelector(
@@ -1199,6 +1195,21 @@ document.addEventListener("DOMContentLoaded", () => {
       updateMainTabs();
     });
   }
+
+
+  const coursesTab = document.querySelector('.tab-button[data-tab="courses-tab"]');
+if (coursesTab) {
+  coursesTab.addEventListener("click", () => {
+    userSelectedMainTab = "courses-tab";
+    window.fetchAndRenderClientCourses();
+    updateMainTabs();
+  });
+}
+
+
+
+
+
 });
 
 
@@ -1360,6 +1371,148 @@ async function holdAppointment(id, on = true) {
 
 
 
+// ================================
+// Courses
+// ================================
+window.fetchAndRenderClientCourses = async function () {
+  if (!COURSES_SECTION) return;
+
+  COURSES_SECTION.innerHTML = "<p>Loading your courses…</p>";
+
+  const courses = await fetchClientCourses();
+  hasAnyCourses = courses.length > 0;
+  mountCoursesList(courses);
+  updateMainTabs();
+};
+async function fetchClientCourses() {
+  try {
+    const user = await getSignedInUser();
+    if (!user) {
+      console.warn("[courses] not logged in");
+      return [];
+    }
+
+    const url = `${API_BASE}/api/records/Order?limit=100&sort=-createdAt&ts=${Date.now()}`;
+
+    const r = await fetch(url, {
+      credentials: "include",
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+    });
+
+    if (!r.ok) {
+      const txt = await r.text().catch(() => "");
+      console.warn("[courses] HTTP fail", r.status, txt);
+      return [];
+    }
+
+    const body = await r.json().catch(() => ({}));
+    const rows = Array.isArray(body.items) ? body.items : [];
+
+    const mine = rows.filter((row) => {
+      const v = row?.values || {};
+      const buyerUserId = String(v["Buyer User Id"] || "").trim();
+      const customerId =
+        String(v?.Customer?._id || v?.Customer?.id || v?.Customer || "").trim();
+
+      const belongsToMe =
+        buyerUserId === String(user.id) ||
+        customerId === String(user.id) ||
+        String(row.createdBy || "").trim() === String(user.id);
+
+      const hasCourse =
+        !!(v?.Course?._id || v?.Course?.id || v?.Course);
+
+      return belongsToMe && hasCourse;
+    });
+
+    console.log("[courses] mine:", mine);
+    return mine;
+  } catch (e) {
+    console.error("[courses] error", e);
+    return [];
+  }
+}
+
+function renderCourseCard(order) {
+  const v = order.values || order;
+
+  const title =
+    v["Product Name"] ||
+    v?.Course?.values?.["Course Title"] ||
+    v?.Course?.values?.Title ||
+    "Course";
+
+  const thumbObj = v["Thumbnail"] || null;
+  const thumbUrl = resolveImageUrl(thumbObj);
+
+  const purchasedDate = v["Purchased Date"] || "";
+  const when = purchasedDate ? formatDate(purchasedDate) : "";
+
+  const slug =
+    v?.Course?.values?.slug ||
+    v?.Course?.values?.courseSlug ||
+    v?.Course?.values?.["Course Slug"] ||
+    "";
+
+  const card = document.createElement("div");
+  card.className = "order-card";
+
+  card.innerHTML = `
+    <div class="order-main">
+      <div class="order-left">
+        ${
+          thumbUrl
+            ? `<div class="order-thumb-sm">
+                 <img src="${escapeHtml(thumbUrl)}" alt="${escapeHtml(title)}" />
+               </div>`
+            : ""
+        }
+        <div class="order-text">
+          <h3 class="order-title">${escapeHtml(title)}</h3>
+          ${when ? `<p class="order-date">Purchased: ${escapeHtml(when)}</p>` : ""}
+        </div>
+      </div>
+
+      <div class="order-right">
+        <button type="button" class="course-open-btn">Open Course</button>
+      </div>
+    </div>
+  `;
+
+  const openBtn = card.querySelector(".course-open-btn");
+  openBtn?.addEventListener("click", () => {
+    if (slug) {
+      window.location.href = `/${slug}`;
+    } else {
+      alert("Course page not found yet.");
+    }
+  });
+
+  return card;
+}
+
+
+function mountCoursesList(items) {
+  if (!COURSES_SECTION) return;
+  COURSES_SECTION.innerHTML = "";
+
+  if (!items.length) {
+    COURSES_SECTION.innerHTML = `<p style="color:#666;">No courses yet.</p>`;
+    return;
+  }
+
+  const grid = document.createElement("div");
+  grid.className = "orders-grid";
+  items.forEach((o) => grid.appendChild(renderCourseCard(o)));
+  COURSES_SECTION.appendChild(grid);
+}
+
+
+
+
+
+
 
 
 
@@ -1376,43 +1529,50 @@ async function fetchClientOrders() {
       return [];
     }
 
-    // Use /api/me/records scoped to this user, with myRefField=Customer
-   const params = new URLSearchParams({
-  dataType: "Order",
-  includeCreatedBy: "1",
-  includeRefField: "1",  // ✅ this is the important one
-  myRefField: "Customer",
-  limit: "100",
-});
+    const url = `${API_BASE}/api/records/Order?limit=100&sort=-createdAt&ts=${Date.now()}`;
 
-
-    const r = await fetch(`${API_BASE}/api/me/records?` + params.toString(), {
+    const r = await fetch(url, {
       credentials: "include",
       headers: { Accept: "application/json" },
+      cache: "no-store",
     });
 
     if (!r.ok) {
-      console.warn("[orders] HTTP", r.status);
+      const txt = await r.text().catch(() => "");
+      console.warn("[orders] HTTP fail", r.status, txt);
       return [];
     }
 
     const body = await r.json().catch(() => ({}));
-    const rows = Array.isArray(body.data) ? body.data : (Array.isArray(body.items) ? body.items : []);
-    console.log("[orders] rows:", rows);
+    const rows = Array.isArray(body.items) ? body.items : [];
 
-    // 🔍 log the latest order's values to inspect Thumbnail
-if (rows.length) {
-  const last = rows[rows.length - 1];
-  console.log("[orders] last order values:", last.values || last);
-}
+    console.log("[orders] raw rows:", rows);
 
-    return rows;
+    // extra safety filter in case server returns more than expected
+const mine = rows.filter((row) => {
+  const v = row?.values || {};
+  const buyerUserId = String(v["Buyer User Id"] || "").trim();
+  const customerId =
+    String(v?.Customer?._id || v?.Customer?.id || v?.Customer || "").trim();
+
+  const belongsToMe =
+    buyerUserId === String(user.id) ||
+    customerId === String(user.id) ||
+    String(row.createdBy || "").trim() === String(user.id);
+
+  const hasCourse =
+    !!(v?.Course?._id || v?.Course?.id || v?.Course);
+
+  return belongsToMe && !hasCourse;
+});
+
+    console.log("[orders] filtered mine:", mine);
+    return mine;
   } catch (e) {
     console.error("[orders] error", e);
     return [];
   }
 }
-
 // Try very hard to find a Link Page slug for this order
 // Try very hard to find the Link Page slug for an Order, Link, or Link Page
 function resolveLinkPageSlug(v) {
