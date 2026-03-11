@@ -237,7 +237,7 @@ const els = {
 };
 
 // ================================
-// Main tabs: Appointments vs Orders
+// Main tabs: Appointments, Courses, Orders
 // ================================
 
 const mainTabButtons = Array.from(document.querySelectorAll(".tab-button"));
@@ -1213,20 +1213,6 @@ if (coursesTab) {
 });
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 //Navigate to booking page helper
 const BizSlugCache = new Map();
 
@@ -1384,6 +1370,44 @@ window.fetchAndRenderClientCourses = async function () {
   mountCoursesList(courses);
   updateMainTabs();
 };
+
+
+async function fetchCourseById(courseId) {
+  if (!courseId) return null;
+
+  const params = new URLSearchParams({
+    dataType: "Course",
+    _id: courseId,
+    limit: "1",
+  });
+
+  const urls = [
+    `${API_BASE}/api/records?${params.toString()}`,
+    `${API_BASE}/public/records?${params.toString()}`,
+  ];
+
+  for (const url of urls) {
+    try {
+      const r = await fetch(url, {
+        credentials: "include",
+        headers: { Accept: "application/json" },
+      });
+      if (!r.ok) continue;
+
+      const data = await r.json().catch(() => null);
+      const rec =
+        Array.isArray(data) ? data[0] :
+        (data && (data.records?.[0] || data.items?.[0])) ||
+        null;
+
+      if (rec) return rec;
+    } catch (e) {
+      console.warn("[courses] course query error", e);
+    }
+  }
+
+  return null;
+}
 async function fetchClientCourses() {
   try {
     const user = await getSignedInUser();
@@ -1439,8 +1463,6 @@ function renderCourseCard(order) {
 
   const title =
     v["Product Name"] ||
-    v?.Course?.values?.["Course Title"] ||
-    v?.Course?.values?.Title ||
     "Course";
 
   const thumbObj = v["Thumbnail"] || null;
@@ -1449,11 +1471,13 @@ function renderCourseCard(order) {
   const purchasedDate = v["Purchased Date"] || "";
   const when = purchasedDate ? formatDate(purchasedDate) : "";
 
-  const slug =
-    v?.Course?.values?.slug ||
-    v?.Course?.values?.courseSlug ||
-    v?.Course?.values?.["Course Slug"] ||
-    "";
+  const savedSlug = String(v["Course Slug"] || "").trim();
+  const courseId = String(
+    v?.Course?._id ||
+    v?.Course?.id ||
+    v?.Course ||
+    ""
+  ).trim();
 
   const card = document.createElement("div");
   card.className = "order-card";
@@ -1480,18 +1504,44 @@ function renderCourseCard(order) {
     </div>
   `;
 
-  const openBtn = card.querySelector(".course-open-btn");
-  openBtn?.addEventListener("click", () => {
-    if (slug) {
-      window.location.href = `/${slug}`;
-    } else {
-      alert("Course page not found yet.");
+  async function goToCourse() {
+    if (savedSlug) {
+      window.location.href = `/${savedSlug}`;
+      return;
     }
+
+    if (courseId) {
+      const fullCourse = await fetchCourseById(courseId);
+      const cv = fullCourse?.values || {};
+      const fallbackSlug = String(
+        cv.slug ||
+        cv.courseSlug ||
+        cv["Course Slug"] ||
+        ""
+      ).trim();
+
+      if (fallbackSlug) {
+        window.location.href = `/${fallbackSlug}`;
+        return;
+      }
+    }
+
+    alert("Course page not found yet.");
+  }
+
+  card.addEventListener("click", (e) => {
+    if (e.target.closest(".course-open-btn")) return;
+    goToCourse();
+  });
+
+  const openBtn = card.querySelector(".course-open-btn");
+  openBtn?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    goToCourse();
   });
 
   return card;
 }
-
 
 function mountCoursesList(items) {
   if (!COURSES_SECTION) return;
