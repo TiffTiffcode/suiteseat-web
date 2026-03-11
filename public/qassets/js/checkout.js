@@ -7,6 +7,22 @@ let cardNumber = null;
 let cardExpiry = null;
 let cardCvc = null;
 
+  function resetStripeForm() {
+    try { cardNumber?.unmount(); } catch (e) {}
+    try { cardExpiry?.unmount(); } catch (e) {}
+    try { cardCvc?.unmount(); } catch (e) {}
+
+    cardNumber = null;
+    cardExpiry = null;
+    cardCvc = null;
+    elements = null;
+
+    const stripeWrap = document.getElementById("stripe-area");
+    if (stripeWrap) {
+      stripeWrap.innerHTML = "";
+    }
+  }
+
 const STRIPE_PUBLISHABLE_KEY = "pk_live_51OUNpKIQ1nIGUF4eTF7bnLg90u4IDbaHyrZ4wHrPAIjneesni2ZSd5a7hl92Cp32KtaYC646eZXifZp62WLwtivh003OiMqPmY"; // <-- put your real publishable key here
 
   // ---------- helpers ----------
@@ -136,11 +152,8 @@ function renderItems(items) {
   const wrap = document.getElementById("itemsWrap");
   if (!wrap) return;
 
-  // reset Stripe mounts if needed
-cardNumber = null;
-cardExpiry = null;
-cardCvc = null;
-elements = null;
+// reset Stripe form when cart changes
+resetStripeForm();
 
   const subtotalCents = items.reduce((sum, it) => {
     const v = it?.values || it || {};
@@ -438,6 +451,30 @@ if (!checkoutId) {
   return;
 }
 
+const checkoutValues = pack?.checkout?.values || {};
+const totalAmount = Number(checkoutValues["Total Amount"] || 0);
+
+if (totalAmount <= 0) {
+  const freeRes = await apiFetch("/api/checkout/confirm", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      freeCheckout: true,
+      paymentIntentId: "FREE_ORDER",
+    }),
+  });
+
+  if (!freeRes.res.ok) {
+    alert(freeRes.data?.message || freeRes.data?.error || "Could not complete free checkout.");
+    document.getElementById("confirmPayBtn").disabled = false;
+    return;
+  }
+
+  alert("Free course added successfully ✅");
+  window.location.href = "/checkout-success";
+  return;
+}
+
 // 2) create PI for THAT checkout
 const { res, data } = await apiFetch(`/api/checkout/${encodeURIComponent(checkoutId)}/create-payment-intent`, {
   method: "POST",
@@ -462,6 +499,11 @@ if (!res.ok) {
         return;
       }
 
+      if (!cardNumber) {
+  document.getElementById("card-error").textContent = "Please enter your card details.";
+  document.getElementById("confirmPayBtn").disabled = false;
+  return;
+}
       // 2) confirm card payment
 const result = await stripe.confirmCardPayment(clientSecret, {
   payment_method: {

@@ -52,21 +52,7 @@
     <div class="checkout-grid">
       
       <!-- LEFT SIDE -->
-      <section class="checkout-card checkout-payment-card">
-        <h2 class="card-title">Payment</h2>
-        <p class="card-subtext">All transactions are secure and encrypted.</p>
-
- 
-
-        <button id="payNowBtn" type="button" class="pay-now-btn">Enter card details</button>
-
-        <div id="stripe-area" class="stripe-area"></div>
-
- 
-      </section>
-
-      <!-- RIGHT SIDE -->
-      <aside class="checkout-card checkout-summary-card">
+           <aside class="checkout-card checkout-summary-card">
         <h2 class="card-title">Order summary</h2>
 
         <div id="itemsWrap" class="items-wrap"></div>
@@ -89,7 +75,24 @@
         <p class="summary-note">
           By completing your purchase, you agree to our terms and payment policy.
         </p>
+        
+        <button id="payNowBtn" type="button" class="pay-now-btn">Enter card details</button>
+
       </aside>
+      <!-- RIGHT SIDE -->
+
+
+
+       <section class="checkout-card checkout-payment-card">
+        <h2 class="card-title">Payment</h2>
+        <p class="card-subtext">All transactions are secure and encrypted.</p>
+
+ 
+
+        <div id="stripe-area" class="stripe-area"></div>
+
+ 
+      </section>
 
     </div>
   </div>
