@@ -108,7 +108,7 @@ async function loadCheckoutView(loggedIn) {
     const items = Array.isArray(pack?.items) ? pack.items : [];
     const checkoutId = pack?.checkout?._id || null;
 
-    return { mode: "loggedIn", items, checkoutId };
+    return { mode: "loggedIn", items, checkout: pack?.checkout || null, checkoutId };
   }
 
   // GUEST: build a “virtual item” from URL
@@ -147,76 +147,108 @@ async function loadCheckoutView(loggedIn) {
 }
 
 
+function setCheckoutMode(totalCents) {
+  const payBtn = document.getElementById("payNowBtn");
+  const paymentCard = document.querySelector(".checkout-payment-card");
+  const stripeWrap = document.getElementById("stripe-area");
+  const processingEl = document.getElementById("processingAmount");
 
-function renderItems(items) {
+  const isFree = Number(totalCents || 0) <= 0;
+
+  if (payBtn) {
+    payBtn.textContent = isFree ? "Continue with order" : "Enter card details";
+  }
+
+  if (paymentCard) {
+    paymentCard.style.display = isFree ? "none" : "block";
+  }
+
+  if (stripeWrap && isFree) {
+    stripeWrap.innerHTML = "";
+  }
+
+  if (processingEl && isFree) {
+    processingEl.textContent = "$0.00";
+  }
+}
+
+function renderItems(view) {
   const wrap = document.getElementById("itemsWrap");
   if (!wrap) return;
 
-// reset Stripe form when cart changes
-resetStripeForm();
+  const items = Array.isArray(view?.items) ? view.items : [];
+  const checkoutValues = view?.checkout?.values || {};
 
-  const subtotalCents = items.reduce((sum, it) => {
-    const v = it?.values || it || {};
-    return sum + Number(v["Total Amount"] || v.totalAmount || 0);
-  }, 0);
+  // reset Stripe form when cart changes
+  resetStripeForm();
+
+  const subtotalCents = Number(checkoutValues["Subtotal"] || 0);
+  const processingCents = Number(checkoutValues["Platform Fee"] || 0);
+  const totalCents = Number(checkoutValues["Total Amount"] || 0);
 
   const subtotalEl = document.getElementById("subtotalAmount");
+  const processingEl = document.getElementById("processingAmount");
   const totalEl = document.getElementById("totalAmount");
+  const payBtn = document.getElementById("payNowBtn");
 
   if (subtotalEl) subtotalEl.textContent = moneyFromCents(subtotalCents);
-  if (totalEl) totalEl.textContent = moneyFromCents(subtotalCents);
+  if (processingEl) processingEl.textContent = moneyFromCents(processingCents);
+  if (totalEl) totalEl.textContent = moneyFromCents(totalCents);
+setCheckoutMode(totalCents);
+
+  if (payBtn) {
+    payBtn.textContent = totalCents <= 0 ? "Continue with order" : "Enter card details";
+  }
 
   if (!items.length) {
-    wrap.innerHTML = `
-      <div class="empty-checkout">
-        No items in checkout yet.
-      </div>
-    `;
+    wrap.innerHTML = `<div class="empty-checkout">No items in checkout yet.</div>`;
+    if (processingEl) processingEl.textContent = "$0.00";
+    if (subtotalEl) subtotalEl.textContent = "$0.00";
+    if (totalEl) totalEl.textContent = "$0.00";
+    if (payBtn) payBtn.textContent = "Enter card details";
     return;
   }
 
-  wrap.innerHTML = items
-    .map((it) => {
-      const id = it?._id || it?.id || "";
-      const v = it?.values || it || {};
-      const label = v["Label"] || v.label || v["Kind"] || "Item";
-      const qty = Number(v["Quantity"] || v.quantity || 1);
-      const unit = Number(v["Unit Amount"] || v.unitAmount || 0);
-      const total = Number(v["Total Amount"] || v.totalAmount || unit * qty);
+  wrap.innerHTML = items.map((it) => {
+    const id = it?._id || it?.id || "";
+    const v = it?.values || it || {};
+    const label = v["Label"] || v.label || v["Kind"] || "Item";
+    const qty = Number(v["Quantity"] || v.quantity || 1);
+    const unit = Number(v["Unit Amount"] || v.unitAmount || 0);
+    const total = Number(v["Total Amount"] || v.totalAmount || unit * qty);
 
-      const canRemove = !!id;
+    const canRemove = !!id;
 
-      return `
-        <div class="summary-item">
-          <div>
-            <div class="summary-name">${escapeHtml(label)}</div>
-            <div class="summary-meta">
-              Qty: ${qty} • Unit: ${moneyFromCents(unit)}
-            </div>
-          </div>
-
-          <div class="summary-item-right">
-            <div class="summary-price">${moneyFromCents(total)}</div>
-            ${
-              canRemove
-                ? `
-                  <button
-                    class="remove-item-btn"
-                    data-remove-id="${escapeHtml(id)}"
-                    title="Remove"
-                    aria-label="Remove item"
-                    type="button"
-                  >
-                    🗑️
-                  </button>
-                `
-                : ``
-            }
+    return `
+      <div class="summary-item">
+        <div>
+          <div class="summary-name">${escapeHtml(label)}</div>
+          <div class="summary-meta">
+            Qty: ${qty} • Unit: ${moneyFromCents(unit)}
           </div>
         </div>
-      `;
-    })
-    .join("");
+
+        <div class="summary-item-right">
+          <div class="summary-price">${moneyFromCents(total)}</div>
+          ${
+            canRemove
+              ? `
+                <button
+                  class="remove-item-btn"
+                  data-remove-id="${escapeHtml(id)}"
+                  title="Remove"
+                  aria-label="Remove item"
+                  type="button"
+                >
+                  🗑️
+                </button>
+              `
+              : ``
+          }
+        </div>
+      </div>
+    `;
+  }).join("");
 
   wrap.querySelectorAll("[data-remove-id]").forEach((btn) => {
     btn.addEventListener("click", async () => {
@@ -245,24 +277,9 @@ resetStripeForm();
       const me = await apiFetch("/api/me", { method: "GET" }).catch(() => null);
       const loggedIn = !!me?.data?.ok;
 
-      const view = await loadCheckoutView(loggedIn).catch(() => ({ items: [] }));
-      renderItems(view.items);
+      const fresh = await loadCheckoutView(loggedIn).catch(() => ({ items: [], checkout: null }));
+      renderItems(fresh);
     });
-  });
-
-  document.getElementById("payNowBtn")?.addEventListener("click", async () => {
-    try {
-      const me = await apiFetch("/api/me", { method: "GET" });
-      if (!me?.data?.ok) {
-        openAuth();
-        return;
-      }
-
-      await showStripeCardFormAndPay();
-    } catch (e) {
-      console.error(e);
-      alert("Could not start Stripe checkout.");
-    }
   });
 }
 
@@ -299,7 +316,7 @@ resetStripeForm();
       await apiFetch("/api/logout", { method: "POST" }).catch(() => null);
       setLoggedOutUI();
 const view = await loadCheckoutView(false);
-renderItems(view.items);
+renderItems(view);
 
     });
 
@@ -317,8 +334,8 @@ renderItems(view.items);
     await maybeAddCourseFromUrl(loggedIn);
 
     // render items
-const view = await loadCheckoutView(loggedIn);
-renderItems(view.items);
+const view2 = await loadCheckoutView(true);
+renderItems(view2);
 
 
     // login submit
@@ -354,6 +371,51 @@ const view2 = await loadCheckoutView(true);
 renderItems(view2.items);
 
     });
+
+$("payNowBtn")?.addEventListener("click", async () => {
+  try {
+    const me = await apiFetch("/api/me", { method: "GET" });
+    if (!me?.data?.ok) {
+      openAuth();
+      return;
+    }
+
+    const cur = await apiFetch("/api/checkout/current", { method: "GET" });
+    if (!cur?.res?.ok) {
+      alert("Could not load checkout.");
+      return;
+    }
+
+    const pack = Array.isArray(cur.data?.items) ? cur.data.items[0] : null;
+    const checkoutValues = pack?.checkout?.values || {};
+    const totalAmount = Number(checkoutValues["Total Amount"] || 0);
+
+    if (totalAmount <= 0) {
+      const freeRes = await apiFetch("/api/checkout/confirm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          freeCheckout: true,
+          paymentIntentId: "FREE_ORDER",
+        }),
+      });
+
+      if (!freeRes.res.ok) {
+        alert(freeRes.data?.message || freeRes.data?.error || "Could not complete free order.");
+        return;
+      }
+
+      alert("Free order completed ✅");
+      window.location.href = "/checkout-success";
+      return;
+    }
+
+    await showStripeCardFormAndPay();
+  } catch (e) {
+    console.error(e);
+    alert("Could not start checkout.");
+  }
+});
   }
 
   document.addEventListener("DOMContentLoaded", init);
