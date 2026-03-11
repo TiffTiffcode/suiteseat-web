@@ -446,7 +446,7 @@ const { res, data } = await apiFetch(`/api/checkout/${encodeURIComponent(checkou
 });
 
 console.log("[create PI] full response:", { status: res.status, data });
-alert(JSON.stringify(data || {}, null, 2));
+
 
 if (!res.ok) {
   console.error("create intent failed", res.status, data);
