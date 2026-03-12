@@ -1416,68 +1416,77 @@ async function fetchClientCourses() {
       return [];
     }
 
-    const url = `${API_BASE}/api/records/Order?limit=100&sort=-createdAt&ts=${Date.now()}`;
+    // 1) fetch Course Student rows for this user
+    const enrollUrl = `${API_BASE}/api/records/Course%20Student?limit=100&ts=${Date.now()}`;
 
-    const r = await fetch(url, {
+    const enrollRes = await fetch(enrollUrl, {
       credentials: "include",
       headers: { Accept: "application/json" },
       cache: "no-store",
     });
 
-    if (!r.ok) {
-      const txt = await r.text().catch(() => "");
-      console.warn("[courses] HTTP fail", r.status, txt);
+    if (!enrollRes.ok) {
+      const txt = await enrollRes.text().catch(() => "");
+      console.warn("[courses] enrollment HTTP fail", enrollRes.status, txt);
       return [];
     }
 
-    const body = await r.json().catch(() => ({}));
-    const rows = Array.isArray(body.items) ? body.items : [];
+    const enrollBody = await enrollRes.json().catch(() => ({}));
+    const enrollRows = Array.isArray(enrollBody.items) ? enrollBody.items : [];
 
-    const mine = rows.filter((row) => {
+    const myEnrollments = enrollRows.filter((row) => {
       const v = row?.values || {};
-      const buyerUserId = String(v["Buyer User Id"] || "").trim();
-      const customerId =
-        String(v?.Customer?._id || v?.Customer?.id || v?.Customer || "").trim();
-
-      const belongsToMe =
-        buyerUserId === String(user.id) ||
-        customerId === String(user.id) ||
-        String(row.createdBy || "").trim() === String(user.id);
-
-      const hasCourse =
-        !!(v?.Course?._id || v?.Course?.id || v?.Course);
-
-      return belongsToMe && hasCourse;
+      const enrolledUserId = String(v?.User?._id || v?.User?.id || v?.User || "").trim();
+      return enrolledUserId === String(user.id);
     });
 
-    console.log("[courses] mine:", mine);
-    return mine;
+    console.log("[courses] my enrollments:", myEnrollments);
+
+    if (!myEnrollments.length) return [];
+
+    // 2) fetch each course record
+    const courseIds = myEnrollments
+      .map((row) => String(row?.values?.Courses?._id || row?.values?.Courses?.id || row?.values?.Courses || "").trim())
+      .filter(Boolean);
+
+    const uniqueCourseIds = Array.from(new Set(courseIds));
+
+    const courseRecords = await Promise.all(
+      uniqueCourseIds.map((courseId) => fetchCourseById(courseId))
+    );
+
+    const cleaned = courseRecords.filter(Boolean).map((course) => ({
+      _id: course._id,
+      values: course.values || {},
+    }));
+
+    console.log("[courses] resolved course records:", cleaned);
+    return cleaned;
   } catch (e) {
     console.error("[courses] error", e);
     return [];
   }
 }
 
-function renderCourseCard(order) {
-  const v = order.values || order;
+function renderCourseCard(course) {
+  const v = course.values || course;
 
   const title =
-    v["Product Name"] ||
+    v["Course Title"] ||
+    v["Title"] ||
     "Course";
 
-  const thumbObj = v["Thumbnail"] || null;
+  const thumbObj = v["Thumbnail Image"] || v["Thumbnail"] || null;
   const thumbUrl = resolveImageUrl(thumbObj);
 
-  const purchasedDate = v["Purchased Date"] || "";
-  const when = purchasedDate ? formatDate(purchasedDate) : "";
-
-  const savedSlug = String(v["Course Slug"] || "").trim();
-  const courseId = String(
-    v?.Course?._id ||
-    v?.Course?.id ||
-    v?.Course ||
+  const savedSlug = String(
+    v.slug ||
+    v.courseSlug ||
+    v["Course Slug"] ||
     ""
   ).trim();
+
+  const courseId = String(course._id || "").trim();
 
   const card = document.createElement("div");
   card.className = "order-card";
@@ -1494,7 +1503,6 @@ function renderCourseCard(order) {
         }
         <div class="order-text">
           <h3 class="order-title">${escapeHtml(title)}</h3>
-          ${when ? `<p class="order-date">Purchased: ${escapeHtml(when)}</p>` : ""}
         </div>
       </div>
 
