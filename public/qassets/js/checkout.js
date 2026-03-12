@@ -517,6 +517,8 @@ const checkoutValues = pack?.checkout?.values || {};
 const totalAmount = Number(checkoutValues["Total Amount"] || 0);
 
 if (totalAmount <= 0) {
+  console.log("[free checkout] sending confirm request");
+
   const freeRes = await apiFetch("/api/checkout/confirm", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -526,17 +528,20 @@ if (totalAmount <= 0) {
     }),
   });
 
+  console.log("[free checkout confirm response]", {
+    status: freeRes.res?.status,
+    data: freeRes.data,
+  });
+
   if (!freeRes.res.ok) {
-    alert(freeRes.data?.message || freeRes.data?.error || "Could not complete free checkout.");
-    document.getElementById("confirmPayBtn").disabled = false;
+    alert(freeRes.data?.message || freeRes.data?.error || "Could not complete free order.");
     return;
   }
 
-  alert("Free course added successfully ✅");
+  alert("Free order completed ✅");
   window.location.href = "/checkout-success";
   return;
 }
-
 // 2) create PI for THAT checkout
 const { res, data } = await apiFetch(`/api/checkout/${encodeURIComponent(checkoutId)}/create-payment-intent`, {
   method: "POST",
