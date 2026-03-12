@@ -334,7 +334,7 @@ renderItems(view);
     await maybeAddCourseFromUrl(loggedIn);
 
     // render items
-const view2 = await loadCheckoutView(true);
+const view2 = await loadCheckoutView(loggedIn);
 renderItems(view2);
 
 
@@ -366,9 +366,9 @@ renderItems(view2);
       setLoggedInUI(data.user);
 
       // now add the course from URL (if present), then refresh list
-      await maybeAddCourseFromUrl(true);
+await maybeAddCourseFromUrl(true);
 const view2 = await loadCheckoutView(true);
-renderItems(view2.items);
+renderItems(view2);
 
     });
 
@@ -580,15 +580,28 @@ const result = await stripe.confirmCardPayment(clientSecret, {
       }
 
       if (result.paymentIntent?.status === "succeeded") {
+         console.log("[confirm] sending paymentIntentId", result.paymentIntent.id);
         // optional: tell server to finalize checkout / grant access
-        await apiFetch("/api/checkout/confirm", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ paymentIntentId: result.paymentIntent.id }),
-        }).catch(() => null);
+const confirmRes = await apiFetch("/api/checkout/confirm", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ paymentIntentId: result.paymentIntent.id }),
+});
 
-        alert("Payment successful ✅");
-        window.location.href = "/checkout-success";
+console.log("[checkout confirm]", {
+  status: confirmRes.res?.status,
+  data: confirmRes.data,
+});
+
+if (!confirmRes.res?.ok) {
+  document.getElementById("card-error").textContent =
+    confirmRes.data?.message || confirmRes.data?.error || "Payment went through, but checkout confirmation failed.";
+  document.getElementById("confirmPayBtn").disabled = false;
+  return;
+}
+
+alert("Payment successful ✅");
+window.location.href = "/checkout-success";
       } 
       else {
         alert(`Payment status: ${result.paymentIntent?.status}`);
