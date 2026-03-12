@@ -391,26 +391,32 @@ const checkoutId = pack?.checkout?._id || null;
 const checkoutValues = pack?.checkout?.values || {};
 const totalAmount = Number(checkoutValues["Total Amount"] || 0);
 
-    if (totalAmount <= 0) {
-      const freeRes = await apiFetch("/api/checkout/confirm", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({
-  freeCheckout: true,
-  paymentIntentId: "FREE_ORDER",
-  checkoutId,
-}),
-      });
+if (totalAmount <= 0) {
+  console.log("[payNowBtn free checkout] pack:", pack);
+  console.log("[payNowBtn free checkout] checkoutId:", checkoutId);
 
-      if (!freeRes.res.ok) {
-        alert(freeRes.data?.message || freeRes.data?.error || "Could not complete free order.");
-        return;
-      }
+  const freeRes = await apiFetch("/api/checkout/confirm", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      freeCheckout: true,
+      paymentIntentId: "FREE_ORDER",
+      checkoutId,
+    }),
+  });
 
-      alert("Free order completed ✅");
-      window.location.href = "/checkout-success";
-      return;
-    }
+console.log("[payNowBtn free checkout response status]", freeRes.res?.status);
+console.log("[payNowBtn free checkout response data]", freeRes.data);
+
+  if (!freeRes.res.ok) {
+    alert(freeRes.data?.message || freeRes.data?.error || "Could not complete free order.");
+    return;
+  }
+
+  alert("Free order completed ✅");
+  window.location.href = "/checkout-success";
+  return;
+}
 
     await showStripeCardFormAndPay();
   } catch (e) {
