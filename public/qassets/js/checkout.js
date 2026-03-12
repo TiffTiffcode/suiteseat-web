@@ -386,18 +386,20 @@ $("payNowBtn")?.addEventListener("click", async () => {
       return;
     }
 
-    const pack = Array.isArray(cur.data?.items) ? cur.data.items[0] : null;
-    const checkoutValues = pack?.checkout?.values || {};
-    const totalAmount = Number(checkoutValues["Total Amount"] || 0);
+const pack = Array.isArray(cur.data?.items) ? cur.data.items[0] : null;
+const checkoutId = pack?.checkout?._id || null;
+const checkoutValues = pack?.checkout?.values || {};
+const totalAmount = Number(checkoutValues["Total Amount"] || 0);
 
     if (totalAmount <= 0) {
       const freeRes = await apiFetch("/api/checkout/confirm", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          freeCheckout: true,
-          paymentIntentId: "FREE_ORDER",
-        }),
+  body: JSON.stringify({
+  freeCheckout: true,
+  paymentIntentId: "FREE_ORDER",
+  checkoutId,
+}),
       });
 
       if (!freeRes.res.ok) {
@@ -519,14 +521,15 @@ const totalAmount = Number(checkoutValues["Total Amount"] || 0);
 if (totalAmount <= 0) {
   console.log("[free checkout] sending confirm request");
 
-  const freeRes = await apiFetch("/api/checkout/confirm", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      freeCheckout: true,
-      paymentIntentId: "FREE_ORDER",
-    }),
-  });
+const freeRes = await apiFetch("/api/checkout/confirm", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+body: JSON.stringify({
+  freeCheckout: true,
+  paymentIntentId: "FREE_ORDER",
+  checkoutId,
+}),
+});
 
   console.log("[free checkout confirm response]", {
     status: freeRes.res?.status,
@@ -590,7 +593,10 @@ const result = await stripe.confirmCardPayment(clientSecret, {
 const confirmRes = await apiFetch("/api/checkout/confirm", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ paymentIntentId: result.paymentIntent.id }),
+  body: JSON.stringify({
+    paymentIntentId: result.paymentIntent.id,
+    checkoutId,
+  }),
 });
 
 console.log("[checkout confirm]", {
