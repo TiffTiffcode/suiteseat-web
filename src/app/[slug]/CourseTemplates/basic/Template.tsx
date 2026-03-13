@@ -133,6 +133,9 @@ const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
 
 const [hasCourseAccess, setHasCourseAccess] = useState(false);
 const [checkingAccess, setCheckingAccess] = useState(true);
+
+const [searchTerm, setSearchTerm] = useState("");
+const normalizedSearch = searchTerm.trim().toLowerCase();
 /////////////////////////////////////////////////////////////////////////////
 
 const [lessonsBySection, setLessonsBySection] = useState<Record<string, AnyRec[]>>({});
@@ -247,7 +250,60 @@ useEffect(() => {
 
   const courseV = courseRec?.values || courseRec || {};
 
-  
+  ///Stop refreshing page after log in 
+  async function refreshSessionAndAccess() {
+  try {
+    const meRes = await fetch(`${API}/api/me`, {
+      credentials: "include",
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+    });
+
+    const meData = await meRes.json().catch(() => null);
+
+    const loggedIn = !!meData?.ok;
+    const userId = String(meData?.user?._id || meData?.userId || "").trim();
+    const courseId = String(courseRec?._id || course?._id || "").trim();
+
+    setIsLoggedIn(loggedIn);
+
+    if (!loggedIn || !userId || !courseId) {
+      return;
+    }
+
+    const enrollRes = await fetch(
+      `${API}/api/records/Course%20Student?limit=50&ts=${Date.now()}`,
+      {
+        credentials: "include",
+        headers: { Accept: "application/json" },
+        cache: "no-store",
+      }
+    );
+
+    const enrollData = await enrollRes.json().catch(() => ({}));
+    const rows = Array.isArray(enrollData?.items) ? enrollData.items : [];
+
+    const hasAccess = rows.some((row: any) => {
+      const v = row?.values || {};
+      const enrolledUserId = String(v?.User?._id || v?.User?.id || v?.User || "").trim();
+      const enrolledCourseId = String(v?.Courses?._id || v?.Courses?.id || v?.Courses || "").trim();
+
+      return enrolledUserId === userId && enrolledCourseId === courseId;
+    });
+
+    if (hasAccess) {
+      const firstSectionId = String(sections?.[0]?._id || sections?.[0]?.id || "");
+      setActiveSectionId(firstSectionId || null);
+
+      if (firstSectionId) {
+        const firstLessonId = getFirstLessonIdForSection(firstSectionId);
+        setActiveLessonId(firstLessonId || null);
+      }
+    }
+  } catch (err) {
+    console.error("[course] refreshSessionAndAccess failed", err);
+  }
+}
 ////////////////////////////////////////////////////
 // ===== Lead popup background (TOP-LEVEL) =====
 // ---------------------------
@@ -520,9 +576,10 @@ const res = await fetch(`${API}/api/login`, {
     }
 
     // ✅ success
-    setIsLoggedIn(true);
-    setLoginMsg("Logged in!");
-    setShowLogin(false);
+setLoginMsg("Logged in!");
+setShowLogin(false);
+
+await refreshSessionAndAccess();
 
 
   } catch (err: any) {
@@ -1240,7 +1297,26 @@ setChaptersByLesson(chaptersMap);
   const lessonBlocks = (activeLessonV.blocks || activeLessonV.Blocks || []) as any[];
 
 
+const filteredSections = useMemo(() => {
+  if (!normalizedSearch) return sections;
 
+  return sections.filter((sec) => {
+    const sv = sec?.values || sec || {};
+    const secTitle =
+      pickText(sv, ["Section Name", "Name", "Title"]) || "";
+    const secSubtitle =
+      pickText(sv, ["Section Subtitle", "Subtitle", "Description", "Desc"]) || "";
+
+    return (
+      secTitle.toLowerCase().includes(normalizedSearch) ||
+      secSubtitle.toLowerCase().includes(normalizedSearch)
+    );
+  });
+}, [sections, normalizedSearch]);
+
+useEffect(() => {
+  setSearchTerm("");
+}, [activeSectionId, activeLessonId, activeChapterIdx]);
 
 
 
@@ -1354,6 +1430,7 @@ function SectionDetailView({
   onSelectLesson,
   onSelectChapter,
   sections,
+  searchTerm,
 }: {
   sections: AnyRec[];
   lessonsBySection: Record<string, AnyRec[]>;
@@ -1365,7 +1442,7 @@ function SectionDetailView({
   onBack: () => void;
   onSelectLesson: (lessonId: string) => void;
  onSelectChapter: (idx: number | null) => void;
-
+searchTerm: string;
 }) {
 
   const active = sections.find(
@@ -1399,6 +1476,25 @@ function SectionDetailView({
   }
 
   const sortedLessons = [...lessons].sort((a, b) => getSortOrder(a) - getSortOrder(b));
+
+  const normalizedSearch = searchTerm.trim().toLowerCase();
+
+const filteredLessons = useMemo(() => {
+  if (!normalizedSearch) return sortedLessons;
+
+  return sortedLessons.filter((lessonRec) => {
+    const lv = lessonRec?.values || lessonRec || {};
+    const lessonTitle =
+      lv["Lesson Name"] || lv["Name"] || lv["Title"] || "";
+    const lessonDesc =
+      lv["Description"] || lv["Desc"] || lv["Lesson Description"] || "";
+
+    return (
+      String(lessonTitle).toLowerCase().includes(normalizedSearch) ||
+      String(lessonDesc).toLowerCase().includes(normalizedSearch)
+    );
+  });
+}, [sortedLessons, normalizedSearch]);
 
   //Add Chapters under lesson in sidebar
   const [openLessons, setOpenLessons] = React.useState<Record<string, boolean>>({});
@@ -1434,6 +1530,20 @@ const activeLessonChapters =
 const sortedActiveChapters = [...activeLessonChapters].sort(
   (a: any, b: any) => (Number(a?.order) || 0) - (Number(b?.order) || 0)
 );
+
+const filteredActiveChapters = useMemo(() => {
+  if (!normalizedSearch) return sortedActiveChapters;
+
+  return sortedActiveChapters.filter((ch: any) => {
+    const chapterName = String(ch?.name || "").toLowerCase();
+    const chapterDesc = String(ch?.description || "").toLowerCase();
+
+    return (
+      chapterName.includes(normalizedSearch) ||
+      chapterDesc.includes(normalizedSearch)
+    );
+  });
+}, [sortedActiveChapters, normalizedSearch]);
 
 // ✅ debug (temporary)
 console.log("[RIGHT PANEL] activeLessonId:", activeLessonIdStr);
@@ -1672,8 +1782,7 @@ if (checkingAccess) {
   return <div className="course-wrap">Loading course…</div>;
 }
 
-
-
+//Search Section
 
 
 
@@ -1702,10 +1811,12 @@ if (checkingAccess) {
       (THIS is where lessons are rendered)
      ========================= */}
     <div className="course-detail__lessonList">
-          {!sortedLessons.length ? (
-            <div className="muted">No lessons yet.</div>
-          ) : (
-            sortedLessons.map((lessonRec) => {
+{!filteredLessons.length ? (
+  <div className="muted">
+    {normalizedSearch ? "No matching lessons found." : "No lessons yet."}
+  </div>
+) : (
+  filteredLessons.map((lessonRec) => {
               const lv = lessonRec?.values || lessonRec || {};
               const lessonId = String(lessonRec?._id || lessonRec?.id || "");
               const lessonTitle =
@@ -2020,13 +2131,34 @@ return (
       return <div className="lessonBlue__empty">No chapters for this lesson yet.</div>;
     }
 
-    const sorted = [...chs].sort(
-      (a: any, b: any) => (Number(a?.order) || 0) - (Number(b?.order) || 0)
-    );
+const sorted = [...chs].sort(
+  (a: any, b: any) => (Number(a?.order) || 0) - (Number(b?.order) || 0)
+);
 
-    return (
-      <div className="lessonBlue__grid">
-        {sorted.map((ch: any, idx: number) => (
+const filtered = !normalizedSearch
+  ? sorted
+  : sorted.filter((ch: any) => {
+      const chapterName = String(ch?.name || "").toLowerCase();
+      const chapterDesc = String(ch?.description || "").toLowerCase();
+
+      return (
+        chapterName.includes(normalizedSearch) ||
+        chapterDesc.includes(normalizedSearch)
+      );
+    });
+
+if (!filtered.length) {
+  return (
+    <div className="lessonBlue__empty">
+      {normalizedSearch ? "No matching chapters found." : "No chapters for this lesson yet."}
+    </div>
+  );
+}
+
+return (
+  <div className="lessonBlue__grid">
+    {filtered.map((ch: any, idx: number) => (
+
 <button
   key={`blue-ch-${lid}-${idx}`}
   type="button"
@@ -2651,10 +2783,18 @@ onClick={() => {
             <div className="course-privateNav__middle">
               <div className="course-privateNav__searchWrap">
                 <span className="course-privateNav__searchIcon">🔎</span>
-                <input
-                  className="course-privateNav__search"
-                  placeholder="Search"
-                />
+             <input
+               className="course-privateNav__search"
+placeholder={
+  !activeSectionId
+    ? "Search sections..."
+    : activeChapterIdx != null
+    ? "Search chapter content..."
+    : "Search lessons..."
+}
+               value={searchTerm}
+               onChange={(e) => setSearchTerm(e.target.value)}
+             />
               </div>
             </div>
 
@@ -2688,10 +2828,12 @@ onClick={() => {
   // ✅ VIEW A: grid of section cards
   <div className="course-cardsWrap">
     <div className="course-cardsGrid">
-      {!sections?.length ? (
-        <div className="course-empty">No sections yet.</div>
-      ) : (
-        sections.map((sec) => {
+{!filteredSections?.length ? (
+  <div className="course-empty">
+    {normalizedSearch ? "No matching sections found." : "No sections yet."}
+  </div>
+) : (
+  filteredSections.map((sec) => {
           const sv = sec?.values || sec || {};
           const secId = String(sec?._id || sec?.id || "");
           const secTitle =
@@ -2792,6 +2934,7 @@ onClick={() => {
   activeSectionId={activeSectionId}
   activeLessonId={activeLessonId}
   activeChapterIdx={activeChapterIdx}
+  searchTerm={searchTerm}
   onBack={() => {
     setActiveSectionId(null);
     setActiveLessonId(null);
@@ -2801,11 +2944,9 @@ onClick={() => {
     setActiveLessonId(lessonId);
     setActiveChapterIdx(null);
   }}
-  onSelectChapter={(idx) => {
- setActiveChapterIdx(null);
-
-
-  }}
+onSelectChapter={(idx) => {
+  setActiveChapterIdx(idx);
+}}
 />
 
 
@@ -2872,7 +3013,7 @@ onClick={() => {
             {loginMsg ? <div className="modalMsg">{loginMsg}</div> : null}
 
             <button
-              className="btn btn-primary"
+              className="btn btn-login"
               type="submit"
               disabled={loginLoading}
             >
@@ -2881,7 +3022,7 @@ onClick={() => {
 
             <button
               type="button"
-              className="btn btn-ghost"
+              className="btn btn-login"
               onClick={() =>
                 alert("Next: open signup modal or route to signup page")
               }

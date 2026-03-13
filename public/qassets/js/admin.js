@@ -1416,8 +1416,11 @@ function renderEmailAutomations(rows) {
 
     const name = v.Name || v.name || "";
     const enabled = !!(v.Enabled ?? v.enabled);
-    const trigger = v.Trigger || v.trigger || "";
-    const audience = v.Audience || v.audience || "";
+    const triggerRaw = v.Trigger || v.trigger || "";
+    const audienceRaw = v.Audience || v.audience || "";
+
+    const trigger = triggerReverseMap[triggerRaw] || triggerRaw;
+    const audience = audienceReverseMap[audienceRaw] || audienceRaw;
     const delay = v.SendDelayMinutes ?? v.delayMinutes ?? 0;
 
     tr.innerHTML = `
@@ -1439,20 +1442,55 @@ function renderEmailAutomations(rows) {
   });
 }
 
-function openEmailEdit(rec) {
+const triggerMap = {
+  "Appointment Booked": "appointment.created",
+  "Appointment Canceled": "appointment.cancelled",
+  "Appointment Rescheduled": "appointment.rescheduled",
+  "Order Placed": "order.created",
+  "Course Enrolled": "courseenrollment.created",
+  "Course Lesson Completed": "courselesson.completed",
+};
+
+const audienceMap = {
+  "Clients": "client",
+  "Client": "client",
+  "Pros": "pro",
+  "Pro": "pro",
+  "Course Students": "student",
+  "Customers": "customer",
+};
+
+// reverse maps for edit mode
+const triggerReverseMap = Object.fromEntries(
+  Object.entries(triggerMap).map(([label, value]) => [value, label])
+);
+
+const audienceReverseMap = Object.fromEntries(
+  Object.entries(audienceMap).map(([label, value]) => [value, label])
+);
+
+async function openEmailEdit(rec) {
   const v = rec.values || {};
   editingEmailAutomationId = rec._id;
 
+  // make sure dropdowns are loaded first
+  await initEmailDropdowns();
+
   elName.value = v.Name || "";
-elEnabled.value = v.Enabled ? "true" : "false";
-  elTrigger.value = v.Trigger || "";
-  elAudience.value = v.Audience || "";
+  elEnabled.value = v.Enabled ? "true" : "false";
+
+  // convert stored machine values back into dropdown labels
+  const savedTrigger = v.Trigger || "";
+  const savedAudience = v.Audience || "";
+
+  elTrigger.value = triggerReverseMap[savedTrigger] || savedTrigger || "";
+  elAudience.value = audienceReverseMap[savedAudience] || savedAudience || "";
+
   elDelay.value = String(v.SendDelayMinutes ?? 0);
   elSubject.value = v.SubjectTemplate || "";
   elReplyTo.value = v.ReplyToEmail || "";
   elBody.value = v.BodyHtmlTemplate || "";
 
-  // optional: scroll form into view
   elName.scrollIntoView({ behavior: "smooth", block: "center" });
   if (emailSubmitBtn) emailSubmitBtn.textContent = "Update Automation";
 }
@@ -1475,24 +1513,7 @@ emailForm?.addEventListener("submit", async (e) => {
 
   const dt = await getEmailAutomationDataType();
 
-  // ✅ map pretty dropdown labels to machine values
-  const triggerMap = {
-    "Appointment Booked": "appointment.created",
-    "Appointment Canceled": "appointment.cancelled",
-    "Appointment Rescheduled": "appointment.rescheduled",
-    "Order Placed": "order.created",
-    "Course Enrolled": "courseenrollment.created",
-    "Course Lesson Completed": "courselesson.completed",
-  };
 
-  const audienceMap = {
-    "Clients": "client",
-    "Client": "client",
-    "Pros": "pro",
-    "Pro": "pro",
-    "Course Students": "student",
-    "Customers": "customer",
-  };
 
   const values = {
     Name: elName.value.trim(),
