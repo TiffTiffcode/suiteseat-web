@@ -131,6 +131,8 @@ const [activeChapterIdx, setActiveChapterIdx] = useState<number | null>(null);
 const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
 
 
+const [hasCourseAccess, setHasCourseAccess] = useState(false);
+const [checkingAccess, setCheckingAccess] = useState(true);
 /////////////////////////////////////////////////////////////////////////////
 
 const [lessonsBySection, setLessonsBySection] = useState<Record<string, AnyRec[]>>({});
@@ -139,28 +141,76 @@ const [lessonsBySection, setLessonsBySection] = useState<Record<string, AnyRec[]
 useEffect(() => {
   let cancelled = false;
 
-  async function checkSession() {
+  async function checkSessionAndAccess() {
     try {
-const res = await fetch(`${API}/api/api/me`, {
-  credentials: "include",
-  headers: { Accept: "application/json" },
-  cache: "no-store",
-});
+      setCheckingAccess(true);
 
+      const meRes = await fetch(`${API}/api/me`, {
+        credentials: "include",
+        headers: { Accept: "application/json" },
+        cache: "no-store",
+      });
 
-      const data = await res.json().catch(() => null);
+      const meData = await meRes.json().catch(() => null);
 
-      if (!cancelled) setIsLoggedIn(!!data?.ok);
-    } catch {
-      if (!cancelled) setIsLoggedIn(false);
+      const loggedIn = !!meData?.ok;
+      const userId = String(meData?.user?._id || meData?.userId || "").trim();
+      const courseId = String(courseRec?._id || course?._id || "").trim();
+
+      if (cancelled) return;
+
+      setIsLoggedIn(loggedIn);
+
+      if (!loggedIn || !userId || !courseId) {
+        setHasCourseAccess(false);
+        setCheckingAccess(false);
+        return;
+      }
+
+      const enrollRes = await fetch(
+        `${API}/api/records/Course%20Student?limit=100&ts=${Date.now()}`,
+        {
+          credentials: "include",
+          headers: { Accept: "application/json" },
+          cache: "no-store",
+        }
+      );
+
+      const enrollData = await enrollRes.json().catch(() => null);
+      const rows = Array.isArray(enrollData?.items) ? enrollData.items : [];
+
+      const enrolled = rows.some((row: any) => {
+        const v = row?.values || {};
+        const enrolledUserId = String(
+          v?.User?._id || v?.User?.id || v?.User || ""
+        ).trim();
+
+        const enrolledCourseId = String(
+          v?.Courses?._id || v?.Courses?.id || v?.Courses || ""
+        ).trim();
+
+        return enrolledUserId === userId && enrolledCourseId === courseId;
+      });
+
+      if (!cancelled) {
+        setHasCourseAccess(enrolled);
+        setCheckingAccess(false);
+      }
+    } catch (err) {
+      if (!cancelled) {
+        setIsLoggedIn(false);
+        setHasCourseAccess(false);
+        setCheckingAccess(false);
+      }
     }
   }
 
-  checkSession();
+  checkSessionAndAccess();
+
   return () => {
     cancelled = true;
   };
-}, []);
+}, [courseRec?._id, course?._id]);
 
 
   // ---------- load course fresh (public) ----------
@@ -454,7 +504,7 @@ async function handleLoginSubmit(e: React.FormEvent) {
   setLoginMsg(null);
 
   try {
-const res = await fetch(`${API}/api/api/login`, {
+const res = await fetch(`${API}/api/login`, {
   method: "POST",
   credentials: "include",
   headers: { "Content-Type": "application/json", Accept: "application/json" },
@@ -485,7 +535,7 @@ const res = await fetch(`${API}/api/api/login`, {
 
 async function handleLogout() {
   try {
-await fetch(`${API}/api/api/logout`, {
+await fetch(`${API}/api/logout`, {
   method: "POST",
   credentials: "include",
   headers: { Accept: "application/json" },
@@ -1617,7 +1667,10 @@ function renderTextWithBreaks(txt: string) {
 }
        
 
-
+//check if user is student
+if (checkingAccess) {
+  return <div className="course-wrap">Loading course…</div>;
+}
 
 
 
@@ -2051,7 +2104,7 @@ return (
 return (
   <div className="course-wrap">
 
-{!isLoggedIn ? (
+{(!isLoggedIn || !hasCourseAccess) ? (
   <section className="landing-section">
                                      
                                      
@@ -2562,8 +2615,8 @@ onClick={() => {
                      Course Section 
                  ======================= */}
     {/* ✅ ORANGE: show ONLY when logged in */}
-    {isLoggedIn ? (
-      <section className="course-shell">
+{isLoggedIn && hasCourseAccess ? (
+  <section className="course-shell">
         {/* =======================
             PRIVATE HEADER (LOGGED IN)
         ======================= */}
@@ -2759,15 +2812,6 @@ onClick={() => {
 
 
 )}
-
-
-
-
-
-
-
-
-
 
         </main>
       </section>
