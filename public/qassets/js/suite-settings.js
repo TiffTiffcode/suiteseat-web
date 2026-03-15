@@ -57,69 +57,43 @@ async function readJsonSafe(res) {
 // ---- Get signed-in user via /check-login ----
 
 async function hydrateUser() {
-  let data = null;
-
   try {
-    data = await fetchJSON("/api/me", { method: "GET" });
+    const data = await fetchJSON("/api/me", { method: "GET" });
     console.log("[suite-settings] /api/me response:", data);
-  } catch (e) {
-    console.warn("[suite-settings] /api/me failed:", e);
-  }
 
-  // fallback to /api/whoami if /api/me doesn't have user
-  if (!data?.user && !data?.userId) {
-    try {
-      data = await fetchJSON("/api/whoami", { method: "GET" });
-      console.log("[suite-settings] /api/whoami response:", data);
-    } catch (e) {
-      console.warn("[suite-settings] /api/whoami failed:", e);
+    const userId =
+      data?.user?._id ||
+      data?.user?.id ||
+      null;
+
+    const email =
+      data?.user?.email ||
+      "";
+
+    const firstName =
+      data?.user?.firstName ||
+      data?.user?.name ||
+      "";
+
+    // ✅ only overwrite state if /api/me actually has a user
+    if (userId) {
+      window.STATE.user = {
+        loggedIn: true,
+        userId: String(userId),
+        email,
+        firstName,
+      };
+
+      currentUser = {
+        id: String(userId),
+        email,
+        firstName,
+      };
+    } else {
+      console.log("[suite-settings] /api/me has no user, keeping existing currentUser");
     }
-  }
-
-  const userObj =
-    data?.user ||
-    data?.data?.user ||
-    data?.session?.user ||
-    null;
-
-  const userId =
-    userObj?._id ||
-    userObj?.id ||
-    data?.userId ||
-    null;
-
-  const email =
-    userObj?.email ||
-    data?.email ||
-    "";
-
-  const firstName =
-    userObj?.firstName ||
-    data?.firstName ||
-    data?.name ||
-    "";
-
-  if (userId) {
-    window.STATE.user = {
-      loggedIn: true,
-      userId: String(userId),
-      email,
-      firstName,
-    };
-
-    currentUser = {
-      id: String(userId),
-      email,
-      firstName,
-    };
-  } else {
-    window.STATE.user = {
-      loggedIn: false,
-      userId: null,
-      email: "",
-      firstName: "",
-    };
-    currentUser = null;
+  } catch (e) {
+    console.warn("[auth] hydrateUser failed:", e);
   }
 
   console.log("[suite-settings] hydrateUser currentUser:", currentUser);
@@ -240,29 +214,33 @@ if (!r.ok || d.error) {
 }
 
 // ✅ use login response directly first
-if (d?.ok && d?.user) {
-  window.STATE.user = {
-    loggedIn: true,
-    userId: String(d.user._id || d.user.id || ""),
-    email: d.user.email || "",
-    firstName: d.user.firstName || "",
-  };
+if (!r.ok || d.error) {
+  throw new Error(d.error || d.message || `HTTP ${r.status}`);
+}
 
+if (d?.ok && d?.user) {
   currentUser = {
     id: String(d.user._id || d.user.id || ""),
     email: d.user.email || "",
     firstName: d.user.firstName || "",
   };
 
-  setLoggedInUI(currentUser);
-}
+  window.STATE.user = {
+    loggedIn: true,
+    userId: currentUser.id,
+    email: currentUser.email,
+    firstName: currentUser.firstName,
+  };
 
-// optional second pass to sync with server session routes
-await hydrateUser();
+  console.log("[suite-settings] currentUser from login response:", currentUser);
+  setLoggedInUI(currentUser);
+} else {
+  throw new Error("Login succeeded but no user was returned.");
+}
 
 closeModal();
 lockApp(false);
-bootAppAfterLogin();
+await bootAppAfterLogin();
 
   } catch (err) {
     console.error("[auth] login error", err);
@@ -4460,8 +4438,7 @@ async function loadSuities() {
     return;
   }
 
-  const ownerFilter = `&ownerUserId=${encodeURIComponent(currentUser.id)}`;
-  const url = apiUrl(`/public/records?dataType=Suitie${ownerFilter}&limit=500`);
+const url = apiUrl(`/api/records/${encodeURIComponent("Suitie")}?limit=500`);
 
   try {
     const res = await fetch(url, {
@@ -6294,11 +6271,12 @@ function initStripeConnectButton() {
 // ================================
 async function bootAppAfterLogin() {
   console.log("[suite-settings2] bootAppAfterLogin");
+  console.log("[suite-settings2] currentUser before hydrate:", currentUser);
 
-  // ✅ Ensure currentUser is actually set (via /api/me)
+  // ✅ only try /api/me if currentUser is still empty
   if (!currentUser?.id) {
-    await hydrateUser(); // sets currentUser + UI
-    console.log("[suite-settings2] currentUser:", currentUser);
+    await hydrateUser();
+    console.log("[suite-settings2] currentUser after hydrate:", currentUser);
   }
 
   if (!currentUser?.id) {
@@ -6312,7 +6290,6 @@ async function bootAppAfterLogin() {
   // ✅ now safe to load data
   await loadLocations();
 }
-
 // ================================
 // ONE DOMContentLoaded (in order)
 // ================================
