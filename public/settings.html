@@ -122,5 +122,27 @@
     </div>
   </div>
 
+
+  <!-- BUILDER MODE POPUP -->
+<div id="proModeModal" class="auth-modal" hidden aria-hidden="true">
+  <div class="auth-modal-inner">
+    <h2>How will you use Suite Seat?</h2>
+    <p style="margin-bottom:16px;">
+      Tell us whether you’re building for yourself or setting up pages for someone else.
+    </p>
+
+    <div style="display:flex; flex-direction:column; gap:12px;">
+      <button id="proModeSelfBtn" class="ss-btn ss-btn-outline" type="button">
+        For my own business
+      </button>
+
+      <button id="proModeBuilderBtn" class="ss-btn ss-btn-outline" type="button">
+        I’m building for someone else
+      </button>
+    </div>
+
+    <div id="proModeError" class="auth-error" style="margin-top:12px;"></div>
+  </div>
+</div>
 </body>
 </html>

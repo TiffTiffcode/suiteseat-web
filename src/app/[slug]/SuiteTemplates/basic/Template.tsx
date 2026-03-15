@@ -558,127 +558,190 @@ const hasAbout =
   }, [business?._id, business?.slug, v]);
 
   // 🆕 Load “Suities” (professionals) for this location
-  useEffect(() => {
-    const vals = business?.values || v || {};
+useEffect(() => {
+  const vals = business?.values || v || {};
 
-    // the location id for this page
-    const locationId =
-      business?._id ||
-      business?.id ||
-      vals["_id"] ||
-      vals["Location Id"] ||
-      null;
+  const pageLocationId = String(
+    business?._id ||
+    business?.id ||
+    vals["_id"] ||
+    vals["Record Id"] ||
+    ""
+  ).trim();
 
-    if (!locationId) {
-      console.warn("[suite] no locationId for professionals");
-      setProfessionals([]);
-      return;
+  const pageLocationName = String(
+    vals["Location Name"] ||
+    vals["Suite Location Name"] ||
+    vals["Name"] ||
+    business?.name ||
+    ""
+  ).trim();
+
+  console.log("[pros] business:", business);
+  console.log("[pros] pageLocationId:", pageLocationId);
+  console.log("[pros] pageLocationName:", pageLocationName);
+
+  if (!pageLocationId && !pageLocationName) {
+    console.warn("[suite] no page location id or name for professionals");
+    setProfessionals([]);
+    return;
+  }
+
+  let cancelled = false;
+
+  function getRefId(ref: any): string {
+    if (!ref) return "";
+
+    if (Array.isArray(ref)) {
+      ref = ref[0];
     }
 
-    let cancelled = false;
+    if (typeof ref === "object") {
+      return String(
+        ref._id ||
+        ref.id ||
+        ref.value?._id ||
+        ref.value?.id ||
+        ref.recordId ||
+        ""
+      ).trim();
+    }
 
-    async function loadProfessionals() {
-      setProsLoading(true);
-      setProsError(null);
+    return String(ref).trim();
+  }
 
-      try {
-        const params = new URLSearchParams();
-        params.set("dataType", "Suitie");         // 🔹 your Suitie DataType
-        params.set("Location", String(locationId)); // 🔹 match admin: ?Location=<loc.id>
-        params.set("limit", "200");
+  async function loadProfessionals() {
+    setProsLoading(true);
+    setProsError(null);
 
-        const res = await fetch(
-          `${API_BASE}/public/records?${params.toString()}`,
-          { cache: "no-store" }
-        );
+    try {
+      const params = new URLSearchParams();
+      params.set("dataType", "Suitie");
+      params.set("limit", "200");
 
-        if (!res.ok) {
-          const msg = `HTTP ${res.status}`;
-          console.warn("[suite] professionals fetch failed", msg);
-          if (!cancelled) {
-            setProsError(msg);
-            setProfessionals([]);
-            setProsLoading(false);
-          }
-          return;
-        }
+      const res = await fetch(
+        `${API_BASE}/public/records?${params.toString()}`,
+        { cache: "no-store" }
+      );
 
-        const raw = await res.json();
-        const rows = Array.isArray(raw)
-          ? raw
-          : Array.isArray(raw.records)
-          ? raw.records
-          : Array.isArray(raw.items)
-          ? raw.items
-          : [];
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
 
-        const mapped: Professional[] = rows.map((row: any) => {
-          const rv = row.values || row;
+      const raw = await res.json();
+      const rows = Array.isArray(raw)
+        ? raw
+        : Array.isArray(raw.records)
+        ? raw.records
+        : Array.isArray(raw.items)
+        ? raw.items
+        : [];
 
-          const first =
-            rv["First Name"] ||
-            rv["FirstName"] ||
-            rv.firstName ||
-            "";
-          const last =
-            rv["Last Name"] ||
-            rv["LastName"] ||
-            rv.lastName ||
-            "";
-          const fullName =
-            rv["Suitie Name"] ||
-            rv["Full Name"] ||
-            rv.fullName ||
-            [first, last].filter(Boolean).join(" ") ||
-            rv.Name ||
-            "Professional";
+      console.log("[pros] raw rows:", rows);
 
-       const imageUrl =
-  rv["Suitie Photo"] ||           // 🔹 match your dashboard field
-  rv["Profile Photo"] ||
-  rv["Profile Image"] ||
-  rv["Default Image"] ||
-  rv["Photo URL"] ||
-  rv["Photo"] ||
-  rv.photoUrl ||
-  null;
+      const filteredRows = rows.filter((row: any) => {
+        const rv = row.values || row;
 
+        const locRef =
+          rv["Location"] ??
+          rv["location"] ??
+          rv["Location Id"] ??
+          rv["locationId"] ??
+          rv["Suite Location"] ??
+          rv["Parent Location"] ??
+          null;
 
-          const slug =
-            rv["Slug"] ||
-            rv.slug ||
-            row.slug ||
-            null;
+        const locIdFromRow = getRefId(locRef);
 
-          return {
-            id: row._id || row.id || "",
-            name: fullName,
-            imageUrl,
-            slug,
-          };
-        });
+        const locNameFromRow = String(
+          rv["Location Name"] ||
+          rv["locationName"] ||
+          rv["Suite Location Name"] ||
+          rv["Parent Location Name"] ||
+          ""
+        ).trim();
 
-        if (!cancelled) {
-          setProfessionals(mapped);
-          setProsLoading(false);
-        }
-      } catch (err: any) {
-        console.error("[suite] loadProfessionals error", err);
-        if (!cancelled) {
-          setProsError(err.message || "Failed to load professionals");
-          setProfessionals([]);
-          setProsLoading(false);
-        }
+        const matchById =
+          !!pageLocationId &&
+          !!locIdFromRow &&
+          locIdFromRow === pageLocationId;
+
+        const matchByName =
+          !!pageLocationName &&
+          !!locNameFromRow &&
+          locNameFromRow.toLowerCase() === pageLocationName.toLowerCase();
+
+        return matchById || matchByName;
+      });
+
+      console.log("[pros] filteredRows:", filteredRows);
+
+      const mapped: Professional[] = filteredRows.map((row: any) => {
+        const rv = row.values || row;
+
+        const first =
+          rv["First Name"] ||
+          rv["FirstName"] ||
+          rv.firstName ||
+          "";
+        const last =
+          rv["Last Name"] ||
+          rv["LastName"] ||
+          rv.lastName ||
+          "";
+
+        const fullName =
+          rv["Suitie Name"] ||
+          rv["Full Name"] ||
+          rv.fullName ||
+          [first, last].filter(Boolean).join(" ") ||
+          rv.Name ||
+          "Professional";
+
+        const imageUrl =
+          rv["Suitie Photo"] ||
+          rv["Profile Photo"] ||
+          rv["Profile Image"] ||
+          rv["Default Image"] ||
+          rv["Photo URL"] ||
+          rv["Photo"] ||
+          rv.photoUrl ||
+          null;
+
+        const slug =
+          rv["Slug"] ||
+          rv.slug ||
+          row.slug ||
+          null;
+
+        return {
+          id: row._id || row.id || "",
+          name: fullName,
+          imageUrl,
+          slug,
+        };
+      });
+
+      if (!cancelled) {
+        setProfessionals(mapped);
+        setProsLoading(false);
+      }
+    } catch (err: any) {
+      console.error("[suite] loadProfessionals error", err);
+      if (!cancelled) {
+        setProsError(err.message || "Failed to load professionals");
+        setProfessionals([]);
+        setProsLoading(false);
       }
     }
+  }
 
-    loadProfessionals();
+  loadProfessionals();
 
-    return () => {
-      cancelled = true;
-    };
-  }, [business?._id, business?.id, v]);
-
+  return () => {
+    cancelled = true;
+  };
+}, [business?._id, business?.id, business?.name, v]);
 
 
 

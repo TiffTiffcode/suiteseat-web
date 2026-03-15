@@ -150,7 +150,9 @@ await apiFetch('/api/logout', {
 document.addEventListener('DOMContentLoaded', async () => {
   const user = await getSignedInUser();
   console.log('[settings] currentUser:', user);
+
   initAuthUI(user);
+  initProModeUI(user);
 
   // Card buttons navigation
   document
@@ -183,6 +185,81 @@ document.addEventListener('DOMContentLoaded', async () => {
       window.location.href = '/store-settings';
     });
 
+
+//Builder Mode 
+function openProModeModal() {
+  const modal = document.getElementById("proModeModal");
+  if (!modal) return;
+  modal.hidden = false;
+  modal.setAttribute("aria-hidden", "false");
+}
+
+function closeProModeModal() {
+  const modal = document.getElementById("proModeModal");
+  if (!modal) return;
+  modal.hidden = true;
+  modal.setAttribute("aria-hidden", "true");
+}
+
+async function saveProMode(mode) {
+  const res = await apiFetch("/api/me/pro-mode", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ proMode: mode }),
+  });
+
+  const data = await res.json().catch(() => ({}));
+
+  if (!res.ok || data.ok === false) {
+    throw new Error(data.error || data.message || "Failed to save mode.");
+  }
+
+  return data;
+}
+
+function initProModeUI(currentUser) {
+  const selfBtn = document.getElementById("proModeSelfBtn");
+  const builderBtn = document.getElementById("proModeBuilderBtn");
+  const errorEl = document.getElementById("proModeError");
+
+  if (!selfBtn || !builderBtn) return;
+
+  async function chooseMode(mode) {
+    try {
+      if (errorEl) errorEl.textContent = "";
+
+      selfBtn.disabled = true;
+      builderBtn.disabled = true;
+
+      await saveProMode(mode);
+
+      closeProModeModal();
+      location.reload();
+    } catch (err) {
+      console.error("[settings] saveProMode error", err);
+      if (errorEl) {
+        errorEl.textContent = err.message || "Could not save selection.";
+      }
+    } finally {
+      selfBtn.disabled = false;
+      builderBtn.disabled = false;
+    }
+  }
+
+  selfBtn.addEventListener("click", () => chooseMode("self"));
+  builderBtn.addEventListener("click", () => chooseMode("builder"));
+
+  const isPro =
+    currentUser?.role === "pro" ||
+    currentUser?.accountType === "pro" ||
+    currentUser?.userType === "pro";
+
+  const hasMode = !!currentUser?.proMode;
+
+  if (isPro && !hasMode) {
+    openProModeModal();
+  }
+}
 
 
 
