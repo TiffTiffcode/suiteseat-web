@@ -5590,7 +5590,7 @@ function resetSuitiesUI() {
                          // Invoice Section
                   // ================================
 //show all suities in dropdown
-async function fetchJSON(url, opts = {}) {
+async function fetchJSONDirect(url, opts = {}) {
   const res = await fetch(url, { credentials: "include", ...opts });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data?.error || data?.message || "Request failed");
@@ -5600,8 +5600,7 @@ async function fetchJSON(url, opts = {}) {
 // Try to get current user id from your existing auth endpoint.
 // If you already have window.currentUser.userId somewhere, use that instead.
 async function getMe() {
-  const out = await fetchJSON("/api/auth/me"); // <-- if yours is different, tell me
-  // expecting: { ok:true, user:{ userId: "...", ... } } OR similar
+  const out = await fetchJSON("/api/auth/me");
   return out?.user || out?.me || out;
 }
 
