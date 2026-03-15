@@ -65,6 +65,7 @@ const STRIPE_PUBLISHABLE_KEY = "pk_live_51OUNpKIQ1nIGUF4eTF7bnLg90u4IDbaHyrZ4wHr
       .replaceAll("'", "&#039;");
   }
 
+
   // ---------- auth UI ----------
   function setLoggedOutUI() {
     $("login-status-text").textContent = "Not logged in";
@@ -413,8 +414,8 @@ console.log("[payNowBtn free checkout response data]", freeRes.data);
     return;
   }
 
-  alert("Free order completed ✅");
-  window.location.href = "/checkout-success";
+  alert("Order completed ✅");
+window.location.href = "/client-dashboard?tab=courses-tab";
   return;
 }
 
@@ -548,7 +549,7 @@ body: JSON.stringify({
   }
 
   alert("Free order completed ✅");
-  window.location.href = "/checkout-success";
+  window.location.href = "/client-dashboard?tab=courses-tab";
   return;
 }
 // 2) create PI for THAT checkout
@@ -617,8 +618,8 @@ if (!confirmRes.res?.ok) {
   return;
 }
 
-alert("Payment successful ✅");
-window.location.href = "/checkout-success";
+
+window.location.href = "/client-dashboard?tab=courses-tab";
       } 
       else {
         alert(`Payment status: ${result.paymentIntent?.status}`);

@@ -17,12 +17,19 @@ window._serviceCacheLoadedPromise = window._serviceCacheLoadedPromise || null;
 // ---- detect if user came from link page ----
 const urlParams = new URLSearchParams(window.location.search);
 const fromLinkPage = urlParams.get("from") === "link";
+const fromCheckout = urlParams.get("from") === "checkout";
+let forcedTab = urlParams.get("tab");
 
 // ---- flags for what this user actually has ----
 let hasAnyAppointments = false;
 let hasAnyCourses = false;
 let hasAnyOrders = false;
 let userSelectedMainTab = null; // "appointments-tab" | "courses-tab" | "orders-tab" | null
+
+const urlTab = urlParams.get("tab");
+if (urlTab) {
+  userSelectedMainTab = urlTab;
+}
 
 function pickServiceNameFromAny(obj) {
   const v = (obj && (obj.values || obj)) || {};
@@ -243,18 +250,25 @@ const els = {
 const mainTabButtons = Array.from(document.querySelectorAll(".tab-button"));
 
 function showMainTab(tabId) {
+  userSelectedMainTab = tabId;
+  forcedTab = null;
+
   mainTabButtons.forEach((btn) => {
     const id = btn.dataset.tab;
     const isActive = id === tabId;
     btn.classList.toggle("active", isActive);
+
     const content = document.getElementById(id);
-    if (content) content.style.display = isActive ? "block" : "none";
+    if (content) {
+      content.style.display = isActive ? "block" : "none";
+    }
   });
 }
 
 // click to switch manually
 mainTabButtons.forEach((btn) => {
   btn.addEventListener("click", () => {
+    userSelectedMainTab = btn.dataset.tab;
     showMainTab(btn.dataset.tab);
   });
 });
@@ -271,21 +285,26 @@ function updateMainTabs() {
   coursesBtn.style.display = "inline-block";
   ordersBtn.style.display = "inline-block";
 
+  
+
   let activeTabId = null;
 
-  if (userSelectedMainTab) {
-    activeTabId = userSelectedMainTab;
-  } else if (hasAnyAppointments) {
-    activeTabId = "appointments-tab";
-  } else if (hasAnyCourses) {
-    activeTabId = "courses-tab";
-  } else if (hasAnyOrders) {
-    activeTabId = "orders-tab";
-  } else {
-    activeTabId = "appointments-tab";
-  }
+if (forcedTab) {
+  activeTabId = forcedTab;
+  forcedTab = null; // only use URL tab once
+} else if (userSelectedMainTab) {
+  activeTabId = userSelectedMainTab;
+} else if (hasAnyAppointments) {
+  activeTabId = "appointments-tab";
+} else if (hasAnyCourses) {
+  activeTabId = "courses-tab";
+} else if (hasAnyOrders) {
+  activeTabId = "orders-tab";
+} else {
+  activeTabId = "appointments-tab";
+}
 
-  showMainTab(activeTabId);
+showMainTab(activeTabId);
 }
 
 

@@ -59,36 +59,67 @@ async function readJsonSafe(res) {
 async function hydrateUser() {
   try {
     const data = await fetchJSON("/api/me", { method: "GET" });
+    console.log("[suite-settings] /api/me response:", data);
 
-    const user =
-      data?.user ||
-      data?.data?.user ||
-      (data?.ok && data?.session?.user) ||
+    const userId =
+      data?.user?._id ||
+      data?.user?.id ||
+      data?.data?.user?._id ||
+      data?.data?.user?.id ||
+      data?.session?.user?._id ||
+      data?.session?.user?.id ||
+      data?.userId ||
       null;
 
-    if (user && (user._id || user.id)) {
+    const email =
+      data?.user?.email ||
+      data?.data?.user?.email ||
+      data?.session?.user?.email ||
+      data?.email ||
+      "";
+
+    const firstName =
+      data?.user?.firstName ||
+      data?.data?.user?.firstName ||
+      data?.session?.user?.firstName ||
+      data?.firstName ||
+      data?.name ||
+      "";
+
+    if (userId) {
       window.STATE.user = {
         loggedIn: true,
-        userId: user._id || user.id,
-        email: user.email || "",
-        firstName: user.firstName || user.name || "",
+        userId,
+        email,
+        firstName,
       };
 
       currentUser = {
-        id: window.STATE.user.userId,
-        email: window.STATE.user.email,
-        firstName: window.STATE.user.firstName,
+        id: userId,
+        email,
+        firstName,
       };
     } else {
-      window.STATE.user = { loggedIn:false, userId:null, email:"", firstName:"" };
+      window.STATE.user = {
+        loggedIn: false,
+        userId: null,
+        email: "",
+        firstName: "",
+      };
       currentUser = null;
     }
   } catch (e) {
     console.warn("[auth] hydrateUser failed:", e);
-    window.STATE.user = { loggedIn:false, userId:null, email:"", firstName:"" };
+    window.STATE.user = {
+      loggedIn: false,
+      userId: null,
+      email: "",
+      firstName: "",
+    };
     currentUser = null;
   }
 
+  console.log("[suite-settings] hydrateUser currentUser:", currentUser);
   setLoggedInUI(currentUser);
   return currentUser;
 }
@@ -200,6 +231,7 @@ const r = await apiFetch("/api/login", {
 
 const t = await r.text();
 let d; try { d = JSON.parse(t); } catch { d = { error: t }; }
+console.log("[suite-settings] login response:", d);
 if (!r.ok || d.error) throw new Error(d.error || `HTTP ${r.status}`);
 
 await hydrateUser();
@@ -209,7 +241,7 @@ bootAppAfterLogin();
 
   } catch (err) {
     console.error("[auth] login error", err);
-    if (errorEl) errorEl.textContent = "Something went wrong. Try again.";
+    if (errorEl) errorEl.textContent = err.message || "Something went wrong. Try again.";
   } finally {
     submitBtn.disabled = false;
     if (idleSpan) idleSpan.hidden = false;
