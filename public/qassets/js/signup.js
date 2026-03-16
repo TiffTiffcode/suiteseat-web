@@ -96,37 +96,37 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // ========= PRO SIGN UP =========
-  $('proSignUpForm')?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const firstName = $('pro-first-name')?.value.trim();
-    const lastName = $('pro-last-name')?.value.trim();
-    const email = $('pro-signup-email')?.value.trim().toLowerCase();
-    const phone = $('signup-phone-number')?.value.trim();
-    const password = $('pro-signup-password')?.value;
-    const confirm = $('signup-reenter-pro-password')?.value;
+$('proSignUpForm')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const firstName = $('pro-first-name')?.value.trim();
+  const lastName = $('pro-last-name')?.value.trim();
+  const email = $('pro-signup-email')?.value.trim().toLowerCase();
+  const phone = $('signup-phone-number')?.value.trim();
+  const password = $('pro-signup-password')?.value;
+  const confirm = $('signup-reenter-pro-password')?.value;
 
-    if (!firstName || !lastName || !email || !password)
-      return alert('Please fill in all required fields.');
-    if (password !== confirm) return alert('Passwords do not match');
-    if (password.length < 8 || password.length > 64)
-      return alert('Password must be 8–64 characters.');
+  if (!firstName || !lastName || !email || !password)
+    return alert('Please fill in all required fields.');
+  if (password !== confirm) return alert('Passwords do not match');
+  if (password.length < 8 || password.length > 64)
+    return alert('Password must be 8–64 characters.');
 
-    try {
-const data = await apiJSON('/signup/pro', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ firstName, lastName, email, password, phone }),
+  try {
+    const data = await apiJSON('/signup/pro', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ firstName, lastName, email, password, phone }),
+    });
+
+    const me = await apiJSON('/api/me', { method: 'GET' });
+    console.log('[signup] /api/me after pro signup:', me);
+
+    location.href = '/settings';
+  } catch (err) {
+    console.error(err);
+    alert(`Sign up failed: ${err.message}`);
+  }
 });
-
-const me = await apiJSON('/api/me', { method: 'GET' });
-console.log('[signup] /api/me after pro signup:', me);
-
-location.href = data.redirect || next || '/settings';
-    } catch (err) {
-      console.error(err);
-      alert(`Sign up failed: ${err.message}`);
-    }
-  });
 
   // ========= PRO LOGIN =========
   $('proLoginForm')?.addEventListener('submit', async (e) => {
@@ -145,7 +145,7 @@ const data = await apiJSON('/api/login', {
 const me = await apiJSON('/api/me', { method: 'GET' });
 console.log('[signup] /api/me after pro login:', me);
 
-location.href = data.redirect || next || '/settings';
+location.href = '/settings';
     } catch (err) {
       console.error(err);
       alert(`Login failed: ${err.message}`);
