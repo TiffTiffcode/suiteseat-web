@@ -154,36 +154,26 @@ document.addEventListener('DOMContentLoaded', async () => {
   initAuthUI(user);
   initProModeUI(user);
 
-  // Card buttons navigation
-  document
-    .getElementById('btn-appointments')
-    ?.addEventListener('click', () => {
-      window.location.href = '/appointment-settings';
-    });
+  document.getElementById('btn-appointments')?.addEventListener('click', () => {
+    window.location.href = '/appointment-settings';
+  });
 
-  document
-    .getElementById('btn-suites')
-    ?.addEventListener('click', () => {
-      window.location.href = '/suite-settings';
-    });
+  document.getElementById('btn-suites')?.addEventListener('click', () => {
+    window.location.href = '/suite-settings';
+  });
 
-  document
-    .getElementById('btn-course')
-    ?.addEventListener('click', () => {
-      window.location.href = '/course-settings';
-    });
+  document.getElementById('btn-course')?.addEventListener('click', () => {
+    window.location.href = '/course-settings';
+  });
 
-  document
-    .getElementById('btn-links')
-    ?.addEventListener('click', () => {
-      window.location.href = '/linkpage-settings';
-    });
+  document.getElementById('btn-links')?.addEventListener('click', () => {
+    window.location.href = '/linkpage-settings';
+  });
 
-  document
-    .getElementById('btn-store')
-    ?.addEventListener('click', () => {
-      window.location.href = '/store-settings';
-    });
+  document.getElementById('btn-store')?.addEventListener('click', () => {
+    window.location.href = '/store-settings';
+  });
+});
 
 
 //Builder Mode 
@@ -221,8 +211,9 @@ function initProModeUI(currentUser) {
   const selfBtn = document.getElementById("proModeSelfBtn");
   const builderBtn = document.getElementById("proModeBuilderBtn");
   const errorEl = document.getElementById("proModeError");
+  const modal = document.getElementById("proModeModal");
 
-  if (!selfBtn || !builderBtn) return;
+  if (!selfBtn || !builderBtn || !modal) return;
 
   async function chooseMode(mode) {
     try {
@@ -249,12 +240,25 @@ function initProModeUI(currentUser) {
   selfBtn.addEventListener("click", () => chooseMode("self"));
   builderBtn.addEventListener("click", () => chooseMode("builder"));
 
-  const isPro =
-    currentUser?.role === "pro" ||
-    currentUser?.accountType === "pro" ||
-    currentUser?.userType === "pro";
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal) {
+      // optional: keep it open by doing nothing
+    }
+  });
 
-  const hasMode = !!currentUser?.proMode;
+  const isPro =
+    Array.isArray(currentUser?.roles) &&
+    currentUser.roles.includes("pro");
+
+  const hasMode =
+    currentUser?.proMode === "self" ||
+    currentUser?.proMode === "builder";
+
+  console.log("[settings] pro mode check", {
+    currentUser,
+    isPro,
+    hasMode
+  });
 
   if (isPro && !hasMode) {
     openProModeModal();
@@ -263,4 +267,3 @@ function initProModeUI(currentUser) {
 
 
 
-});
