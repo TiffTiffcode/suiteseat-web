@@ -84,11 +84,13 @@ async function hydrateUser() {
         firstName,
       };
 
-      currentUser = {
-        id: String(userId),
-        email,
-        firstName,
-      };
+currentUser = {
+  id: String(userId),
+  email,
+  firstName,
+  roles: Array.isArray(data?.user?.roles) ? data.user.roles : [],
+  proMode: data?.user?.proMode || "",
+};
     } else {
       console.log("[suite-settings] /api/me has no user, keeping existing currentUser");
     }
@@ -854,6 +856,8 @@ const isEditing = !!locId;
     const slug =
       baseSlug || `location-${Math.random().toString(36).slice(2, 8)}`;
 
+   const isBuilderMode = currentUser?.proMode === "builder";
+      
     // ✅ MATCH your DataType field names
     const values = {
       "Location Name": locationName,
@@ -866,8 +870,10 @@ const isEditing = !!locId;
       slug,
 
       // ✅ ownership
-      ownerUserId: currentUser.id,
-      "Created By": currentUser.id, // if your API expects { _id: id } we can swap later
+  "Created By": currentUser.id,
+  builderUserId: currentUser.id,
+  ownerUserId: isBuilderMode ? "" : currentUser.id,
+  transferStatus: isBuilderMode ? "draft" : "accepted",
     };
 
     try {
@@ -2882,6 +2888,8 @@ if (!name) return alert("Suite name is required.");
 // ✅ ADD THIS RIGHT HERE
 const rentNum = rent === "" ? null : Number(rent);
 
+const isBuilderMode = currentUser?.proMode === "builder";
+
 // ✅ build values AFTER rent+freq exist
 const values = {
   "Suite Name": name,
@@ -2901,8 +2909,11 @@ const values = {
   // ✅ link suite -> location
   "Location": locationId,
 
-  ownerUserId: currentUser.id,
+  // ✅ ownership / builder flow
+  ownerUserId: isBuilderMode ? "" : currentUser.id,
+  builderUserId: currentUser.id,
   "Created By": currentUser.id,
+  transferStatus: isBuilderMode ? "draft" : "accepted",
 };
 // ✅ Application template JSON (saved from the builder modal)
 const tpl =
@@ -5014,8 +5025,10 @@ if (file) {
       // ✅ 1) CREATE SUITIE (NOW we can use suitiePhotoUrl)
       // -------------------------------------------------------
       const suitieValues = {
-        ownerUserId: currentUser.id,
-        "Created By": currentUser.id,
+  ownerUserId: isBuilderMode ? "" : currentUser.id,
+  builderUserId: currentUser.id,
+  "Created By": currentUser.id,
+  transferStatus: isBuilderMode ? "draft" : "accepted",
 
         "First Name": first,
         "Last Name": last,
@@ -5077,9 +5090,11 @@ if (editingSuitieId) {
 
 
 if (rentAmount != null || dueDate || freqValue) {
-  const suiteRentValues = {
-    ownerUserId: currentUser.id,
-    "Created By": currentUser.id,
+const suiteRentValues = {
+  ownerUserId: isBuilderMode ? "" : currentUser.id,
+  builderUserId: currentUser.id,
+  "Created By": currentUser.id,
+  transferStatus: isBuilderMode ? "draft" : "accepted",
     Amount: rentAmount != null ? rentAmount : 0,
     "Due Date": dueDate || "",
    "Perferred Interval": freqValue,
