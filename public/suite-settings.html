@@ -94,6 +94,12 @@
 </button>
 </li>
 
+<li id="handoff-nav-item" hidden>
+  <button data-target="handoff">
+    <span class="icon">📩</span>
+    <span class="label">Handoff</span>
+  </button>
+</li>
       </ul>
     </aside>
 
@@ -119,7 +125,78 @@
 
 
       <main class="content">
+                                         <!-- Handoff -->
+                                          <section id="handoff" class="section settings-section" hidden>
+  <div class="section-header">
+    <div>
+      <h2>Handoff</h2>
+      <p class="muted">
+        Send ownership setup to the future owner when you're ready.
+      </p>
+    </div>
+  </div>
+  
+  <label class="field">
+  <span>Select location to hand off</span>
+  <select id="handoff-location-select">
+    <option value="">Select a location...</option>
+  </select>
+</label>
+
+  <div class="card">
+    <label class="field">
+      <span>Transfer to email</span>
+      <input
+        id="handoff-email"
+        type="email"
+        placeholder="futureowner@example.com"
+      />
+    </label>
+
+    <label class="field">
+      <span>Allow builder access after transfer</span>
+      <select id="handoff-builder-access">
+        <option value="yes">Yes, keep my access</option>
+        <option value="no">No, remove my access</option>
+      </select>
+    </label>
+
+    <label class="field">
+      <span>Message to owner</span>
+      <textarea
+        id="handoff-message"
+        rows="8"
+      ></textarea>
+      <p class="muted">
+        You can edit the message before sending.
+      </p>
+    </label>
+
+    <div class="form-actions">
+      <button type="button" class="btn ghost" id="handoff-load-template-btn">
+        Load placeholder message
+      </button>
+
+      <button type="button" class="btn peach" id="handoff-save-btn">
+        Save handoff details
+      </button>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:16px;">
+    <h4>Included in this handoff</h4>
+    <p class="muted" id="handoff-summary">
+      No draft handoff records found yet.
+    </p>
+  </div>
+</section>
                
+
+
+
+
+
+
         
                                            <!-- Maintenance -->
       

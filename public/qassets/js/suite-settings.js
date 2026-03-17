@@ -541,6 +541,7 @@ async function loadLocations() {
     window.STATE.locations = [];
     renderLocations();
     updateDashboardCounts();
+    updateHandoffTabVisibility();
     return;
   }
 
@@ -553,6 +554,7 @@ async function loadLocations() {
 
     const rows = toItems(data);
     window.STATE.locations = rows;
+updateHandoffTabVisibility();
 
     renderLocations();
 
@@ -562,11 +564,13 @@ async function loadLocations() {
 
     updateDashboardCounts();
     await loadSuiteApplications();
+    updateHandoffTabVisibility();
   } catch (err) {
     console.error("[locations] load error", err);
     window.STATE.locations = [];
     renderLocations();
     updateDashboardCounts();
+   updateHandoffTabVisibility();
   }
 }
 
@@ -926,10 +930,12 @@ console.log("[location save] transfer fields BEFORE save:", {
       // =========================================================
       // ✅ CREATE SAVE LOCATION RECORD
       // =========================================================
-    if (isEditing) {
-  await updateLocationRecord(locId, values);
+let savedLocation;
+
+if (isEditing) {
+  savedLocation = await updateLocationRecord(locId, values);
 } else {
-  await createLocationRecord(values);
+  savedLocation = await createLocationRecord(values);
 }
 
 console.log("[location save] server returned:", savedLocation);
@@ -1928,15 +1934,19 @@ function openSuiteEditForm(suite) {
            // =========================================================
              // ✅ suites section
             // =========================================================
-  async function fetchSuiteById(id) {
-  const base = getApiBase();
-  const res = await fetch(`${base}/api/records/Suite/${encodeURIComponent(id)}`, {
+async function fetchSuiteById(id) {
+  const res = await fetch(apiUrl(`/api/records/Suite/${encodeURIComponent(id)}`), {
+    method: "GET",
     credentials: "include",
     headers: { Accept: "application/json" },
   });
+
   const data = await readJsonSafe(res);
-  if (!res.ok) throw new Error(data?.error || data?.message || "Fetch suite failed");
-  return data;
+  if (!res.ok) {
+    throw new Error(data?.message || "Failed to fetch suite");
+  }
+
+  return data?.items?.[0] || null;
 }
 
 
@@ -2911,6 +2921,8 @@ if (!name) return alert("Suite name is required.");
 const rentNum = rent === "" ? null : Number(rent);
 
 const isBuilderMode = currentUser?.proMode === "builder";
+const locationValues = selectedLocation?.values || {};
+const locationTransferGroupId = locationValues.transferGroupId || "";
 
 // ✅ build values AFTER rent+freq exist
 const values = {
@@ -2936,7 +2948,17 @@ const values = {
   builderUserId: currentUser.id,
   "Created By": currentUser.id,
   transferStatus: isBuilderMode ? "draft" : "accepted",
+  transferGroupId: locationTransferGroupId,
 };
+console.log("[suite save] transfer fields BEFORE save:", {
+  transferGroupId: values.transferGroupId,
+  transferStatus: values.transferStatus,
+  ownerUserId: values.ownerUserId,
+  builderUserId: values.builderUserId,
+  isBuilderMode,
+  locationId,
+  locationTransferGroupId,
+});
 // ✅ Application template JSON (saved from the builder modal)
 const tpl =
   document.getElementById("loc-suite-application-template")?.value?.trim() || "";
@@ -5003,28 +5025,42 @@ function initSuitieSave() {
   const form = document.getElementById("suitie-form");
   if (!form) return;
 
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    if (!currentUser?.id) return alert("You must be logged in.");
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  if (!currentUser?.id) return alert("You must be logged in.");
 
-    // ---------- form values ----------
-    const locationId =
-      document.getElementById("suitie-location-select")?.value || "";
-    const suiteId = document.getElementById("suitie-suite-select")?.value || "";
+  const isBuilderMode = currentUser?.proMode === "builder";
 
-    const first = document.getElementById("suitie-first")?.value?.trim() || "";
-    const last = document.getElementById("suitie-last")?.value?.trim() || "";
-    const email = document.getElementById("suitie-email")?.value?.trim() || "";
-    const phone = document.getElementById("suitie-phone")?.value?.trim() || "";
-    const note = document.getElementById("suitie-note")?.value?.trim() || "";
+  // ---------- form values ----------
+  const locationId =
+    document.getElementById("suitie-location-select")?.value || "";
+  const suiteId = document.getElementById("suitie-suite-select")?.value || "";
 
-    const rentAmountRaw = document.getElementById("suitie-rent")?.value || "";
-    const dueDate = document.getElementById("suitie-rent-due")?.value || ""; // yyyy-mm-dd
-    const rentAmount = rentAmountRaw === "" ? null : Number(rentAmountRaw);
+  const first = document.getElementById("suitie-first")?.value?.trim() || "";
+  const last = document.getElementById("suitie-last")?.value?.trim() || "";
+  const email = document.getElementById("suitie-email")?.value?.trim() || "";
+  const phone = document.getElementById("suitie-phone")?.value?.trim() || "";
+  const note = document.getElementById("suitie-note")?.value?.trim() || "";
 
-const freqEl = document.getElementById("suitie-rent-frequency");
-const freqValue = (freqEl?.value || "").trim().toLowerCase();
+  const rentAmountRaw = document.getElementById("suitie-rent")?.value || "";
+  const dueDate = document.getElementById("suitie-rent-due")?.value || "";
+  const rentAmount = rentAmountRaw === "" ? null : Number(rentAmountRaw);
 
+  const freqEl = document.getElementById("suitie-rent-frequency");
+  const freqValue = (freqEl?.value || "").trim().toLowerCase();
+
+  const selectedSuiteRecord =
+    (window.STATE?.suitesForSuitieForm || []).find(
+      (s) => String(s._id || s.id) === String(suiteId)
+    ) || null;
+
+  const suiteValues = selectedSuiteRecord?.values || {};
+  const locationValues = selectedLocation?.values || {};
+
+  const transferGroupId =
+    suiteValues.transferGroupId ||
+    locationValues.transferGroupId ||
+    "";
 
     if (!suiteId) return alert("Please select a suite.");
     if (!first) return alert("First name is required.");
@@ -5046,11 +5082,22 @@ if (file) {
       // -------------------------------------------------------
       // ✅ 1) CREATE SUITIE (NOW we can use suitiePhotoUrl)
       // -------------------------------------------------------
+      console.log("[suitie save] transfer fields BEFORE save:", {
+  transferGroupId,
+  isBuilderMode,
+  suiteId,
+  locationId,
+  selectedSuiteRecord,
+  suiteTransferGroupId: suiteValues.transferGroupId,
+  locationTransferGroupId: locationValues.transferGroupId,
+});
+
       const suitieValues = {
   ownerUserId: isBuilderMode ? "" : currentUser.id,
   builderUserId: currentUser.id,
   "Created By": currentUser.id,
   transferStatus: isBuilderMode ? "draft" : "accepted",
+transferGroupId,
 
         "First Name": first,
         "Last Name": last,
@@ -5082,12 +5129,16 @@ if (editingSuitieId) {
       console.log("[suitie] created response:", suitieRec);
       console.log("[suitie] saved values:", suitieValues);
 
-  const suitieId = editingSuitieId
+const suitieId = editingSuitieId
   ? editingSuitieId
-  : (suitieRec?._id ||
-     suitieRec?.id ||
-     suitieRec?.record?._id ||
-     suitieRec?.record?.id);
+  : (
+      suitieRec?._id ||
+      suitieRec?.id ||
+      suitieRec?.record?._id ||
+      suitieRec?.record?.id ||
+      suitieRec?.items?.[0]?._id ||
+      suitieRec?.items?.[0]?.id
+    );
 
 if (!suitieId) throw new Error("Suitie saved but id was missing.");
 
@@ -5117,6 +5168,8 @@ const suiteRentValues = {
   builderUserId: currentUser.id,
   "Created By": currentUser.id,
   transferStatus: isBuilderMode ? "draft" : "accepted",
+   transferGroupId,
+
     Amount: rentAmount != null ? rentAmount : 0,
     "Due Date": dueDate || "",
    "Perferred Interval": freqValue,
@@ -6303,6 +6356,216 @@ function initStripeConnectButton() {
 function makeTransferGroupId() {
   return "tg_" + Math.random().toString(36).slice(2) + Date.now().toString(36);
 }
+//When to show Transfer Tab
+function hasDraftTransfers() {
+  const locations = window.STATE?.locations || [];
+  return locations.some((loc) => {
+    const v = loc?.values || loc || {};
+    return v.transferStatus === "draft";
+  });
+}
+
+function updateHandoffTabVisibility() {
+  const navItem = document.getElementById("handoff-nav-item");
+  if (!navItem) return;
+
+  const isBuilderMode = currentUser?.proMode === "builder";
+  const show = isBuilderMode && hasDraftTransfers();
+
+  navItem.hidden = !show;
+}
+
+//Load locations to handoff
+function populateHandoffLocationSelect() {
+  const select = document.getElementById("handoff-location-select");
+  if (!select) return;
+
+  const locations = (window.STATE?.locations || []).filter((loc) => {
+    const v = loc?.values || loc || {};
+    return v.transferStatus === "draft";
+  });
+
+  select.innerHTML = `<option value="">Select a location...</option>`;
+
+  locations.forEach((loc) => {
+    const v = loc?.values || loc || {};
+    const id = loc?._id || loc?.id || "";
+    const name = v["Location Name"] || v.name || "Untitled location";
+    if (!id) return;
+
+    const opt = document.createElement("option");
+    opt.value = id;
+    opt.textContent = name;
+    select.appendChild(opt);
+  });
+}
+
+//Placeholder email message 
+function getDefaultHandoffSubject(locationName = "your location") {
+  return `Your Suite Seat workspace for ${locationName} is ready`;
+}
+
+function getDefaultHandoffMessage(locationName = "your location") {
+  const replyEmail = currentUser?.email || "my email";
+
+  return `Hi,
+
+I set up your Suite Seat workspace for ${locationName} and it is ready for you to review.
+
+What’s included:
+- Your location setup
+- Suites
+- Suities
+- Public location styling
+- Application setup (if added)
+
+Next step:
+Use the handoff link or instructions I send you to accept ownership.
+
+If you want changes before final handoff, reply to ${replyEmail} with your updates and I can make them first.
+
+Thank you.`;
+}
+
+function initHandoffUI() {
+const locationSelect = document.getElementById("handoff-location-select");
+const emailEl = document.getElementById("handoff-email");
+const subjectEl = document.getElementById("handoff-subject");
+const msgEl = document.getElementById("handoff-message");
+const builderAccessEl = document.getElementById("handoff-builder-access");
+const loadTemplateBtn = document.getElementById("handoff-load-template-btn");
+const saveBtn = document.getElementById("handoff-save-btn");
+const sendBtn = document.getElementById("handoff-send-btn");
+const summaryEl = document.getElementById("handoff-summary");
+ 
+
+  if (
+  !locationSelect ||
+  !emailEl ||
+  !subjectEl ||
+  !msgEl ||
+  !builderAccessEl ||
+  !saveBtn ||
+  !sendBtn
+) return;
+
+    populateHandoffLocationSelect();
+
+locationSelect?.addEventListener("change", () => {
+  const selectedId = locationSelect.value || "";
+  const loc = (window.STATE?.locations || []).find(
+    (x) => String(x._id || x.id) === String(selectedId)
+  );
+  const v = loc?.values || loc || {};
+
+  if (emailEl) emailEl.value = v.transferToEmail || "";
+  if (subjectEl) subjectEl.value = v.transferSubject || "";
+  if (msgEl) msgEl.value = v.transferMessage || "";
+  if (builderAccessEl) {
+    builderAccessEl.value = v.builderAccessEnabled === false ? "no" : "yes";
+  }
+});
+
+loadTemplateBtn?.addEventListener("click", () => {
+  const selectedId = locationSelect?.value || "";
+  const loc = (window.STATE?.locations || []).find(
+    (x) => String(x._id || x.id) === String(selectedId)
+  );
+  const v = loc?.values || loc || {};
+  const locationName = v["Location Name"] || v.name || "your location";
+
+  if (subjectEl) subjectEl.value = getDefaultHandoffSubject(locationName);
+  if (msgEl) msgEl.value = getDefaultHandoffMessage(locationName);
+});
+
+  const draftLocations = (window.STATE?.locations || []).filter((loc) => {
+    const v = loc?.values || loc || {};
+    return v.transferStatus === "draft";
+  });
+
+  if (summaryEl) {
+    summaryEl.textContent = draftLocations.length
+      ? `${draftLocations.length} draft location(s) ready for handoff.`
+      : `No draft handoff records found yet.`;
+  }
+
+  sendBtn?.addEventListener("click", async () => {
+  const selectedLocationId = locationSelect?.value || "";
+  const handoffEmail = emailEl?.value?.trim() || "";
+  const handoffSubject = subjectEl?.value?.trim() || "";
+  const handoffMessage = msgEl?.value?.trim() || "";
+  const builderAccess = builderAccessEl?.value || "yes";
+  const replyToEmail = currentUser?.email || "";
+
+  if (!selectedLocationId) return alert("Select a location first.");
+  if (!handoffEmail) return alert("Enter the future owner’s email.");
+  if (!handoffSubject) return alert("Enter a subject.");
+  if (!handoffMessage) return alert("Enter a message.");
+
+  try {
+    // 1) save current handoff fields first
+    await updateLocationRecord(selectedLocationId, {
+      transferToEmail: handoffEmail,
+      transferSubject: handoffSubject,
+      transferMessage: handoffMessage,
+      builderAccessEnabled: builderAccess === "yes",
+      replyToEmail,
+      handoffEmailSentAt: new Date().toISOString(),
+    });
+
+    // 2) send the actual email
+    await fetchJSON("/api/email/send", {
+      method: "POST",
+      body: JSON.stringify({
+        to: handoffEmail,
+        subject: handoffSubject,
+        html: handoffMessage.replace(/\n/g, "<br>"),
+        replyTo: replyToEmail,
+      }),
+    });
+
+    alert("Handoff email sent.");
+const keepId = selectedLocationId;
+await loadLocations();
+populateHandoffLocationSelect();
+locationSelect.value = keepId;
+locationSelect.dispatchEvent(new Event("change"));
+  } catch (err) {
+    console.error("[handoff] send error", err);
+    alert(err?.message || "Failed to send handoff email.");
+  }
+});
+
+saveBtn?.addEventListener("click", async () => {
+  const selectedLocationId = locationSelect?.value || "";
+  const handoffEmail = emailEl?.value?.trim() || "";
+  const handoffSubject = subjectEl?.value?.trim() || "";
+  const handoffMessage = msgEl?.value?.trim() || "";
+  const builderAccess = builderAccessEl?.value || "yes";
+
+  if (!selectedLocationId) return alert("Select a location first.");
+  if (!handoffEmail) return alert("Enter the future owner’s email.");
+
+  try {
+    await updateLocationRecord(selectedLocationId, {
+      transferToEmail: handoffEmail,
+      transferSubject: handoffSubject,
+      transferMessage: handoffMessage,
+      builderAccessEnabled: builderAccess === "yes",
+      replyToEmail: currentUser?.email || "",
+    });
+
+    alert("Handoff details saved.");
+    await loadLocations();
+    populateHandoffLocationSelect();
+  } catch (err) {
+    console.error("[handoff] save error", err);
+    alert(err?.message || "Failed to save handoff details.");
+  }
+});
+}
+
+
 
 
 
@@ -6416,6 +6679,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   initEditableInvoiceAmount();
   initInvoiceDueDatePicker();
   initInvoiceSaveButton();
+
+    // ================================
+  // Handoff Init
+  // ================================
+initHandoffUI();
+updateHandoffTabVisibility();
 
   // ================================
   // Settings (Stripe)
