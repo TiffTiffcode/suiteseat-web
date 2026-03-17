@@ -77,12 +77,14 @@ async function hydrateUser() {
 
     // ✅ only overwrite state if /api/me actually has a user
     if (userId) {
-      window.STATE.user = {
-        loggedIn: true,
-        userId: String(userId),
-        email,
-        firstName,
-      };
+window.STATE.user = {
+  loggedIn: true,
+  userId: String(userId),
+  email,
+  firstName,
+  roles: Array.isArray(data?.user?.roles) ? data.user.roles : [],
+  proMode: data?.user?.proMode || "",
+};
 
 currentUser = {
   id: String(userId),
@@ -858,6 +860,12 @@ const isEditing = !!locId;
 
    const isBuilderMode = currentUser?.proMode === "builder";
       
+   const existingTransferGroupId = selectedLocation?.values?.transferGroupId || "";
+const transferGroupId = isEditing
+  ? existingTransferGroupId
+  : makeTransferGroupId();
+
+
     // ✅ MATCH your DataType field names
     const values = {
       "Location Name": locationName,
@@ -865,6 +873,7 @@ const isEditing = !!locId;
       "Phone Number": phone,
       "Details": details,
       "About Me": about,
+
 
       // ✅ slug for dynamic page
       slug,
@@ -874,8 +883,17 @@ const isEditing = !!locId;
   builderUserId: currentUser.id,
   ownerUserId: isBuilderMode ? "" : currentUser.id,
   transferStatus: isBuilderMode ? "draft" : "accepted",
+        //Transfer/ handoff
+      transferGroupId,
     };
-
+console.log("[location save] transfer fields BEFORE save:", {
+  transferGroupId: values.transferGroupId,
+  transferStatus: values.transferStatus,
+  ownerUserId: values.ownerUserId,
+  builderUserId: values.builderUserId,
+  isBuilderMode,
+  values
+});
     try {
       // =========================================================
       // ✅ MAIN PHOTO UPLOAD (Default Image)
@@ -914,10 +932,14 @@ const isEditing = !!locId;
   await createLocationRecord(values);
 }
 
-
+console.log("[location save] server returned:", savedLocation);
+console.log(
+  "[location save] transfer fields AFTER save:",
+  savedLocation?.items?.[0]?.values || savedLocation?.values || savedLocation
+);
       // refresh list
       await loadLocations();
-
+console.log("[locations] refreshed locations:", window.STATE.locations);
 
 
   // reset state
@@ -6274,6 +6296,13 @@ function initStripeConnectButton() {
 
 
 
+                  // ================================
+                         // Handoff Logic
+                  // ================================
+//Tansfer Helper
+function makeTransferGroupId() {
+  return "tg_" + Math.random().toString(36).slice(2) + Date.now().toString(36);
+}
 
 
 
@@ -6339,6 +6368,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   initGalleryPreview();
 
   await loadLocations();
+
 
   initLocationDetailsUI();
   initLocationEditButton();
