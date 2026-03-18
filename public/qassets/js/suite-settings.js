@@ -2858,38 +2858,18 @@ function rebuildCustomSections(customConfigs) {
 
 //helpers
 //helpers
-function getApiBase() {
-  return (window.API_BASE || window.API || "http://localhost:8400").replace(/\/$/, "");
-}
-
 async function createSuiteRecord(values) {
-  const base = getApiBase();
-
-  const res = await fetch(`${base}/api/records/Suite`, {
+  return await fetchJSON("/api/records/Suite", {
     method: "POST",
-    credentials: "include",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify({ values }),
   });
-
-  const data = await readJsonSafe(res);
-  if (!res.ok) throw new Error(data?.error || data?.message || "Failed to create suite");
-  return data;
 }
 
 async function updateSuiteRecord(id, values) {
-  const base = getApiBase();
-
-  const res = await fetch(`${base}/api/records/Suite/${encodeURIComponent(id)}`, {
+  return await fetchJSON(`/api/records/Suite/${encodeURIComponent(id)}`, {
     method: "PATCH",
-    credentials: "include",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify({ values }),
   });
-
-  const data = await readJsonSafe(res);
-  if (!res.ok) throw new Error(data?.error || data?.message || "Failed to update suite");
-  return data;
 }
 
 
@@ -3242,24 +3222,9 @@ renderExistingSuiteGallery?.();
 /////////////// Delete Suite 
 //// ///================================
 async function deleteSuiteRecord(id) {
-  const base = (window.API_BASE || API_BASE || "http://localhost:8400").replace(/\/$/, "");
-
-  // IMPORTANT: this "Suite" must match your DataType name in Mongo
-  const typeName = "Suite";
-
-  const res = await fetch(
-    `${base}/api/records/${encodeURIComponent(typeName)}/${encodeURIComponent(id)}`,
-    {
-      method: "DELETE",
-      credentials: "include",
-      headers: { Accept: "application/json" },
-    }
-  );
-
-const data = await readJsonSafe(res);
-if (!res.ok) throw new Error(data?.error || data?.message || `Failed (${res.status})`);
-
-  return data;
+  return await fetchJSON(`/api/records/Suite/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
 }
 
 
@@ -3712,11 +3677,7 @@ async function loadSuiteApplications() {
   tbody.innerHTML = `<tr><td colspan="6" class="muted">Loading…</td></tr>`;
 
   // 1) fetch applications for this owner
-  const ownerFilter =
-    currentUser?.id ? `&ownerUserId=${encodeURIComponent(currentUser.id)}` : "";
-
-  const appsUrl =
-    apiUrl(`/public/records?dataType=Application&limit=500${ownerFilter}`);
+const appsUrl = apiUrl(`/public/records?dataType=Application&limit=500`);
 
   const res = await fetch(appsUrl, {
     credentials: "include",
