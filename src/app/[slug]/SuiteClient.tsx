@@ -44,8 +44,12 @@ export default function SuiteClient({ biz }: { biz: any }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const v = biz?.values || {};
-  const pageType = String(v["Page Type"] || "default").toLowerCase();
+const v = biz?.values || {};
+const pageType = String(v["Suite Template"] || "default").toLowerCase();
+
+console.log("[SuiteClient] raw Page Type:", v["Page Type"]);
+console.log("[SuiteClient] raw Suite Template:", v["Suite Template"]);
+console.log("[SuiteClient] using template:", pageType);
 
   useEffect(() => {
     let cancelled = false;

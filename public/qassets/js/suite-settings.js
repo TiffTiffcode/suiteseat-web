@@ -1230,7 +1230,7 @@ if (pageTypeRow) {
   pageTypeRow.style.display = canSeePageType ? "block" : "none";
 }
 
-const pageType = v["Page Type"] || "default";
+const pageType = v["Suite Template"] || "default";
 if (pageTypeEl) {
   pageTypeEl.value = pageType;
 }
@@ -1330,13 +1330,12 @@ function initLocationStyleModal() {
       if (!locId) return alert("Missing location id.");
 
 const values = {
-  "Page Type": pageTypeEl?.value || "default",
+  "Suite Template": pageTypeEl?.value || "default",
   "Background Color": bgColorEl?.value || "#ffffff",
   "Text Color": textColorEl?.value || "#111111",
 };
-
 console.log("[location style] values BEFORE save:", values);
-console.log("[location style] selected page type BEFORE save:", values["Page Type"]);
+console.log("[location style] selected suite template BEFORE save:", values["Suite Template"]);
 
       // upload new bg image if selected, else keep existing
       if (pendingBgImageFile) {
@@ -1350,12 +1349,11 @@ console.log("[location style] selected page type BEFORE save:", values["Page Typ
 
       await updateLocationRecord(locId, values);
 
-      console.log("[location style] saved page type:", values["Page Type"]);
+      console.log("[location style] saved suite template:", values["Suite Template"]);
 console.log("[location style] selectedLocation AFTER save merge:", {
   locId,
-  pageType: values["Page Type"],
+  suiteTemplate: values["Suite Template"],
 });
-
       // update selectedLocation locally
       const v = selectedLocation.values || {};
       selectedLocation = { ...selectedLocation, values: { ...v, ...values } };
