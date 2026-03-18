@@ -126,7 +126,7 @@
 
       <main class="content">
                                          <!-- Handoff -->
-                                          <section id="handoff" class="section settings-section" hidden>
+<section id="handoff" class="section settings-section" hidden>
   <div class="section-header">
     <div>
       <h2>Handoff</h2>
@@ -135,13 +135,13 @@
       </p>
     </div>
   </div>
-  
+
   <label class="field">
-  <span>Select location to hand off</span>
-  <select id="handoff-location-select">
-    <option value="">Select a location...</option>
-  </select>
-</label>
+    <span>Select location to hand off</span>
+    <select id="handoff-location-select">
+      <option value="">Select a location...</option>
+    </select>
+  </label>
 
   <div class="card">
     <label class="field">
@@ -150,6 +150,15 @@
         id="handoff-email"
         type="email"
         placeholder="futureowner@example.com"
+      />
+    </label>
+
+    <label class="field">
+      <span>Email subject</span>
+      <input
+        id="handoff-subject"
+        type="text"
+        placeholder="Your Suite Seat workspace is ready"
       />
     </label>
 
@@ -163,10 +172,7 @@
 
     <label class="field">
       <span>Message to owner</span>
-      <textarea
-        id="handoff-message"
-        rows="8"
-      ></textarea>
+      <textarea id="handoff-message" rows="8"></textarea>
       <p class="muted">
         You can edit the message before sending.
       </p>
@@ -179,6 +185,10 @@
 
       <button type="button" class="btn peach" id="handoff-save-btn">
         Save handoff details
+      </button>
+
+      <button type="button" class="btn peach" id="handoff-send-btn">
+        Send handoff email
       </button>
     </div>
   </div>

@@ -245,6 +245,7 @@ if (d?.ok && d?.user) {
 closeModal();
 lockApp(false);
 await bootAppAfterLogin();
+await acceptTransferFromUrl();
 
   } catch (err) {
     console.error("[auth] login error", err);
@@ -554,13 +555,14 @@ async function loadLocations() {
 
     const rows = toItems(data);
     window.STATE.locations = rows;
-updateHandoffTabVisibility();
+    updateHandoffTabVisibility();
 
     renderLocations();
 
-    populateSuitiesLocationFilter(rows);
-    populateSuitieLocationSelect(rows);
-    populateSuitesLocationFilter(rows);
+populateSuitiesLocationFilter(rows);
+populateSuitieLocationSelect(rows);
+populateSuitesLocationFilter(rows);
+populateHandoffLocationSelect();
 
     updateDashboardCounts();
     await loadSuiteApplications();
@@ -6349,10 +6351,32 @@ function initStripeConnectButton() {
 
 
 
+
+
+
+
+
+
+
+
+
+
+
                   // ================================
                          // Handoff Logic
                   // ================================
 //Tansfer Helper
+function getAcceptTransferIdFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("acceptTransfer") || "";
+}
+
+function openAuthModal() {
+  const modal = document.getElementById("authModal");
+  if (!modal) return;
+  modal.hidden = false;
+  modal.setAttribute("aria-hidden", "false");
+}
 function makeTransferGroupId() {
   return "tg_" + Math.random().toString(36).slice(2) + Date.now().toString(36);
 }
@@ -6410,7 +6434,9 @@ function getDefaultHandoffMessage(locationName = "your location") {
 
   return `Hi,
 
-I set up your Suite Seat workspace for ${locationName} and it is ready for you to review.
+Your Suite Seat workspace for ${locationName} is ready.
+
+To accept ownership, use the transfer link below and sign in to your account.
 
 What’s included:
 - Your location setup
@@ -6419,64 +6445,28 @@ What’s included:
 - Public location styling
 - Application setup (if added)
 
-Next step:
-Use the handoff link or instructions I send you to accept ownership.
-
-If you want changes before final handoff, reply to ${replyEmail} with your updates and I can make them first.
+If you want changes before final handoff, reply to ${replyEmail}.
 
 Thank you.`;
 }
 
 function initHandoffUI() {
-const locationSelect = document.getElementById("handoff-location-select");
-const emailEl = document.getElementById("handoff-email");
-const subjectEl = document.getElementById("handoff-subject");
-const msgEl = document.getElementById("handoff-message");
-const builderAccessEl = document.getElementById("handoff-builder-access");
-const loadTemplateBtn = document.getElementById("handoff-load-template-btn");
-const saveBtn = document.getElementById("handoff-save-btn");
-const sendBtn = document.getElementById("handoff-send-btn");
-const summaryEl = document.getElementById("handoff-summary");
- 
+  const locationSelect = document.getElementById("handoff-location-select");
+  const emailEl = document.getElementById("handoff-email");
+  const subjectEl = document.getElementById("handoff-subject");
+  const msgEl = document.getElementById("handoff-message");
+  const builderAccessEl = document.getElementById("handoff-builder-access");
+  const loadTemplateBtn = document.getElementById("handoff-load-template-btn");
+  const saveBtn = document.getElementById("handoff-save-btn");
+  const sendBtn = document.getElementById("handoff-send-btn");
+  const summaryEl = document.getElementById("handoff-summary");
 
-  if (
-  !locationSelect ||
-  !emailEl ||
-  !subjectEl ||
-  !msgEl ||
-  !builderAccessEl ||
-  !saveBtn ||
-  !sendBtn
-) return;
-
-    populateHandoffLocationSelect();
-
-locationSelect?.addEventListener("change", () => {
-  const selectedId = locationSelect.value || "";
-  const loc = (window.STATE?.locations || []).find(
-    (x) => String(x._id || x.id) === String(selectedId)
-  );
-  const v = loc?.values || loc || {};
-
-  if (emailEl) emailEl.value = v.transferToEmail || "";
-  if (subjectEl) subjectEl.value = v.transferSubject || "";
-  if (msgEl) msgEl.value = v.transferMessage || "";
-  if (builderAccessEl) {
-    builderAccessEl.value = v.builderAccessEnabled === false ? "no" : "yes";
+  if (!locationSelect || !emailEl || !msgEl || !builderAccessEl || !saveBtn) {
+    console.warn("[handoff] missing required handoff elements");
+    return;
   }
-});
 
-loadTemplateBtn?.addEventListener("click", () => {
-  const selectedId = locationSelect?.value || "";
-  const loc = (window.STATE?.locations || []).find(
-    (x) => String(x._id || x.id) === String(selectedId)
-  );
-  const v = loc?.values || loc || {};
-  const locationName = v["Location Name"] || v.name || "your location";
-
-  if (subjectEl) subjectEl.value = getDefaultHandoffSubject(locationName);
-  if (msgEl) msgEl.value = getDefaultHandoffMessage(locationName);
-});
+  populateHandoffLocationSelect();
 
   const draftLocations = (window.STATE?.locations || []).filter((loc) => {
     const v = loc?.values || loc || {};
@@ -6489,81 +6479,189 @@ loadTemplateBtn?.addEventListener("click", () => {
       : `No draft handoff records found yet.`;
   }
 
-  sendBtn?.addEventListener("click", async () => {
-  const selectedLocationId = locationSelect?.value || "";
-  const handoffEmail = emailEl?.value?.trim() || "";
-  const handoffSubject = subjectEl?.value?.trim() || "";
-  const handoffMessage = msgEl?.value?.trim() || "";
-  const builderAccess = builderAccessEl?.value || "yes";
-  const replyToEmail = currentUser?.email || "";
+  locationSelect.addEventListener("change", () => {
+    const selectedId = locationSelect.value || "";
+    const loc = (window.STATE?.locations || []).find(
+      (x) => String(x._id || x.id) === String(selectedId)
+    );
+    const v = loc?.values || loc || {};
 
-  if (!selectedLocationId) return alert("Select a location first.");
-  if (!handoffEmail) return alert("Enter the future owner’s email.");
-  if (!handoffSubject) return alert("Enter a subject.");
-  if (!handoffMessage) return alert("Enter a message.");
+    emailEl.value = v.transferToEmail || "";
 
-  try {
-    // 1) save current handoff fields first
-    await updateLocationRecord(selectedLocationId, {
-      transferToEmail: handoffEmail,
-      transferSubject: handoffSubject,
-      transferMessage: handoffMessage,
-      builderAccessEnabled: builderAccess === "yes",
-      replyToEmail,
-      handoffEmailSentAt: new Date().toISOString(),
+    if (subjectEl) {
+      subjectEl.value =
+        v.transferSubject ||
+        getDefaultHandoffSubject(v["Location Name"] || v.name || "your location");
+    }
+
+    msgEl.value =
+      v.transferMessage ||
+      getDefaultHandoffMessage(v["Location Name"] || v.name || "your location");
+
+    builderAccessEl.value = v.builderAccessEnabled === false ? "no" : "yes";
+  });
+
+  if (loadTemplateBtn) {
+    loadTemplateBtn.addEventListener("click", () => {
+      const selectedId = locationSelect.value || "";
+      if (!selectedId) {
+        alert("Select a location first.");
+        return;
+      }
+
+      const loc = (window.STATE?.locations || []).find(
+        (x) => String(x._id || x.id) === String(selectedId)
+      );
+      const v = loc?.values || loc || {};
+      const locationName = v["Location Name"] || v.name || "your location";
+
+      if (subjectEl) {
+        subjectEl.value = getDefaultHandoffSubject(locationName);
+      }
+
+      msgEl.value = getDefaultHandoffMessage(locationName);
     });
-
-    // 2) send the actual email
-    await fetchJSON("/api/email/send", {
-      method: "POST",
-      body: JSON.stringify({
-        to: handoffEmail,
-        subject: handoffSubject,
-        html: handoffMessage.replace(/\n/g, "<br>"),
-        replyTo: replyToEmail,
-      }),
-    });
-
-    alert("Handoff email sent.");
-const keepId = selectedLocationId;
-await loadLocations();
-populateHandoffLocationSelect();
-locationSelect.value = keepId;
-locationSelect.dispatchEvent(new Event("change"));
-  } catch (err) {
-    console.error("[handoff] send error", err);
-    alert(err?.message || "Failed to send handoff email.");
   }
+
+  saveBtn.addEventListener("click", async () => {
+    const selectedLocationId = locationSelect.value || "";
+    const handoffEmail = emailEl.value.trim();
+    const handoffSubject = subjectEl?.value?.trim() || "";
+    const handoffMessage = msgEl.value.trim();
+    const builderAccess = builderAccessEl.value || "yes";
+
+    if (!selectedLocationId) return alert("Select a location first.");
+    if (!handoffEmail) return alert("Enter the future owner’s email.");
+
+    try {
+      await updateLocationRecord(selectedLocationId, {
+        transferToEmail: handoffEmail,
+        transferSubject: handoffSubject,
+        transferMessage: handoffMessage,
+        builderAccessEnabled: builderAccess === "yes",
+        replyToEmail: currentUser?.email || "",
+      });
+
+      alert("Handoff details saved.");
+
+      const keepId = selectedLocationId;
+      await loadLocations();
+      populateHandoffLocationSelect();
+      updateHandoffTabVisibility();
+
+      locationSelect.value = keepId;
+      locationSelect.dispatchEvent(new Event("change"));
+    } catch (err) {
+      console.error("[handoff] save error", err);
+      alert(err?.message || "Failed to save handoff details.");
+    }
+  });
+
+  if (sendBtn) {
+    sendBtn.addEventListener("click", async () => {
+      const selectedLocationId = locationSelect.value || "";
+      const handoffEmail = emailEl.value.trim();
+      const handoffSubject = subjectEl?.value?.trim() || "";
+      const handoffMessage = msgEl.value.trim();
+      const builderAccess = builderAccessEl.value || "yes";
+      const replyToEmail = currentUser?.email || "";
+
+      if (!selectedLocationId) return alert("Select a location first.");
+      if (!handoffEmail) return alert("Enter the future owner’s email.");
+      if (!handoffSubject) return alert("Enter a subject.");
+      if (!handoffMessage) return alert("Enter a message.");
+
+      try {
+        await updateLocationRecord(selectedLocationId, {
+          transferToEmail: handoffEmail,
+          transferSubject: handoffSubject,
+          transferMessage: handoffMessage,
+          builderAccessEnabled: builderAccess === "yes",
+          replyToEmail,
+          handoffEmailSentAt: new Date().toISOString(),
+        });
+
+const loc = (window.STATE?.locations || []).find(
+  (x) => String(x._id || x.id) === String(selectedLocationId)
+);
+const v = loc?.values || loc || {};
+const transferGroupId = v.transferGroupId || "";
+const siteBase =
+  location.hostname === "localhost"
+    ? "http://localhost:3000"
+    : "https://www.suiteseat.io";
+
+const acceptUrl = `${siteBase}/suite-settings?acceptTransfer=${encodeURIComponent(transferGroupId)}`;
+
+const emailHtml = `
+  <p>${handoffMessage.replace(/\n/g, "<br>")}</p>
+  <p style="margin-top:16px;">
+    <a href="${acceptUrl}" target="_blank" rel="noopener noreferrer">
+      Accept your Suite Seat transfer
+    </a>
+  </p>
+`;
+
+await fetchJSON("/api/email/send", {
+  method: "POST",
+  body: JSON.stringify({
+    to: handoffEmail,
+    subject: handoffSubject,
+    html: emailHtml,
+    replyTo: replyToEmail,
+  }),
 });
 
-saveBtn?.addEventListener("click", async () => {
-  const selectedLocationId = locationSelect?.value || "";
-  const handoffEmail = emailEl?.value?.trim() || "";
-  const handoffSubject = subjectEl?.value?.trim() || "";
-  const handoffMessage = msgEl?.value?.trim() || "";
-  const builderAccess = builderAccessEl?.value || "yes";
+        alert("Handoff email sent.");
 
-  if (!selectedLocationId) return alert("Select a location first.");
-  if (!handoffEmail) return alert("Enter the future owner’s email.");
+        const keepId = selectedLocationId;
+        await loadLocations();
+        populateHandoffLocationSelect();
+        updateHandoffTabVisibility();
 
-  try {
-    await updateLocationRecord(selectedLocationId, {
-      transferToEmail: handoffEmail,
-      transferSubject: handoffSubject,
-      transferMessage: handoffMessage,
-      builderAccessEnabled: builderAccess === "yes",
-      replyToEmail: currentUser?.email || "",
+        locationSelect.value = keepId;
+        locationSelect.dispatchEvent(new Event("change"));
+      } catch (err) {
+        console.error("[handoff] send error", err);
+        alert(err?.message || "Failed to send handoff email.");
+      }
     });
-
-    alert("Handoff details saved.");
-    await loadLocations();
-    populateHandoffLocationSelect();
-  } catch (err) {
-    console.error("[handoff] save error", err);
-    alert(err?.message || "Failed to save handoff details.");
   }
-});
 }
+
+
+//create a client-side accept function
+async function acceptTransferFromUrl() {
+  const transferGroupId = getAcceptTransferIdFromUrl();
+  if (!transferGroupId) return;
+
+  if (!currentUser?.id) {
+    openAuthModal();
+    return;
+  }
+
+  try {
+    const result = await fetchJSON("/api/handoffs/accept", {
+      method: "POST",
+      body: JSON.stringify({ transferGroupId }),
+    });
+
+    alert(result?.message || "Transfer accepted.");
+
+    const url = new URL(window.location.href);
+    url.searchParams.delete("acceptTransfer");
+    window.history.replaceState({}, "", url.toString());
+
+    await loadLocations();
+    updateHandoffTabVisibility();
+  } catch (err) {
+    console.error("[handoff] accept error", err);
+    alert(err?.message || "Failed to accept transfer.");
+  }
+}
+
+
+
 
 
 
@@ -6608,6 +6706,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   // ✅ Get user FIRST (before anything that depends on currentUser)
   await hydrateUser(); // sets currentUser + setLoggedInUI
   console.log("[suite-settings2] currentUser:", currentUser);
+
+  const transferGroupIdFromUrl = getAcceptTransferIdFromUrl();
+if (transferGroupIdFromUrl && !currentUser?.id) {
+  openAuthModal();
+}
 
   // ✅ If not logged in, stop here (don’t load protected data/UI)
   if (!currentUser?.id) {
@@ -6703,9 +6806,10 @@ updateHandoffTabVisibility();
   // ================================
   // Boot + data loads
   // ================================
-  await bootAppAfterLogin();
-  await initSuitiesSection();
-  await loadSuities();
+await bootAppAfterLogin();
+await initSuitiesSection();
+await loadSuities();
+await acceptTransferFromUrl();
 
-  updateDashboardCounts();
+updateDashboardCounts();
 });
