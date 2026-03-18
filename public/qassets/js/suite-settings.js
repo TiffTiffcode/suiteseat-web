@@ -866,9 +866,15 @@ const isEditing = !!locId;
 
    const isBuilderMode = currentUser?.proMode === "builder";
       
-   const existingTransferGroupId = selectedLocation?.values?.transferGroupId || "";
+const existingTransferGroupId =
+  (selectedLocation?.values?.transferGroupId) ||
+  (window.STATE?.locations || []).find(
+    (x) => String(x._id || x.id) === String(locId)
+  )?.values?.transferGroupId ||
+  "";
+
 const transferGroupId = isEditing
-  ? existingTransferGroupId
+  ? (existingTransferGroupId || makeTransferGroupId())
   : makeTransferGroupId();
 
 
@@ -6592,6 +6598,10 @@ const siteBase =
     : "https://www.suiteseat.io";
 
 const acceptUrl = `${siteBase}/suite-settings?acceptTransfer=${encodeURIComponent(transferGroupId)}`;
+
+console.log("[handoff send] selectedLocationId:", selectedLocationId);
+console.log("[handoff send] transferGroupId from selected location:", transferGroupId);
+console.log("[handoff send] acceptUrl:", acceptUrl);
 
 const emailHtml = `
   <p>${handoffMessage.replace(/\n/g, "<br>")}</p>
