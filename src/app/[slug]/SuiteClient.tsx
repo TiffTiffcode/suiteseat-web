@@ -10,7 +10,7 @@ import BasicSuiteTemplate, {
 // future templates
 import Template1 from "./SuiteTemplates/template1/Template";
 import Template2 from "./SuiteTemplates/template2/Template";
-
+import CustomTemplate from "./SuiteTemplates/custom/Template";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8400";
 const ASSET_BASE = process.env.NEXT_PUBLIC_ASSET_BASE || API_BASE;
@@ -269,12 +269,15 @@ export default function SuiteClient({ biz }: { biz: any }) {
           />
         );
 
-      case "custom":
-        return (
-          <div style={{ padding: 40 }}>
-            Custom builder page will render here
-          </div>
-        );
+case "custom":
+  return (
+    <CustomTemplate
+      business={biz}
+      suites={suites}
+      loading={loading}
+      error={error}
+    />
+  );
 
       case "default":
       default:
