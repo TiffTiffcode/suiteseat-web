@@ -1,11 +1,16 @@
-// src/app/[slug]/SuiteClient.tsx
 "use client";
 
 import { useEffect, useState } from "react";
 import "./styles/SuitePage/basic.css";
+
 import BasicSuiteTemplate, {
   Suite as TemplateSuite,
 } from "./SuiteTemplates/basic/Template";
+
+// future templates
+import Template1 from "./SuiteTemplates/template1/Template";
+import Template2 from "./SuiteTemplates/template2/Template";
+
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8400";
 const ASSET_BASE = process.env.NEXT_PUBLIC_ASSET_BASE || API_BASE;
@@ -14,10 +19,7 @@ function extractSuiteDetails(suite: any) {
   const v = suite?.values || suite || {};
 
   return {
-    // ✅ THIS is your Quill field
     description: v["Details"] || v.details || v.Description || "",
-
-    // optional fields if you add them later
     sqft: v["Sq Ft"] || v["Square Feet"] || v.sqft || "",
     deposit: v["Deposit"] || v.deposit || "",
     amenities: v["Amenities"] || v.amenities || "",
@@ -30,23 +32,20 @@ function resolveAsset(raw?: string | null) {
   const s = String(raw).trim();
   if (!s) return null;
 
-  // already absolute (Cloudinary, S3, etc)
   if (/^https?:\/\//i.test(s)) return s;
-
-  // relative path from your API server
   if (s.startsWith("/")) return `${ASSET_BASE}${s}`;
-
-  // plain filename case
   return `${ASSET_BASE}/${s}`;
 }
 
-// ✅ Reuse the Suite type from the template so both files agree
 type Suite = TemplateSuite;
 
 export default function SuiteClient({ biz }: { biz: any }) {
   const [suites, setSuites] = useState<Suite[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const v = biz?.values || {};
+  const pageType = String(v["Page Type"] || "default").toLowerCase();
 
   useEffect(() => {
     let cancelled = false;
@@ -88,13 +87,12 @@ export default function SuiteClient({ biz }: { biz: any }) {
 
         const mapped: Suite[] = rows
           .map((row: any) => {
-            const v = row.values || row;
+            const rowValues = row.values || row;
 
-            // 🔹 read Location reference from the Suite record
             const locRef =
-              v["Location"] ||
-              v.Location ||
-              v["Suite Location"] ||
+              rowValues["Location"] ||
+              rowValues.Location ||
+              rowValues["Suite Location"] ||
               null;
 
             let locFromSuite: string | null = null;
@@ -104,23 +102,20 @@ export default function SuiteClient({ biz }: { biz: any }) {
               locFromSuite = String(locRef._id || locRef.id || "");
             }
 
-            // ❌ skip if suite doesn't belong to this location
             if (!locFromSuite || locFromSuite !== locIdStr) {
               return null;
             }
 
-            // ✅ Name
             const name =
-              v["Suite Name"] ||
-              v["Suite Number/Name"] ||
-              v.Name ||
+              rowValues["Suite Name"] ||
+              rowValues["Suite Number/Name"] ||
+              rowValues.Name ||
               "Suite";
 
-            // ✅ Available date
             const availableDateRaw =
-              v["Date Available"] ||
-              v.DateAvailable ||
-              v["Available Date"] ||
+              rowValues["Date Available"] ||
+              rowValues.DateAvailable ||
+              rowValues["Available Date"] ||
               null;
 
             const availableDate =
@@ -130,43 +125,40 @@ export default function SuiteClient({ biz }: { biz: any }) {
                 ? String(availableDateRaw)
                 : null;
 
-         // ✅ Main image (try many possible field names)
-const imageRaw =
-  v["Default Photo"] ||
-  v["Default Photo URL"] ||
-  v["Default Photo Url"] ||
-  v["Default Image"] ||
-  v["Suite Default Image"] ||
-  v["Suite Photo"] ||
-  v["Photo URL"] ||
-  v["Photo Url"] ||
-  v["Photo"] ||
-  v.photoUrl ||
-  v.img || // ✅ from your “merged suite” shape
-  null;
+            const imageRaw =
+              rowValues["Default Photo"] ||
+              rowValues["Default Photo URL"] ||
+              rowValues["Default Photo Url"] ||
+              rowValues["Default Image"] ||
+              rowValues["Suite Default Image"] ||
+              rowValues["Suite Photo"] ||
+              rowValues["Photo URL"] ||
+              rowValues["Photo Url"] ||
+              rowValues["Photo"] ||
+              rowValues.photoUrl ||
+              rowValues.img ||
+              null;
 
-// ✅ Gallery (try many)
-const galleryRaw =
-  v["Suite Gallery"] ||
-  v["Gallery Images"] ||
-  v["Gallery"] ||
-  v.gallery ||
-  [];
+            const galleryRaw =
+              rowValues["Suite Gallery"] ||
+              rowValues["Gallery Images"] ||
+              rowValues["Gallery"] ||
+              rowValues.gallery ||
+              [];
 
-const gallery: string[] = Array.isArray(galleryRaw)
-  ? galleryRaw
-      .filter(Boolean)
-      .map((x) => resolveAsset(String(x)))
-      .filter(Boolean) as string[]
-  : [];
+            const gallery: string[] = Array.isArray(galleryRaw)
+              ? galleryRaw
+                  .filter(Boolean)
+                  .map((x) => resolveAsset(String(x)))
+                  .filter(Boolean) as string[]
+              : [];
 
-// ✅ final main image = imageRaw OR gallery[0]
-const imageUrl =
-  resolveAsset(imageRaw ? String(imageRaw) : null) ||
-  (gallery.length ? gallery[0] : null);
-            // ✅ Rent amount
+            const imageUrl =
+              resolveAsset(imageRaw ? String(imageRaw) : null) ||
+              (gallery.length ? gallery[0] : null);
+
             let rentAmount: number | null = null;
-            const rentRaw = v["Suite Rent"] ?? v["Rent Amount"];
+            const rentRaw = rowValues["Suite Rent"] ?? rowValues["Rent Amount"];
             if (typeof rentRaw === "number") {
               rentAmount = rentRaw;
             } else if (
@@ -177,31 +169,25 @@ const imageUrl =
               if (!Number.isNaN(num)) rentAmount = num;
             }
 
-            // ✅ Rent frequency + rate text
             const rentFrequency: string | null =
-              v["Rent Frequency"] || null;
+              rowValues["Rent Frequency"] || null;
 
-            const rateText: string =
-              v["Rate Text"] || "";
+            const rateText: string = rowValues["Rate Text"] || "";
 
-          
-            // ✅ Application template JSON (if stored on Suite)
             const applicationTemplate: string | null =
-              v["Application Template"] ||
-              v.applicationTemplate ||
+              rowValues["Application Template"] ||
+              rowValues.applicationTemplate ||
               null;
 
-            // ✅ File URL (PDF/image)
             const applicationFileUrl: string | null =
-              v["Application File"] ||
-              v["Application URL"] ||
-              v.applicationFileUrl ||
+              rowValues["Application File"] ||
+              rowValues["Application URL"] ||
+              rowValues.applicationFileUrl ||
               null;
 
-            // ⭐ NEW – radio “Use this application on my site”
             const modeRaw =
-              v["Use this application on my site"] ||
-              v["Application Mode"] ||
+              rowValues["Use this application on my site"] ||
+              rowValues["Application Mode"] ||
               "";
 
             let applicationMode: "template" | "file" | null = null;
@@ -218,18 +204,21 @@ const imageUrl =
               applicationMode = "file";
             }
 
+        
+
             const suite: Suite = {
               id: row._id || row.id || "",
               name,
-              availableDate: availableDate,
+              availableDate,
               imageUrl: imageUrl || null,
-              rentAmount: rentAmount,
+              rentAmount,
               rentFrequency,
               rateText,
               gallery,
               applicationTemplate,
               applicationMode,
               applicationFileUrl,
+
             };
 
             return suite;
@@ -238,7 +227,9 @@ const imageUrl =
 
         if (cancelled) return;
 
+        console.log("[SuiteClient] pageType:", pageType);
         console.log("[SuiteClient] mapped suites:", mapped);
+
         setSuites(mapped);
         setLoading(false);
       } catch (err: any) {
@@ -250,17 +241,53 @@ const imageUrl =
     }
 
     loadSuites();
+
     return () => {
       cancelled = true;
     };
-  }, [biz?._id, biz?.id]);
+  }, [biz?._id, biz?.id, pageType]);
 
-  return (
-    <BasicSuiteTemplate
-      business={biz}
-      suites={suites}
-      loading={loading}
-      error={error}
-    />
-  );
+  function renderTemplate() {
+    switch (pageType) {
+      case "template1":
+        return (
+          <Template1
+            business={biz}
+            suites={suites}
+            loading={loading}
+            error={error}
+          />
+        );
+
+      case "template2":
+        return (
+          <Template2
+            business={biz}
+            suites={suites}
+            loading={loading}
+            error={error}
+          />
+        );
+
+      case "custom":
+        return (
+          <div style={{ padding: 40 }}>
+            Custom builder page will render here
+          </div>
+        );
+
+      case "default":
+      default:
+        return (
+          <BasicSuiteTemplate
+            business={biz}
+            suites={suites}
+            loading={loading}
+            error={error}
+          />
+        );
+    }
+  }
+
+  return renderTemplate();
 }

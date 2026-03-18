@@ -1217,8 +1217,23 @@ function openLocationStyleModal() {
   const bgFileEl = document.getElementById("location-style-bg-image");
   const previewEl = document.getElementById("location-style-bg-preview");
 
+  const pageTypeRow = document.getElementById("location-page-type-row");
+const pageTypeEl = document.getElementById("location-page-type");
   if (!selectedLocation) return alert("Open a location first.");
+
   const v = selectedLocation.values || selectedLocation || {};
+const canSeePageType =
+  currentUser?.proMode === "builder" ||
+  currentUser?.email === "7air3@gmail.com";
+
+if (pageTypeRow) {
+  pageTypeRow.style.display = canSeePageType ? "block" : "none";
+}
+
+const pageType = v["Page Type"] || "default";
+if (pageTypeEl) {
+  pageTypeEl.value = pageType;
+}
 
   // preload fields (these match your DataType fields)
   const bgColor = v["Background Color"] || "#ffffff";
@@ -1272,6 +1287,7 @@ function initLocationStyleModal() {
   const bgColorEl = document.getElementById("location-style-bg-color");
   const textColorEl = document.getElementById("location-style-text-color");
 
+  const pageTypeEl = document.getElementById("location-page-type");
   // open
   openBtn?.addEventListener("click", openLocationStyleModal);
 
@@ -1313,10 +1329,14 @@ function initLocationStyleModal() {
       const locId = selectedLocation._id || selectedLocation.id;
       if (!locId) return alert("Missing location id.");
 
-      const values = {
-        "Background Color": bgColorEl?.value || "#ffffff",
-        "Text Color": textColorEl?.value || "#111111",
-      };
+const values = {
+  "Page Type": pageTypeEl?.value || "default",
+  "Background Color": bgColorEl?.value || "#ffffff",
+  "Text Color": textColorEl?.value || "#111111",
+};
+
+console.log("[location style] values BEFORE save:", values);
+console.log("[location style] selected page type BEFORE save:", values["Page Type"]);
 
       // upload new bg image if selected, else keep existing
       if (pendingBgImageFile) {
@@ -1329,6 +1349,12 @@ function initLocationStyleModal() {
       }
 
       await updateLocationRecord(locId, values);
+
+      console.log("[location style] saved page type:", values["Page Type"]);
+console.log("[location style] selectedLocation AFTER save merge:", {
+  locId,
+  pageType: values["Page Type"],
+});
 
       // update selectedLocation locally
       const v = selectedLocation.values || {};
