@@ -1224,7 +1224,7 @@ const pageTypeEl = document.getElementById("location-page-type");
   const v = selectedLocation.values || selectedLocation || {};
 const canSeePageType =
   currentUser?.proMode === "builder" ||
-  currentUser?.email === "7air3@gmail.com";
+  currentUser?.email === "3air3@gmail.com";
 
 if (pageTypeRow) {
   pageTypeRow.style.display = canSeePageType ? "block" : "none";
@@ -3612,6 +3612,11 @@ function hide() {
 
 
 
+
+
+
+
+
                   // ================================
                          // Applications Section
                   // ================================
@@ -3701,8 +3706,8 @@ async function loadSuiteApplications() {
   tbody.innerHTML = `<tr><td colspan="6" class="muted">Loading…</td></tr>`;
 
   // 1) fetch applications for this owner
-const appsUrl = apiUrl(`/public/records?dataType=Application&limit=500`);
-
+//const appsUrl = apiUrl(`/public/records?dataType=Application&limit=500`);
+const appsUrl = apiUrl(`/public/records?dataType=Suite Application Submission&limit=500`);
   const res = await fetch(appsUrl, {
     credentials: "include",
     headers: { Accept: "application/json" },
@@ -5013,6 +5018,11 @@ async function createRecord(dataTypeName, values) {
   if (!res.ok) throw new Error(data?.message || `Failed to create ${dataTypeName}`);
   return data;
 }
+
+
+///////// ================================
+/////////////// Save Suitie 
+//// ///================================
 
 function initSuitieSave() {
   const form = document.getElementById("suitie-form");

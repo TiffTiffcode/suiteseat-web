@@ -37,19 +37,43 @@ function resolveAsset(raw?: string | null) {
   return `${ASSET_BASE}/${s}`;
 }
 
-type Suite = TemplateSuite;
+type Suite = TemplateSuite & {
+  rawRecord?: any;
+  values?: any;
+};
 
 export default function SuiteClient({ biz }: { biz: any }) {
   const [suites, setSuites] = useState<Suite[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-const v = biz?.values || {};
-const pageType = String(v["Suite Template"] || "default").toLowerCase();
+  const v = biz?.values || {};
+  const pageType = String(v["Suite Template"] || "default").toLowerCase();
 
-console.log("[SuiteClient] raw Page Type:", v["Page Type"]);
-console.log("[SuiteClient] raw Suite Template:", v["Suite Template"]);
-console.log("[SuiteClient] using template:", pageType);
+  const rawPageJson =
+    v["Canvas JSON"] ||
+    v["Page JSON"] ||
+    v["Custom Page JSON"] ||
+    v["Saved Elements"] ||
+    null;
+
+  const savedPageJson =
+    typeof rawPageJson === "string"
+      ? (() => {
+          try {
+            return JSON.parse(rawPageJson);
+          } catch (err) {
+            console.error("[SuiteClient] failed to parse savedPageJson:", err);
+            return null;
+          }
+        })()
+      : rawPageJson;
+
+  console.log("[SuiteClient] raw Page Type:", v["Page Type"]);
+  console.log("[SuiteClient] raw Suite Template:", v["Suite Template"]);
+  console.log("[SuiteClient] using template:", pageType);
+  console.log("[SuiteClient] rawPageJson:", rawPageJson);
+  console.log("[SuiteClient] savedPageJson:", savedPageJson);
 
   useEffect(() => {
     let cancelled = false;
@@ -208,23 +232,23 @@ console.log("[SuiteClient] using template:", pageType);
               applicationMode = "file";
             }
 
-        
 
-            const suite: Suite = {
-              id: row._id || row.id || "",
-              name,
-              availableDate,
-              imageUrl: imageUrl || null,
-              rentAmount,
-              rentFrequency,
-              rateText,
-              gallery,
-              applicationTemplate,
-              applicationMode,
-              applicationFileUrl,
+const suite: Suite = {
+  id: row._id || row.id || "",
+  name,
+  availableDate,
+  imageUrl: imageUrl || null,
+  rentAmount,
+  rentFrequency,
+  rateText,
+  gallery,
+  applicationTemplate,
+  applicationMode,
+  applicationFileUrl,
 
-            };
-
+  rawRecord: row,
+  values: row.values || row,
+};
             return suite;
           })
           .filter((s: Suite | null): s is Suite => !!s);
@@ -270,18 +294,20 @@ console.log("[SuiteClient] using template:", pageType);
             suites={suites}
             loading={loading}
             error={error}
+            pageJson={savedPageJson}
           />
         );
 
-case "custom":
-  return (
-    <CustomTemplate
-      business={biz}
-      suites={suites}
-      loading={loading}
-      error={error}
-    />
-  );
+      case "custom":
+        return (
+          <CustomTemplate
+            business={biz}
+            suites={suites}
+            loading={loading}
+            error={error}
+            pageJson={savedPageJson}
+          />
+        );
 
       case "default":
       default:

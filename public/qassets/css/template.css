@@ -12,16 +12,37 @@
       font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
     }
 
-    .tpl{
-      height: 100vh;
-      display: grid;
-      grid-template-columns: var(--sidebar-w) 1fr;
-    }
+:root{
+  --sidebar-w: 220px;
+  --sidebar-collapsed-w: 54px;
+  --sidebar: #f2b26b;
+  --canvas: #e9e9e9;
+}
 
-    .tpl__sidebar{
-      background: var(--sidebar);
-      padding: 12px;
-    }
+.tpl{
+  position: relative;
+  width: 100%;
+  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
+}
+
+
+/* sidebar now overlays instead of shrinking layout */
+.tpl__sidebar{
+  position: absolute;
+  left: 12px;
+  top: 2px;
+  width: 260px;
+  height: calc(100vh - 104px);
+  z-index: 30;
+  background: var(--sidebar);
+  padding: 12px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  border: 2px solid #000;
+  box-shadow: 0 8px 24px rgba(0,0,0,.18);
+}
 
     /* White bar with arrow */
     .sidebar-topbar{
@@ -42,46 +63,105 @@
     }
 
 
-.tpl { grid-template-columns: var(--sidebar-w) 1fr; }
 
 /* button reset + sizing */
 .sidebar-toggle{
-  width: 100%;
+  width: 44px;
   height: 44px;
   background: #fff;
   border: 2px solid #000;
   display: flex;
   align-items: center;
-  justify-content: flex-start;
-  padding: 0 10px;
+  justify-content: center;
   cursor: pointer;
+  font-weight: 700;
 }
 
-/* collapsed state */
-.tpl.is-collapsed{ --sidebar-w: 54px; }
-
-.tpl.is-collapsed .tpl__sidebar{ padding: 12px 8px; }
 .tpl.is-collapsed .sidebar-toggle{
-  width: 44px;           /* becomes just an icon box */
+  width: auto;
+  min-width: 44px;
+  height: 44px;
+  padding: 0 12px;
+  background: #fff;
+  color: #111;
+  border: 2px solid #000;
+  border-radius: 0;
+  box-shadow: 0 4px 12px rgba(0,0,0,.15);
+}
+
+.tpl.is-collapsed .sidebar-toggle::after{
+  content: " Show Builder";
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+/* preview mode hides sidebar completely */
+.tpl.is-preview-mode .tpl__sidebar{
+  display: none;
+}
+
+.tpl.is-preview-mode .tpl__dropArea{
+  width: 100%;
+}
+
+.sidebar-toggle::after{
+  content: "";
+}
+
+.tpl.is-collapsed .sidebar-toggle{
+  width: auto;
+  min-width: 44px;
+  padding: 0 10px;
+  gap: 8px;
+}
+
+.tpl.is-collapsed .sidebar-toggle::after{
+  content: "Show Builder";
+  font-size: 12px;
+  font-weight: 600;
+  color: #111;
+  white-space: nowrap;
+}
+/* drop area stays full width in all modes */
+#tpl-dropArea{
+  width: max(100vw, 1400px);
+  min-width: max(100vw, 1400px);
+  height: 100%;
+}
+
+#dropAreaInner{
+  position: relative;
+  width: max(100vw, 1400px);
+  min-width: max(100vw, 1400px);
+  min-height: 2000px;
+}
+.tpl.is-collapsed .tpl__sidebar{
+  width: auto;
+  height: auto;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  overflow: visible;
+  box-shadow: none;
+}
+.tpl.is-collapsed .sidebar-panel{
+  display: none;
+}
+
+
+.tpl.is-collapsed .sidebar-toggle{
+  display: flex;
+  width: 44px;
+  height: 44px;
+}
+
+
+.tpl.is-collapsed .sidebar-topbar{
+  width: 44px;
+  min-width: 44px;
   padding: 0;
   justify-content: center;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -115,14 +195,60 @@
 }
 
 
+.da-headerControls {
+  display: flex;
+  gap: 6px;
+  width: 100%;
+  flex-wrap: wrap;
+}
 
+.da-headerPartBtn {
+  border: 1px solid rgba(0,0,0,.35);
+  background: #fff;
+  border-radius: 6px;
+  height: 24px;
+  padding: 0 8px;
+  cursor: pointer;
+}
+
+.da-headerPartBtn.is-off {
+  background: #222;
+  color: #fff;
+  opacity: 0.7;
+}
 
                                         /*All Elements Styling*/
- .sidebar-panel{
+
+ #builder-sidebar-editor {
+  padding: 10px;
+}
+
+#builder-sidebar-editor .da-floatingBar {
+  position: relative !important;
+  left: 0 !important;
+  top: 0 !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.da-editorBackBtn {
+  width: 100%;
+  height: 32px;
+  margin-bottom: 8px;
+  border: 1px solid rgba(0,0,0,.35);
+  background: #fff;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.sidebar-panel{
   margin-top: 10px;
   border: 2px solid #000;
   background: #fff;
-  overflow: hidden;
+  overflow: auto;
+  height: calc(100% - 54px);
 }
 
 .sidebar-panel__title{
@@ -133,13 +259,17 @@
 }
 
 .sidebar-panel__list{
-  min-height: 520px; /* makes it a long box like your screenshot */
+  min-height: auto;
   padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: stretch;
 }
 
 .elementItem{
-  font-weight: 800;
-  font-size: 20px;
+  font-weight: 200;
+  font-size: 15px;
   cursor: grab;
 }
 
@@ -313,20 +443,43 @@ pointer-events: auto;
 
 /* Floating bar should size to content, not full width */
 .da-floatingBar{
-  display: inline-flex;
-  width: max-content;
-  max-width: calc(100% - 24px);
-  align-items: center;
-  gap: 8px;
-  white-space: nowrap;
+  position: absolute;
+  z-index: 9999999;
+  display: none;
+  pointer-events: auto;
+  user-select: none;
+
+  background: #d9d9d9;
+  border: 1px solid rgba(0,0,0,.45);
+  border-radius: 8px;
+  box-shadow: 0 4px 14px rgba(0,0,0,.12);
+
+  padding: 8px;
+  width: 280px;          /* fixed small panel */
+  max-width: 280px;
+  min-height: 40px;
+
+  display: none;
+  flex-wrap: wrap;       /* ✅ lets controls go to new rows */
+  align-items: flex-start;
+  gap: 6px;
+
+  white-space: normal;   /* ✅ allow wrapping */
 }
 
 /* Don’t let the name input stretch the bar */
 .da-floatingBar__name{
-  width: 180px;
-  flex: 0 0 auto;
+  width: 100%;
+  flex: 0 0 100%;
+  height: 28px;
+  border: 0;
+  background: #fff;
+  font-weight: 600;
+  font-size: 13px;
+  outline: none;
+  padding: 0 8px;
+  border-radius: 6px;
 }
-
 
 /* Keep resize handles visible even without outline */
 .da-item.is-selected .da-resize{
@@ -347,12 +500,26 @@ pointer-events: auto;
 .da-floatingBar { display: none; }
 
 .da-floatingBar__right{
-  margin-left: auto;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  width: 100%;
+  margin-left: 0;
+}
+.da-floatingBar select,
+.da-floatingBar input[type="number"],
+.da-floatingBar input[type="text"]{
+  max-width: 120px;
 }
 
+.da-floatingBar__fontSize{
+  width: 60px;
+}
+
+.da-floatingBar__color{
+  flex: 0 0 auto;
+}
 .da-floatingBar__color{
   width: 18px;
   height: 18px;
@@ -362,6 +529,8 @@ pointer-events: auto;
   background: transparent;
   cursor: pointer;
 }
+
+
 /* resize handles */
 .da-resize{
   position:absolute;
@@ -475,18 +644,7 @@ pointer-events: auto;
   outline-offset: 2px;     /* puts ring outside the real border */
 }
 
-.da-item--image{
-  overflow: hidden;     /* ✅ clips the image to radius */
-  background: #fff;     /* optional, makes contain look nicer */
-}
 
-.da-item--image .da-img{
-  width: 100%;
-  height: 100%;
-  display: block;
-  object-position: 50% 50%;
-  transform-origin: center;
-}
 
 /* =======================
    LOCKED HEADER DEFAULTS
@@ -499,11 +657,6 @@ pointer-events: auto;
   border-radius: 0 !important; /* headers are usually square */
   overflow: visible;           /* don't clip selection ring */
  
-}
-.da-item--image .da-img{
-  width: 100%;
-  height: 100%;
-  display: block;
 }
 
 /* if you want the header to have a thin outline like your screenshot */
@@ -554,36 +707,40 @@ pointer-events: auto;
 
 
   /* Right-side drag area */
-  .tpl__dropArea{
+/* canvas always gets full width */
+.tpl__dropArea{
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  z-index: 1;
   background: var(--canvas);
+  overflow-x: auto;
+  overflow-y: auto;
   padding: 0;
-  overflow: hidden;
 }
 
 .tpl-dropArea{
   height: 100%;
   border: 3px solid #7a52ff; /* purple outline like screenshot */
   background: #eee;
-  padding: 18px;
+  padding: 0px;
   box-sizing: border-box;
   position: relative;
 }
 
 /* inner white/grid box */
 .tpl-dropArea__inner{
-  height: 100%;
+  min-height: 2000px;
   background: #fff;
   border: 2px solid #cfcfcf;
   position: relative;
-  overflow: hidden;
+  overflow: visible;
 
-  /* grid background */
   background-image:
     linear-gradient(to right, rgba(0,0,0,.15) 1px, transparent 1px),
     linear-gradient(to bottom, rgba(0,0,0,.15) 1px, transparent 1px);
   background-size: 28px 28px;
 }
-
 /* big "Drag Here" text */
 .tpl-dropArea__label{
   position: absolute;
@@ -597,6 +754,7 @@ pointer-events: auto;
   user-select: none;
   pointer-events: none;
 }
+
 
 .da-delBtn{
   border: 1px solid rgba(0,0,0,.35);
@@ -625,9 +783,19 @@ pointer-events: auto;
   object-position: 50% 50%;
   transform-origin: center;
   border-radius: inherit; /* ✅ image corners match wrapper */
-  pointer-events: none;
+  pointer-events: none;/* drag should be on wrapper */
   user-select: none;
+  transform: scale(1);
+  
+  object-fit: cover;
 }
+.da-item--image{
+  overflow: hidden;     /* ✅ clips the image to radius */
+  background: #fff;     /* optional, makes contain look nicer */
+}
+
+
+
 /* image control button */
 .da-imgPickBtn{
   width: 28px;
@@ -647,17 +815,7 @@ pointer-events: auto;
   overflow: hidden; /* ✅ important for “crop” */
 }
 
-.da-item--image .da-img{
-  width: 100%;
-  height: 100%;
-  display: block;
-  user-select: none;
-  pointer-events: none; /* drag should be on wrapper */
-  object-fit: cover;
-  object-position: 50% 50%;
-  transform: scale(1);
-  transform-origin: center;
-}
+
 
 /* preview modal */
 .da-previewModal{
@@ -675,4 +833,243 @@ pointer-events: auto;
   max-height: 92vh;
   border-radius: 10px;
   background: #fff;
+}
+
+
+
+                                        /*Popup*/
+                                        .da-item--popup {
+  box-sizing: border-box;
+  overflow: hidden;
+  min-width: 180px;
+  min-height: 120px;
+}
+
+.da-popup__header {
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  border-bottom: 1px solid rgba(0,0,0,.12);
+  font-weight: 600;
+  background: rgba(0,0,0,.04);
+  box-sizing: border-box;
+}
+
+.da-popup__title {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.da-popup__close {
+  border: none;
+  background: transparent;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.da-popup__body {
+  padding: 12px;
+  font-size: 14px;
+}
+#popup-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.popup-list-row {
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.popup-list-row.is-active {
+  border-color: #111;
+  background: #f5f5f5;
+}
+
+.popup-list-empty {
+  font-size: 14px;
+  opacity: 0.7;
+}
+
+
+.popup-edit-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  z-index: 1000;
+}
+
+.popup-edit-overlay[hidden] {
+  display: none;
+}
+
+.da-item--popup.is-popup-editing {
+  left: 50% !important;
+  top: 24px !important;
+  transform: translateX(-50%) !important;
+  z-index: 1001 !important;
+}
+
+
+
+
+
+                                        /*Preview*/
+.is-preview-mode .da-floatingBar {
+  display: none !important;
+}
+
+#dropAreaInner.is-preview-mode .da-resize,
+.is-preview-mode .da-resize {
+  display: none !important;
+}
+
+.is-preview-mode .da-item {
+  cursor: default;
+}
+
+.is-preview-mode .da-btn {
+  cursor: pointer;
+}
+
+
+/*Preview Image*/
+.pdf-preview-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pdf-preview-overlay[hidden] {
+  display: none;
+}
+
+.pdf-preview-box {
+  width: min(900px, 92%);
+  height: min(85vh, 900px);
+  background: #fff;
+  border-radius: 16px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.pdf-preview-close {
+  align-self: flex-end;
+  margin: 12px;
+}
+
+.pdf-preview-frame {
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+
+
+                                            /*Input*/
+.da-item--input {
+  position: absolute;
+}
+
+.da-item--input .da-input {
+  font: inherit;
+  outline: none;
+}
+
+
+
+                                             /*Parallax*/
+.is-preview-mode .da-item[data-type="section"],
+.is-preview-mode .da-item[data-type="image"] {
+  transform: translateY(var(--parallaxY, 0px));
+  will-change: transform;
+}
+.tpl__dropArea{
+  overflow-x: auto;
+  overflow-y: auto;
+}
+
+
+                                                          /*Video*/
+  .da-item--video {
+  background: #000;
+  overflow: hidden;
+}
+
+.da-item--video .da-video {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  border-radius: inherit;
+}                                                        
+
+
+
+                                       /*Button Controls*/
+    .da-btnControls{
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.da-btnControls > *{
+  width: 100%;
+  max-width: 100%;
+}
+
+.da-btnControls input,
+.da-btnControls select,
+.da-btnControls button{
+  width: 100%;
+  max-width: 100%;
+}                                   
+.da-imgControls,
+.da-videoControls,
+.da-groupDynamicControls,
+.da-textDynamicControls,
+.da-sectionDynamicControls,
+.da-inputControls,
+.da-btnControls,
+.da-headerControls{
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.da-item--button.tab-button .da-btn{
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  color: #111 !important;
+  font-size: 16px;
+  font-weight: 600;
+  box-shadow: none !important;
+}
+
+.is-preview-mode .da-item--text[data-action-type]:not([data-action-type="none"]) .da-text {
+  cursor: pointer;
+}
+
+.mobile-canvas-mode {
+  border: 1px solid #ccc;
+  border-radius: 24px;
+  background: white;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.08);
 }

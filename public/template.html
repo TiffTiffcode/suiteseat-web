@@ -4,62 +4,115 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Template Builder</title>
-<link rel="stylesheet" href="/qassets/css/template.css">
- 
+  <link rel="stylesheet" href="/qassets/css/template.css">
 </head>
 
 <body>
-  <div class="tpl">
-<aside class="tpl__sidebar" id="tpl-sidebar">
-  <div class="sidebar-topbar">
-    <button type="button" class="sidebar-toggle" id="sidebar-toggle" aria-label="Collapse sidebar">
-      <span class="sidebar-back" aria-hidden="true"></span>
-    </button>
-  </div>
+<div class="tpl">
+  <aside class="tpl__sidebar" id="tpl-sidebar">
 
-                                        <!--Elements-->
-   <div class="sidebar-panel">
-  <div class="sidebar-panel__title">Elements</div>
+    <!-- NORMAL SIDEBAR -->
+    <div id="builder-sidebar-main">
+      <div class="sidebar-topbar">
+        <button type="button" class="sidebar-toggle" id="sidebar-toggle" aria-label="Collapse sidebar">
+          <span class="sidebar-back" aria-hidden="true"></span>
+        </button>
+      </div>
 
-  <div class="sidebar-panel__list">
-    <div class="elementItem" draggable="true" data-type="section">Section</div>
+      <div class="sidebar-panel">
+        <div class="sidebar-panel__title">Builder Actions</div>
 
-    <div class="elementItem" draggable="true" data-type="text">Text</div>
+         <span>View </span>
+        <button id="desktop-view-btn" type="button">Computer View</button>
+<button id="mobile-view-btn" type="button">Phone View</button>
 
-    <div class="elementItem" draggable="true" data-type="button">Button</div>
-    
-<div class="elementItem" draggable="true" data-type="image">Image</div>
-<div class="elementItem" draggable="true" data-type="header">Header</div>
+        <div class="sidebar-panel__list">
+          <label for="tpl-page-type" class="sidebar-field">
+            <span>Page Type</span>
+            <select id="tpl-page-type">
+              <option value="booking">Booking Page</option>
+              <option value="suite">Suite Page</option>
+              <option value="course">Course Page</option>
+              <option value="link">Link Page</option>
+            </select>
+          </label>
 
-  </div>
+          <label for="tpl-page-record" class="sidebar-field">
+            <span>Page </span>
+            <select id="tpl-page-record">
+              <option value="">Select a page</option>
+            </select>
+          </label>
+
+          <label for="tpl-page-view" class="sidebar-field">
+            <span>Page Views</span>
+            <select id="tpl-page-view">
+              <option value="default">Default View</option>
+            </select>
+          </label>
+
+          <button type="button" id="tpl-add-view-btn">+ Add View</button>
+          <button type="button" id="tpl-save-btn">Save Page</button>
+          <button type="button" id="tpl-preview-btn">Preview</button>
+
+          <br><br>
+
+          <div class="builder-sidebar-block">
+            <div class="builder-sidebar-title">Popups</div>
+            <div id="popup-list"></div>
+          </div>
+
+          <br>
+
+          <div class="sidebar-field">
+            <span>Elements</span>
+
+            <div class="sidebar-panel__list">
+              <div class="elementGroupTitle">Layout</div>
+              <div class="elementItem" draggable="true" data-type="section" data-pages="booking,suite,course,link">Section</div>
+              <div class="elementItem" draggable="true" data-type="group" data-pages="booking,suite,course,link">Group</div>
+              <div class="elementItem" draggable="true" data-type="text" data-pages="booking,suite,course,link">Text</div>
+              <div class="elementItem" draggable="true" data-type="image" data-pages="booking,suite,course,link">Image</div>
+              <div class="elementItem" draggable="true" data-type="button" data-pages="booking,suite,course,link">Button</div>
+              <div class="elementItem" draggable="true" data-type="header" data-pages="booking,suite,course,link">Header</div>
+              <div class="elementItem" draggable="true" data-type="popup" data-pages="booking,suite,course,link">Popup</div>
+              <div class="elementItem" draggable="true" data-type="input" data-pages="booking,suite,course,link">Input</div>
+              <div class="elementItem" draggable="true" data-type="video" data-pages="booking,suite,course,link">Video</div>
+
+
+         
+              <div class="elementItem" draggable="false" data-type="course-outline" data-pages="course">Course Outline</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- EDITOR SIDEBAR -->
+    <div id="builder-sidebar-editor" style="display:none;">
+      <button type="button" class="da-editorBackBtn">← Back</button>
+    </div>
+
+  </aside>
+
+  <main class="tpl__dropArea">
+    <div class="tpl-dropArea" id="tpl-dropArea">
+      <div class="dropArea__inner tpl-dropArea__inner" id="dropAreaInner">
+        <div class="tpl-dropArea__label">Drag Here</div>
+
+        <div id="popup-edit-overlay" class="popup-edit-overlay" hidden></div>
+
+        <div id="pdf-preview-overlay" class="pdf-preview-overlay" hidden>
+          <div class="pdf-preview-box">
+            <button type="button" id="pdf-preview-close" class="pdf-preview-close">Close</button>
+            <iframe id="pdf-preview-frame" class="pdf-preview-frame" src=""></iframe>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
 </div>
-                                     
-   
-</aside>
 
-
-                         
-
-
-
-
-
-
-
-    <main class="tpl__dropArea">
-                                                 <!--Drag Area-->
-<div class="tpl-dropArea" id="tpl-dropArea">
-  <div class="dropArea__inner tpl-dropArea__inner" id="dropAreaInner">
-    <div class="tpl-dropArea__label">Drag Here</div>
-  </div>
-</div>
-
-    </main>
-  </div>
-
-
-
- 
   <script src="/qassets/js/template.js"></script>
 </body>
 </html>

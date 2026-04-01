@@ -570,20 +570,68 @@ if (f.type === 'Dropdown' && f.optionSetId) {
 
 } else if (f.type === 'Reference') {
   const typeLabel = document.createElement('div');
-  typeLabel.textContent = 'Reference';
+  typeLabel.textContent = 'Reference →';
+  typeLabel.style.marginBottom = '6px';
   tdType.appendChild(typeLabel);
 
-  // keep your existing reference name lookup here if you want
-  if (f.referenceTo && typeof f.referenceTo === 'object' && f.referenceTo?.name) {
-    typeLabel.textContent = `Reference → ${f.referenceTo.name}`;
-  } else {
-    (async () => {
-      const map = await getDTMap();
-      typeLabel.textContent = `Reference → ${map[idOf(f.referenceTo)] || '(unknown)'}`;
-    })();
-  }
+  const refSelect = document.createElement('select');
+  refSelect.style.width = '100%';
+  tdType.appendChild(refSelect);
 
-} else {
+  // load all datatypes into the dropdown
+  (async () => {
+    try {
+      const dtRes = await apiFetch('/api/datatypes', {
+        headers: { Accept: 'application/json' }
+      });
+      const dts = await dtRes.json();
+
+      refSelect.innerHTML = `<option value="">Select datatype</option>`;
+
+      (dts || []).forEach(dt => {
+        const opt = document.createElement('option');
+        opt.value = dt._id;
+        opt.textContent = dt.name;
+        refSelect.appendChild(opt);
+      });
+
+      const currentRefId =
+        typeof f.referenceTo === 'object'
+          ? (f.referenceTo?._id || f.referenceTo?.id || '')
+          : (f.referenceTo || '');
+
+      if ([...refSelect.options].some(o => o.value === String(currentRefId))) {
+        refSelect.value = String(currentRefId);
+      }
+    } catch (e) {
+      refSelect.innerHTML = `<option value="">Failed to load datatypes</option>`;
+    }
+  })();
+
+  refSelect.addEventListener('change', async () => {
+    const newReferenceTo = refSelect.value || '';
+    if (!newReferenceTo) return;
+
+    try {
+      const r = await apiFetch(`/api/fields/${f._id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ referenceTo: newReferenceTo })
+      });
+
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({}));
+        alert(err.error || 'Failed to update reference');
+        return;
+      }
+
+      f.referenceTo = newReferenceTo;
+    } catch (e) {
+      alert('Failed to update reference: ' + e.message);
+    }
+  });
+}
+ else {
   const typeLabel = document.createElement('div');
   typeLabel.textContent = f.type;
   tdType.appendChild(typeLabel);

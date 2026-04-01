@@ -7,22 +7,18 @@ export default function Template2({
   suites,
   loading,
   error,
+  pageJson,
 }: {
   business: any;
   suites: any[];
   loading: boolean;
   error: string | null;
+  pageJson: any;
 }) {
   return (
-    <div style={{ padding: 40 }}>
+    <div>
       <h1>Template 2</h1>
-      <p>This template is not designed yet.</p>
-      <p>
-        Business: {business?.name || business?.values?.["Location Name"] || "—"}
-      </p>
-      <p>Suites loaded: {suites?.length || 0}</p>
-      {loading && <p>Loading...</p>}
-      {error && <p>{error}</p>}
+      <p>Saved elements: {pageJson?.elements?.length || 0}</p>
     </div>
   );
 }

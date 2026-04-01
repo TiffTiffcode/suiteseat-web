@@ -334,11 +334,13 @@ const hasAbout =
 
         // 1️⃣ First, try template stored directly on the Suite record
         const suiteAny: any = selectedSuite;
-        const suiteTemplateStr =
-          suiteAny.applicationTemplate ||
-          suiteAny["Application Template"] ||
-          suiteAny.values?.["Application Template"] ||
-          "";
+const suiteTemplateStr =
+  suiteAny.applicationTemplate ||
+  suiteAny["Suite Application Template"] ||
+  suiteAny.values?.["Suite Application Template"] ||
+  suiteAny["Application Template"] ||
+  suiteAny.values?.["Application Template"] ||
+  "";
 
         if (suiteTemplateStr) {
           console.log("[appTemplate] using template from Suite.Application Template");
@@ -890,30 +892,32 @@ useEffect(() => {
     const finalApplicantEmail =
       (applicantEmail || "").trim() || extracted.email || "";
 
-    const values: any = {
-      Suite: { _id: selectedSuite.id },
-      Name:
-        finalApplicantName && selectedSuite?.name
-          ? `${finalApplicantName} – ${selectedSuite.name}`
-          : selectedSuite?.name || "Suite Application",
-      Status: "Submitted",
-      "Answers Json": JSON.stringify(appAnswers || {}),
-      "Submitted At": new Date().toISOString(),
-      "Applicant Name": finalApplicantName,
-      "Applicant Email": finalApplicantEmail,
-    };
+const payload = {
+  dataTypeName: "Suite Application Submission",
+  values: {
+    Suite: { _id: selectedSuite.id },
+    Name:
+      finalApplicantName && selectedSuite?.name
+        ? `${finalApplicantName} – ${selectedSuite.name}`
+        : selectedSuite?.name || "Suite Application",
+    Status: "Submitted",
+    "Answers Json": JSON.stringify(appAnswers || {}),
+    "Submitted At": new Date().toISOString(),
+    "Applicant Name": finalApplicantName,
+    "Applicant Email": finalApplicantEmail,
+  },
+};
 
-    console.log("[suite] submitting application payload:", {
-      url: `${API_BASE}/api/public/application`,
-      values,
-    });
+console.log("[suite] submitting application payload:", {
+  url: `${API_BASE}/api/public/submit-record`,
+  payload,
+});
 
-    const res = await fetch(`${API_BASE}/api/public/application`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ values }),
-    });
-
+const res = await fetch(`${API_BASE}/api/public/submit-record`, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(payload),
+});
     const text = await res.text();
     console.log("[suite] application saved response:", {
       status: res.status,
@@ -1636,10 +1640,7 @@ const suiteDetails = (() => {
                     </div>
                   </div>
                 </div>
-                <p className="suite-app-header-sub">
-                  Customize your answers below. Suite name and location will be
-                  shown automatically on the final application.
-                </p>
+
               </div>
             </div>
 

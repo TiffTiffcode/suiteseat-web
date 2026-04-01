@@ -1,24 +1,1349 @@
 //C:\Users\tiffa\OneDrive\Desktop\suiteseat-web\public\qassets\js\template.js
 //Make sidebar minimize
-document.addEventListener("DOMContentLoaded", () => {
-  const root = document.querySelector(".tpl");
-  const btn = document.getElementById("sidebar-toggle");
-  if (!root || !btn) return;
 
-  btn.addEventListener("click", () => {
-    root.classList.toggle("is-collapsed");
+const API_BASE =
+  location.hostname === "localhost"
+    ? "http://localhost:8400"
+    : "https://api2.suiteseat.io";
 
-    const collapsed = root.classList.contains("is-collapsed");
-    btn.setAttribute("aria-label", collapsed ? "Expand sidebar" : "Collapse sidebar");
+function apiUrl(path) {
+  if (!path.startsWith("/")) path = `/${path}`;
+
+  if (path.startsWith("/public")) return `${API_BASE}${path}`;
+  if (!path.startsWith("/api")) path = `/api${path}`;
+
+  return `${API_BASE}${path}`;
+}
+
+async function apiFetch(path, opts = {}) {
+  return fetch(apiUrl(path), {
+    credentials: "include",
+    headers: { Accept: "application/json", ...(opts.headers || {}) },
+    ...opts,
   });
-});
+}
+
+async function fetchJSON(path, opts = {}) {
+  const res = await apiFetch(path, {
+    headers: { "Content-Type": "application/json", ...(opts.headers || {}) },
+    ...opts,
+  });
+
+  const text = await res.text().catch(() => "");
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    data = { raw: text };
+  }
+
+  if (!res.ok) throw new Error(data.message || data.error || `HTTP ${res.status}`);
+  return data;
+}
+
+let currentUser = null;
+let currentPageRecord = null;
+
+async function hydrateUser() {
+  try {
+    const data = await fetchJSON("/api/me", { method: "GET" });
+    console.log("[builder] /api/me response:", data);
+
+    const userId =
+      data?.user?._id ||
+      data?.user?.id ||
+      null;
+
+    const email = data?.user?.email || "";
+    const firstName = data?.user?.firstName || data?.user?.name || "";
+
+    if (userId) {
+      currentUser = {
+        id: String(userId),
+        email,
+        firstName,
+        roles: Array.isArray(data?.user?.roles) ? data.user.roles : [],
+        proMode: data?.user?.proMode || "",
+      };
+    } else {
+      currentUser = null;
+    }
+  } catch (e) {
+    console.warn("[builder] hydrateUser failed:", e);
+    currentUser = null;
+  }
+
+  console.log("[builder] hydrateUser currentUser:", currentUser);
+  return currentUser;
+}
+
+window.TPL_PAGE_TYPE = "booking"; 
+
+
+
+
+
+
+
+
 
 // ✅ editor mode flag (default = editing)
 window.TPL_PREVIEW = false;
+
+
+//Flip label inside element
+function updateLabelPlacement(el, grid) {
+ const nameWrap = el.querySelector(".da-item__namebar");
+
+  if (!nameWrap) return;
+
+  const left = parseFloat(el.style.left) || 0;
+  const top  = parseFloat(el.style.top)  || 0;
+
+  const gridW = grid.clientWidth || 0;
+  const labelW = nameWrap.offsetWidth || 210;
+  const pad = 8;
+
+  // reset (default = outside, top-left)
+  nameWrap.style.top = "-12px";
+  nameWrap.style.left = "12px";
+  nameWrap.style.right = "auto";
+
+  // ✅ too close to top → move inside
+  if (top < 16) nameWrap.style.top = `${pad}px`;
+
+  // ✅ too close to left → move inside-left
+  if (left < 8) nameWrap.style.left = `${pad}px`;
+
+  // ✅ too close to right → pin inside-right
+  if (left + labelW + 12 > gridW) {
+    nameWrap.style.left = "auto";
+    nameWrap.style.right = `${pad}px`;
+  }
+}
+
+
+
+
+
+
+                                               // =======================
+                                            //  Drodown
+                                             //
+                                             // =======================
+//Choose Page to Customize 
+function filterElementsForPageType() {
+  const select = document.getElementById("tpl-page-type");
+  const items = document.querySelectorAll(".elementItem");
+
+  if (!select) return;
+
+  const pageType = select.value || "booking";
+  window.TPL_PAGE_TYPE = pageType;
+
+  items.forEach((item) => {
+    const pages = String(item.dataset.pages || "")
+      .split(",")
+      .map((x) => x.trim())
+      .filter(Boolean);
+
+    const show = !pages.length || pages.includes(pageType);
+    item.style.display = show ? "" : "none";
+  });
+
+  console.log("[builder] page type:", pageType);
+} 
+
+//Load dropdown
+function toItems(data) {
+  if (!data) return [];
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data.items)) return data.items;
+  if (Array.isArray(data.records)) return data.records;
+  return [];
+}
+
+async function loadSuitePageOptions() {
+  const select = document.getElementById("tpl-page-record");
+  if (!select) return;
+
+  try {
+    if (!currentUser?.id) {
+      select.innerHTML = `<option value="">Log in first</option>`;
+      return;
+    }
+
+    const data = await fetchJSON(`/api/records/Location?limit=200&ts=${Date.now()}`, {
+      method: "GET",
+      cache: "no-store",
+    });
+
+    const rows = toItems(data);
+
+    select.innerHTML = `<option value="">Select a suite page</option>`;
+
+    rows.forEach((row) => {
+      const v = row.values || row;
+      const id = row._id || row.id;
+      const name =
+        v["Location Name"] ||
+        v.name ||
+        v.Name ||
+        "Untitled location";
+
+      if (!id) return;
+
+      const opt = document.createElement("option");
+      opt.value = String(id);
+      opt.textContent = name;
+      select.appendChild(opt);
+    });
+
+    console.log("[builder] suite page options loaded:", rows);
+  } catch (err) {
+    console.error("[builder] failed to load suite page options:", err);
+    select.innerHTML = `<option value="">No suite pages found</option>`;
+  }
+}
+
+
+
+document.addEventListener("DOMContentLoaded", async () => {
+  const pageTypeEl = document.getElementById("tpl-page-type");
+  const pageRecordEl = document.getElementById("tpl-page-record");
+  const saveBtn = document.getElementById("tpl-save-btn");
+
+  const user = await hydrateUser();
+
+  if (!user) {
+    alert("Please log in first.");
+    return;
+  }
+
+  restoreBuilderSelectionState();
+  filterElementsForPageType();
+
+
+window.populateDynamicFieldOptions?.();
+window.populateSectionDataTypeOption?.();
+
+if (pageTypeEl) {
+  pageTypeEl.addEventListener("change", async () => {
+saveBuilderSelectionState();
+filterElementsForPageType();
+populateDynamicFieldOptions();
+populateSectionDataTypeOption();
+await loadPageRecordOptionsByType();
+
+    const savedRecordId = localStorage.getItem("tpl_selected_page_record") || "";
+    if (pageRecordEl && savedRecordId) {
+      pageRecordEl.value = savedRecordId;
+    }
+
+    if (pageRecordEl?.value) {
+      await loadTemplateFromDatabase();
+    }
+  });
+}
+  pageRecordEl?.addEventListener("change", async () => {
+    saveBuilderSelectionState();
+    console.log("[builder] selected page id:", pageRecordEl.value);
+    await loadTemplateFromDatabase();
+  });
+
+  saveBtn?.addEventListener("click", () => {
+  window.saveTemplateToDatabase?.();
+});
+
+  await loadPageRecordOptionsByType();
+
+  const savedRecordId = localStorage.getItem("tpl_selected_page_record") || "";
+  if (pageRecordEl && savedRecordId) {
+    pageRecordEl.value = savedRecordId;
+  }
+
+  if (pageRecordEl?.value) {
+    await loadTemplateFromDatabase();
+  }
+});
+
+async function loadPageRecordOptionsByType() {
+  const pageTypeEl = document.getElementById("tpl-page-type");
+  if (!pageTypeEl) return;
+
+  const pageType = pageTypeEl.value || "booking";
+
+  console.log("[builder] loading page options for type:", pageType);
+
+  if (pageType === "suite") {
+    await loadSuitePageOptions();
+    return;
+  }
+
+  // temporary fallback for everything else
+  const select = document.getElementById("tpl-page-record");
+  if (select) {
+    select.innerHTML = `<option value="">No loader set for ${pageType} yet</option>`;
+  }
+}
+
+
+
+//Canvas Helper
+function clampElToCanvasBounds(el) {
+  const gridEl = document.getElementById("dropAreaInner");
+  if (!el || !gridEl) return;
+
+  const maxLeft = Math.max(0, gridEl.clientWidth - el.offsetWidth);
+  const maxTop = Math.max(0, gridEl.scrollHeight - el.offsetHeight);
+
+  let left = parseFloat(el.style.left || "0") || 0;
+  let top = parseFloat(el.style.top || "0") || 0;
+
+  left = Math.max(0, Math.min(left, maxLeft));
+  top = Math.max(0, Math.min(top, maxTop));
+
+  el.style.left = `${Math.round(left)}px`;
+  el.style.top = `${Math.round(top)}px`;
+}
+
+///Save Canvas
+
+function saveBuilderSelectionState() {
+  const pageTypeEl = document.getElementById("tpl-page-type");
+  const pageRecordEl = document.getElementById("tpl-page-record");
+
+  localStorage.setItem("tpl_selected_page_type", pageTypeEl?.value || "booking");
+  localStorage.setItem("tpl_selected_page_record", pageRecordEl?.value || "");
+}
+
+function restoreBuilderSelectionState() {
+  const pageTypeEl = document.getElementById("tpl-page-type");
+  const savedType = localStorage.getItem("tpl_selected_page_type") || "booking";
+
+  if (pageTypeEl) {
+    pageTypeEl.value = savedType;
+    window.TPL_PAGE_TYPE = savedType;
+  }
+} 
+
+
+
+
+
+
+
+
+
+//Remove Drop Here Label
+const dropLabel = document.querySelector(".tpl-dropArea__label");
+if (dropLabel) {
+  dropLabel.style.display = "none";
+}
+
+
+
+                                               // =======================
+                                            // STEPS Inside IIFE
+                                             //
+                                             // =======================
 //IIFE
                             //Drag logic 
 //Drag Section
 (() => {
+
+  //////////////////////Helper
+const DATA_TYPE_FIELDS_CACHE = {};
+function getDynamicPathFromElement(el) {
+  if (!el) return [];
+
+  try {
+    const parsed = JSON.parse(el.dataset.dynamicPath || "[]");
+    if (Array.isArray(parsed) && parsed.length) return parsed;
+  } catch {}
+
+  // fallback for old UI
+  const oldField = el.dataset.dynamicField || "";
+  if (oldField) {
+    return [
+      { kind: "field", value: oldField }
+    ];
+  }
+
+  return [];
+}
+
+async function populateTextNestedFieldOptions(item = selectedItem) {
+  if (!textNestedFieldEl || !item) return;
+
+  const source = item.dataset.dynamicSource || "page";
+  const field = item.dataset.dynamicField || "";
+  const selectedRecordId = item.dataset.selectedRecordId || "";
+  const currentValue = item.dataset.nestedField || "";
+
+  textNestedFieldEl.innerHTML = `<option value="">Select nested field</option>`;
+
+  if (!field || !selectedRecordId) return;
+
+  let parentDataTypeName = "";
+  let parentDataTypeId = "";
+
+  if (source === "page") {
+    const pageType = window.TPL_PAGE_TYPE || "booking";
+    parentDataTypeName = getMainDataTypeForPageType(pageType) || "";
+    parentDataTypeId = window.TPL_CURRENT_PAGE_DATATYPE_ID || "";
+  }
+
+if (source === "parentGroup") {
+  const parentGroup = getParentGroupContainer(item);
+  parentDataTypeName =
+    parentGroup?.dataset?.finalDataType ||
+    parentGroup?.dataset?.itemDataType ||
+    "";
+  parentDataTypeId =
+    parentGroup?.dataset?.finalDataTypeId ||
+    parentGroup?.dataset?.itemDataTypeId ||
+    "";
+}
+
+  const relatedMeta = await getRelatedDataTypeMetaFromField(
+    field,
+    parentDataTypeName,
+    parentDataTypeId
+  );
+
+  if (!relatedMeta?.name) return;
+
+  const fields = await getFieldsForDataType(
+    relatedMeta.name,
+    relatedMeta.id || ""
+  );
+
+  const seen = new Set();
+
+  fields.forEach((fieldObj) => {
+    const fieldKey =
+      fieldObj?.fieldName ||
+      fieldObj?.name ||
+      fieldObj?.label ||
+      "";
+
+    const fieldLabel =
+      fieldObj?.label ||
+      fieldObj?.name ||
+      fieldKey;
+
+    let referenceTo =
+      fieldObj?.referenceTo ||
+      fieldObj?.referenceDataType ||
+      fieldObj?.relatedDataType ||
+      fieldObj?.dataTypeName ||
+      fieldObj?.options?.referenceTo ||
+      "";
+
+    const fieldType =
+      fieldObj?.type ||
+      fieldObj?.fieldType ||
+      "";
+
+    if (referenceTo && typeof referenceTo === "object") {
+      referenceTo =
+        referenceTo.name ||
+        referenceTo.label ||
+        referenceTo.dataTypeName ||
+        referenceTo._id ||
+        "";
+    }
+
+    const isReference =
+      String(fieldType).toLowerCase().includes("reference") ||
+      !!referenceTo;
+
+    const key = String(fieldKey).trim().toLowerCase();
+    if (!fieldKey) return;
+    if (!isReference) return;
+    if (seen.has(key)) return;
+
+    seen.add(key);
+
+    const option = document.createElement("option");
+    option.value = fieldKey;
+    option.textContent = fieldLabel;
+    textNestedFieldEl.appendChild(option);
+  });
+
+  if ([...textNestedFieldEl.options].some((o) => o.value === currentValue)) {
+    textNestedFieldEl.value = currentValue;
+  }
+}
+async function populateTextSelectedRecordOptions(item = selectedItem) {
+  if (!textSelectedRecordEl || !item) return;
+
+  const source = item.dataset.dynamicSource || "page";
+  const field = item.dataset.dynamicField || "";
+  const currentValue = item.dataset.selectedRecordId || "";
+
+  console.log("[text/records] source:", source);
+  console.log("[text/records] field:", field);
+  console.log("[text/records] currentValue:", currentValue);
+
+  textSelectedRecordEl.innerHTML = `<option value="">Select item</option>`;
+
+  if (!field) return;
+
+  let sourceRecord = null;
+  let sourceRecordId = "";
+
+  if (source === "page") {
+    sourceRecord = window.TPL_CURRENT_PAGE_ROW || currentPageRecord || null;
+    sourceRecordId = String(getRecordId(sourceRecord));
+  }
+
+  if (source === "parentGroup") {
+    const parentGroup = getParentGroupContainer(item);
+    if (!parentGroup) return;
+
+    sourceRecord = await getSelectedRecordFromGroup(parentGroup);
+    sourceRecordId = String(getRecordId(sourceRecord));
+  }
+
+  console.log("[text/records] sourceRecord:", sourceRecord);
+  console.log("[text/records] sourceRecord keys:", Object.keys(sourceRecord || {}));
+  console.log("[text/records] sourceRecord values keys:", Object.keys(sourceRecord?.values || {}));
+  console.log("[text/records] sourceRecordId:", sourceRecordId);
+
+  if (!sourceRecord) return;
+
+  const fieldValue = getFieldValueFromRecord(sourceRecord, field);
+
+  console.log("[text/records] requested field exactly:", JSON.stringify(field));
+  console.log("[text/records] direct sourceRecord[field]:", sourceRecord?.[field]);
+  console.log("[text/records] direct sourceRecord.values[field]:", sourceRecord?.values?.[field]);
+
+  const refIds = extractRefIds(fieldValue);
+
+  console.log("[text/records] fieldValue:", fieldValue);
+  console.log("[text/records] refIds:", refIds);
+
+  let parentDataTypeName = "";
+  let parentDataTypeId = "";
+
+  if (source === "page") {
+    const pageType = window.TPL_PAGE_TYPE || "booking";
+    parentDataTypeName = getMainDataTypeForPageType(pageType) || "";
+    parentDataTypeId = window.TPL_CURRENT_PAGE_DATATYPE_ID || "";
+  }
+
+  if (source === "parentGroup") {
+    const parentGroup = getParentGroupContainer(item);
+    parentDataTypeName = parentGroup?.dataset?.itemDataType || "";
+    parentDataTypeId = parentGroup?.dataset?.itemDataTypeId || "";
+  }
+
+  console.log("[text/records] parentDataTypeName:", parentDataTypeName);
+  console.log("[text/records] parentDataTypeId:", parentDataTypeId);
+
+  const relatedMeta = await getRelatedDataTypeMetaFromField(
+    field,
+    parentDataTypeName,
+    parentDataTypeId
+  );
+
+  console.log("[text/records] relatedMeta:", relatedMeta);
+
+  // ✅ if Parent Group field is a plain field, no selected-record dropdown is needed
+  if (source === "parentGroup" && !relatedMeta?.name) {
+    textSelectedRecordEl.innerHTML = `<option value="">Direct field</option>`;
+    return;
+  }
+
+  if (!relatedMeta?.name) return;
+
+  const rows = await fetchRowsForDynamicReference(
+    relatedMeta.name,
+    relatedMeta.id || ""
+  );
+
+  console.log("[text/records] fetched rows:", rows);
+
+  let matchedRows = [];
+
+  // 1) normal direct-id lookup
+  if (refIds.length) {
+    matchedRows = rows.filter((row, index) => {
+      const rowId = String(getRecordId(row, index));
+      return refIds.includes(rowId);
+    });
+
+    console.log("[text/records] matchedRows by direct ids:", matchedRows);
+  }
+
+  // 2) reverse lookup fallback
+  if (!matchedRows.length && sourceRecordId) {
+    matchedRows = rows.filter((row) => {
+      const locationValue =
+        getFieldValueFromRecord(row, parentDataTypeName) ||
+        getFieldValueFromRecord(row, "Location") ||
+        getFieldValueFromRecord(row, "location");
+
+      const rowRefIds = extractRefIds(locationValue);
+
+      return rowRefIds.includes(sourceRecordId);
+    });
+
+    console.log("[text/records] matchedRows by reverse lookup:", matchedRows);
+  }
+
+  matchedRows.forEach((entry, index) => {
+    const option = document.createElement("option");
+    const value = String(getRecordId(entry, index));
+    option.value = value;
+    option.textContent = getRecordLabel(entry, index);
+    textSelectedRecordEl.appendChild(option);
+  });
+
+  if ([...textSelectedRecordEl.options].some((o) => o.value === currentValue)) {
+    textSelectedRecordEl.value = currentValue;
+  }
+
+  console.log(
+    "[text/records] final options:",
+    [...textSelectedRecordEl.options].map((o) => ({
+      value: o.value,
+      text: o.textContent
+    }))
+  );
+}
+
+async function populateTextRecordFieldOptions(item = selectedItem) {
+  if (!textRecordFieldEl || !item) return;
+
+  const source = item.dataset.dynamicSource || "page";
+  const field = item.dataset.dynamicField || "";
+  const nestedField = item.dataset.nestedField || "";
+  const currentValue = item.dataset.recordField || "";
+
+  console.log("[text/recordFields] source:", source);
+  console.log("[text/recordFields] field:", field);
+  console.log("[text/recordFields] nestedField:", nestedField);
+  console.log("[text/recordFields] currentValue:", currentValue);
+
+  textRecordFieldEl.innerHTML = `<option value="">Select item field</option>`;
+
+  if (!field) return;
+
+  let parentDataTypeName = "";
+  let parentDataTypeId = "";
+
+  if (source === "page") {
+    const pageType = window.TPL_PAGE_TYPE || "booking";
+    parentDataTypeName = getMainDataTypeForPageType(pageType) || "";
+    parentDataTypeId = window.TPL_CURRENT_PAGE_DATATYPE_ID || "";
+  }
+
+if (source === "parentGroup") {
+  const parentGroup = getParentGroupContainer(item);
+  parentDataTypeName =
+    parentGroup?.dataset?.finalDataType ||
+    parentGroup?.dataset?.itemDataType ||
+    "";
+  parentDataTypeId =
+    parentGroup?.dataset?.finalDataTypeId ||
+    parentGroup?.dataset?.itemDataTypeId ||
+    "";
+}
+
+  console.log("[text/recordFields] parentDataTypeName:", parentDataTypeName);
+  console.log("[text/recordFields] parentDataTypeId:", parentDataTypeId);
+
+  const firstMeta = await getRelatedDataTypeMetaFromField(
+    field,
+    parentDataTypeName,
+    parentDataTypeId
+  );
+
+  console.log("[text/recordFields] firstMeta:", firstMeta);
+
+  if (!firstMeta?.name) return;
+
+  let finalDataTypeName = firstMeta.name;
+  let finalDataTypeId = firstMeta.id || "";
+
+  if (nestedField) {
+    const secondMeta = await getRelatedDataTypeMetaFromField(
+      nestedField,
+      firstMeta.name,
+      firstMeta.id || ""
+    );
+
+    console.log("[text/recordFields] secondMeta:", secondMeta);
+
+    if (!secondMeta?.name) return;
+
+    finalDataTypeName = secondMeta.name;
+    finalDataTypeId = secondMeta.id || "";
+  }
+
+  const fields = await getFieldsForDataType(
+    finalDataTypeName,
+    finalDataTypeId
+  );
+
+  console.log("[text/recordFields] final fields source datatype:", finalDataTypeName);
+  console.log("[text/recordFields] fields:", fields);
+
+  const seen = new Set();
+
+  fields.forEach((fieldObj) => {
+    const fieldKey =
+      fieldObj?.fieldName ||
+      fieldObj?.name ||
+      fieldObj?.label ||
+      "";
+
+    const fieldLabel =
+      fieldObj?.label ||
+      fieldObj?.name ||
+      fieldKey;
+
+    const key = String(fieldKey).trim().toLowerCase();
+    if (!fieldKey || seen.has(key)) return;
+
+    seen.add(key);
+
+    const option = document.createElement("option");
+    option.value = fieldKey;
+    option.textContent = fieldLabel;
+    textRecordFieldEl.appendChild(option);
+  });
+
+  if ([...textRecordFieldEl.options].some((o) => o.value === currentValue)) {
+    textRecordFieldEl.value = currentValue;
+  }
+
+  console.log(
+    "[text/recordFields] final options:",
+    [...textRecordFieldEl.options].map((o) => ({
+      value: o.value,
+      text: o.textContent
+    }))
+  );
+}
+
+//Group Helper
+function extractReferenceIds(rawValue) {
+  const list = Array.isArray(rawValue)
+    ? rawValue
+    : rawValue != null
+      ? [rawValue]
+      : [];
+
+  return list.flatMap((entry) => {
+    if (entry == null) return [];
+
+    if (typeof entry === "string" || typeof entry === "number") {
+      return [String(entry)];
+    }
+
+    return [
+      entry._id,
+      entry.id,
+      entry.userId,
+      entry.recordId,
+      entry.value,
+      entry.values?._id,
+      entry.values?.id,
+    ]
+      .filter(Boolean)
+      .map((v) => String(v));
+  });
+}
+
+function getFlexibleRecordId(row, index = 0) {
+  return String(
+    row?._id ||
+    row?.id ||
+    row?.userId ||
+    row?.recordId ||
+    row?.values?._id ||
+    row?.values?.id ||
+    index
+  );
+}
+
+//////////
+function updateGroupBarVisibility(item = selectedItem) {
+  if (!item || item.dataset.type !== "group") return;
+
+  const isDynamic = (item.dataset.dynamicMode || "static") === "dynamic";
+  const hasDynamicField = !!(item.dataset.dynamicField || "");
+  const hasSelectedItem = !!(item.dataset.selectedItemId || "");
+  const hasNestedField = !!(item.dataset.nestedField || "");
+  const hasNestedSelectedItem = !!(item.dataset.nestedSelectedItemId || "");
+
+  if (groupModeEl) groupModeEl.style.display = "";
+  if (groupDynamicSourceEl) groupDynamicSourceEl.style.display = isDynamic ? "" : "none";
+  if (groupBindModeEl) groupBindModeEl.style.display = isDynamic ? "" : "none";
+  if (groupDynamicFieldEl) groupDynamicFieldEl.style.display = isDynamic ? "" : "none";
+
+  if (groupSelectedItemEl) {
+    groupSelectedItemEl.style.display = isDynamic && hasDynamicField ? "" : "none";
+  }
+
+  if (groupNestedFieldEl) {
+    groupNestedFieldEl.style.display = isDynamic && hasSelectedItem ? "" : "none";
+  }
+
+  if (groupNestedSelectedItemEl) {
+    groupNestedSelectedItemEl.style.display = isDynamic && hasNestedField ? "" : "none";
+  }
+
+  if (groupItemFieldEl) {
+    groupItemFieldEl.style.display =
+      isDynamic && hasNestedSelectedItem ? "" : "none";
+  }
+}
+
+
+function getParentGroupContainer(childEl) {
+  if (!childEl) return null;
+
+  let current = childEl;
+  let guard = 0;
+
+  while (current && guard++ < 50) {
+    const pid = current.dataset.parent;
+    if (!pid) return null;
+
+    const parent = getItemById(pid);
+    if (!parent) return null;
+
+    if (parent.dataset.type === "group") {
+      return parent;
+    }
+
+    current = parent;
+  }
+
+  return null;
+}
+
+
+async function getGroupSourceList(groupEl) {
+  if (!groupEl) return [];
+
+  const source = groupEl.dataset.dynamicSource || "page";
+  const field = groupEl.dataset.dynamicField || "";
+
+  console.log("[group] source:", source);
+  console.log("[group] field:", field);
+
+  if (!field) return [];
+
+  let sourceRecord = null;
+  let sourceRecordId = "";
+
+  if (source === "page") {
+    sourceRecord = window.TPL_CURRENT_PAGE_ROW || currentPageRecord || null;
+    sourceRecordId = getSelectedPageId() || "";
+  }
+
+  if (source === "parentGroup") {
+    const parentGroup = getParentGroupContainer(groupEl);
+    if (!parentGroup) return [];
+
+    sourceRecord = await getSelectedRecordFromGroup(parentGroup);
+    if (!sourceRecord) return [];
+
+    sourceRecordId = String(getRecordId(sourceRecord));
+  }
+
+  if (!sourceRecord) return [];
+
+  const directValue = getFieldValueFromRecord(sourceRecord, field);
+  const directIds = extractRefIds(directValue);
+
+  console.log("[group/source] field:", field);
+  console.log("[group/source] raw value:", directValue);
+  console.log("[group/source] extracted ids:", directIds);
+
+  console.log("[group] directValue:", directValue);
+  console.log("[group] directIds:", directIds);
+  console.log("[group] sourceRecordId:", sourceRecordId);
+
+  const { parentDataTypeName, parentDataTypeId } = getSourceBaseInfo(source, groupEl);
+
+  const relatedMeta = await getRelatedDataTypeMetaFromField(
+    field,
+    parentDataTypeName,
+    parentDataTypeId
+  );
+
+  console.log("[group/source] related meta:", relatedMeta);
+  console.log("[group] relatedMeta:", relatedMeta);
+groupEl.dataset.itemDataType = relatedMeta.name || "";
+groupEl.dataset.itemDataTypeId = relatedMeta.id || "";
+
+console.log("[group] itemDataType:", groupEl.dataset.itemDataType);
+console.log("[group] itemDataTypeId:", groupEl.dataset.itemDataTypeId);
+
+  if (!relatedMeta?.name) return [];
+
+  try {
+    if (!currentUser?.id) return [];
+
+    const rows = await fetchRowsForDynamicReference(
+      relatedMeta.name,
+      relatedMeta.id || ""
+    );
+
+    console.log("[group/source] all rows:", rows);
+    console.log("[group] fetched rows:", rows);
+
+    if (directIds.length) {
+      const matchedById = rows.filter((row, index) => {
+        const rowId = String(getRecordId(row, index));
+        return directIds.includes(rowId);
+      });
+      if (matchedById.length) return matchedById;
+    }
+
+    if (sourceRecordId) {
+      const reverseMatched = rows.filter((row) =>
+        rowHasReferenceToId(row, sourceRecordId)
+      );
+      if (reverseMatched.length) return reverseMatched;
+    }
+
+    if (directIds.length) {
+      const matchedByRelationship = rows.filter((row) =>
+        recordMatchesByIds(row, directIds)
+      );
+      if (matchedByRelationship.length) return matchedByRelationship;
+    }
+
+    const selectedPageId = getSelectedPageId();
+    const fallback = selectedPageId
+      ? rows.filter((row) => recordBelongsToParent(row, selectedPageId))
+      : [];
+
+    return fallback;
+  } catch (err) {
+    console.error("[group] failed to load related records", err);
+    return [];
+  }
+}
+
+async function getSelectedRecordFromGroup(groupEl) {
+  if (!groupEl) return null;
+
+  const nestedSelectedId = groupEl.dataset.nestedSelectedItemId || "";
+  const selectedId = groupEl.dataset.selectedItemId || "";
+
+  // ✅ if the group has a nested selected item (like a Suitie), return that first
+  if (nestedSelectedId) {
+    await populateGroupNestedSelectedItemOptions(groupEl);
+
+    const nestedOptions = [...groupNestedSelectedItemEl.options];
+    const hasMatch = nestedOptions.some(
+      (opt) => String(opt.value) === String(nestedSelectedId)
+    );
+
+    if (hasMatch) {
+      const relatedMetaName = groupEl.dataset.finalDataType || "";
+      const relatedMetaId = groupEl.dataset.finalDataTypeId || "";
+
+      if (relatedMetaName) {
+        const rows = await fetchRowsForDynamicReference(
+          relatedMetaName,
+          relatedMetaId || ""
+        );
+
+        const nestedRecord =
+          rows.find((row, index) => {
+            return String(getRecordId(row, index)) === String(nestedSelectedId);
+          }) || null;
+
+        if (nestedRecord) return nestedRecord;
+      }
+    }
+  }
+
+  // fallback to first-level selected item (like Suite)
+  if (!selectedId) return null;
+
+  const list = await getDynamicRecordList(groupEl);
+  if (!Array.isArray(list)) return null;
+
+  return (
+    list.find((entry, index) => {
+      return String(getRecordId(entry, index)) === String(selectedId);
+    }) || null
+  );
+}
+
+async function populateGroupItemFieldOptions(item = selectedItem) {
+  if (!groupItemFieldEl || !item) return;
+
+const dataTypeName =
+  item.dataset.finalDataType ||
+  item.dataset.itemDataType ||
+  "";
+
+const dataTypeId =
+  item.dataset.finalDataTypeId ||
+  item.dataset.itemDataTypeId ||
+  "";
+
+const currentValue = item.dataset.itemField || "";
+
+groupItemFieldEl.innerHTML = `<option value="">Select item field</option>`;
+
+if (!dataTypeName && !dataTypeId) return;
+
+const fields = await getFieldsForDataType(dataTypeName, dataTypeId);
+
+const seen = new Set();
+
+fields.forEach((field) => {
+  const fieldName =
+    field?.name ||
+    field?.fieldName ||
+    field?.label ||
+    "";
+
+  const key = String(fieldName).trim().toLowerCase();
+  if (!fieldName) return;
+  if (seen.has(key)) return;
+
+  seen.add(key);
+
+  const option = document.createElement("option");
+  option.value = fieldName;
+  option.textContent = fieldName;
+  groupItemFieldEl.appendChild(option);
+});
+
+  if ([...groupItemFieldEl.options].some((o) => o.value === currentValue)) {
+    groupItemFieldEl.value = currentValue;
+  }
+}
+async function populateGroupNestedFieldOptions(item = selectedItem) {
+  if (!groupNestedFieldEl || !item) return;
+
+  const dataTypeName = item.dataset.itemDataType || "";
+  const dataTypeId = item.dataset.itemDataTypeId || "";
+  const currentValue = item.dataset.nestedField || "";
+
+  groupNestedFieldEl.innerHTML = `<option value="">Select nested field</option>`;
+
+    console.log("[nested] item.dataset.itemDataType:", dataTypeName);
+  console.log("[nested] item.dataset.itemDataTypeId:", dataTypeId);
+  console.log("[nested] current selected suite id:", item.dataset.selectedItemId);
+
+  if (!dataTypeName && !dataTypeId) return;
+
+  const fields = await getFieldsForDataType(dataTypeName, dataTypeId);
+console.log("[nested] fields returned:", fields);
+
+  console.log("[group/nested-fields] dataTypeName:", dataTypeName);
+  console.log("[group/nested-fields] dataTypeId:", dataTypeId);
+  console.log("[group/nested-fields] fields:", fields);
+
+  const seen = new Set();
+
+  fields.forEach((field) => {
+    const fieldName =
+      field?.name ||
+      field?.fieldName ||
+      field?.label ||
+      "";
+
+    const fieldType =
+      field?.type ||
+      field?.fieldType ||
+      field?.kind ||
+      "";
+
+    const normalizedType = String(fieldType).trim().toLowerCase();
+
+    if (!fieldName) return;
+    if (!normalizedType.includes("reference")) return;
+
+    const key = String(fieldName).trim().toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+
+    const option = document.createElement("option");
+    option.value = fieldName;
+    option.textContent = fieldName;
+    groupNestedFieldEl.appendChild(option);
+  });
+
+  if ([...groupNestedFieldEl.options].some((o) => o.value === currentValue)) {
+    groupNestedFieldEl.value = currentValue;
+  }
+}
+
+async function populateGroupNestedSelectedItemOptions(item = selectedItem) {
+  if (!groupNestedSelectedItemEl || !item) return;
+
+  const selectedId = item.dataset.selectedItemId || "";
+  const nestedField = item.dataset.nestedField || "";
+
+  groupNestedSelectedItemEl.innerHTML = `<option value="">Select nested item</option>`;
+
+  if (!selectedId) return;
+
+  // get first-level records (example: suites)
+  const list = await getGroupSourceList(item);
+
+  const selectedRecord = list.find((entry, index) => {
+    const value =
+      entry?._id ||
+      entry?.id ||
+      entry?.values?._id ||
+      entry?.values?.id ||
+      String(index);
+
+    return String(value) === String(selectedId);
+  });
+
+  console.log("[group/nested-items] selectedId:", selectedId);
+  console.log("[group/nested-items] nestedField:", nestedField);
+  console.log("[group/nested-items] selectedRecord:", selectedRecord);
+
+  if (!selectedRecord) return;
+
+  const relatedMeta = await getRelatedDataTypeMetaFromField(
+    nestedField,
+    item.dataset.itemDataType || "",
+    item.dataset.itemDataTypeId || ""
+  );
+
+  console.log("[group/nested-items] relatedMeta:", relatedMeta);
+
+  if (!relatedMeta?.name) return;
+
+  const allRows = await fetchRowsForDynamicReference(
+    relatedMeta.name,
+    relatedMeta.id || ""
+  );
+
+  const rawValue = getFieldValueFromRecord(selectedRecord, nestedField);
+  let ids = extractRefIds(rawValue);
+
+  console.log("[group/nested-items] rawValue:", rawValue);
+  console.log("[group/nested-items] direct ids:", ids);
+  console.log("[group/nested-items] allRows:", allRows);
+
+  // If Suite does not directly store Suitie(s), fall back to reverse lookup:
+  // find all User records whose Suite field points to this selected suite
+if (!ids.length && nestedField === "Suitie(s)") {
+  const selectedSuiteId = String(getRecordId(selectedRecord));
+
+  console.log("[nested] running direct Suite match fallback");
+
+  ids = allRows
+    .filter((row) => {
+      const suiteVal =
+        row?.values?.Suite ||
+        row?.Suite ||
+        row?.values?.suite;
+
+      return String(suiteVal) === selectedSuiteId;
+    })
+    .map((row, index) => String(getRecordId(row, index)));
+
+  console.log("[nested] fallback ids:", ids);
+}
+
+  const matchedRows = allRows.filter((row, index) => {
+    const rowId = String(getRecordId(row, index));
+    return ids.includes(rowId);
+  });
+
+  console.log("[group/nested-items] matchedRows:", matchedRows);
+
+  matchedRows.forEach((entry, index) => {
+    const value =
+      entry?._id ||
+      entry?.id ||
+      entry?.values?._id ||
+      entry?.values?.id ||
+      String(index);
+
+    const option = document.createElement("option");
+    option.value = String(value);
+    option.textContent = getRecordLabel(entry, index);
+    groupNestedSelectedItemEl.appendChild(option);
+  });
+
+  const currentValue = item.dataset.nestedSelectedItemId || "";
+  if ([...groupNestedSelectedItemEl.options].some((o) => o.value === currentValue)) {
+    groupNestedSelectedItemEl.value = currentValue;
+  }
+
+  item.dataset.finalDataType = relatedMeta.name || "";
+  item.dataset.finalDataTypeId = relatedMeta.id || "";
+
+  console.log("[group/nested-items] finalDataType:", item.dataset.finalDataType);
+  console.log("[group/nested-items] finalDataTypeId:", item.dataset.finalDataTypeId);
+}
+
+function recordBelongsToParent(row, parentId) {
+  const v = row?.values || row || {};
+
+  const refs = [
+    v["Location"],
+    v["Business"],
+    v["Course"],
+    v.locationId,
+    v.businessId,
+    v.courseId,
+    v.parentId,
+  ];
+
+  return refs.some((ref) => {
+    if (!ref) return false;
+
+    // array ref like Location: [id]
+    if (Array.isArray(ref)) {
+      return ref.some((item) => {
+        let value = item;
+        if (typeof value === "object") {
+          value = value._id || value.id || value.value || "";
+        }
+        return String(value).trim() === String(parentId).trim();
+      });
+    }
+
+    // object ref
+    if (typeof ref === "object") {
+      ref = ref._id || ref.id || ref.value || "";
+    }
+
+    return String(ref).trim() === String(parentId).trim();
+  });
+}
+
+function getRecordLabel(entry, index = 0) {
+  const v = entry?.values || entry || {};
+
+  const first = v["First Name"] || "";
+  const last = v["Last Name"] || "";
+  const fullName = `${first} ${last}`.trim();
+
+  return (
+    fullName ||
+    v["Suite Name"] ||
+    v["Business Name"] ||
+    v["Service Name"] ||
+    v["Category Name"] ||
+    v["Calendar Name"] ||
+    v["Lesson Name"] ||
+    v["Module Name"] ||
+    v["Name"] ||
+    v["Title"] ||
+    entry?.name ||
+    entry?.title ||
+    `Item ${index + 1}`
+  );
+}
+
+function getMainDataTypeForPageType(pageType) {
+  if (pageType === "suite") return "Location";
+  if (pageType === "course") return "Course";
+  if (pageType === "booking") return "Booking";
+  return "";
+}
+
+
+function populateSectionDataTypeOption() {
+  if (!sectionDynamicDataTypeEl) return;
+
+  const pageType = window.TPL_PAGE_TYPE || "booking";
+  const dataType = getMainDataTypeForPageType(pageType);
+
+  sectionDynamicDataTypeEl.innerHTML = "";
+
+  const option = document.createElement("option");
+  option.value = dataType;
+  option.textContent = dataType || "Current page datatype";
+  sectionDynamicDataTypeEl.appendChild(option);
+}
+
+window.populateSectionDataTypeOption = populateSectionDataTypeOption;
+
+
+
+
+
+
+
+async function getFieldsForDataType(dataTypeName, dataTypeId = "") {
+  const cleanName = String(dataTypeName || "").trim();
+  const cleanId = String(dataTypeId || "").trim();
+  const cacheKey = `${cleanName}__${cleanId}`;
+
+  if (!cleanName && !cleanId) return [];
+
+  if (DATA_TYPE_FIELDS_CACHE[cacheKey]) {
+    return DATA_TYPE_FIELDS_CACHE[cacheKey];
+  }
+
+  try {
+    const data = await fetchJSON(
+      `/api/fields?limit=500&ts=${Date.now()}`,
+      {
+        method: "GET",
+        cache: "no-store",
+      }
+    );
+
+    const rows = Array.isArray(data)
+      ? data
+      : data.items || data.records || data.fields || [];
+
+    const filtered = rows.filter((field) => {
+      const rowDataTypeId = String(field?.dataTypeId || "").trim();
+
+      // ✅ prefer id match
+      if (cleanId) {
+        return rowDataTypeId === cleanId;
+      }
+
+      // fallback if name-based info exists
+      const dtName =
+        field?.dataTypeName ||
+        field?.dataType?.name ||
+        field?.parentDataTypeName ||
+        field?.recordTypeName ||
+        "";
+
+      return String(dtName).trim().toLowerCase() === cleanName.toLowerCase();
+    });
+
+    console.log("[fields] requested datatype name:", cleanName);
+    console.log("[fields] requested datatype id:", cleanId);
+    console.log("[fields] raw rows:", rows);
+    console.log("[fields] first raw row:", rows[0]);
+    console.log("[fields] filtered rows:", filtered);
+
+    DATA_TYPE_FIELDS_CACHE[cacheKey] = filtered;
+    return filtered;
+  } catch (err) {
+    console.error("[builder] failed to load fields for", cleanName, cleanId, err);
+    return [];
+  }
+}
+
+
+
+
+////////////////////////////////////////////////////////////
+
+
   const grid = document.getElementById("dropAreaInner");
   if (!grid) return;
 
@@ -26,7 +1351,609 @@ window.TPL_PREVIEW = false;
   // ✅ ONE floating bar that always sits above everything
 const floatingBar = document.createElement("div");
 floatingBar.className = "da-floatingBar";
-//Add a font
+
+let selectedItem = null;
+let active = null;
+let resizeActive = null;
+let imgPan = null;
+
+
+                                             // =======================
+                                            // STEP 1: DRAGSTART PICKUP
+                                             //Do not Change
+                                             // =======================
+  // ---------------------------
+  // DRAG FROM SIDEBAR -> DROPAREA
+  // ---------------------------
+  document.addEventListener("dragstart", (e) => {
+    const item = e.target.closest("[draggable='true'][data-type]");
+    if (!item) return;
+    dragType = item.getAttribute("data-type");
+    e.dataTransfer.effectAllowed = "copy";
+    e.dataTransfer.setData("text/plain", dragType);
+  });
+
+
+  document.addEventListener("dragend", () => {
+    dragType = null;
+  });
+
+  grid.addEventListener("dragover", (e) => {
+    if (!dragType) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
+  });
+
+
+
+
+
+
+
+
+
+
+                                               // =======================
+                                            // STEP 2: DropArea
+                                             //
+                                             // =======================
+grid.addEventListener("drop", (e) => {
+  e.preventDefault();
+
+  const type = e.dataTransfer.getData("text/plain") || dragType;
+  if (!type) return;
+
+const pt = toLocalXY(grid, e.clientX, e.clientY);
+let x = Math.round(pt.x);
+let y = snapY(Math.round(pt.y));
+
+// ✅ find a section under the cursor (top-most)
+const els = document.elementsFromPoint(e.clientX, e.clientY);
+
+const parentContainer = els
+  .filter((n) => !n.closest?.(".da-floatingBar"))
+  .map((n) => n.closest?.(".da-item"))
+  .find((n) => {
+    if (!n) return false;
+    const t = n.dataset.type;
+    return t === "section" || t === "group" || t === "popup";
+  }) || null;
+
+const header = grid.querySelector(".da-item.da-header");
+const headerBottom = header ? header.offsetHeight : 90;
+
+const parentType = parentContainer?.dataset?.type || "";
+const droppingInsideHeader =
+  parentContainer?.classList?.contains("da-header") ||
+  parentType === "header";
+
+if (!droppingInsideHeader) {
+  y = Math.max(y, headerBottom -2);
+}
+
+
+
+
+
+  ////////////////////////////////////////////
+//this is where you add the new element
+//
+  let el = null;
+  if (type === "section") el = makeSectionEl({ x, y });
+  if (type === "group") el = makeGroupEl({ x, y });
+  if (type === "text") el = makeTextEl({ x, y });
+  if (type === "button") el = makeButtonEl({ x, y });
+  if (type === "image") el = makeImageEl({ x, y });
+  if (type === "popup") el = makePopupEl({ x, y });
+  if (type === "input") el = makeInputEl({ x, y });
+  if (type === "video") el = makeVideoEl({ x, y });
+
+
+
+if (type === "header") {
+  addLockedHeaderAt({ x, y });
+  return;
+}
+
+
+
+
+if (!el) return;
+
+// ✅ if dropping text on a section, "contain" it
+if (
+  (type === "text" ||
+   type === "button" ||
+   type === "image" ||
+   type === "input" ||
+   type === "section" ||
+   type === "group" ||
+   type === "popup") &&
+  parentContainer
+)
+{
+  el.dataset.parent = parentContainer.dataset.id;
+  el.style.zIndex = String(parseInt(parentContainer.style.zIndex || "1", 10) + 1);
+}
+
+grid.appendChild(el);
+
+if (el.dataset.type === "section") {
+  clampElToCanvasBounds(el);
+}
+
+refreshPopupList();
+grid.querySelectorAll(".da-item").forEach((x) => x.classList.remove("is-selected"));
+el.classList.add("is-selected");
+selectedItem = el;
+showBarForItem(el);
+
+if (el.dataset.type === "popup") {
+  openPopupEditMode(el);
+}
+
+grid.querySelector(".tpl-dropArea__label")?.remove();
+trimCanvasHeight();
+});
+
+
+
+  // ---------------------------
+  // DRAG EXISTING SECTIONS (x free, y snaps)
+  // ---------------------------
+// ---------------------------
+// SELECT + DRAG (universal for all .da-item)
+// ---------------------------
+grid.addEventListener("click", (e) => {
+  const item = e.target.closest(".da-item--image");
+  if (!item) return;
+
+  if (!window.TPL_PREVIEW) return; // ✅ only preview mode
+  e.preventDefault();
+  e.stopPropagation();
+
+  const src = (item.dataset.src || "").trim();
+  if (!src) return;
+
+ // previewModal.querySelector("img").src = src;
+  //previewModal.classList.add("is-open");
+});
+
+grid.addEventListener("click", (e) => {
+  const btn = e.target.closest("[data-popup-action='toggle']");
+  if (!btn) return;
+
+  const popup = btn.closest(".da-item");
+  if (!popup || popup.dataset.type !== "popup") return;
+
+  e.preventDefault();
+  e.stopPropagation();
+
+  const next = popup.dataset.popupMinimized !== "1";
+  setPopupMinimized(popup, next);
+
+  if (selectedItem === popup) {
+    showBarForItem(popup);
+  }
+});
+
+grid.addEventListener("mousedown", (e) => {
+ // ✅ normal click picks the top item, shift-click cycles through stacked items
+  // ✅ If the user clicks the floating bar, do NOT unselect/hide it
+   if (e.target.closest(".da-resize")) return;
+    if (e.target.closest(".da-floatingBar")) return;
+
+      const editingPopup = grid.querySelector('.da-item[data-type="popup"].is-popup-editing');
+
+  // ✅ if a popup is open and user clicked OUTSIDE that popup, close it
+  if (editingPopup && !e.target.closest('.da-item[data-type="popup"].is-popup-editing')) {
+    closePopupEditMode();
+    grid.querySelectorAll(".da-item").forEach((x) => x.classList.remove("is-selected"));
+    showBarForItem(null);
+    e.preventDefault();
+    return;
+  }
+ 
+ let item = e.target.closest(".da-item");
+ if (item?.dataset?.type === "header") {
+  grid.querySelectorAll(".da-item").forEach((x) => x.classList.remove("is-selected"));
+  item.classList.add("is-selected");
+  selectedItem = item;
+window.selectedItem = item;
+  showBarForItem(item);
+  e.preventDefault();
+  return;
+}
+// ✅ PREVIEW MODE: clicking a real button should NOT drag the canvas item
+if (window.TPL_PREVIEW && e.target.closest(".da-btn")) {
+  return; // let the button's own click handler open the link
+}
+
+// ✅ if click hits overlap, allow selecting the back one with SHIFT
+if (e.shiftKey) {
+  item = pickAtPoint(e.clientX, e.clientY) || item;
+}
+
+  // ✅ empty canvas
+  if (!item) {
+    closePopupEditMode();
+    grid.querySelectorAll(".da-item").forEach((x) => x.classList.remove("is-selected"));
+    showBarForItem(null);
+    return;
+  }
+
+  // ✅ popup click opens popup mode
+  if (item.dataset.type === "popup") {
+    grid.querySelectorAll(".da-item").forEach((x) => x.classList.remove("is-selected"));
+    item.classList.add("is-selected");
+    selectedItem = item;
+window.selectedItem = item;
+    showBarForItem(item);
+    openPopupEditMode(item);
+    e.preventDefault();
+    return;
+  }
+
+// ✅ if you clicked a tab inside a group, drag the group instead
+// ✅ exact clicked item should drag itself
+const dragEl = item;
+
+
+// ✅ CLICKED EMPTY SPACE = UNSELECT
+if (!item) {
+  closePopupEditMode();
+  grid.querySelectorAll(".da-item").forEach((x) => x.classList.remove("is-selected"));
+  showBarForItem(null);
+  return;
+}
+
+// ✅ POPUP: do not drag like normal items
+if (item.dataset.type === "popup") {
+  grid.querySelectorAll(".da-item").forEach((x) => x.classList.remove("is-selected"));
+  item.classList.add("is-selected");
+  selectedItem = item;
+window.selectedItem = item;
+  showBarForItem(item);
+  openPopupEditMode(item);
+  e.preventDefault();
+  return;
+}
+
+// ✅ if user clicked inputs/editable text, don't start drag
+if (window.TPL_PREVIEW && e.target.closest("input, textarea, [contenteditable='true']")) return;
+
+  // ✅ remember if it was already selected BEFORE we change selection
+  const wasSelected = item.classList.contains("is-selected");
+
+  // ✅ SELECT (shows bar)
+  grid.querySelectorAll(".da-item").forEach((x) => x.classList.remove("is-selected"));
+item.classList.add("is-selected");
+showBarForItem(item);
+
+// ✅ AUTO OPEN SIDEBAR WHEN ITEM CLICKED
+const root = document.querySelector(".tpl");
+
+if (root?.classList.contains("is-collapsed")) {
+  root.classList.remove("is-collapsed");
+
+  const btn = document.getElementById("sidebar-toggle");
+  if (btn) {
+    btn.textContent = "← Back";
+  }
+
+  requestAnimationFrame(() => {
+    syncLockedHeaderWidth();
+
+    if (typeof layoutHeaderChildren === "function") {
+      layoutHeaderChildren();
+    }
+
+    if (typeof mountBarInSidebar === "function") {
+      mountBarInSidebar();
+    }
+
+    if (typeof showBarForItem === "function") {
+      showBarForItem(item);
+    }
+  });
+}
+ 
+  // ✅ RULE:
+  // first click selects only. second click/drag actually drags.
+// ✅ Sections drag immediately, everything else still needs select-then-drag
+if (
+  !wasSelected &&
+  item.dataset.type !== "section" &&
+  item.dataset.type !== "group" &&
+  item.dataset.type !== "popup"
+) return;
+
+e.preventDefault();
+document.body.style.userSelect = "none";
+
+const rect = dragEl.getBoundingClientRect();
+const gridRect = grid.getBoundingClientRect();
+
+const startLeft = rect.left - gridRect.left + grid.scrollLeft;
+const startTop  = rect.top  - gridRect.top  + grid.scrollTop;
+
+let childrenStart = null;
+if (
+  dragEl.dataset.type === "section" ||
+  dragEl.dataset.type === "header" ||
+  dragEl.dataset.type === "group" ||
+  dragEl.dataset.type === "popup"
+) {
+  const kids = getChildrenDeep(dragEl);
+
+  childrenStart = kids.map((k) => ({
+    el: k,
+    left: parseFloat(k.style.left) || 0,
+    top: parseFloat(k.style.top) || 0,
+  }));
+}
+
+active = {
+  el: dragEl,
+  startX: e.clientX,
+  startY: e.clientY,
+  startLeft,
+  startTop,
+  childrenStart,
+};
+
+dragEl.classList.add("is-dragging");
+
+});
+
+
+
+grid.addEventListener("mousedown", (e) => {
+  const item = e.target.closest(".da-item--image");
+  if (!item) return;
+
+  // ✅ only pan when holding ALT (otherwise normal drag should work)
+  if (!e.altKey) return;
+
+  if (e.target.closest(".da-resize") || e.target.closest(".da-floatingBar")) return;
+  if (!item.classList.contains("is-selected")) return;
+
+  const img = item.querySelector(".da-img");
+  if (!img) return;
+
+  e.preventDefault();
+  e.stopPropagation();
+
+  const startX = e.clientX;
+  const startY = e.clientY;
+
+  const startPosX = parseFloat(item.dataset.posX || "50");
+  const startPosY = parseFloat(item.dataset.posY || "50");
+
+  imgPan = { item, img, startX, startY, startPosX, startPosY };
+  document.body.style.userSelect = "none";
+}, true);
+
+
+window.addEventListener("mousemove", (e) => {
+  if (!imgPan) return;
+
+  const dx = e.clientX - imgPan.startX;
+  const dy = e.clientY - imgPan.startY;
+
+  // tweak sensitivity
+  const speed = 0.12;
+
+  let nextX = imgPan.startPosX + dx * speed;
+  let nextY = imgPan.startPosY + dy * speed;
+
+  // clamp 0–100%
+  nextX = Math.max(0, Math.min(100, nextX));
+  nextY = Math.max(0, Math.min(100, nextY));
+
+  imgPan.item.dataset.posX = String(nextX);
+  imgPan.item.dataset.posY = String(nextY);
+
+  imgPan.img.style.objectPosition = `${nextX}% ${nextY}%`;
+  refreshBarPosition();
+});
+
+window.addEventListener("mouseup", () => {
+  if (!imgPan) return;
+  document.body.style.userSelect = "";
+  imgPan = null;
+});
+
+  window.addEventListener("mousemove", (e) => {
+   // RESIZE has priority
+if (resizeActive) {
+  const r = resizeActive;
+  const dx = e.clientX - r.startX;
+  const dy = e.clientY - r.startY;
+
+  let left = r.startLeft;
+  let top  = r.startTop;
+  let w    = r.startW;
+  let h    = r.startH;
+
+
+
+  // Horizontal
+const mins = getMinSizeForItem(r.el);
+
+if (r.dir.includes("e")) w = Math.max(mins.w, r.startW + dx);
+if (r.dir.includes("w")) {
+  w = Math.max(mins.w, r.startW - dx);
+  left = r.startLeft + (r.startW - w);
+}
+  // Vertical
+if (r.dir.includes("s")) h = Math.max(mins.h, r.startH + dy);
+if (r.dir.includes("n")) {
+  h = Math.max(mins.h, r.startH - dy);
+  top = r.startTop + (r.startH - h);
+}
+
+r.el.style.left = px(left);
+r.el.style.top  = px(top);
+r.el.style.width  = px(w);
+r.el.style.height = px(h);
+
+const headerAncestor = getHeaderAncestor(r.el);
+if (headerAncestor && r.el.dataset.type !== "header") {
+  clampElToHeaderBounds(r.el, headerAncestor);
+}
+
+clampElToCanvasBounds(r.el);
+
+  // ✅ LOCK ASPECT RATIO (logo)
+  const lockRatio = r.el?.dataset?.lockRatio === "1";
+  if (lockRatio) {
+    const ratio = (r.startW / r.startH) || 1; // square => 1
+
+    // If resizing side handles, force the other dimension
+    const isSideOnly =
+      (r.dir === "e" || r.dir === "w" || r.dir === "n" || r.dir === "s");
+
+    if (isSideOnly) {
+      if (r.dir === "e" || r.dir === "w") {
+        // width changed -> set height to match
+        h = Math.max(mins.h, w / ratio);
+        // keep vertically centered while height changes
+        top = r.startTop + (r.startH - h) / 2;
+      } else {
+        // height changed -> set width to match
+        w = Math.max(mins.w, h * ratio);
+        // keep horizontally centered while width changes
+        left = r.startLeft + (r.startW - w) / 2;
+      }
+    } else {
+      // corner resize: pick the dominant change
+      if (Math.abs(dx) >= Math.abs(dy)) {
+        h = Math.max(mins.h, w / ratio);
+        if (r.dir.includes("n")) top = r.startTop + (r.startH - h);
+      } else {
+        w = Math.max(mins.w, h * ratio);
+        if (r.dir.includes("w")) left = r.startLeft + (r.startW - w);
+      }
+    }
+  }
+
+  refreshBarPosition();
+  return;
+}
+
+if (!active) return;
+
+    const dx = e.clientX - active.startX;
+    const dy = e.clientY - active.startY;
+
+  let nextLeft = active.startLeft + dx;
+let nextTop  = active.startTop + dy;
+
+// keep it inside drop area bounds (basic clamp)
+const maxLeft = grid.clientWidth - active.el.offsetWidth;
+const maxTop  = grid.scrollHeight - active.el.offsetHeight;
+
+nextLeft = clamp(nextLeft, 0, Math.max(0, maxLeft));
+nextTop  = clamp(nextTop, 0, Math.max(0, maxTop));
+
+  // keep normal elements below the header
+  const header = grid.querySelector(".da-item.da-header");
+  const headerBottom = header ? header.offsetHeight : 90;
+  const itemHeaderAncestor = getHeaderAncestor(active.el);
+
+if (!itemHeaderAncestor && active.el.dataset.type !== "header") {
+  nextTop = Math.max(nextTop, headerBottom -2);
+}
+
+  // only sections/groups snap vertically
+  if (
+    active?.el?.dataset?.type === "section" ||
+    active?.el?.dataset?.type === "group"
+  ) {
+    nextTop = snapY(nextTop);
+  }
+
+// ✅ If dragging something inside header, clamp to header bounds
+const headerAncestor = getHeaderAncestor(active.el);
+if (headerAncestor && active.el.dataset.type !== "header") {
+  const hLeft = getNum(headerAncestor, "left", 0);
+  const hTop  = getNum(headerAncestor, "top", 0);
+  const hW    = headerAncestor.offsetWidth;
+  const hH    = headerAncestor.offsetHeight;
+
+  const elW = active.el.offsetWidth;
+  const elH = active.el.offsetHeight;
+
+  nextLeft = clamp(nextLeft, hLeft, hLeft + hW - elW);
+  nextTop  = clamp(nextTop,  hTop,  hTop  + hH - elH);
+}
+
+// ✅ NOW compute final delta (after clamp + snap)
+const finalDx = nextLeft - active.startLeft;
+const finalDy = nextTop  - active.startTop;
+
+// ✅ if dragging a container (section/header/group), drag its children too
+if (
+  (active.el.dataset.type === "section" ||
+   active.el.dataset.type === "header"  ||
+   active.el.dataset.type === "group"   ||
+   active.el.dataset.type === "popup") &&
+  Array.isArray(active.childrenStart)
+)
+ {
+  active.childrenStart.forEach((c) => {
+    c.el.style.left = `${Math.round(c.left + finalDx)}px`;
+    c.el.style.top  = `${Math.round(c.top + finalDy)}px`;
+  });
+}
+
+active.el.style.left = `${Math.round(nextLeft)}px`;
+active.el.style.top  = `${Math.round(nextTop)}px`;
+
+clampElToCanvasBounds(active.el);
+refreshBarPosition();
+
+
+  });
+
+window.addEventListener("mouseup", () => {
+  if (resizeActive) {
+    document.body.style.userSelect = "";
+    
+    if (resizeActive?.el) {
+      const headerAncestor = getHeaderAncestor(resizeActive.el);
+      if (headerAncestor) {
+        clampElToHeaderBounds(resizeActive.el, headerAncestor);
+      }
+    }
+
+    resizeActive = null;
+    trimCanvasHeight();
+    return;
+  }
+
+  if (!active) return;
+
+  document.body.style.userSelect = "";
+  active.el.classList.remove("is-dragging");
+  active = null;
+  trimCanvasHeight();
+});
+
+
+
+
+
+
+
+
+
+
+                                                 // =======================
+                                            // STEP 3: Bar Controls 
+                                             // =======================
+                                             //Add a font
 // ✅ Font library (add as many as you want)
 const FONT_LIBRARY = [
   { label: "Inter", css: "'Inter', sans-serif", gf: "Inter:wght@300;400;500;600;700" },
@@ -70,38 +1997,110 @@ function ensureGoogleFontLoaded(gfParam) {
   document.head.appendChild(link);
 }
 
-                                                 // =======================
-                                            // STEP 5A: Add functions in bar /controls
-                                             //
-                                             // =======================
 floatingBar.innerHTML = `
+<button type="button" class="da-editorBackBtn">← Back</button>
 <!-- ✅ Image controls (only show when an IMAGE is selected) -->
 <div class="da-imgControls" style="display:none">
   <button type="button" class="da-imgPickBtn" title="Upload image" aria-label="Upload image">🖼️</button>
   <input class="da-imgFile" type="file" accept="image/*" style="display:none" />
+
+  <select class="da-img__mode" aria-label="Image mode">
+    <option value="static">Static</option>
+    <option value="dynamic">Dynamic</option>
+  </select>
+
+  <select class="da-img__dynamicSource" aria-label="Image dynamic source">
+    <option value="page">Current Page</option>
+    <option value="parentGroup">Parent Group</option>
+  </select>
+
+  <select class="da-img__dynamicField" aria-label="Image dynamic field">
+    <option value="">Select image field</option>
+  </select>
 
   <select class="da-imgFit" title="Fit" aria-label="Fit">
     <option value="cover">Cover</option>
     <option value="contain">Contain</option>
   </select>
 
-<input class="da-imgZoom" type="range" min="0.2" max="3" step="0.05" value="1" />
-
-
-
+  <input class="da-imgZoom" type="range" min="0.2" max="3" step="0.05" value="1" />
 
   <input class="da-imgBorderW" type="number" min="0" max="20" step="1" value="0" title="Border width" aria-label="Border width" />
   <input class="da-imgBorderC" type="color" value="#111111" title="Border color" aria-label="Border color" />
   <input class="da-imgRadius" type="number" min="0" max="120" step="1" value="12" title="Border radius" aria-label="Border radius" />
 </div>
 
-<!-- ✅ Button controls (only show when a BUTTON is selected) -->
+<!-- ✅ Video Controls  -->
+<div class="da-videoControls" style="display:none">
+  <button type="button" class="da-videoPickBtn">🎥</button>
+  <input class="da-videoFile" type="file" accept="video/*" style="display:none" />
+
+  <input class="da-videoRadius" type="number" min="0" max="120" step="1" value="12" title="Corner radius" />
+
+  <label><input class="da-videoControlsToggle" type="checkbox" checked /> Controls</label>
+  <label><input class="da-videoAutoplay" type="checkbox" /> Autoplay</label>
+  <label><input class="da-videoMuted" type="checkbox" checked /> Muted</label>
+  <label><input class="da-videoLoop" type="checkbox" /> Loop</label>
+</div>
+
+
+<!-- ✅ Header Controls  -->
+<div class="da-headerControls" style="display:none">
+  <button type="button" class="da-headerPartBtn" data-header-part="Logo">Logo</button>
+  <button type="button" class="da-headerPartBtn" data-header-part="Store Name">Store</button>
+  <button type="button" class="da-headerPartBtn" data-header-part="Tabs">Tabs</button>
+  <button type="button" class="da-headerPartBtn" data-header-part="Cart">Cart</button>
+  <button type="button" class="da-headerPartBtn" data-header-part="Profile">User</button>
+</div>
+
+<!-- ✅ Group Controls  -->
+<div class="da-groupDynamicControls" style="display:none">
+  <select class="da-group__mode" aria-label="Group data mode">
+    <option value="static">Static</option>
+    <option value="dynamic">Dynamic</option>
+  </select>
+
+  <select class="da-group__dynamicSource" aria-label="Group dynamic source">
+    <option value="page">Current Page</option>
+    <option value="parentGroup">Parent Group</option>
+  </select>
+
+  <select class="da-group__bindMode" aria-label="Group bind mode">
+    <option value="single">Single Item</option>
+    <option value="list">List</option>
+  </select>
+
+  <select class="da-group__dynamicField" aria-label="Group dynamic field">
+    <option value="">Select field</option>
+  </select>
+
+  <select class="da-group__selectedItem" aria-label="Selected item">
+    <option value="">Select item</option>
+  </select>
+
+  <select class="da-group__nestedField" aria-label="Nested field">
+    <option value="">Select nested field</option>
+  </select>
+
+  <select class="da-group__nestedSelectedItem" aria-label="Nested selected item">
+    <option value="">Select nested item</option>
+  </select>
+
+  <select class="da-group__itemField" aria-label="Item field">
+    <option value="">Select item field</option>
+  </select>
+</div>
+
+<!-- ✅ Button Controls (only show when a BUTTON is selected) -->
 <div class="da-btnControls" style="display:none">
+  <!-- Button label -->
   <input class="da-btn__label" type="text" placeholder="Button text" aria-label="Button text" />
 
+  <!-- Button colors -->
   <input class="da-btn__bg" type="color" value="#111111" title="Button color" aria-label="Button color" />
   <input class="da-btn__textColor" type="color" value="#ffffff" title="Text color" aria-label="Text color" />
 
+  <!-- Button border -->
   <input class="da-btn__borderWidth" type="number" min="0" max="20" step="1" value="0" title="Border thickness" aria-label="Border thickness" />
   <input class="da-btn__borderColor" type="color" value="#111111" title="Border color" aria-label="Border color" />
   <select class="da-btn__borderStyle" title="Border style" aria-label="Border style">
@@ -111,13 +2110,107 @@ floatingBar.innerHTML = `
     <option value="none">None</option>
   </select>
 
+  <div class="da-btn__submitInputsWrap" style="display:none;">
+  <div class="da-btn__submitInputsTitle">Submit Inputs</div>
+  <div class="da-btn__submitInputsList"></div>
+</div>
+
+<button type="button" class="da-btn__bgToggle">Remove Background</button>
+
+  <!-- Button radius -->
   <input class="da-btn__radius" type="number" min="0" max="80" step="1" value="12" title="Border radius" aria-label="Border radius" />
-  <input class="da-btn__href" type="text" placeholder="https:// link" aria-label="Button link" />
+
+  <!-- NEW: button action -->
+ <select class="da-btn__actionType" title="Button action" aria-label="Button action">
+  <option value="none">No action</option>
+  <option value="link">Open link</option>
+  <option value="change-view">Change view</option>
+  <option value="open-popup">Open popup</option>
+  <option value="scroll-to-section">Scroll to section</option>
+  <option value="download-pdf">Download PDF</option>
+  <option value="submit">Submit form</option>
+  <option value="open-template">Open Template</option>
+</select>
+
+<select class="da-btn__actionSource" title="Button source" aria-label="Button source">
+  <option value="page">Current Page</option>
+  <option value="parentGroup">Parent Group</option>
+</select>
+
+  <input class="da-btn__actionTarget" type="text" placeholder="URL / view name / popup id" aria-label="Button target" />
+
+  <select class="da-btn__actionTargetSelect" aria-label="Button target select" style="display:none;">
+  <option value="">Select target</option>
+</select>
+
+
+<input class="da-btn__pdfFile" type="file" accept="application/pdf" style="display:none;" />
+<button type="button" class="da-btn__pdfPick" style="display:none;">Choose PDF</button>
+
+  <!-- NEW: button display -->
+  <select class="da-btn__displayType" title="Button display" aria-label="Button display">
+    <option value="text">Text</option>
+    <option value="icon">Icon</option>
+    <option value="text-icon">Text + Icon</option>
+  </select>
+
+  <!-- optional icon text for now -->
+  <input class="da-btn__icon" type="text" placeholder="Icon (ex: ← or ★)" aria-label="Button icon" />
 </div>
 
 
   <input class="da-floatingBar__name" type="text" value="Section" aria-label="Element name" />
-  <div class="da-floatingBar__right">
+
+<div class="da-textDynamicControls" style="display:none">
+  <select class="da-text__mode" aria-label="Text mode">
+    <option value="static">Static</option>
+    <option value="dynamic">Dynamic</option>
+  </select>
+
+  <select class="da-text__dynamicSource" aria-label="Dynamic source">
+    <option value="page">Current Page</option>
+    <option value="parentGroup">Parent Group</option>
+  </select>
+
+  <select class="da-text__dynamicField" aria-label="Dynamic field">
+    <option value="">Select dynamic field</option>
+  </select>
+
+  <select class="da-text__selectedRecord" aria-label="Selected record" style="display:none">
+    <option value="">Select item</option>
+  </select>
+
+  <select class="da-text__nestedField" aria-label="Nested field" style="display:none">
+    <option value="">Select nested field</option>
+  </select>
+
+  <select class="da-text__nestedSelectedRecord" aria-label="Nested selected record" style="display:none">
+    <option value="">Select nested item</option>
+  </select>
+
+  <select class="da-text__recordField" aria-label="Record field" style="display:none">
+    <option value="">Select item field</option>
+  </select>
+</div>
+
+
+<div class="da-sectionDynamicControls" style="display:none">
+  <select class="da-section__mode" aria-label="Section data mode">
+    <option value="static">Static</option>
+    <option value="dynamic">Dynamic</option>
+  </select>
+
+  <select class="da-section__dynamicSource" aria-label="Section dynamic source">
+    <option value="page">Current Page</option>
+  </select>
+
+  <select class="da-section__dynamicDataType" aria-label="Section data type" disabled>
+    <option value="">Current page datatype</option>
+  </select>
+</div>
+
+<div class="da-floatingBar__right">
+
 <select class="da-floatingBar__font" title="Font" aria-label="Font"></select>
 
     <!-- ✅ Font size (only used for text items) -->
@@ -128,6 +2221,59 @@ floatingBar.innerHTML = `
 <button type="button" class="da-txtBtn" data-txt="alignLeft" title="Align left" aria-label="Align left">⟸</button>
 <button type="button" class="da-txtBtn" data-txt="alignCenter" title="Align center" aria-label="Align center">≡</button>
 <button type="button" class="da-txtBtn" data-txt="alignRight" title="Align right" aria-label="Align right">⟹</button>
+
+
+
+
+<!-- ✅ Input Controls  -->
+<div class="da-inputControls" style="display:none;">
+  <input class="da-input__labelTextControl" type="text" placeholder="Label text" aria-label="Input label text" />
+  <input class="da-input__placeholderControl" type="text" placeholder="Placeholder" aria-label="Input placeholder" />
+
+  <label>Label BG</label>
+<input class="da-input__labelBgControl" type="color" value="#ffffff" />
+
+<label>Input BG</label>
+<input class="da-input__inputBgControl" type="color" value="#ffffff" />
+
+<!--label background--!>
+<select class="da-input__labelBgModeControl">
+  <option value="none">None</option>
+  <option value="color">Color</option>
+</select>
+
+<!--input background--!>
+<select class="da-input__inputBgModeControl">
+  <option value="none">None</option>
+  <option value="color">Color</option>
+</select>
+
+<input class="da-input__inputBgControl" type="color" value="#ffffff" />
+
+<input class="da-input__labelBgControl" type="color" value="#ffffff" />
+
+  <select class="da-input__typeControl" aria-label="Input type">
+    <option value="text">Text</option>
+    <option value="email">Email</option>
+    <option value="tel">Phone</option>
+    <option value="number">Number</option>
+    <option value="password">Password</option>
+  </select>
+
+  <label class="da-input__requiredWrap">
+    <input class="da-input__requiredControl" type="checkbox" />
+    Required
+  </label>
+
+  <label class="da-input__bgToggleWrap">
+  <input class="da-input__bgToggleControl" type="checkbox" />
+  Background
+</label>
+
+<input class="da-input__bgControl" type="color" value="#ffffff" />
+
+</div>
+
 
 <!-- ✅ Section border controls (only for sections) -->
 <input class="da-secBorder__radius" type="number" min="0" max="200" step="1" value="0" title="Corner radius" aria-label="Corner radius" />
@@ -141,58 +2287,3388 @@ floatingBar.innerHTML = `
   <option value="solid">Solid</option>
   <option value="dashed">Dashed</option>
   <option value="dotted">Dotted</option>
+   <option value="none">None</option>
 </select>
 
+<input class="da-parallax" type="range" min="0" max="1" step="0.05" value="0" title="Parallax" aria-label="Parallax" />
 
-    <input class="da-floatingBar__color" type="color" value="#f2b26b" aria-label="Background color" />
-    <button type="button" class="da-layerBtn" data-action="sendBack" title="Send back">⬇︎</button>
-    <button type="button" class="da-layerBtn" data-action="bringFront" title="Bring front">⬆︎</button>
+   <input class="da-floatingBar__color" type="color" value="#f2b26b" aria-label="Background color" />
+<button type="button" class="da-secBtn" data-sec="bgToggle" title="Background on/off" aria-label="Background on/off">◪</button>
+<button type="button" class="da-layerBtn" data-action="sendBack" title="Send back">⬇︎</button>
+ <button type="button" class="da-layerBtn" data-action="bringFront" title="Bring front">⬆︎</button>
     <button type="button" class="da-layerBtn" data-action="duplicate" title="Duplicate">＋</button>
     <button type="button" class="da-delBtn" data-action="remove" title="Remove">✕</button>
+    <button type="button" class="da-hideBtn" data-action="toggleHide" title="Hide/show">👁</button>
   </div>
+
+
 `;
 
 grid.appendChild(floatingBar);
 
+const btnBgToggleEl = floatingBar.querySelector(".da-btn__bgToggle");
 
 // ✅ start hidden until an element is selected
 floatingBar.style.display = "none";
 
+
+
+
+
+
+
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////  
+//Elements
+ ///////////  
                                                  // =======================
-                                            // STEP 5B Element Wiring
+                                            // STEP 4: Add Elements
+                                             //Put all elements above Section Element
+                                             // =======================
+
+
+ //////
+//Add New Element
+//////////
+
+  //Image Element
+  function makeImageEl({ x, y, src = "" }) {
+  const el = document.createElement("div");
+  el.className = "da-item da-item--image";
+  el.dataset.type = "image";
+  el.dataset.id = uid("img");
+
+  // defaults
+  el.dataset.src = src;               // later we’ll set this from the bar
+  el.dataset.fit = el.dataset.fit || "cover";  // cover | contain
+  el.dataset.radius = el.dataset.radius || "12";
+
+  el.style.left = `${Math.round(x)}px`;
+  el.style.top  = `${Math.round(y)}px`;
+  el.style.width = `220px`;
+  el.style.height = `160px`;
+
+el.dataset.dynamicMode = el.dataset.dynamicMode || "static";
+el.dataset.dynamicSource = el.dataset.dynamicSource || "page";
+el.dataset.bindMode = el.dataset.bindMode || "single";
+el.dataset.dynamicField = el.dataset.dynamicField || "";
+el.dataset.selectedItemId = el.dataset.selectedItemId || "";
+el.dataset.itemField = el.dataset.itemField || "";
+el.dataset.itemDataType = el.dataset.itemDataType || "";
+el.dataset.itemDataTypeId = el.dataset.itemDataTypeId || "";
+
+el.dataset.borderWidth = el.dataset.borderWidth || "0";
+el.dataset.borderColor = el.dataset.borderColor || "#111111";
+el.dataset.borderStyle = el.dataset.borderStyle || "solid";
+el.dataset.radius = el.dataset.radius || "12";
+
+  const all = grid.querySelectorAll(".da-item");
+  const maxZ = [...all].reduce((m, n) => Math.max(m, parseInt(n.style.zIndex || "1", 10)), 1);
+  el.style.zIndex = String(maxZ + 1);
+
+  el.innerHTML = `
+    <img class="da-img" alt="" />
+
+    <div class="da-resize da-resize--nw" data-resize="nw"></div>
+    <div class="da-resize da-resize--n"  data-resize="n"></div>
+    <div class="da-resize da-resize--ne" data-resize="ne"></div>
+    <div class="da-resize da-resize--w"  data-resize="w"></div>
+    <div class="da-resize da-resize--e"  data-resize="e"></div>
+    <div class="da-resize da-resize--sw" data-resize="sw"></div>
+    <div class="da-resize da-resize--s"  data-resize="s"></div>
+    <div class="da-resize da-resize--se" data-resize="se"></div>
+  `;
+
+  const img = el.querySelector(".da-img");
+  if (img) {
+    // if no src yet, show a simple placeholder
+    img.src = el.dataset.src || "data:image/svg+xml;charset=utf-8," + encodeURIComponent(`
+      <svg xmlns="http://www.w3.org/2000/svg" width="400" height="260">
+        <rect width="100%" height="100%" fill="#f3f3f3"/>
+        <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle"
+              font-family="system-ui, Arial" font-size="18" fill="#777">Drop image</text>
+      </svg>
+    `);
+
+    img.style.objectFit = el.dataset.fit || "cover";
+    img.style.borderRadius = `${parseInt(el.dataset.radius, 10) || 0}px`;
+  }
+
+  el.dataset.name = el.dataset.name || "Image";
+  return el;
+}
+
+function normalizeImageValueToUrl(value) {
+  if (!value) return "";
+
+  // plain string
+  if (typeof value === "string") {
+    return value.trim();
+  }
+
+  // array
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = normalizeImageValueToUrl(item);
+      if (found) return found;
+    }
+    return "";
+  }
+
+  // object
+  if (typeof value === "object") {
+    return (
+      value.url ||
+      value.src ||
+      value.image ||
+      value.fileUrl ||
+      value.path ||
+      value.value ||
+      ""
+    );
+  }
+
+  return "";
+}
+
+async function resolveDynamicImageValue(el) {
+  if (!el) return "";
+
+  const source = el.dataset.dynamicSource || "page";
+  const field = el.dataset.dynamicField || "";
+
+  if (!field) return "";
+
+  let sourceRecord = null;
+
+  if (source === "page") {
+    sourceRecord = window.TPL_CURRENT_PAGE_ROW || currentPageRecord || null;
+  }
+
+  if (source === "parentGroup") {
+    const parentGroup = getParentGroupContainer(el);
+    if (!parentGroup) return "";
+    sourceRecord = await getSelectedRecordFromGroup(parentGroup);
+  }
+
+  if (!sourceRecord) return "";
+
+  let parentDataTypeName = "";
+  let parentDataTypeId = "";
+
+  if (source === "page") {
+    const pageType = window.TPL_PAGE_TYPE || "booking";
+    parentDataTypeName = getMainDataTypeForPageType(pageType) || "";
+    parentDataTypeId = window.TPL_CURRENT_PAGE_DATATYPE_ID || "";
+  }
+
+  if (source === "parentGroup") {
+    const parentGroup = getParentGroupContainer(el);
+    parentDataTypeName =
+      parentGroup?.dataset?.finalDataType ||
+      parentGroup?.dataset?.itemDataType ||
+      "";
+    parentDataTypeId =
+      parentGroup?.dataset?.finalDataTypeId ||
+      parentGroup?.dataset?.itemDataTypeId ||
+      "";
+  }
+
+  // ✅ DIRECT FIELD shortcut for image
+  if (source === "parentGroup" && field) {
+    const directValue = getFieldValueFromRecord(sourceRecord, field);
+
+    console.log("[image/resolve] parentGroup directValue:", directValue);
+
+    if (directValue !== undefined && directValue !== null && directValue !== "") {
+      return normalizeImageValue(directValue);
+    }
+  }
+
+  const mode = el.dataset.dynamicMode || "static";
+  if (mode !== "dynamic") {
+    return el.dataset.src || "";
+  }
+
+  const path = getDynamicPathFromElement(el);
+
+  const result = await resolveDynamicPath({
+    source: el.dataset.dynamicSource || "page",
+    path
+  });
+
+  const value = result?.value;
+
+  console.log("[image] resolved raw value:", value);
+
+  if (!value) return "";
+
+  if (typeof value === "string") return value;
+
+  if (Array.isArray(value)) {
+    const first = value[0];
+    if (typeof first === "string") return first;
+    if (typeof first === "object") {
+      return first.url || first.src || first.path || "";
+    }
+    return "";
+  }
+
+  if (typeof value === "object") {
+    return value.url || value.src || value.path || value.secure_url || "";
+  }
+
+  return "";
+}
+
+
+async function renderImageContent(el) {
+  if (!el || el.dataset.type !== "image") return;
+
+  const img = el.querySelector(".da-img");
+  if (!img) return;
+
+  let finalSrc = "";
+
+  if ((el.dataset.dynamicMode || "static") === "dynamic") {
+    finalSrc = await resolveDynamicImageValue(el);
+  } else {
+    finalSrc = el.dataset.src || "";
+  }
+
+  console.log("[image] final resolved src:", finalSrc);
+
+  if (finalSrc) {
+    img.src = finalSrc;
+  } else {
+    img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(`
+      <svg xmlns="http://www.w3.org/2000/svg" width="400" height="260">
+        <rect width="100%" height="100%" fill="#f3f3f3"/>
+        <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle"
+              font-family="system-ui, Arial" font-size="18" fill="#777">Drop image</text>
+      </svg>
+    `);
+  }
+
+  img.style.objectFit = el.dataset.fit || "cover";
+
+  const zx = parseFloat(el.dataset.zoom || "1") || 1;
+  img.style.transform = `scale(${zx})`;
+
+  const px = parseFloat(el.dataset.posX || "50");
+  const py = parseFloat(el.dataset.posY || "50");
+  img.style.objectPosition = `${px}% ${py}%`;
+
+  const rad = parseInt(el.dataset.radius || "0", 10) || 0;
+  img.style.borderRadius = `${rad}px`;
+}
+
+//Image dropdown loader helper 
+async function populateImageDynamicFieldOptions(item = selectedItem) {
+  if (!imgDynamicFieldEl) return;
+
+  const source = imgDynamicSourceEl?.value || "page";
+  const currentValue = item?.dataset?.dynamicField || "";
+
+  imgDynamicFieldEl.innerHTML = `<option value="">Select image field</option>`;
+
+  if (source === "page") {
+    const pageType = window.TPL_PAGE_TYPE || "booking";
+    const dataTypeName = getMainDataTypeForPageType(pageType);
+    const dataTypeId = window.TPL_CURRENT_PAGE_DATATYPE_ID || "";
+
+    if (!dataTypeName && !dataTypeId) return;
+
+    const fields = await getFieldsForDataType(dataTypeName, dataTypeId);
+
+    const seen = new Set();
+
+    fields.forEach((field) => {
+      const fieldName =
+        field?.name ||
+        field?.fieldName ||
+        field?.label ||
+        "";
+
+      const key = String(fieldName).trim().toLowerCase();
+      if (!fieldName) return;
+      if (seen.has(key)) return;
+
+      seen.add(key);
+
+      const option = document.createElement("option");
+      option.value = fieldName;
+      option.textContent = fieldName;
+      imgDynamicFieldEl.appendChild(option);
+    });
+  }
+
+if (source === "parentGroup" && item) {
+  const parentGroup = getParentGroupContainer(item);
+
+  const dataTypeName =
+    parentGroup?.dataset?.finalDataType ||
+    parentGroup?.dataset?.itemDataType ||
+    "";
+
+  const dataTypeId =
+    parentGroup?.dataset?.finalDataTypeId ||
+    parentGroup?.dataset?.itemDataTypeId ||
+    "";
+
+  if (!dataTypeName && !dataTypeId) return;
+
+  const fields = await getFieldsForDataType(dataTypeName, dataTypeId);
+
+    const seen = new Set();
+
+    fields.forEach((field) => {
+      const fieldName =
+        field?.name ||
+        field?.fieldName ||
+        field?.label ||
+        "";
+
+      const key = String(fieldName).trim().toLowerCase();
+      if (!fieldName) return;
+      if (seen.has(key)) return;
+
+      seen.add(key);
+
+      const option = document.createElement("option");
+      option.value = fieldName;
+      option.textContent = fieldName;
+      imgDynamicFieldEl.appendChild(option);
+    });
+  }
+
+  if ([...imgDynamicFieldEl.options].some((o) => o.value === currentValue)) {
+    imgDynamicFieldEl.value = currentValue;
+  }
+} 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  //Text Element
+function makeTextEl({ x, y, text = "Type here" }) {
+  const el = document.createElement("div");
+  el.className = "da-item da-item--text";
+  el.dataset.type = "text";
+  el.dataset.id = uid("text");
+el.dataset.fontFamily = el.dataset.fontFamily || "system-ui";
+
+el.dataset.selectedRecordId = el.dataset.selectedRecordId || "";
+el.dataset.recordField = el.dataset.recordField || "";
+
+el.dataset.text = text;
+el.dataset.dynamicMode = "static";
+el.dataset.dynamicSource = "page";
+el.dataset.dynamicField = "";
+
+el.dataset.actionType = el.dataset.actionType || "none";
+el.dataset.actionTarget = el.dataset.actionTarget || "";
+el.dataset.actionSource = el.dataset.actionSource || "page";
+
+el.dataset.selectedRecordId = el.dataset.selectedRecordId || "";
+el.dataset.nestedField = el.dataset.nestedField || "";
+el.dataset.nestedSelectedRecordId = el.dataset.nestedSelectedRecordId || "";
+el.dataset.recordField = el.dataset.recordField || "";
+  // defaults (stored on element)
+  el.dataset.fontSize = el.dataset.fontSize || "24";
+  el.dataset.bold     = el.dataset.bold || "0";
+  el.dataset.italic   = el.dataset.italic || "0";
+  el.dataset.underline = el.dataset.underline || "0";
+  el.dataset.align    = el.dataset.align || "left"; // left | center | right
+
+  el.style.left = `${Math.round(x)}px`;
+  el.style.top  = `${Math.round(y)}px`;
+  el.style.width  = `240px`;
+  el.style.height = `48px`;
+
+  const all = grid.querySelectorAll(".da-item");
+  const maxZ = [...all].reduce((m, n) => Math.max(m, parseInt(n.style.zIndex || "1", 10)), 1);
+  el.style.zIndex = String(maxZ + 1);
+
+  // store text
+  el.dataset.text = text;
+
+  el.innerHTML = `
+    <div class="da-text" contenteditable="true" spellcheck="false"></div>
+
+    <div class="da-resize da-resize--nw" data-resize="nw"></div>
+    <div class="da-resize da-resize--n"  data-resize="n"></div>
+    <div class="da-resize da-resize--ne" data-resize="ne"></div>
+    <div class="da-resize da-resize--w"  data-resize="w"></div>
+    <div class="da-resize da-resize--e"  data-resize="e"></div>
+    <div class="da-resize da-resize--sw" data-resize="sw"></div>
+    <div class="da-resize da-resize--s"  data-resize="s"></div>
+    <div class="da-resize da-resize--se" data-resize="se"></div>
+  `;
+
+const textEl = el.querySelector(".da-text");
+renderTextContent(el);
+
+  // apply styles from dataset
+  const fs = parseInt(el.dataset.fontSize, 10) || 24;
+  textEl.style.fontFamily = el.dataset.fontFamily || "system-ui";
+
+  textEl.style.fontSize = `${fs}px`;
+  textEl.style.fontWeight = (el.dataset.bold === "1") ? "700" : "400";
+  textEl.style.fontStyle  = (el.dataset.italic === "1") ? "italic" : "normal";
+  textEl.style.textDecoration = (el.dataset.underline === "1") ? "underline" : "none";
+  textEl.style.textAlign = el.dataset.align || "left";
+
+  // keep dataset in sync when user types
+textEl.addEventListener("input", () => {
+  if (el.dataset.dynamicMode === "dynamic") return;
+  el.dataset.text = textEl.textContent || "";
+});
+
+  // allow typing without starting drag
+  textEl.addEventListener("mousedown", (ev) => {
+    ev.stopPropagation();
+  });
+
+  textEl.addEventListener("click", (ev) => {
+  if (!window.TPL_PREVIEW) return;
+  if ((el.dataset.actionType || "none") === "none") return;
+
+  handleElementAction(ev, el);
+});
+
+  return el;
+}
+
+async function resolveDynamicTextValue(el) {
+  if (!el) return "";
+
+  const mode = el.dataset.dynamicMode || "static";
+  if (mode !== "dynamic") {
+    return el.dataset.text || "";
+  }
+
+  const source = el.dataset.dynamicSource || "page";
+  const field = el.dataset.dynamicField || "";
+  const selectedRecordId = el.dataset.selectedRecordId || "";
+  const nestedField = el.dataset.nestedField || "";
+  const nestedSelectedRecordId = el.dataset.nestedSelectedRecordId || "";
+  const recordField = el.dataset.recordField || "";
+
+  console.log("[text/resolve] mode:", mode);
+  console.log("[text/resolve] source:", source);
+  console.log("[text/resolve] field:", field);
+  console.log("[text/resolve] selectedRecordId:", selectedRecordId);
+  console.log("[text/resolve] nestedField:", nestedField);
+  console.log("[text/resolve] nestedSelectedRecordId:", nestedSelectedRecordId);
+  console.log("[text/resolve] recordField:", recordField);
+  console.log("[text/resolve] el:", el);
+
+  if (!field) return "";
+
+  let sourceRecord = null;
+  let sourceRecordId = "";
+
+  if (source === "page") {
+    sourceRecord = window.TPL_CURRENT_PAGE_ROW || currentPageRecord || null;
+    sourceRecordId = String(getRecordId(sourceRecord));
+  }
+
+  if (source === "parentGroup") {
+    const parentGroup = getParentGroupContainer(el);
+    if (!parentGroup) return "";
+    sourceRecord = await getSelectedRecordFromGroup(parentGroup);
+    sourceRecordId = String(getRecordId(sourceRecord));
+  }
+
+  console.log("[text/resolve] sourceRecord:", sourceRecord);
+  console.log("[text/resolve] sourceRecordId:", sourceRecordId);
+
+  if (!sourceRecord) return "";
+
+  let parentDataTypeName = "";
+  let parentDataTypeId = "";
+
+  if (source === "page") {
+    const pageType = window.TPL_PAGE_TYPE || "booking";
+    parentDataTypeName = getMainDataTypeForPageType(pageType) || "";
+    parentDataTypeId = window.TPL_CURRENT_PAGE_DATATYPE_ID || "";
+  }
+
+  if (source === "parentGroup") {
+    const parentGroup = getParentGroupContainer(el);
+    parentDataTypeName =
+      parentGroup?.dataset?.finalDataType ||
+      parentGroup?.dataset?.itemDataType ||
+      "";
+    parentDataTypeId =
+      parentGroup?.dataset?.finalDataTypeId ||
+      parentGroup?.dataset?.itemDataTypeId ||
+      "";
+  }
+
+  // ✅ DIRECT FIELD shortcut for Parent Group
+  // If sourceRecord already is the parent group's selected record,
+  // and the chosen field is a plain field (not a reference),
+  // return it directly.
+  if (source === "parentGroup" && field && !selectedRecordId && !nestedField) {
+    const directValue = getFieldValueFromRecord(sourceRecord, field);
+
+    console.log("[text/resolve] parentGroup directValue:", directValue);
+
+    if (directValue !== undefined) {
+      return normalizeTextValue(directValue);
+    }
+  }
+
+  const firstMeta = await getRelatedDataTypeMetaFromField(
+    field,
+    parentDataTypeName,
+    parentDataTypeId
+  );
+
+  console.log("[text/resolve] firstMeta:", firstMeta);
+
+  if (!firstMeta?.name) return "";
+
+  const firstRows = await fetchRowsForDynamicReference(
+    firstMeta.name,
+    firstMeta.id || ""
+  );
+
+  console.log("[text/resolve] firstRows:", firstRows);
+
+  let selectedRecord = firstRows.find((row, index) => {
+    return String(getRecordId(row, index)) === String(selectedRecordId);
+  });
+
+  // reverse lookup fallback for first hop
+  if (!selectedRecord && sourceRecordId) {
+    selectedRecord = firstRows.find((row) => {
+      const reverseValue =
+        getFieldValueFromRecord(row, parentDataTypeName) ||
+        getFieldValueFromRecord(row, "Location") ||
+        getFieldValueFromRecord(row, "location");
+
+      const reverseIds = extractRefIds(reverseValue);
+      return reverseIds.includes(sourceRecordId);
+    });
+  }
+
+  console.log("[text/resolve] selectedRecord:", selectedRecord);
+
+  if (!selectedRecord) return "";
+
+  // one-hop mode
+  if (!nestedField) {
+    if (!recordField) {
+      const labelValue = getRecordLabel(selectedRecord);
+      console.log("[text/resolve] final label value:", labelValue);
+      return normalizeTextValue(labelValue);
+    }
+
+    const value = getFieldValueFromRecord(selectedRecord, recordField);
+    console.log("[text/resolve] final value:", value);
+    return normalizeTextValue(value);
+  }
+
+  const secondMeta = await getRelatedDataTypeMetaFromField(
+    nestedField,
+    firstMeta.name,
+    firstMeta.id || ""
+  );
+
+  console.log("[text/resolve] secondMeta:", secondMeta);
+
+  if (!secondMeta?.name) return "";
+
+  const secondRows = await fetchRowsForDynamicReference(
+    secondMeta.name,
+    secondMeta.id || ""
+  );
+
+  console.log("[text/resolve] secondRows:", secondRows);
+
+  const nestedValue = getFieldValueFromRecord(selectedRecord, nestedField);
+  const nestedRefIds = extractRefIds(nestedValue);
+
+  console.log("[text/nestedRecords] selectedRecord values:", selectedRecord?.values);
+console.log("[text/nestedRecords] nestedField exact:", nestedField);
+console.log("[text/nestedRecords] nestedValue:", nestedValue);
+console.log("[text/nestedRecords] nestedRefIds:", nestedRefIds);
+  console.log("[text/resolve] nestedValue:", nestedValue);
+  console.log("[text/resolve] nestedRefIds:", nestedRefIds);
+
+let nestedSelectedRecord = secondRows.find((row, index) => {
+  return String(getRecordId(row, index)) === String(nestedSelectedRecordId);
+});
+
+if (!nestedSelectedRecord && nestedRefIds.length) {
+  nestedSelectedRecord = secondRows.find((row, index) => {
+    return nestedRefIds.includes(String(getRecordId(row, index)));
+  });
+}
+
+// reverse lookup fallback: User/Suitie points back to Suite
+if (!nestedSelectedRecord && selectedRecord) {
+  const selectedSuiteId = String(getRecordId(selectedRecord));
+
+  nestedSelectedRecord = secondRows.find((row) => {
+    const reverseValue =
+      getFieldValueFromRecord(row, firstMeta.name) ||   // e.g. "Suite"
+      getFieldValueFromRecord(row, "Suite") ||
+      getFieldValueFromRecord(row, "suite");
+
+    const reverseIds = extractRefIds(reverseValue);
+    return reverseIds.includes(selectedSuiteId);
+  });
+}
+  console.log("[text/resolve] nestedSelectedRecord:", nestedSelectedRecord);
+
+  if (!nestedSelectedRecord) return "";
+
+  if (!recordField) {
+    const nestedLabel = getRecordLabel(nestedSelectedRecord);
+    console.log("[text/resolve] final nested label value:", nestedLabel);
+    return normalizeTextValue(nestedLabel);
+  }
+
+  const finalValue = getFieldValueFromRecord(nestedSelectedRecord, recordField);
+  console.log("[text/resolve] final nested value:", finalValue);
+  return normalizeTextValue(finalValue);
+}
+
+
+
+
+
+function normalizeTextValue(value) {
+  if (value === null || value === undefined) return "";
+
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => {
+        if (item === null || item === undefined) return "";
+
+        if (typeof item === "object") {
+          return (
+            item.name ||
+            item.title ||
+            item.label ||
+            item._id ||
+            item.id ||
+            JSON.stringify(item)
+          );
+        }
+
+        return String(item);
+      })
+      .filter(Boolean)
+      .join(", ");
+  }
+
+  if (typeof value === "object") {
+    return (
+      value.name ||
+      value.title ||
+      value.label ||
+      value._id ||
+      value.id ||
+      JSON.stringify(value)
+    );
+  }
+
+  return String(value);
+}
+
+function getSourceBaseInfo(source, item) {
+  const pageType = window.TPL_PAGE_TYPE || "booking";
+
+  if (source === "page") {
+    return {
+      parentDataTypeName: getMainDataTypeForPageType(pageType),
+      parentDataTypeId: window.TPL_CURRENT_PAGE_DATATYPE_ID || "",
+      sourceRecord: currentPageRecord || null,
+    };
+  }
+
+  if (source === "parentGroup") {
+    const parentGroup = getParentGroupContainer(item);
+    return {
+      parentDataTypeName: parentGroup?.dataset?.itemDataType || "",
+      parentDataTypeId: parentGroup?.dataset?.itemDataTypeId || "",
+      sourceRecord: parentGroup || null,
+    };
+  }
+
+  if (source === "parentSection") {
+    return {
+      parentDataTypeName:
+        getParentContainerDataType(item) ||
+        getMainDataTypeForPageType(pageType),
+      parentDataTypeId: "",
+      sourceRecord: null,
+    };
+  }
+
+  return {
+    parentDataTypeName: "",
+    parentDataTypeId: "",
+    sourceRecord: null,
+  };
+}
+
+function normalizeRefId(value) {
+  if (!value) return "";
+
+  if (Array.isArray(value)) return normalizeRefId(value[0]);
+
+  if (typeof value === "object") {
+    return String(value._id || value.id || value.value || "").trim();
+  }
+
+  return String(value).trim();
+}
+
+function extractRefIds(value) {
+  if (!value) return [];
+
+  if (Array.isArray(value)) {
+    return value.map(normalizeRefId).filter(Boolean);
+  }
+
+  const one = normalizeRefId(value);
+  return one ? [one] : [];
+}
+
+
+
+
+
+
+
+
+
+
+
+
+function getFieldValueFromRecord(record, field) {
+  if (!record || !field) return undefined;
+
+  // direct field
+  if (record[field] !== undefined) {
+    return record[field];
+  }
+
+  // nested values (THIS is your case)
+  if (record.values && record.values[field] !== undefined) {
+    return record.values[field];
+  }
+
+  // fallback: case-insensitive match
+  const lowerField = String(field).toLowerCase();
+
+  // check record
+  for (const key in record) {
+    if (key.toLowerCase() === lowerField) {
+      return record[key];
+    }
+  }
+
+  // check values
+  if (record.values) {
+    for (const key in record.values) {
+      if (key.toLowerCase() === lowerField) {
+        return record.values[key];
+      }
+    }
+  }
+
+  return undefined;
+}
+
+function recordMatchesByIds(row, idsToMatch) {
+  if (!idsToMatch?.length) return false;
+
+  const values = row?.values || row || {};
+
+  for (const key of Object.keys(values)) {
+    const refIds = extractRefIds(values[key]);
+    if (!refIds.length) continue;
+
+    if (refIds.some((id) => idsToMatch.includes(String(id)))) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+
+
+
+
+async function getSelectedRecordFromGroup(groupEl) {
+  if (!groupEl) return null;
+
+  const nestedSelectedId = groupEl.dataset.nestedSelectedItemId || "";
+  const selectedId = groupEl.dataset.selectedItemId || "";
+
+  // ✅ if the group has a nested selected item, return that first
+  if (nestedSelectedId) {
+    const finalDataType = groupEl.dataset.finalDataType || "";
+    const finalDataTypeId = groupEl.dataset.finalDataTypeId || "";
+
+    if (finalDataType) {
+      const rows = await fetchRowsForDynamicReference(
+        finalDataType,
+        finalDataTypeId || ""
+      );
+
+      const nestedRecord =
+        rows.find((row, index) => {
+          return String(getRecordId(row, index)) === String(nestedSelectedId);
+        }) || null;
+
+      if (nestedRecord) return nestedRecord;
+    }
+  }
+
+  // fallback = first-level selected item
+  if (!selectedId) return null;
+
+  const list = await getDynamicRecordList(groupEl);
+  if (!Array.isArray(list)) return null;
+
+  return (
+    list.find((entry, index) => {
+      return String(getRecordId(entry, index)) === String(selectedId);
+    }) || null
+  );
+}
+
+function getRecordValues(record) {
+  return record?.values || record || {};
+}
+
+function getRecordId(record, index = 0) {
+  return (
+    record?._id ||
+    record?.id ||
+    record?.values?._id ||
+    record?.values?.id ||
+    String(index)
+  );
+}
+
+function rowHasReferenceToId(row, targetId) {
+  if (!row || !targetId) return false;
+
+  const values = getRecordValues(row);
+
+  return Object.values(values).some((raw) => {
+    const ids = extractRefIds(raw);
+    return ids.includes(String(targetId));
+  });
+}
+
+async function getDynamicRecordList(item) {
+  if (!item) return [];
+
+  const source = item.dataset.dynamicSource || "page";
+  const field = item.dataset.dynamicField || "";
+
+  console.log("[dynamic-list] source:", source);
+  console.log("[dynamic-list] field:", field);
+
+  if (!field) return [];
+
+  let sourceRecord = null;
+  let sourceRecordId = "";
+
+  if (source === "page") {
+    sourceRecord = window.TPL_CURRENT_PAGE_ROW || currentPageRecord || null;
+    sourceRecordId = getSelectedPageId() || "";
+  }
+
+  if (source === "parentGroup") {
+    const parentGroup = getParentGroupContainer(item);
+    if (!parentGroup) return [];
+
+    sourceRecord = await getSelectedRecordFromGroup(parentGroup);
+    if (!sourceRecord) return [];
+
+    sourceRecordId = String(getRecordId(sourceRecord));
+  }
+
+  const directValue = getFieldValueFromRecord(sourceRecord, field);
+  const directIds = extractRefIds(directValue);
+
+  console.log("[dynamic-list] directValue:", directValue);
+  console.log("[dynamic-list] directIds:", directIds);
+  console.log("[dynamic-list] sourceRecordId:", sourceRecordId);
+
+  const { parentDataTypeName, parentDataTypeId } = getSourceBaseInfo(source, item);
+
+  const relatedMeta = await getRelatedDataTypeMetaFromField(
+    field,
+    parentDataTypeName,
+    parentDataTypeId
+  );
+
+  console.log("[dynamic-list] relatedMeta:", relatedMeta);
+
+  if (!relatedMeta?.name) return [];
+
+  try {
+    if (!currentUser?.id) return [];
+
+    const rows = await fetchRowsForDynamicReference(
+      relatedMeta.name,
+      relatedMeta.id || ""
+    );
+
+    console.log("[dynamic-list] fetched rows:", rows);
+
+    if (directIds.length) {
+      const matchedById = rows.filter((row, index) => {
+        const rowId = String(getRecordId(row, index));
+        return directIds.includes(rowId);
+      });
+
+      console.log("[dynamic-list] matchedById:", matchedById);
+
+      if (matchedById.length) return matchedById;
+    }
+
+    if (sourceRecordId) {
+      const reverseMatched = rows.filter((row) =>
+        rowHasReferenceToId(row, sourceRecordId)
+      );
+
+      console.log("[dynamic-list] reverseMatched:", reverseMatched);
+
+      if (reverseMatched.length) return reverseMatched;
+    }
+
+    if (directIds.length) {
+      const matchedByRelationship = rows.filter((row) =>
+        recordMatchesByIds(row, directIds)
+      );
+
+      console.log("[dynamic-list] matchedByRelationship:", matchedByRelationship);
+
+      if (matchedByRelationship.length) return matchedByRelationship;
+    }
+
+    const selectedPageId = getSelectedPageId();
+    const fallback = selectedPageId
+      ? rows.filter((row) => recordBelongsToParent(row, selectedPageId))
+      : [];
+
+    console.log("[dynamic-list] fallback rows:", fallback);
+
+    return fallback;
+  } catch (err) {
+    console.error("[dynamic-list] failed to load related records", err);
+    return [];
+  }
+}
+
+
+async function renderTextContent(el) {
+  if (!el || el.dataset.type !== "text") return;
+
+  const t = el.querySelector(".da-text");
+  if (!t) return;
+
+  t.textContent = await resolveDynamicTextValue(el);
+
+  t.style.color = el.dataset.color || "#111111";
+  t.style.fontSize = `${parseInt(el.dataset.fontSize, 10) || 24}px`;
+  t.style.fontFamily = el.dataset.fontFamily || "system-ui";
+  t.style.fontWeight = el.dataset.bold === "1" ? "700" : "400";
+  t.style.fontStyle = el.dataset.italic === "1" ? "italic" : "normal";
+  t.style.textDecoration = el.dataset.underline === "1" ? "underline" : "none";
+  t.style.textAlign = el.dataset.align || "left";
+}
+
+
+
+async function populateDynamicFieldOptions(item = selectedItem) {
+  if (!textDynamicFieldEl) return;
+
+  const source = textDynamicSourceEl?.value || "page";
+  const currentValue = item?.dataset?.dynamicField || "";
+
+  console.log("[text/fields] source:", source);
+  console.log("[text/fields] currentValue:", currentValue);
+
+  textDynamicFieldEl.innerHTML = `<option value="">Select dynamic field</option>`;
+
+  if (source === "page") {
+    const pageType = window.TPL_PAGE_TYPE || "booking";
+    const dataTypeName = getMainDataTypeForPageType(pageType);
+    const dataTypeId = window.TPL_CURRENT_PAGE_DATATYPE_ID || "";
+
+    console.log("[text/fields] page dataTypeName:", dataTypeName);
+    console.log("[text/fields] page dataTypeId:", dataTypeId);
+
+    if (!dataTypeName && !dataTypeId) return;
+
+    const fields = await getFieldsForDataType(dataTypeName, dataTypeId);
+    console.log("[text/fields] page fields:", fields);
+console.log("[debug] window.TPL_PAGE_TYPE:", window.TPL_PAGE_TYPE);
+console.log("[debug] window.TPL_CURRENT_PAGE_DATATYPE_ID:", window.TPL_CURRENT_PAGE_DATATYPE_ID);
+console.log("[debug] asking fields for:", { dataTypeName, dataTypeId });
+
+    const seen = new Set();
+
+    fields.forEach((field) => {
+      const fieldKey =
+        field?.fieldName ||
+        field?.name ||
+        field?.label ||
+        "";
+
+      const fieldLabel =
+        field?.label ||
+        field?.name ||
+        fieldKey;
+
+      const key = String(fieldKey).trim().toLowerCase();
+      if (!fieldKey) return;
+      if (seen.has(key)) return;
+
+      seen.add(key);
+
+      const option = document.createElement("option");
+      option.value = fieldKey;
+      option.textContent = fieldLabel;
+      textDynamicFieldEl.appendChild(option);
+    });
+  }
+
+if (source === "parentGroup" && item) {
+  const parentGroup = getParentGroupContainer(item);
+
+  const dataTypeName =
+    parentGroup?.dataset?.finalDataType ||
+    parentGroup?.dataset?.itemDataType ||
+    "";
+
+  const dataTypeId =
+    parentGroup?.dataset?.finalDataTypeId ||
+    parentGroup?.dataset?.itemDataTypeId ||
+    "";
+
+  console.log("[text/fields] parentGroup dataTypeName:", dataTypeName);
+  console.log("[text/fields] parentGroup dataTypeId:", dataTypeId);
+
+  if (!dataTypeName && !dataTypeId) return;
+
+  const fields = await getFieldsForDataType(dataTypeName, dataTypeId);
+
+    console.log("[text/fields] parentGroup fields:", fields);
+
+    const seen = new Set();
+
+    fields.forEach((field) => {
+      const fieldKey =
+        field?.fieldName ||
+        field?.name ||
+        field?.label ||
+        "";
+
+      const fieldLabel =
+        field?.label ||
+        field?.name ||
+        fieldKey;
+
+      const key = String(fieldKey).trim().toLowerCase();
+      if (!fieldKey) return;
+      if (seen.has(key)) return;
+
+      seen.add(key);
+
+      const option = document.createElement("option");
+      option.value = fieldKey;
+      option.textContent = fieldLabel;
+      textDynamicFieldEl.appendChild(option);
+    });
+  }
+
+  if ([...textDynamicFieldEl.options].some((o) => o.value === currentValue)) {
+    textDynamicFieldEl.value = currentValue;
+  } else {
+    textDynamicFieldEl.value = "";
+    if (item) item.dataset.dynamicField = "";
+  }
+
+  console.log(
+    "[text/fields] final options:",
+    [...textDynamicFieldEl.options].map(o => ({
+      value: o.value,
+      text: o.textContent
+    }))
+  );
+}
+
+window.populateDynamicFieldOptions = populateDynamicFieldOptions;
+
+async function getRelatedDataTypeMetaFromField(fieldName, parentDataTypeName, parentDataTypeId = "") {
+  const cleanField = String(fieldName || "").trim().toLowerCase();
+  const cleanParent = String(parentDataTypeName || "").trim();
+
+  if (!cleanField || !cleanParent) {
+    return { name: "", id: "" };
+  }
+
+  const fields = await getFieldsForDataType(cleanParent, parentDataTypeId);
+
+  const match = fields.find((field) => {
+    const name =
+      field?.name ||
+      field?.fieldName ||
+      field?.label ||
+      "";
+
+    return String(name).trim().toLowerCase() === cleanField;
+  });
+
+  if (!match) {
+    return { name: "", id: "" };
+  }
+
+  let referenceTo =
+    match?.referenceTo ||
+    match?.referenceDataType ||
+    match?.relatedDataType ||
+    match?.dataTypeName ||
+    match?.options?.referenceTo ||
+    "";
+
+  let referenceId =
+    match?.referenceToId ||
+    match?.referenceDataTypeId ||
+    match?.relatedDataTypeId ||
+    match?.options?.referenceToId ||
+    "";
+
+  if (referenceTo && typeof referenceTo === "object") {
+    referenceId =
+      referenceTo._id ||
+      referenceTo.id ||
+      referenceId ||
+      "";
+
+    referenceTo =
+      referenceTo.name ||
+      referenceTo.label ||
+      referenceTo.dataTypeName ||
+      "";
+  }
+
+  return {
+    name: String(referenceTo || "").trim(),
+    id: String(referenceId || "").trim(),
+  };
+}
+async function populateTextNestedSelectedRecordOptions(item = selectedItem) {
+  if (!textNestedSelectedRecordEl || !item) return;
+
+  const source = item.dataset.dynamicSource || "page";
+  const field = item.dataset.dynamicField || "";
+  const selectedRecordId = item.dataset.selectedRecordId || "";
+  const nestedField = item.dataset.nestedField || "";
+  const currentValue = item.dataset.nestedSelectedRecordId || "";
+
+  console.log("[text/nestedRecords] source:", source);
+  console.log("[text/nestedRecords] field:", field);
+  console.log("[text/nestedRecords] selectedRecordId:", selectedRecordId);
+  console.log("[text/nestedRecords] nestedField:", nestedField);
+  console.log("[text/nestedRecords] currentValue:", currentValue);
+
+  textNestedSelectedRecordEl.innerHTML = `<option value="">Select nested item</option>`;
+
+  if (!field || !selectedRecordId || !nestedField) return;
+
+  let parentDataTypeName = "";
+  let parentDataTypeId = "";
+
+  if (source === "page") {
+    const pageType = window.TPL_PAGE_TYPE || "booking";
+    parentDataTypeName = getMainDataTypeForPageType(pageType) || "";
+    parentDataTypeId = window.TPL_CURRENT_PAGE_DATATYPE_ID || "";
+  }
+
+if (source === "parentGroup") {
+  const parentGroup = getParentGroupContainer(item);
+  parentDataTypeName =
+    parentGroup?.dataset?.finalDataType ||
+    parentGroup?.dataset?.itemDataType ||
+    "";
+  parentDataTypeId =
+    parentGroup?.dataset?.finalDataTypeId ||
+    parentGroup?.dataset?.itemDataTypeId ||
+    "";
+}
+
+  const firstMeta = await getRelatedDataTypeMetaFromField(
+    field,
+    parentDataTypeName,
+    parentDataTypeId
+  );
+
+  console.log("[text/nestedRecords] firstMeta:", firstMeta);
+
+  if (!firstMeta?.name) return;
+
+  const firstRows = await fetchRowsForDynamicReference(
+    firstMeta.name,
+    firstMeta.id || ""
+  );
+
+  const selectedRecord = firstRows.find((row, index) => {
+    return String(getRecordId(row, index)) === String(selectedRecordId);
+  });
+
+  console.log("[text/nestedRecords] selectedRecord:", selectedRecord);
+  console.log("[text/nestedRecords] selectedRecord values:", selectedRecord?.values);
+
+  if (!selectedRecord) return;
+
+  const nestedValue = getFieldValueFromRecord(selectedRecord, nestedField);
+  const nestedRefIds = extractRefIds(nestedValue);
+
+  console.log("[text/nestedRecords] nestedField exact:", nestedField);
+  console.log("[text/nestedRecords] nestedValue:", nestedValue);
+  console.log("[text/nestedRecords] nestedRefIds:", nestedRefIds);
+
+  const secondMeta = await getRelatedDataTypeMetaFromField(
+    nestedField,
+    firstMeta.name,
+    firstMeta.id || ""
+  );
+
+  console.log("[text/nestedRecords] secondMeta:", secondMeta);
+
+  if (!secondMeta?.name) return;
+
+  const secondRows = await fetchRowsForDynamicReference(
+    secondMeta.name,
+    secondMeta.id || ""
+  );
+
+  console.log("[text/nestedRecords] secondRows:", secondRows);
+
+  let matchedRows = [];
+
+  // 1) direct ID match
+  if (nestedRefIds.length) {
+    matchedRows = secondRows.filter((row, index) => {
+      const rowId = String(getRecordId(row, index));
+      return nestedRefIds.includes(rowId);
+    });
+
+    console.log("[text/nestedRecords] matchedRows by direct ids:", matchedRows);
+  }
+
+  // 2) scalar id fallback
+  if (!matchedRows.length && nestedValue != null && typeof nestedValue !== "object") {
+    matchedRows = secondRows.filter((row, index) => {
+      const rowId = String(getRecordId(row, index));
+      return rowId === String(nestedValue);
+    });
+
+    console.log("[text/nestedRecords] matchedRows by scalar value:", matchedRows);
+  }
+
+  // 3) object-with-id fallback
+  if (!matchedRows.length && nestedValue && typeof nestedValue === "object" && !Array.isArray(nestedValue)) {
+    const possibleId =
+      nestedValue?._id ||
+      nestedValue?.id ||
+      nestedValue?.value ||
+      "";
+
+    if (possibleId) {
+      matchedRows = secondRows.filter((row, index) => {
+        const rowId = String(getRecordId(row, index));
+        return rowId === String(possibleId);
+      });
+    }
+
+    console.log("[text/nestedRecords] matchedRows by object id:", matchedRows);
+  }
+
+  // 4) reverse lookup fallback
+  if (!matchedRows.length && selectedRecord) {
+    const selectedFirstId = String(getRecordId(selectedRecord));
+
+    matchedRows = secondRows.filter((row) => {
+      const reverseValue =
+        getFieldValueFromRecord(row, firstMeta.name) ||   // e.g. "Suite"
+        getFieldValueFromRecord(row, "Suite") ||
+        getFieldValueFromRecord(row, "suite");
+
+      const reverseIds = extractRefIds(reverseValue);
+      return reverseIds.includes(selectedFirstId);
+    });
+
+    console.log("[text/nestedRecords] matchedRows by reverse lookup:", matchedRows);
+  }
+
+  matchedRows.forEach((entry, index) => {
+    const option = document.createElement("option");
+    const value = String(getRecordId(entry, index));
+    option.value = value;
+    option.textContent = getRecordLabel(entry, index);
+    textNestedSelectedRecordEl.appendChild(option);
+  });
+
+  if ([...textNestedSelectedRecordEl.options].some((o) => o.value === currentValue)) {
+    textNestedSelectedRecordEl.value = currentValue;
+  }
+
+  console.log(
+    "[text/nestedRecords] final options:",
+    [...textNestedSelectedRecordEl.options].map((o) => ({
+      value: o.value,
+      text: o.textContent
+    }))
+  );
+}
+async function populateGroupDynamicFieldOptions(item = selectedItem) {
+  if (!groupDynamicFieldEl || !item) return;
+
+  console.log("[group-fields] populateGroupDynamicFieldOptions fired");
+
+  const source = item.dataset.dynamicSource || "parentSection";
+  const pageType = window.TPL_PAGE_TYPE || "booking";
+
+  let dataTypeName = "";
+  let dataTypeId = "";
+
+  if (source === "page") {
+    dataTypeName = getMainDataTypeForPageType(pageType);
+    dataTypeId = window.TPL_CURRENT_PAGE_DATATYPE_ID || "";
+  }
+
+  if (source === "parentSection") {
+    dataTypeName =
+      getParentContainerDataType(item) ||
+      getMainDataTypeForPageType(pageType);
+  }
+
+  console.log("[group-fields] dataTypeName:", dataTypeName);
+  console.log("[group-fields] dataTypeId:", dataTypeId);
+
+  const currentValue = item.dataset.dynamicField || "";
+  groupDynamicFieldEl.innerHTML = `<option value="">Select field</option>`;
+
+  if (!dataTypeName && !dataTypeId) return;
+
+  const fields = await getFieldsForDataType(dataTypeName, dataTypeId);
+  console.log("[group-fields] fields returned:", fields);
+
+  const seen = new Set();
+
+  fields.forEach((field) => {
+    const fieldName =
+      field?.name ||
+      field?.fieldName ||
+      field?.label ||
+      "";
+
+    const fieldType =
+      field?.type ||
+      field?.fieldType ||
+      "";
+
+    let referenceTo =
+      field?.referenceTo ||
+      field?.referenceDataType ||
+      field?.relatedDataType ||
+      field?.dataTypeName ||
+      field?.options?.referenceTo ||
+      "";
+
+    if (referenceTo && typeof referenceTo === "object") {
+      referenceTo =
+        referenceTo.name ||
+        referenceTo.label ||
+        referenceTo.dataTypeName ||
+        referenceTo._id ||
+        "";
+    }
+
+    const isReference =
+      String(fieldType).toLowerCase().includes("reference") ||
+      !!referenceTo;
+
+    const key = String(fieldName).trim().toLowerCase();
+
+    if (!fieldName || !isReference) return;
+    if (seen.has(key)) return;
+
+    seen.add(key);
+
+    const option = document.createElement("option");
+    option.value = fieldName;
+    option.textContent = fieldName;
+    groupDynamicFieldEl.appendChild(option);
+  });
+
+  if ([...groupDynamicFieldEl.options].some((o) => o.value === currentValue)) {
+    groupDynamicFieldEl.value = currentValue;
+  }
+}
+
+function buildDynamicConfigFromTextBar() {
+  return {
+    mode: textModeEl?.value || "static",
+    source: textDynamicSourceEl?.value || "page",
+    path: [
+      {
+        field: textDynamicFieldEl?.value || "",
+        selectedId: textSelectedRecordEl?.value || "",
+      },
+      {
+        field: textNestedFieldEl?.value || "",
+        selectedId: textNestedSelectedRecordEl?.value || "",
+      },
+    ].filter(step => step.field),
+    finalField: textRecordFieldEl?.value || "",
+  };
+}
+
+async function applyTextDynamicFromBar() {
+  if (!selectedItem) return;
+  if (selectedItem.dataset.type !== "text") return;
+
+  const config = buildDynamicConfigFromTextBar();
+
+  // new shared config
+  selectedItem.dataset.dynamicConfig = JSON.stringify(config);
+
+  console.log("[text/apply] dynamicConfig:", selectedItem.dataset.dynamicConfig);
+  // keep old fields for now so existing code still works
+  selectedItem.dataset.dynamicMode = config.mode;
+  selectedItem.dataset.dynamicSource = config.source;
+  selectedItem.dataset.dynamicField = config.path[0]?.field || "";
+  selectedItem.dataset.selectedRecordId = config.path[0]?.selectedId || "";
+  selectedItem.dataset.nestedField = config.path[1]?.field || "";
+  selectedItem.dataset.nestedSelectedRecordId = config.path[1]?.selectedId || "";
+  selectedItem.dataset.recordField = config.finalField || "";
+  console.log("[text/apply] mode:", selectedItem.dataset.dynamicMode);
+  console.log("[text/apply] source:", selectedItem.dataset.dynamicSource);
+  console.log("[text/apply] dynamicField:", selectedItem.dataset.dynamicField);
+  console.log("[text/apply] selectedRecordId:", selectedItem.dataset.selectedRecordId);
+  console.log("[text/apply] nestedField:", selectedItem.dataset.nestedField);
+  console.log("[text/apply] nestedSelectedRecordId:", selectedItem.dataset.nestedSelectedRecordId);
+  console.log("[text/apply] recordField:", selectedItem.dataset.recordField);
+  console.log("[text/apply] selectedItem:", selectedItem);
+
+  const textEl = selectedItem.querySelector(".da-text");
+  if (textEl) {
+    textEl.contentEditable =
+      selectedItem.dataset.dynamicMode === "dynamic" ? "false" : "true";
+  }
+
+  const showDynamicStuff = selectedItem.dataset.dynamicMode === "dynamic";
+  const showSelectedRecord =
+    showDynamicStuff && !!selectedItem.dataset.dynamicField;
+  const showNestedField =
+    showSelectedRecord && !!selectedItem.dataset.selectedRecordId;
+  const showNestedSelectedRecord =
+    showNestedField && !!selectedItem.dataset.nestedField;
+  const showRecordField =
+    (showNestedSelectedRecord && !!selectedItem.dataset.nestedSelectedRecordId) ||
+    (showSelectedRecord && !!selectedItem.dataset.selectedRecordId && !selectedItem.dataset.nestedField);
+
+  if (textDynamicSourceEl) {
+    textDynamicSourceEl.style.display = showDynamicStuff ? "inline-block" : "none";
+  }
+
+  if (textDynamicFieldEl) {
+    textDynamicFieldEl.style.display = showDynamicStuff ? "inline-block" : "none";
+  }
+
+  if (textSelectedRecordEl) {
+    textSelectedRecordEl.style.display = showSelectedRecord ? "inline-block" : "none";
+  }
+
+  if (textNestedFieldEl) {
+    textNestedFieldEl.style.display = showNestedField ? "inline-block" : "none";
+  }
+
+  if (textNestedSelectedRecordEl) {
+    textNestedSelectedRecordEl.style.display = showNestedSelectedRecord ? "inline-block" : "none";
+  }
+
+  if (textRecordFieldEl) {
+    textRecordFieldEl.style.display = showRecordField ? "inline-block" : "none";
+  }
+
+  await populateDynamicFieldOptions(selectedItem);
+  if (textDynamicFieldEl) {
+    textDynamicFieldEl.value = selectedItem.dataset.dynamicField || "";
+  }
+
+  await populateTextSelectedRecordOptions(selectedItem);
+  if (textSelectedRecordEl) {
+    textSelectedRecordEl.value = selectedItem.dataset.selectedRecordId || "";
+  }
+
+  await populateTextNestedFieldOptions(selectedItem);
+  if (textNestedFieldEl) {
+    textNestedFieldEl.value = selectedItem.dataset.nestedField || "";
+  }
+
+  await populateTextNestedSelectedRecordOptions(selectedItem);
+  if (textNestedSelectedRecordEl) {
+    textNestedSelectedRecordEl.value = selectedItem.dataset.nestedSelectedRecordId || "";
+  }
+
+  await populateTextRecordFieldOptions(selectedItem);
+  if (textRecordFieldEl) {
+    textRecordFieldEl.value = selectedItem.dataset.recordField || "";
+  }
+
+  await renderTextContent(selectedItem);
+}
+
+                                       //////////////////////////////
+                                           //Input Element
+                                      ///////////////////////////////
+const inputWrapEl = floatingBar.querySelector(".da-inputControls");
+const inputLabelTextEl = floatingBar.querySelector(".da-input__labelTextControl");
+const inputPlaceholderEl = floatingBar.querySelector(".da-input__placeholderControl");
+const inputTypeEl = floatingBar.querySelector(".da-input__typeControl");
+const inputRequiredEl = floatingBar.querySelector(".da-input__requiredControl");
+const inputBgToggleEl = floatingBar.querySelector(".da-input__bgToggleControl");
+const inputBgEl = floatingBar.querySelector(".da-input__bgControl");
+const inputLabelBgEl = floatingBar.querySelector(".da-input__labelBgControl");
+const inputFieldBgEl = floatingBar.querySelector(".da-input__inputBgControl");
+
+const inputLabelBgModeEl = floatingBar.querySelector(".da-input__labelBgModeControl");
+
+const inputFieldBgModeEl = floatingBar.querySelector(".da-input__inputBgModeControl");
+
+const btnSubmitInputsWrapEl = floatingBar.querySelector(".da-btn__submitInputsWrap");
+const btnSubmitInputsListEl = floatingBar.querySelector(".da-btn__submitInputsList");
+
+function applyInputFromBar() {
+  if (!selectedItem || selectedItem.dataset.type !== "input") return;
+
+  selectedItem.dataset.label = inputLabelTextEl?.value || "Label";
+  selectedItem.dataset.placeholder = inputPlaceholderEl?.value || "Type here";
+  selectedItem.dataset.inputType = inputTypeEl?.value || "text";
+  selectedItem.dataset.required = inputRequiredEl?.checked ? "1" : "0";
+
+  selectedItem.dataset.labelBgMode = inputLabelBgModeEl?.value || "none";
+  selectedItem.dataset.labelBg = inputLabelBgEl?.value || "#ffffff";
+
+  selectedItem.dataset.inputBgMode = inputFieldBgModeEl?.value || "none";
+  selectedItem.dataset.inputBg = inputFieldBgEl?.value || "#ffffff";
+
+  renderInputContent(selectedItem);
+}
+
+//Wire Input Controls
+inputLabelTextEl?.addEventListener("input", applyInputFromBar);
+inputPlaceholderEl?.addEventListener("input", applyInputFromBar);
+inputTypeEl?.addEventListener("change", applyInputFromBar);
+inputRequiredEl?.addEventListener("change", applyInputFromBar);
+inputLabelBgEl?.addEventListener("input", applyInputFromBar);
+inputFieldBgEl?.addEventListener("input", applyInputFromBar);
+
+inputLabelBgModeEl?.addEventListener("change", applyInputFromBar);
+
+inputFieldBgModeEl?.addEventListener("change", applyInputFromBar);
+inputFieldBgEl?.addEventListener("input", applyInputFromBar);
+
+
+function renderSubmitInputsPicker(currentIds = []) {
+  if (!btnSubmitInputsListEl) return;
+
+  const options = getInputOptions();
+  btnSubmitInputsListEl.innerHTML = "";
+
+  options.forEach((opt) => {
+    const row = document.createElement("label");
+    row.style.display = "flex";
+    row.style.alignItems = "center";
+    row.style.gap = "6px";
+
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.value = opt.value;
+    cb.checked = currentIds.includes(opt.value);
+
+    cb.addEventListener("change", () => {
+      applyButtonFromBar();
+    });
+
+    const span = document.createElement("span");
+    span.textContent = opt.label;
+
+    row.appendChild(cb);
+    row.appendChild(span);
+    btnSubmitInputsListEl.appendChild(row);
+  });
+}
+
+                                       //////////////////////////////
+                                           //Button Element
+                                      ///////////////////////////////
+
+
+// =======================
+// MAKE BUTTON ELEMENT
+// =======================
+function makeButtonEl({ x, y, label = "Button" }) {
+  const el = document.createElement("div");
+  el.className = "da-item da-item--button";
+  el.dataset.type = "button";
+  el.dataset.id = uid("btn");
+
+  // defaults
+  el.dataset.label = label;
+  el.dataset.btnBg = el.dataset.btnBg || "#111111";
+  el.dataset.btnTextColor = el.dataset.btnTextColor || "#ffffff";
+  el.dataset.borderWidth = el.dataset.borderWidth || "0";
+  el.dataset.borderColor = el.dataset.borderColor || "#111111";
+  el.dataset.borderStyle = el.dataset.borderStyle || "solid";
+  el.dataset.radius = el.dataset.radius || "12";
+
+  el.dataset.btnBgOn = el.dataset.btnBgOn || "1";
+
+  // NEW button behavior defaults
+  el.dataset.actionType = el.dataset.actionType || "none";
+  el.dataset.actionTarget = el.dataset.actionTarget || "";
+  el.dataset.displayType = el.dataset.displayType || "text";
+  el.dataset.icon = el.dataset.icon || "";
+
+  el.style.left = `${Math.round(x)}px`;
+  el.style.top  = `${Math.round(y)}px`;
+  el.style.width = `180px`;
+  el.style.height = `48px`;
+  el.dataset.name = el.dataset.name ?? "Button";
+
+  const all = grid.querySelectorAll(".da-item");
+  const maxZ = [...all].reduce((m, n) => Math.max(m, parseInt(n.style.zIndex || "1", 10)), 1);
+  el.style.zIndex = String(maxZ + 1);
+
+  el.innerHTML = `
+    <button class="da-btn" type="button"></button>
+
+    <div class="da-resize da-resize--nw" data-resize="nw"></div>
+    <div class="da-resize da-resize--n"  data-resize="n"></div>
+    <div class="da-resize da-resize--ne" data-resize="ne"></div>
+    <div class="da-resize da-resize--w"  data-resize="w"></div>
+    <div class="da-resize da-resize--e"  data-resize="e"></div>
+    <div class="da-resize da-resize--sw" data-resize="sw"></div>
+    <div class="da-resize da-resize--s"  data-resize="s"></div>
+    <div class="da-resize da-resize--se" data-resize="se"></div>
+  `;
+
+  const b = el.querySelector(".da-btn");
+  if (b) {
+    renderButtonContent(el);
+
+    b.style.background =
+  el.dataset.btnBgOn === "0"
+    ? "transparent"
+    : (el.dataset.btnBg || "#111111");
+    b.style.color = el.dataset.btnTextColor;
+
+    const bw = parseInt(el.dataset.borderWidth, 10) || 0;
+    const bs = el.dataset.borderStyle || "solid";
+    const bc = el.dataset.borderColor || "#111111";
+    b.style.border = (bs === "none" || bw === 0) ? "none" : `${bw}px ${bs} ${bc}`;
+    b.style.borderRadius = `${parseInt(el.dataset.radius, 10) || 0}px`;
+
+    b.addEventListener("click", (ev) => {
+      handleButtonAction(ev, el);
+    });
+  }
+
+  return el;
+}
+
+// =======================
+// RENDER BUTTON CONTENT
+// =======================
+function renderButtonContent(el) {
+  if (!el || el.dataset.type !== "button") return;
+
+  const b = el.querySelector(".da-btn");
+  if (!b) return;
+
+  const label = el.dataset.label ?? "Button";
+  const icon = el.dataset.icon || "";
+  const displayType = el.dataset.displayType || "text";
+
+  if (displayType === "icon") {
+    b.textContent = icon || "★";
+    return;
+  }
+
+  if (displayType === "text-icon") {
+    b.textContent = icon ? `${label} ${icon}` : label;
+    return;
+  }
+
+  // default = text
+  b.textContent = label;
+}
+
+// =======================
+// HANDLE BUTTON ACTION
+// =======================
+async function handleElementAction(ev, el) {
+  console.log("[handleButtonAction] fired", {
+    preview: window.TPL_PREVIEW,
+    el,
+    actionType: el?.dataset?.actionType,
+    actionSource: el?.dataset?.actionSource,
+    actionTarget: el?.dataset?.actionTarget
+  });
+
+  if (!window.TPL_PREVIEW) return;
+
+  ev.preventDefault();
+  ev.stopPropagation();
+
+  const actionType = el.dataset.actionType || "none";
+  const actionTarget = (el.dataset.actionTarget || "").trim();
+  const actionSource = el.dataset.actionSource || "page";
+
+  console.log("[button preview click]", {
+    label: el?.dataset?.label,
+    actionType,
+    actionTarget,
+    actionSource,
+    displayType: el?.dataset?.displayType,
+    icon: el?.dataset?.icon,
+    buttonId: el?.dataset?.id
+  });
+
+  if (actionType === "open-template") {
+    console.log("[open-template] clicked", {
+      actionTarget,
+      actionSource,
+      buttonEl: el,
+      preview: window.TPL_PREVIEW
+    });
+
+    if (!actionTarget) return;
+
+    await openTemplateFromButton(el, actionSource, actionTarget);
+    return;
+  }
+
+  if (actionType === "none") return;
+
+  if (actionType === "link") {
+    if (!actionTarget) return;
+
+    let url = actionTarget.trim();
+
+    if (!/^https?:\/\//i.test(url) && !/^mailto:/i.test(url) && !/^tel:/i.test(url)) {
+      url = `https://${url}`;
+    }
+
+    window.open(url, "_blank", "noopener,noreferrer");
+    return;
+  }
+
+  if (actionType === "change-view") {
+    if (!actionTarget) return;
+
+    saveCurrentCanvasToView();
+
+    if (!pageViews[actionTarget]) {
+      console.warn("[builder] view not found:", actionTarget);
+      return;
+    }
+
+    await loadViewIntoCanvas(actionTarget);
+    return;
+  }
+
+  if (actionType === "open-popup") {
+    if (!actionTarget) return;
+    openPopupById(actionTarget);
+    return;
+  }
+
+  if (actionType === "scroll-to-section") {
+    if (!actionTarget) return;
+    scrollToSectionById(actionTarget);
+    return;
+  }
+
+  if (actionType === "download-pdf") {
+    console.log("PDF CLICKED:", actionTarget);
+
+    if (!actionTarget) return;
+
+    openPdfPreview(actionTarget);
+    return;
+  }
+
+if (actionType === "submit") {
+  const templateTarget = document.getElementById("public-template-render-target");
+
+  console.log("[submit] templateTarget:", templateTarget);
+
+  // ✅ NEW: application template submit
+  if (templateTarget && templateTarget.dataset.templateLoaded === "1") {
+    try {
+      await submitActiveTemplateApplication();
+    } catch (err) {
+      console.error("[submit application] failed:", err);
+      alert(err?.message || "Failed to submit application.");
+    }
+    return;
+  }
+
+  // ⚠️ OPTIONAL: remove this whole fallback later
+  console.warn("[submit] no active template — falling back to old input system");
+
+  let inputIds = [];
+  try {
+    inputIds = JSON.parse(el.dataset.submitInputs || "[]");
+  } catch {
+    inputIds = [];
+  }
+
+  const values = inputIds.map((id) => {
+    const inputEl = grid.querySelector(
+      `.da-item[data-type="input"][data-id="${id}"]`
+    );
+
+    return {
+      id,
+      label: inputEl?.dataset?.label || "",
+      value: inputEl?.dataset?.value || "",
+      required: inputEl?.dataset?.required === "1"
+    };
+  });
+
+  console.log("[submit button] collected inputs:", values);
+  return;
+}
+}
+
+function syncButtonBgToggleLabel() {
+  if (!btnBgToggleEl) return;
+  if (!selectedItem || selectedItem.dataset.type !== "button") {
+    btnBgToggleEl.textContent = "Remove Background";
+    return;
+  }
+
+  btnBgToggleEl.textContent =
+    selectedItem.dataset.btnBgOn === "0"
+      ? "Show Background"
+      : "Hide Background";
+}
+async function submitActiveTemplateApplication() {
+  const target = document.getElementById("public-template-render-target");
+  if (!target || target.dataset.templateLoaded !== "1") {
+    alert("No application template is open.");
+    return;
+  }
+
+  const suiteId =
+    window.TPL_ACTIVE_TEMPLATE_SOURCE_ID ||
+    target.dataset.sourceRecordId ||
+    "";
+
+  if (!suiteId) {
+    alert("No suite/application source found.");
+    return;
+  }
+
+  const inputs = [
+    ...target.querySelectorAll("input, textarea, select")
+  ];
+
+  const answers = {};
+
+  inputs.forEach((input, index) => {
+    const key =
+      input.dataset.templateField ||
+      input.name ||
+      `field_${index}`;
+
+    answers[key] = input.value || "";
+  });
+
+  const payload = {
+    values: {
+      "Suite": suiteId,
+      "Answers JSON": JSON.stringify(answers),
+      "Status": "Submitted"
+    }
+  };
+
+  console.log("[submit application] payload:", payload);
+
+  const res = await apiFetch(`/api/records/Suite Application Submission`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json"
+    },
+    body: JSON.stringify(payload)
+  });
+
+  const data = await res.json().catch(() => ({}));
+
+  if (!res.ok) {
+    throw new Error(data?.message || data?.error || "Failed to submit application");
+  }
+
+  alert("Application submitted successfully.");
+}
+
+//Button Change View Helper
+function getViewOptions() {
+  return Object.keys(pageViews || {}).map((key) => ({
+    value: key,
+    label: pageViews[key]?.name || key
+  }));
+}
+function getTemplateOptions() {
+  return [
+    { value: "Application Template", label: "Application Template" }
+  ];
+}
+
+
+//Button Popup Helper
+function openPopupById(popupId) {
+  if (!popupId) return;
+
+  const popup = [...grid.querySelectorAll('.da-item[data-type="popup"]')]
+    .find((el) => String(el.dataset.popupId || "") === String(popupId));
+
+  if (!popup) {
+    console.warn("[builder] popup not found:", popupId);
+    return;
+  }
+
+  openPopupEditMode(popup);
+}
+//Button Scroll to Helper
+function scrollToSectionById(sectionId) {
+  if (!sectionId) return;
+
+  const target = grid.querySelector(`.da-item[data-id="${CSS.escape(sectionId)}"]`);
+  if (!target) {
+    console.warn("[builder] section not found:", sectionId);
+    return;
+  }
+
+  target.scrollIntoView({
+    behavior: "smooth",
+    block: "center",
+    inline: "center"
+  });
+}
+
+
+
+
+
+
+
+
+
+
+
+//Open Template Helper
+// Open Template Helper
+async function openTemplateFromButton(buttonEl, actionSource, templateFieldName) {
+  if (!buttonEl || !templateFieldName) return;
+
+  let sourceRecord = null;
+
+  if (actionSource === "parentGroup") {
+    const parentGroup = getParentGroupContainer(buttonEl);
+    console.log("[open-template] parentGroup:", parentGroup);
+
+    if (parentGroup) {
+      sourceRecord = await getSelectedRecordFromGroup(parentGroup);
+    }
+  }
+
+  if (actionSource === "page") {
+    sourceRecord = window.TPL_CURRENT_PAGE_ROW || currentPageRecord || null;
+  }
+
+  console.log("[open-template] actionSource:", actionSource);
+  console.log("[open-template] templateFieldName:", templateFieldName);
+  console.log("[open-template] sourceRecord:", sourceRecord);
+  console.log("[open-template] sourceRecord.values:", sourceRecord?.values);
+
+  if (!sourceRecord) {
+    alert("No source record found.");
+    return;
+  }
+
+  const templateJson = getFieldValueFromRecord(sourceRecord, templateFieldName);
+
+  console.log("[open-template] raw field value:", templateJson);
+  console.log("[open-template] raw field type:", typeof templateJson);
+
+  if (!templateJson) {
+    alert("No template found on this record.");
+    return;
+  }
+
+  try {
+    const parsed =
+      typeof templateJson === "string"
+        ? JSON.parse(templateJson)
+        : templateJson;
+
+    console.log("[open-template] parsed template:", parsed);
+    console.log("[open-template] parsed keys:", Object.keys(parsed || {}));
+    console.log("[open-template] parsed sections:", parsed?.sections);
+
+    window.TPL_ACTIVE_TEMPLATE = parsed;
+    window.TPL_ACTIVE_TEMPLATE_SOURCE = sourceRecord;
+    window.TPL_ACTIVE_TEMPLATE_SOURCE_ID = String(getRecordId(sourceRecord));
+    window.TPL_ACTIVE_TEMPLATE_FIELD = templateFieldName;
+
+    await renderPublicTemplateFromJson(parsed, sourceRecord, {
+      sourceRecordId: String(getRecordId(sourceRecord)),
+      templateFieldName,
+      sessionId: `tpl_${Date.now()}`
+    });
+
+    return parsed;
+  } catch (err) {
+    console.error("[open-template] failed to parse template:", err);
+    console.log("[open-template] unparsed template value:", templateJson);
+    alert("Template could not be opened.");
+  }
+}
+
+async function renderPublicTemplateFromJson(templateJson, sourceRecord, meta = {}) {
+  const target = document.getElementById("public-template-render-target");
+
+  if (!target) {
+    console.error("[template/render] No template render target found.");
+    alert("No template render target found.");
+    return;
+  }
+
+  target.innerHTML = "";
+
+  const sourceRecordId =
+    meta.sourceRecordId ||
+    sourceRecord?._id ||
+    sourceRecord?.id ||
+    sourceRecord?.values?._id ||
+    "";
+
+  target.dataset.templateLoaded = "1";
+  target.dataset.templateSession = meta.sessionId || "";
+  target.dataset.sourceRecordId = String(sourceRecordId);
+  target.dataset.templateField = meta.templateFieldName || "";
+
+  const sections = templateJson?.sections || {};
+  const submitWrap = document.createElement("div");
+  submitWrap.className = "rendered-template-submit-wrap";
+  submitWrap.style.marginTop = "24px";
+
+  const submitBtn = document.createElement("button");
+  submitBtn.type = "button";
+  submitBtn.textContent = "Submit Application";
+  submitBtn.className = "rendered-template-submit-btn";
+  submitBtn.style.padding = "12px 20px";
+  submitBtn.style.border = "none";
+  submitBtn.style.borderRadius = "10px";
+  submitBtn.style.background = "black";
+  submitBtn.style.color = "white";
+  submitBtn.style.cursor = "pointer";
+
+  submitBtn.addEventListener("click", async () => {
+    const allInputs = target.querySelectorAll("[data-template-field]");
+    const formValues = {};
+
+    allInputs.forEach((input) => {
+      const key = input.dataset.templateField;
+      formValues[key] = input.value;
+    });
+
+    console.log("[template/submit] submitted values:", formValues);
+    alert("Application submitted.");
+  });
+
+  submitWrap.appendChild(submitBtn);
+  target.appendChild(submitWrap);
+  
+  console.log("[template/render] sections:", sections);
+
+  function createSectionContainer(title, sectionKey = "") {
+    const sectionWrap = document.createElement("div");
+    sectionWrap.className = "rendered-template-section";
+    sectionWrap.dataset.sectionKey = sectionKey;
+    sectionWrap.style.marginBottom = "24px";
+
+    const heading = document.createElement("h3");
+    heading.textContent = title;
+    heading.style.margin = "20px 0 12px";
+
+    sectionWrap.appendChild(heading);
+    target.appendChild(sectionWrap);
+
+    return sectionWrap;
+  }
+
+  function addFieldRow(field, index, sectionKey = "", sectionContainer) {
+    const wrap = document.createElement("div");
+    wrap.className = "rendered-template-field";
+    wrap.style.marginBottom = "12px";
+
+    const label = document.createElement("label");
+    label.textContent = field?.label || field?.key || `Field ${index + 1}`;
+    label.style.display = "block";
+    label.style.marginBottom = "6px";
+
+    let input;
+    const rawType = String(field?.inputType || field?.type || "").toLowerCase();
+
+    if (rawType.includes("textarea")) {
+      input = document.createElement("textarea");
+    } else {
+      input = document.createElement("input");
+
+      if (rawType.includes("date")) {
+        input.type = "date";
+      } else if (rawType.includes("email")) {
+        input.type = "email";
+      } else if (rawType.includes("number")) {
+        input.type = "number";
+      } else {
+        input.type = "text";
+      }
+    }
+
+    input.dataset.templateField = field?.key || `${sectionKey}_field_${index}`;
+    input.dataset.templateSection = sectionKey;
+    input.placeholder = field?.label || "";
+    input.style.width = "100%";
+    input.style.padding = "8px";
+
+    if (field?.required) {
+      input.required = true;
+    }
+
+    if (field?.value != null) {
+      input.value = field.value;
+    }
+
+    wrap.appendChild(label);
+    wrap.appendChild(input);
+
+    sectionContainer.appendChild(wrap);
+  }
+
+  if (Array.isArray(sections.applicant) && sections.applicant.length) {
+    const applicantSection = createSectionContainer("Applicant Information", "applicant");
+
+    sections.applicant.forEach((field, index) => {
+      addFieldRow(field, index, "applicant", applicantSection);
+    });
+  }
+
+  if (Array.isArray(sections.experience) && sections.experience.length) {
+    const experienceSection = createSectionContainer("Experience", "experience");
+
+    sections.experience.forEach((field, index) => {
+      addFieldRow(field, index, "experience", experienceSection);
+    });
+  }
+
+  if (Array.isArray(sections.custom) && sections.custom.length) {
+    sections.custom.forEach((section, sectionIndex) => {
+      const sectionKey = section?.sectionKey || `custom_${sectionIndex}`;
+      const customSection = createSectionContainer(
+        section?.title || `Custom Section ${sectionIndex + 1}`,
+        sectionKey
+      );
+
+      const rows = Array.isArray(section?.rows) ? section.rows : [];
+
+      rows.forEach((field, index) => {
+        addFieldRow(field, index, sectionKey, customSection);
+      });
+    });
+  }
+
+  console.log("[template/render] target dataset:", {
+    templateLoaded: target.dataset.templateLoaded,
+    templateSession: target.dataset.templateSession,
+    sourceRecordId: target.dataset.sourceRecordId,
+    templateField: target.dataset.templateField
+  });
+}
+async function submitActiveTemplateApplication() {
+  const target = document.getElementById("public-template-render-target");
+  if (!target || target.dataset.templateLoaded !== "1") {
+    alert("No application template is open.");
+    return;
+  }
+
+  const sourceRecord = window.TPL_ACTIVE_TEMPLATE_SOURCE;
+  if (!sourceRecord) {
+    alert("No source suite found.");
+    return;
+  }
+
+  const suiteId =
+    sourceRecord?._id ||
+    sourceRecord?.id ||
+    sourceRecord?.values?._id ||
+    "";
+
+  if (!suiteId) {
+    alert("No suite id found.");
+    return;
+  }
+
+  const inputs = [
+    ...target.querySelectorAll("input, textarea, select")
+  ];
+
+  const answers = {};
+
+  for (const input of inputs) {
+    const key = input.dataset.templateField || input.name || input.id;
+    if (!key) continue;
+    answers[key] = input.value || "";
+  }
+
+  const payload = {
+    values: {
+      "Suite": suiteId,
+      "Answers JSON": JSON.stringify(answers),
+      "Status": "Submitted"
+    }
+  };
+
+  console.log("[application submit] payload:", payload);
+
+  const res = await apiFetch(`/api/records/Suite Application Submission`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json"
+    },
+    body: JSON.stringify(payload)
+  });
+
+  const data = await res.json().catch(() => ({}));
+
+  if (!res.ok) {
+    throw new Error(data?.message || data?.error || "Failed to submit application");
+  }
+
+  alert("Application submitted.");
+}
+
+//Button Download Pdf Helper
+function downloadPdfFromTarget(target) {
+  if (!target) return;
+
+  let url = target.trim();
+
+  if (!/^https?:\/\//i.test(url) && !url.startsWith("/")) {
+    url = `/${url}`;
+  }
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "";
+  a.target = "_blank";
+  a.rel = "noopener noreferrer";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
+
+
+function getPopupOptions() {
+  return [...grid.querySelectorAll('.da-item[data-type="popup"]')].map((el, index) => ({
+    value: el.dataset.popupId || "",
+    label: (el.dataset.name || "").trim() || `Popup ${index + 1}`
+  }));
+}
+
+function getSectionOptions() {
+  return [...grid.querySelectorAll('.da-item[data-type="section"]')]
+    .map((el, index) => ({
+      value: el.dataset.id || "",
+      label: (el.dataset.name || "").trim() || `Section ${index + 1}`
+    }))
+    .filter((x) => x.value);
+}
+
+function populateButtonTargetSelect(type, currentValue = "") {
+  if (!btnActionTargetSelectEl) return;
+
+  let options = [];
+
+  if (type === "change-view") {
+    options = getViewOptions();
+  }
+
+  if (type === "open-popup") {
+    options = getPopupOptions();
+  }
+
+  if (type === "scroll-to-section") {
+    options = getSectionOptions();
+  }
+
+if (type === "open-template") {
+  options = getTemplateOptions(); // real templates
+}
+  btnActionTargetSelectEl.innerHTML = `<option value="">Select target</option>`;
+
+  options.forEach((opt) => {
+    const option = document.createElement("option");
+    option.value = opt.value;
+    option.textContent = opt.label;
+    btnActionTargetSelectEl.appendChild(option);
+  });
+
+  if ([...btnActionTargetSelectEl.options].some((o) => o.value === currentValue)) {
+    btnActionTargetSelectEl.value = currentValue;
+  } else {
+    btnActionTargetSelectEl.value = "";
+  }
+}
+
+
+function updateButtonActionUI() {
+  if (!btnActionTypeEl || !btnActionTargetEl || !btnActionTargetSelectEl) return;
+
+  const type = btnActionTypeEl.value || "none";
+  const currentValue =
+    selectedItem?.dataset?.actionTarget ||
+    btnActionTargetEl.value ||
+    "";
+
+  const useSelect =
+    type === "change-view" ||
+    type === "open-popup" ||
+    type === "scroll-to-section" ||
+    type === "open-template";
+
+  if (btnSubmitInputsWrapEl) {
+    btnSubmitInputsWrapEl.style.display = "none";
+  }
+
+  // ✅ show/hide source selector BEFORE any early return
+  if (btnActionSourceEl) {
+    btnActionSourceEl.style.display =
+      type === "open-template" ? "inline-block" : "none";
+  }
+
+  if (useSelect) {
+    populateButtonTargetSelect(type, currentValue);
+
+    btnActionTargetEl.style.display = "none";
+    btnActionTargetSelectEl.style.display = "inline-block";
+
+    if (btnPdfPickEl) btnPdfPickEl.style.display = "none";
+    return;
+  }
+
+  btnActionTargetSelectEl.style.display = "none";
+  btnActionTargetEl.style.display = "inline-block";
+
+  if (btnPdfPickEl) btnPdfPickEl.style.display = "none";
+
+  if (type === "link") {
+    btnActionTargetEl.placeholder = "https://example.com";
+    return;
+  }
+
+  if (type === "download-pdf") {
+    btnActionTargetEl.style.display = "none";
+    if (btnPdfPickEl) btnPdfPickEl.style.display = "inline-block";
+    return;
+  }
+
+  if (type === "submit") {
+    btnActionTargetEl.style.display = "none";
+
+    if (btnSubmitInputsWrapEl) {
+      btnSubmitInputsWrapEl.style.display = "block";
+    }
+
+    let selectedIds = [];
+    try {
+      selectedIds = JSON.parse(selectedItem?.dataset?.submitInputs || "[]");
+    } catch {
+      selectedIds = [];
+    }
+
+    renderSubmitInputsPicker(selectedIds);
+    return;
+  }
+
+  btnActionTargetEl.placeholder = "";
+}
+
+const btnActionTypeEl = floatingBar.querySelector(".da-btn__actionType");
+const btnActionTargetEl = floatingBar.querySelector(".da-btn__actionTarget");
+const btnActionTargetSelectEl = floatingBar.querySelector(".da-btn__actionTargetSelect");
+const btnPdfFileEl = floatingBar.querySelector(".da-btn__pdfFile");
+const btnPdfPickEl = floatingBar.querySelector(".da-btn__pdfPick");
+const btnActionSourceEl = floatingBar.querySelector(".da-btn__actionSource");
+
+//Upload PDF
+async function uploadTemplatePdf(file) {
+  const fd = new FormData();
+  fd.append("file", file);
+
+  const res = await fetch(apiUrl("/api/upload"), {
+    method: "POST",
+    credentials: "include",
+    body: fd,
+  });
+
+  const data = await res.json().catch(() => ({}));
+
+  if (!res.ok || !data?.url) {
+    throw new Error(data?.error || data?.message || "PDF upload failed");
+  }
+
+  return data.url;
+}
+//Wire File input
+btnPdfFileEl?.addEventListener("change", async () => {
+  if (!selectedItem || selectedItem.dataset.type !== "button") return;
+
+  const file = btnPdfFileEl.files?.[0];
+  if (!file) return;
+
+  try {
+    const url = await uploadTemplatePdf(file);
+
+    selectedItem.dataset.actionType = "download-pdf";
+    selectedItem.dataset.actionTarget = url;
+
+    applyButtonFromBar();
+    updateButtonActionUI();
+  } catch (err) {
+    console.error("[builder] pdf upload failed:", err);
+    alert("PDF upload failed.");
+  } finally {
+    btnPdfFileEl.value = "";
+  }
+});
+
+
+
+//Open and close Helpers for Pdf 
+function openPdfPreview(url) {
+  const overlay = document.getElementById("pdf-preview-overlay");
+  const frame = document.getElementById("pdf-preview-frame");
+  if (!overlay || !frame || !url) return;
+
+  frame.src = url;
+  overlay.hidden = false;
+}
+
+function closePdfPreview() {
+  const overlay = document.getElementById("pdf-preview-overlay");
+  const frame = document.getElementById("pdf-preview-frame");
+  if (!overlay || !frame) return;
+
+  frame.src = "";
+  overlay.hidden = true;
+}
+
+
+
+
+                                             //////////
+                                         // Input Element
+                                                ////
+function makeInputEl({ x, y, w = 220, h = 44, placeholder = "Type here" } = {}) {
+  const el = document.createElement("div");
+  el.className = "da-item da-item--input";
+  el.dataset.type = "input";
+  el.dataset.id = uid("input");
+
+  el.dataset.placeholder = placeholder;
+  el.dataset.inputType = el.dataset.inputType || "text";
+  el.dataset.name = el.dataset.name || "Input";
+  el.dataset.value = el.dataset.value || "";
+  el.dataset.required = el.dataset.required || "0";
+
+  el.dataset.labelBgMode = el.dataset.labelBgMode || "none";
+el.dataset.labelBg = el.dataset.labelBg || "#ffffff";
+
+el.dataset.inputBgMode = el.dataset.inputBgMode || "none";
+el.dataset.inputBg = el.dataset.inputBg || "#ffffff";
+
+  el.dataset.label = el.dataset.label || "Label";
+  el.dataset.labelColor = el.dataset.labelColor || "#111111";
+  el.dataset.labelSize = el.dataset.labelSize || "14";
+  el.dataset.labelWeight = el.dataset.labelWeight || "600";
+  el.dataset.showLabel = el.dataset.showLabel || "1";
+
+  el.dataset.labelBg = el.dataset.labelBg || "transparent";
+el.dataset.inputBg = el.dataset.inputBg || "#ffffff";
+
+el.dataset.inputBgMode = el.dataset.inputBgMode || "color";
+
+
+  el.dataset.borderWidth = el.dataset.borderWidth || "1";
+  el.dataset.borderColor = el.dataset.borderColor || "#111111";
+  el.dataset.borderStyle = el.dataset.borderStyle || "solid";
+  el.dataset.radius = el.dataset.radius || "10";
+
+  el.style.left = `${Math.round(x)}px`;
+  el.style.top = `${Math.round(y)}px`;
+  el.style.width = `${Math.round(w)}px`;
+  el.style.height = `${Math.round(h)}px`;
+
+  const all = grid.querySelectorAll(".da-item");
+  const maxZ = [...all].reduce((m, n) => Math.max(m, parseInt(n.style.zIndex || "1", 10)), 1);
+  el.style.zIndex = String(maxZ + 1);
+
+  el.innerHTML = `
+    <div class="da-inputWrap">
+      <label class="da-input__label">Label</label>
+      <input class="da-input" type="text" placeholder="${placeholder}" value="${el.dataset.value}" />
+    </div>
+
+    <div class="da-resize da-resize--nw" data-resize="nw"></div>
+    <div class="da-resize da-resize--n"  data-resize="n"></div>
+    <div class="da-resize da-resize--ne" data-resize="ne"></div>
+    <div class="da-resize da-resize--w"  data-resize="w"></div>
+    <div class="da-resize da-resize--e"  data-resize="e"></div>
+    <div class="da-resize da-resize--sw" data-resize="sw"></div>
+    <div class="da-resize da-resize--s"  data-resize="s"></div>
+    <div class="da-resize da-resize--se" data-resize="se"></div>
+  `;
+
+  renderInputContent(el);
+  return el;
+}
+
+
+//Input Helper
+function renderInputContent(el) {
+  if (!el || el.dataset.type !== "input") return;
+
+  const wrap = el.querySelector(".da-inputWrap");
+  const label = el.querySelector(".da-input__label");
+  const input = el.querySelector(".da-input");
+  if (!wrap || !label || !input) return;
+
+  el.style.background = "transparent";
+
+wrap.style.background = "transparent";
+  wrap.style.display = "flex";
+  wrap.style.flexDirection = "column";
+  wrap.style.width = "100%";
+  wrap.style.height = "100%";
+  wrap.style.boxSizing = "border-box";
+  wrap.style.background = "transparent"; // important
+
+  label.textContent = el.dataset.label || "Label";
+  label.style.display = el.dataset.showLabel === "1" ? "block" : "none";
+  label.style.color = el.dataset.labelColor || "#111111";
+  label.style.fontSize = `${parseInt(el.dataset.labelSize || "14", 10) || 14}px`;
+  label.style.fontWeight = el.dataset.labelWeight || "600";
+  label.style.margin = "0 0 6px 0";
+  label.style.padding = "0";
+  label.style.border = "none";
+  label.style.borderRadius = "0";
+  label.style.boxShadow = "none";
+
+label.style.background =
+  el.dataset.labelBgMode === "color"
+    ? (el.dataset.labelBg || "#ffffff")
+    : "transparent";
+
+input.style.background =
+  el.dataset.inputBgMode === "color"
+    ? (el.dataset.inputBg || "#ffffff")
+    : "transparent";
+
+  input.type = el.dataset.inputType || "text";
+  input.placeholder = el.dataset.placeholder || "Type here";
+  input.value = el.dataset.value || "";
+  input.required = el.dataset.required === "1";
+
+  input.style.width = "100%";
+  input.style.flex = "1";
+  input.style.boxSizing = "border-box";
+
+input.style.appearance = "none";
+input.style.webkitAppearance = "none";
+input.style.mozAppearance = "none";
+input.style.boxShadow = "none";
+
+  const bw = parseInt(el.dataset.borderWidth || "1", 10) || 1;
+  const bc = el.dataset.borderColor || "#111111";
+  const bs = el.dataset.borderStyle || "solid";
+  const br = parseInt(el.dataset.radius || "10", 10) || 10;
+
+  input.style.border = (bs === "none" || bw === 0) ? "none" : `${bw}px ${bs} ${bc}`;
+  input.style.borderRadius = `${br}px`;
+  input.style.padding = "0 8px";
+  input.style.boxShadow = "none";
+  input.style.outline = "none";
+  input.style.appearance = "none";
+  input.style.webkitAppearance = "none";
+
+  input.disabled = !window.TPL_PREVIEW;
+  input.style.pointerEvents = window.TPL_PREVIEW ? "auto" : "none";
+
+  input.oninput = () => {
+    el.dataset.value = input.value || "";
+  };
+}
+
+function getInputOptions() {
+  return [...grid.querySelectorAll('.da-item[data-type="input"]')]
+    .map((el, index) => ({
+      value: el.dataset.id || "",
+      label: (el.dataset.name || "").trim() || `Input ${index + 1}`
+    }))
+    .filter((x) => x.value);
+}
+
+function getCheckedSubmitInputIds() {
+  if (!btnSubmitInputsListEl) return [];
+
+  return [...btnSubmitInputsListEl.querySelectorAll('input[type="checkbox"]:checked')]
+    .map((cb) => cb.value)
+    .filter(Boolean);
+}
+
+                                             //////////
+                                         // Popup Element
+                                                ////
+function makePopupEl({ x, y, w = 360, h = 220, title = "" }) {
+  const el = document.createElement("div");
+  el.className = "da-item da-item--popup";
+  el.dataset.type = "popup";
+  el.dataset.id = uid("popup");
+
+  // popup defaults
+  el.dataset.name = title || "";
+  el.dataset.bg = el.dataset.bg || "#ffffff";
+  el.dataset.borderOn = el.dataset.borderOn || "1";
+  el.dataset.borderWidth = el.dataset.borderWidth || "2";
+  el.dataset.borderStyle = el.dataset.borderStyle || "solid";
+  el.dataset.borderColor = el.dataset.borderColor || "#111111";
+  el.dataset.radius = el.dataset.radius || "16";
+  el.dataset.popupId = el.dataset.popupId || `popup_${Date.now()}`;
+  el.dataset.popupMode = el.dataset.popupMode || "modal";
+  el.dataset.popupDefaultOpen = el.dataset.popupDefaultOpen || "0";
+  el.dataset.popupMinimized = el.dataset.popupMinimized || "0";
+
+  el.dataset.dynamicMode = el.dataset.dynamicMode || "static";
+ el.dataset.dynamicSource = el.dataset.dynamicSource || "page";
+
+  el.style.left = `${Math.round(x)}px`;
+  el.style.top = `${Math.round(y)}px`;
+  el.style.width = `${Math.round(w)}px`;
+  el.style.height = `${Math.round(h)}px`;
+  el.style.background = el.dataset.bg;
+
+  
+el.dataset.popupId = el.dataset.popupId || `popup_${Date.now()}_${Math.random().toString(16).slice(2, 8)}`;
+el.dataset.name = el.dataset.name || "Popup";
+el.dataset.popupMinimized = el.dataset.popupMinimized || "0";
+
+  const all = grid.querySelectorAll(".da-item");
+  const maxZ = [...all].reduce((m, n) => Math.max(m, parseInt(n.style.zIndex || "1", 10)), 1);
+  el.style.zIndex = String(maxZ + 1);
+
+  const bw = parseInt(el.dataset.borderWidth, 10) || 0;
+  const bs = el.dataset.borderStyle || "solid";
+  const bc = el.dataset.borderColor || "#111111";
+  const br = parseInt(el.dataset.radius, 10) || 0;
+
+  el.style.border = el.dataset.borderOn === "1" ? `${bw}px ${bs} ${bc}` : "none";
+  el.style.borderRadius = `${br}px`;
+
+el.innerHTML = `
+  <div class="da-popup__body"></div>
+
+  <div class="da-resize da-resize--nw" data-resize="nw"></div>
+  <div class="da-resize da-resize--n"  data-resize="n"></div>
+  <div class="da-resize da-resize--ne" data-resize="ne"></div>
+  <div class="da-resize da-resize--w"  data-resize="w"></div>
+  <div class="da-resize da-resize--e"  data-resize="e"></div>
+  <div class="da-resize da-resize--sw" data-resize="sw"></div>
+  <div class="da-resize da-resize--s"  data-resize="s"></div>
+  <div class="da-resize da-resize--se" data-resize="se"></div>
+
+
+`;
+
+
+
+  return el;
+}
+
+//Sidebar Helper
+const sidebarMain = document.getElementById("builder-sidebar-main");
+const sidebarEditor = document.getElementById("builder-sidebar-editor");
+
+function mountBarInSidebar() {
+  if (!sidebarMain || !sidebarEditor) return;
+
+  sidebarMain.style.display = "none";
+  sidebarEditor.style.display = "block";
+
+  sidebarEditor.innerHTML = "";
+  sidebarEditor.appendChild(floatingBar);
+
+  floatingBar.style.position = "relative";
+  floatingBar.style.left = "0";
+  floatingBar.style.top = "0";
+  floatingBar.style.width = "100%";
+  floatingBar.style.maxWidth = "100%";
+  floatingBar.style.display = "flex";
+}
+
+function unmountBarToCanvas() {
+  if (!sidebarMain || !sidebarEditor) return;
+
+  sidebarMain.style.display = "";
+  sidebarEditor.style.display = "none";
+
+  sidebarEditor.innerHTML = "";
+  grid.appendChild(floatingBar);
+
+  floatingBar.style.position = "absolute";
+  floatingBar.style.width = "280px";
+  floatingBar.style.maxWidth = "280px";
+  floatingBar.style.display = "none";
+}
+
+//Build Popup List in sidebar 
+function refreshPopupList() {
+  const popupList = document.getElementById("popup-list");
+  if (!popupList || !grid) return;
+
+  popupList.innerHTML = "";
+
+  const popups = [...grid.querySelectorAll('.da-item[data-type="popup"]')];
+console.log(
+  "POPUP LIST ITEMS:",
+  popups.map((el) => ({
+    type: el.dataset.type,
+    name: el.dataset.name,
+    popupId: el.dataset.popupId,
+    id: el.dataset.id
+  }))
+);
+
+  if (!popups.length) {
+    popupList.innerHTML = `<div class="popup-list-empty">No popups yet</div>`;
+    return;
+  }
+
+  popups.forEach((popup, index) => {
+    const row = document.createElement("button");
+    row.type = "button";
+    row.className = "popup-list-row";
+    row.dataset.popupId = popup.dataset.popupId || "";
+
+    const rawName = (popup.dataset.name || "").trim();
+const label =
+  rawName && rawName !== "Section"
+    ? rawName
+    : `Popup ${index + 1}`;
+
+    row.textContent = label;
+
+    if (selectedItem === popup) {
+      row.classList.add("is-active");
+    }
+
+row.addEventListener("click", () => {
+  grid.querySelectorAll(".da-item").forEach((x) => x.classList.remove("is-selected"));
+  popup.classList.add("is-selected");
+  selectedItem = popup;
+  showBarForItem(popup);
+  openPopupEditMode(popup);
+});
+
+    popupList.appendChild(row);
+  });
+}
+
+//Open and close popup
+let popupEditReturnState = null;
+
+function openPopupEditMode(popupEl) {
+  if (!popupEl || popupEl.dataset.type !== "popup") return;
+
+  const overlay = document.getElementById("popup-edit-overlay");
+  console.log("overlay:", overlay);
+  if (overlay) {
+    console.log("overlay hidden before:", overlay.hidden);
+  }
+
+  if (!overlay) return;
+
+  closePopupEditMode();
+
+  popupEditReturnState = {
+    popupId: popupEl.dataset.popupId || "",
+    left: popupEl.style.left || "",
+    top: popupEl.style.top || "",
+    transform: popupEl.style.transform || "",
+    zIndex: popupEl.style.zIndex || ""
+  };
+
+overlay.hidden = false;
+console.log("overlay hidden after:", overlay.hidden);
+
+popupEl.style.display = "block";
+popupEl.classList.add("is-popup-editing");
+
+popupEl.style.left = "50%";
+popupEl.style.top = "24px";
+popupEl.style.transform = "translateX(-50%)";
+popupEl.style.zIndex = "1001";
+
+  selectedItem = popupEl;
+  showBarForItem(popupEl);
+}
+
+function closePopupEditMode() {
+  const overlay = document.getElementById("popup-edit-overlay");
+  const editingPopup = grid.querySelector('.da-item[data-type="popup"].is-popup-editing');
+
+  if (overlay) {
+    overlay.hidden = true;
+  }
+
+  if (!editingPopup) {
+    popupEditReturnState = null;
+    return;
+  }
+
+  editingPopup.classList.remove("is-popup-editing");
+
+  if (popupEditReturnState && (!popupEditReturnState.popupId || popupEditReturnState.popupId === editingPopup.dataset.popupId)) {
+    editingPopup.style.left = popupEditReturnState.left;
+    editingPopup.style.top = popupEditReturnState.top;
+    editingPopup.style.transform = popupEditReturnState.transform;
+    editingPopup.style.zIndex = popupEditReturnState.zIndex;
+  } else {
+    editingPopup.style.transform = "";
+  }
+editingPopup.style.display = "none";
+  popupEditReturnState = null;
+}
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") {
+    closePopupEditMode();
+  }
+});
+
+//////////////////////////
+//Video Element
+//////////////////
+function makeVideoEl({ x, y, w = 320, h = 180, src = "" }) {
+  const el = document.createElement("div");
+  el.className = "da-item da-item--video";
+  el.dataset.type = "video";
+  el.dataset.id = uid("video");
+  el.dataset.name = el.dataset.name || "Video";
+  el.dataset.src = src || "";
+  el.dataset.radius = el.dataset.radius || "12";
+  el.dataset.autoplay = el.dataset.autoplay || "0";
+  el.dataset.muted = el.dataset.muted || "1";
+  el.dataset.loop = el.dataset.loop || "0";
+  el.dataset.controls = el.dataset.controls || "1";
+
+  el.style.left = `${Math.round(x)}px`;
+  el.style.top = `${Math.round(y)}px`;
+  el.style.width = `${Math.round(w)}px`;
+  el.style.height = `${Math.round(h)}px`;
+
+  const all = grid.querySelectorAll(".da-item");
+  const maxZ = [...all].reduce((m, n) => Math.max(m, parseInt(n.style.zIndex || "1", 10)), 1);
+  el.style.zIndex = String(maxZ + 1);
+
+  el.innerHTML = `
+    <video class="da-video" playsinline></video>
+
+    <div class="da-resize da-resize--nw" data-resize="nw"></div>
+    <div class="da-resize da-resize--n"  data-resize="n"></div>
+    <div class="da-resize da-resize--ne" data-resize="ne"></div>
+    <div class="da-resize da-resize--w"  data-resize="w"></div>
+    <div class="da-resize da-resize--e"  data-resize="e"></div>
+    <div class="da-resize da-resize--sw" data-resize="sw"></div>
+    <div class="da-resize da-resize--s"  data-resize="s"></div>
+    <div class="da-resize da-resize--se" data-resize="se"></div>
+  `;
+
+  renderVideoContent(el);
+  return el;
+}
+
+function renderVideoContent(el) {
+  if (!el || el.dataset.type !== "video") return;
+
+  const video = el.querySelector(".da-video");
+  if (!video) return;
+
+  video.src = el.dataset.src || "";
+  video.controls = el.dataset.controls === "1";
+  video.autoplay = el.dataset.autoplay === "1";
+  video.muted = el.dataset.muted === "1";
+  video.loop = el.dataset.loop === "1";
+
+  el.style.borderRadius = `${parseInt(el.dataset.radius, 10) || 0}px`;
+  el.style.overflow = "hidden";
+  video.style.borderRadius = `${parseInt(el.dataset.radius, 10) || 0}px`;
+}
+
+const videoWrap = floatingBar.querySelector(".da-videoControls");
+const videoPickBtn = floatingBar.querySelector(".da-videoPickBtn");
+const videoFileEl = floatingBar.querySelector(".da-videoFile");
+const videoRadiusEl = floatingBar.querySelector(".da-videoRadius");
+const videoControlsToggleEl = floatingBar.querySelector(".da-videoControlsToggle");
+const videoAutoplayEl = floatingBar.querySelector(".da-videoAutoplay");
+const videoMutedEl = floatingBar.querySelector(".da-videoMuted");
+const videoLoopEl = floatingBar.querySelector(".da-videoLoop");
+
+//////////////////////////
+//Group Element
+//////////////////
+
+function makeGroupEl({ x, y, w = 420, h = 168, title = "Group" }) {
+  const el = makeSectionEl({ x, y, w, h, title });
+
+  el.dataset.type = "group";
+  el.dataset.name = title || "Group";
+el.dataset.bgOn = el.dataset.bgOn || "1";
+  el.dataset.dynamicMode = el.dataset.dynamicMode || "static";
+  el.dataset.dynamicSource = el.dataset.dynamicSource || "page";
+  el.dataset.bindMode = el.dataset.bindMode || "single";
+  el.dataset.dynamicField = el.dataset.dynamicField || "";
+  el.dataset.selectedItemId = el.dataset.selectedItemId || "";
+  el.dataset.itemField = el.dataset.itemField || "";
+  el.dataset.itemDataType = el.dataset.itemDataType || "";
+  el.dataset.itemDataTypeId = el.dataset.itemDataTypeId || "";
+
+  el.classList.add("da-item--group");
+
+  return el;
+}
+async function populateGroupSelectedItemOptions(item = selectedItem) {
+  if (!groupSelectedItemEl || !item) return;
+
+  const list = await getGroupSourceList(item);
+  const currentValue = item.dataset.selectedItemId || "";
+
+  groupSelectedItemEl.innerHTML = `<option value="">Select item</option>`;
+
+  list.forEach((entry, index) => {
+    const option = document.createElement("option");
+
+    const value =
+      entry?._id ||
+      entry?.id ||
+      entry?.values?._id ||
+      entry?.values?.id ||
+      String(index);
+
+    option.value = String(value);
+    option.textContent = getRecordLabel(entry, index);
+
+    groupSelectedItemEl.appendChild(option);
+  });
+
+  if ([...groupSelectedItemEl.options].some((o) => o.value === currentValue)) {
+    groupSelectedItemEl.value = currentValue;
+  }
+
+  // set the datatype for the selected-item level
+  if (list && list.length) {
+    const first = list[0];
+
+    const dataTypeName =
+      first?.dataTypeName ||
+      first?.recordTypeName ||
+      first?.type ||
+      item.dataset.itemDataType ||
+      "";
+
+    const dataTypeId =
+      first?.dataTypeId ||
+      first?.values?.dataTypeId ||
+      item.dataset.itemDataTypeId ||
+      "";
+
+    item.dataset.itemDataType = dataTypeName;
+    item.dataset.itemDataTypeId = dataTypeId;
+
+    console.log("[group] itemDataType set:", dataTypeName);
+    console.log("[group] itemDataTypeId set:", dataTypeId);
+  }
+}
+  //Section Element
+ function makeSectionEl({ x, y, w = 420, h = 168, title = "Section" }) {
+
+    const el = document.createElement("div");
+   el.className = "da-item da-item--section";
+el.dataset.type = "section";
+el.dataset.dynamicMode = el.dataset.dynamicMode || "static";
+el.dataset.dynamicSource = el.dataset.dynamicSource || "page";
+el.dataset.bgOn = el.dataset.bgOn || "1";
+el.dataset.bindType = el.dataset.bindType || "record";
+el.dataset.dynamicField = el.dataset.dynamicField || "";
+
+// defaults for section border styling
+el.dataset.borderOn    = el.dataset.borderOn || "0";
+el.dataset.borderWidth = el.dataset.borderWidth || "2";
+el.dataset.borderStyle = el.dataset.borderStyle || "solid";
+el.dataset.borderColor = el.dataset.borderColor || "#111111";
+
+el.dataset.radius = el.dataset.radius || "0";
+el.dataset.borderOn = el.dataset.borderOn || "0"; // if you’re using the toggle
+
+// apply defaults immediately
+el.style.border = (el.dataset.borderOn === "1")
+  ? `${el.dataset.borderWidth}px ${el.dataset.borderStyle} ${el.dataset.borderColor}`
+  : "none";
+
+el.style.borderRadius = `${parseInt(el.dataset.radius, 10) || 0}px`;
+
+    el.dataset.id = uid("section");
+    el.style.left = `${Math.round(x)}px`;
+    el.style.top = `${Math.round(y)}px`;
+    el.style.width = `${Math.round(w)}px`;
+    el.style.height = `${Math.round(h)}px`;
+  const all = grid.querySelectorAll(".da-item");
+const maxZ = [...all].reduce((m, n) => Math.max(m, parseInt(n.style.zIndex || "1", 10)), 1);
+el.style.zIndex = String(maxZ + 1); // ✅ new items appear on top by default
+
+
+
+
+//Rename Section
+const safe = String(title || "Section").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+
+
+el.innerHTML = ``;
+// --- resize handles (8) ---
+el.innerHTML = `
+  <div class="da-resize da-resize--nw" data-resize="nw"></div>
+  <div class="da-resize da-resize--n"  data-resize="n"></div>
+  <div class="da-resize da-resize--ne" data-resize="ne"></div>
+
+  <div class="da-resize da-resize--w"  data-resize="w"></div>
+  <div class="da-resize da-resize--e"  data-resize="e"></div>
+
+  <div class="da-resize da-resize--sw" data-resize="sw"></div>
+  <div class="da-resize da-resize--s"  data-resize="s"></div>
+  <div class="da-resize da-resize--se" data-resize="se"></div>
+`;
+
+
+
+// store name on the element so you can read it later
+el.dataset.name = title || "Section";
+
+    return el;
+  }
+
+//get a section’s children
+function getSectionChildren(sectionEl) {
+  const id = sectionEl?.dataset?.id;
+  if (!id) return [];
+  return [...grid.querySelectorAll(`.da-item[data-parent="${id}"]`)];
+}
+
+function getSectionDynamicFieldOptions(pageType, bindType) {
+  if (pageType === "suite") {
+    if (bindType === "list") {
+      return [
+        { value: "Suites", label: "Suites" },
+        { value: "Suities", label: "Suities" },
+        { value: "Suite Applications", label: "Suite Applications" },
+        { value: "Amenities", label: "Amenities" },
+      ];
+    }
+
+    return [
+      { value: "__page__", label: "Current Page Record" },
+    ];
+  }
+
+  if (pageType === "booking") {
+    if (bindType === "list") {
+      return [
+        { value: "Services", label: "Services" },
+        { value: "Categories", label: "Categories" },
+        { value: "Calendars", label: "Calendars" },
+      ];
+    }
+
+    return [
+      { value: "__page__", label: "Current Page Record" },
+    ];
+  }
+
+  return [];
+}
+
+
+/////////////////////////////////////
+//Dropdown Flow 
+async function resolveDynamicPath({
+  source = "page",
+  path = []
+}) {
+  let currentRecord = null;
+  let currentDataTypeName = "";
+  let currentDataTypeId = "";
+
+  if (source === "page") {
+    currentRecord = window.TPL_CURRENT_PAGE_ROW || null;
+    currentDataTypeName = getMainDataTypeForPageType(window.TPL_PAGE_TYPE || "booking");
+    currentDataTypeId = window.TPL_CURRENT_PAGE_DATATYPE_ID || "";
+  }
+
+  if (!currentRecord) return {
+    value: "",
+    record: null,
+    dataTypeName: "",
+    dataTypeId: ""
+  };
+
+  for (let i = 0; i < path.length; i++) {
+    const step = path[i];
+
+    if (step.kind === "field") {
+      const values = currentRecord?.values || currentRecord || {};
+      const rawValue = values?.[step.value];
+
+      const nextStep = path[i + 1];
+
+      if (!nextStep || nextStep.kind !== "record") {
+        return {
+          value: rawValue,
+          record: currentRecord,
+          dataTypeName: currentDataTypeName,
+          dataTypeId: currentDataTypeId
+        };
+      }
+
+      const relatedMeta = await getRelatedDataTypeMetaFromField(
+        step.value,
+        currentDataTypeName,
+        currentDataTypeId
+      );
+
+      if (!relatedMeta?.name) {
+        return {
+          value: rawValue,
+          record: currentRecord,
+          dataTypeName: currentDataTypeName,
+          dataTypeId: currentDataTypeId
+        };
+      }
+
+      const possibleRows = await fetchRowsForDynamicReference(
+        relatedMeta.name,
+        relatedMeta.id
+      );
+
+      const selectedId = String(nextStep.value || "");
+
+      const matched = possibleRows.find((row) => {
+        const rowId =
+          row?._id ||
+          row?.id ||
+          row?.values?._id ||
+          row?.values?.id ||
+          "";
+        return String(rowId) === selectedId;
+      });
+
+      if (!matched) {
+        return {
+          value: "",
+          record: null,
+          dataTypeName: relatedMeta.name,
+          dataTypeId: relatedMeta.id || ""
+        };
+      }
+
+      currentRecord = matched;
+      currentDataTypeName = relatedMeta.name;
+      currentDataTypeId = relatedMeta.id || "";
+
+      i += 1;
+    }
+  }
+
+  return {
+    value: "",
+    record: currentRecord,
+    dataTypeName: currentDataTypeName,
+    dataTypeId: currentDataTypeId
+  };
+} 
+
+async function fetchRowsForDynamicReference(dataTypeName, dataTypeId = "") {
+  if (!dataTypeName) return [];
+
+  const data = await fetchJSON(
+    `/public/records?dataType=${encodeURIComponent(dataTypeName)}&limit=500&ownerUserId=${encodeURIComponent(currentUser.id)}`,
+    {
+      method: "GET",
+      cache: "no-store"
+    }
+  );
+
+  return Array.isArray(data)
+    ? data
+    : data.records || data.items || data.data || [];
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                 // =======================
+                                            // STEP 5 Element Wiring
                                              //
                                              // =======================
                                              // =======================
                                              // =======================
 // IMAGE BAR WIRING
 // =======================
+//Image back to list button 
+async function uploadTemplateImage(file) {
+  const fd = new FormData();
+  fd.append("file", file);
+
+  const res = await fetch(apiUrl("/api/upload"), {
+    method: "POST",
+    credentials: "include",
+    body: fd,
+  });
+
+  const data = await res.json().catch(() => ({}));
+
+  if (!res.ok || !data?.url) {
+    throw new Error(data?.message || "Image upload failed");
+  }
+
+  return data.url;
+}
+
 const imgWrap   = floatingBar.querySelector(".da-imgControls");
 const imgPickBtn= floatingBar.querySelector(".da-imgPickBtn");
 const imgFileEl = floatingBar.querySelector(".da-imgFile");
+const imgModeEl = floatingBar.querySelector(".da-img__mode");
+const imgDynamicSourceEl = floatingBar.querySelector(".da-img__dynamicSource");
+const imgDynamicFieldEl = floatingBar.querySelector(".da-img__dynamicField");
 const imgFitEl  = floatingBar.querySelector(".da-imgFit");
 const imgZoomEl = floatingBar.querySelector(".da-imgZoom");
 const imgBWEl   = floatingBar.querySelector(".da-imgBorderW");
 const imgBCEl   = floatingBar.querySelector(".da-imgBorderC");
 const imgRadEl  = floatingBar.querySelector(".da-imgRadius");
 
-function applyImageFromBar() {
+async function applyImageFromBar() {
   if (!selectedItem) return;
   if (selectedItem.dataset.type !== "image") return;
 
   const img = selectedItem.querySelector(".da-img");
   if (!img) return;
 
-  // fit
+  selectedItem.dataset.dynamicMode = imgModeEl?.value || "static";
+  selectedItem.dataset.dynamicSource = imgDynamicSourceEl?.value || "page";
+  selectedItem.dataset.dynamicField = imgDynamicFieldEl?.value || "";
+
   const fit = imgFitEl?.value || "cover";
   selectedItem.dataset.fit = fit;
   img.style.objectFit = fit;
 
-  // zoom
   const zoom = parseFloat(imgZoomEl?.value || "1") || 1;
   selectedItem.dataset.zoom = String(zoom);
   img.style.transform = `scale(${zoom})`;
 
-  // border + radius (on wrapper so it clips)
   const bw = parseInt(imgBWEl?.value || "0", 10) || 0;
   const bc = imgBCEl?.value || "#111111";
   const rad = parseInt(imgRadEl?.value || "0", 10) || 0;
@@ -203,10 +5679,47 @@ function applyImageFromBar() {
 
 selectedItem.style.border = bw > 0 ? `${bw}px solid ${bc}` : "none";
 selectedItem.style.borderRadius = `${rad}px`;
-selectedItem.style.overflow = "hidden"; // ✅ keep corners clean
+selectedItem.style.overflow = "hidden";
+
 img.style.borderRadius = `${rad}px`;
- // keeps image corners clean too
+img.style.width = "100%";
+img.style.height = "100%";
+img.style.display = "block";
+
+  const showDynamicStuff = selectedItem.dataset.dynamicMode === "dynamic";
+
+  if (imgDynamicSourceEl) {
+    imgDynamicSourceEl.style.display = showDynamicStuff ? "inline-block" : "none";
+  }
+
+  if (imgDynamicFieldEl) {
+    imgDynamicFieldEl.style.display = showDynamicStuff ? "inline-block" : "none";
+  }
+
+  if (imgPickBtn) {
+    imgPickBtn.style.display = showDynamicStuff ? "none" : "inline-block";
+  }
+
+  await populateImageDynamicFieldOptions(selectedItem);
+
+  if (imgDynamicFieldEl) {
+    imgDynamicFieldEl.value = selectedItem.dataset.dynamicField || "";
+  }
+
+  await renderImageContent(selectedItem);
 }
+
+//Responsive View
+const desktopViewBtn = document.getElementById("desktop-view-btn");
+const mobileViewBtn = document.getElementById("mobile-view-btn");
+
+desktopViewBtn?.addEventListener("click", () => {
+  switchResponsiveView("desktop");
+});
+
+mobileViewBtn?.addEventListener("click", () => {
+  switchResponsiveView("mobile");
+});
 
 // open file picker by icon click
 imgPickBtn?.addEventListener("click", (e) => {
@@ -216,21 +5729,39 @@ imgPickBtn?.addEventListener("click", (e) => {
 });
 
 // file chosen -> set image
-imgFileEl?.addEventListener("change", (e) => {
+imgFileEl?.addEventListener("change", async (e) => {
   if (!selectedItem || selectedItem.dataset.type !== "image") return;
+
   const file = e.target.files?.[0];
   if (!file) return;
 
-  const url = URL.createObjectURL(file);
-  selectedItem.dataset.src = url;
-
   const img = selectedItem.querySelector(".da-img");
-  if (img) img.src = url;
+  if (!img) return;
 
-  // reset position nicely
-  selectedItem.dataset.posX = "50";
-  selectedItem.dataset.posY = "50";
-  if (img) img.style.objectPosition = "50% 50%";
+  try {
+    // optional quick preview while upload happens
+    const tempUrl = URL.createObjectURL(file);
+    img.src = tempUrl;
+
+    // upload immediately
+    const uploadedUrl = await uploadTemplateImage(file);
+
+    // save permanent URL on the element
+    selectedItem.dataset.src = uploadedUrl;
+    img.src = uploadedUrl;
+
+    // reset image position nicely
+    selectedItem.dataset.posX = "50";
+    selectedItem.dataset.posY = "50";
+    img.style.objectPosition = "50% 50%";
+
+    console.log("[builder] image uploaded:", uploadedUrl);
+  } catch (err) {
+    console.error("[builder] image upload failed:", err);
+    alert(err?.message || "Failed to upload image.");
+  } finally {
+    e.target.value = "";
+  }
 });
 
 // listeners
@@ -240,9 +5771,49 @@ imgBWEl?.addEventListener("input", applyImageFromBar);
 imgBCEl?.addEventListener("input", applyImageFromBar);
 imgRadEl?.addEventListener("input", applyImageFromBar);
 
+imgModeEl?.addEventListener("change", applyImageFromBar);
+
+imgDynamicSourceEl?.addEventListener("change", async () => {
+  await populateImageDynamicFieldOptions(selectedItem);
+  await applyImageFromBar();
+});
+
+imgDynamicFieldEl?.addEventListener("change", applyImageFromBar);
 // BUTTON BAR WIRING (Step 5)
 // =======================
+// =======================
+// BUTTON BAR SELECTORS
+// =======================
+
+
 const btnWrap = floatingBar.querySelector(".da-btnControls");
+const textDynamicWrap = floatingBar.querySelector(".da-textDynamicControls");
+const textModeEl = floatingBar.querySelector(".da-text__mode");
+const textDynamicSourceEl = floatingBar.querySelector(".da-text__dynamicSource");
+const textDynamicFieldEl = floatingBar.querySelector(".da-text__dynamicField");
+
+const textSelectedRecordEl = floatingBar.querySelector(".da-text__selectedRecord");
+const textRecordFieldEl = floatingBar.querySelector(".da-text__recordField");
+const textNestedFieldEl = floatingBar.querySelector(".da-text__nestedField");
+const textNestedSelectedRecordEl = floatingBar.querySelector(".da-text__nestedSelectedRecord");
+
+const sectionDynamicWrap = floatingBar.querySelector(".da-sectionDynamicControls");
+const sectionModeEl = floatingBar.querySelector(".da-section__mode");
+const sectionDynamicSourceEl = floatingBar.querySelector(".da-section__dynamicSource");
+const sectionDynamicDataTypeEl = floatingBar.querySelector(".da-section__dynamicDataType");
+
+
+const groupDynamicWrap = floatingBar.querySelector(".da-groupDynamicControls");
+const groupModeEl = floatingBar.querySelector(".da-group__mode");
+const groupDynamicSourceEl = floatingBar.querySelector(".da-group__dynamicSource");
+const groupBindModeEl = floatingBar.querySelector(".da-group__bindMode");
+const groupDynamicFieldEl = floatingBar.querySelector(".da-group__dynamicField");
+const groupSelectedItemEl = floatingBar.querySelector(".da-group__selectedItem");
+const groupItemFieldEl = floatingBar.querySelector(".da-group__itemField");
+
+const groupNestedFieldEl = floatingBar.querySelector(".da-group__nestedField");
+const groupNestedSelectedItemEl = floatingBar.querySelector(".da-group__nestedSelectedItem");
+
 const btnLabelEl = floatingBar.querySelector(".da-btn__label");
 const btnBgEl = floatingBar.querySelector(".da-btn__bg");
 const btnTextColorEl = floatingBar.querySelector(".da-btn__textColor");
@@ -250,37 +5821,184 @@ const btnBwEl = floatingBar.querySelector(".da-btn__borderWidth");
 const btnBcEl = floatingBar.querySelector(".da-btn__borderColor");
 const btnBsEl = floatingBar.querySelector(".da-btn__borderStyle");
 const btnRadiusEl = floatingBar.querySelector(".da-btn__radius");
-const btnHrefEl = floatingBar.querySelector(".da-btn__href");
 
-function applyButtonFromBar() {
+// NEW
+const btnDisplayTypeEl = floatingBar.querySelector(".da-btn__displayType");
+const btnIconEl = floatingBar.querySelector(".da-btn__icon");
+
+//Button Helper
+function updateButtonActionUI() {
+  if (!btnActionTypeEl || !btnActionTargetEl || !btnActionTargetSelectEl) return;
+
+  const type = btnActionTypeEl.value || "none";
+  const currentValue = selectedItem?.dataset?.actionTarget || btnActionTargetEl.value || "";
+
+const useSelect =
+  type === "change-view" ||
+  type === "open-popup" ||
+  type === "scroll-to-section" ||
+  type === "open-template";
+
+  if (btnSubmitInputsWrapEl) {
+    btnSubmitInputsWrapEl.style.display = "none";
+  }
+
+  if (useSelect) {
+    populateButtonTargetSelect(type, currentValue);
+    btnActionTargetEl.style.display = "none";
+    btnActionTargetSelectEl.style.display = "inline-block";
+    if (btnPdfPickEl) btnPdfPickEl.style.display = "none";
+    return;
+  }
+
+  btnActionTargetSelectEl.style.display = "none";
+  btnActionTargetEl.style.display = "inline-block";
+  if (btnPdfPickEl) btnPdfPickEl.style.display = "none";
+
+  if (type === "link") {
+    btnActionTargetEl.placeholder = "https://example.com";
+    return;
+  }
+
+  if (type === "download-pdf") {
+    btnActionTargetEl.style.display = "none";
+    if (btnPdfPickEl) btnPdfPickEl.style.display = "inline-block";
+    return;
+  }
+
+if (type === "submit") {
+  btnActionTargetEl.style.display = "none";
+  btnActionTargetSelectEl.style.display = "none";
+
+  if (btnActionSourceEl) {
+    btnActionSourceEl.style.display = "none";
+  }
+
+  // TEMP: hide old submit-input picker for application-template flow
+  if (btnSubmitInputsWrapEl) {
+    btnSubmitInputsWrapEl.style.display = "none";
+  }
+
+  return;
+}
+
+  btnActionTargetEl.placeholder = "";
+}
+
+btnActionTypeEl?.addEventListener("change", () => {
+  updateButtonActionUI();
+  applyButtonFromBar();
+});
+
+btnActionTargetEl?.addEventListener("input", () => {
+  applyButtonFromBar();
+});
+
+btnActionTargetSelectEl?.addEventListener("change", () => {
+  applyButtonFromBar();
+});
+
+btnPdfPickEl?.addEventListener("click", () => {
+  btnPdfFileEl?.click();
+});
+
+updateButtonActionUI();
+
+btnBgEl?.addEventListener("input", (e) => {
   if (!selectedItem) return;
   if (selectedItem.dataset.type !== "button") return;
 
-  // store values
-  selectedItem.dataset.label = btnLabelEl?.value || "Button";
-  selectedItem.dataset.btnBg = btnBgEl?.value || "#111111";
-  selectedItem.dataset.btnTextColor = btnTextColorEl?.value || "#ffffff";
+  const val = e.target.value;
+  selectedItem.dataset.btnBg = val;
 
+  const b = selectedItem.querySelector(".da-btn");
+  if (b) {
+    b.style.background =
+      selectedItem.dataset.btnBgOn === "0"
+        ? "transparent"
+        : val;
+  }
+});
+// =======================
+// APPLY BUTTON SETTINGS FROM BAR
+// =======================
+function applyButtonFromBar() {
+  if (!selectedItem) return;
+if (
+  selectedItem.dataset.type !== "button" &&
+  selectedItem.dataset.type !== "text"
+) return;
+
+ if (selectedItem.dataset.type === "text") {
+  selectedItem.dataset.text = btnLabelEl?.value ?? "";
+} else {
+  selectedItem.dataset.label = btnLabelEl?.value ?? "Button";
+}
+
+  if (selectedItem.dataset.btnBgOn !== "0") {
+    selectedItem.dataset.btnBg = btnBgEl?.value || "#111111";
+  }
+
+  selectedItem.dataset.btnTextColor = btnTextColorEl?.value || "#ffffff";
   selectedItem.dataset.borderWidth = String(parseInt(btnBwEl?.value || "0", 10) || 0);
   selectedItem.dataset.borderColor = btnBcEl?.value || "#111111";
   selectedItem.dataset.borderStyle = btnBsEl?.value || "solid";
   selectedItem.dataset.radius = String(parseInt(btnRadiusEl?.value || "0", 10) || 0);
+selectedItem.dataset.actionType = btnActionTypeEl?.value || "none";
+selectedItem.dataset.actionSource = btnActionSourceEl?.value || "page";
+selectedItem.dataset.actionTarget = btnActionTargetEl?.value || "";
 
-  selectedItem.dataset.href = btnHrefEl?.value || "";
+  const type = selectedItem.dataset.actionType;
+  const useSelect =
+    type === "change-view" ||
+    type === "open-popup" ||
+    type === "scroll-to-section" ||
+    type === "open-template";
 
-  // apply to DOM
+  if (useSelect) {
+    selectedItem.dataset.actionTarget = (btnActionTargetSelectEl?.value || "").trim();
+  } else if (type === "download-pdf") {
+    selectedItem.dataset.actionTarget = selectedItem.dataset.actionTarget || "";
+  } else if (type === "submit") {
+    selectedItem.dataset.actionTarget = "";
+    selectedItem.dataset.submitInputs = JSON.stringify(getCheckedSubmitInputIds());
+  } else {
+    selectedItem.dataset.actionTarget = (btnActionTargetEl?.value || "").trim();
+  }
+
+  if (useSelect && btnActionTargetSelectEl && selectedItem) {
+    selectedItem.dataset.actionTarget = btnActionTargetSelectEl.value || "";
+  }
+
+  console.log("[applyButtonFromBar]", {
+    type,
+    actionTarget: selectedItem.dataset.actionTarget
+  });
+
+  selectedItem.dataset.displayType = btnDisplayTypeEl?.value || "text";
+  selectedItem.dataset.icon = btnIconEl?.value || "";
+
   const b = selectedItem.querySelector(".da-btn");
   if (!b) return;
 
-  b.textContent = selectedItem.dataset.label;
-  b.style.background = selectedItem.dataset.btnBg;
+  renderButtonContent(selectedItem);
+
+  b.style.background =
+    selectedItem.dataset.btnBgOn === "0"
+      ? "transparent"
+      : (selectedItem.dataset.btnBg || "#111111");
+
   b.style.color = selectedItem.dataset.btnTextColor;
 
   const bw = parseInt(selectedItem.dataset.borderWidth, 10) || 0;
   const bs = selectedItem.dataset.borderStyle || "solid";
   const bc = selectedItem.dataset.borderColor || "#111111";
 
-  b.style.border = (bs === "none" || bw === 0) ? "none" : `${bw}px ${bs} ${bc}`;
+  b.style.border =
+    (bs === "none" || bw === 0)
+      ? "none"
+      : `${bw}px ${bs} ${bc}`;
+
   b.style.borderRadius = `${parseInt(selectedItem.dataset.radius, 10) || 0}px`;
 }
 
@@ -292,8 +6010,173 @@ btnBwEl?.addEventListener("input", applyButtonFromBar);
 btnBcEl?.addEventListener("input", applyButtonFromBar);
 btnBsEl?.addEventListener("change", applyButtonFromBar);
 btnRadiusEl?.addEventListener("input", applyButtonFromBar);
-btnHrefEl?.addEventListener("input", applyButtonFromBar);
 
+// NEW
+
+btnActionTypeEl?.addEventListener("change", applyButtonFromBar);
+btnActionSourceEl?.addEventListener("change", applyButtonFromBar);
+btnActionTargetEl?.addEventListener("input", applyButtonFromBar);
+btnDisplayTypeEl?.addEventListener("change", applyButtonFromBar);
+btnIconEl?.addEventListener("input", applyButtonFromBar);
+btnActionTargetSelectEl?.addEventListener("change", applyButtonFromBar);
+
+//Text 
+textModeEl?.addEventListener("change", async () => {
+  console.log("[text/event] mode changed:", textModeEl.value);
+  await applyTextDynamicFromBar();
+});
+
+textDynamicSourceEl?.addEventListener("change", async () => {
+  console.log("[text/event] source changed:", textDynamicSourceEl.value);
+  if (!selectedItem || selectedItem.dataset.type !== "text") return;
+
+  selectedItem.dataset.dynamicSource = textDynamicSourceEl.value || "page";
+  selectedItem.dataset.dynamicField = "";
+  selectedItem.dataset.selectedRecordId = "";
+  selectedItem.dataset.nestedField = "";
+  selectedItem.dataset.nestedSelectedRecordId = "";
+  selectedItem.dataset.recordField = "";
+
+  await applyTextDynamicFromBar();
+});
+
+textDynamicFieldEl?.addEventListener("change", async () => {
+  console.log("[text/event] dynamicField changed:", textDynamicFieldEl.value);
+  if (!selectedItem || selectedItem.dataset.type !== "text") return;
+
+  selectedItem.dataset.dynamicField = textDynamicFieldEl.value || "";
+  selectedItem.dataset.selectedRecordId = "";
+  selectedItem.dataset.nestedField = "";
+  selectedItem.dataset.nestedSelectedRecordId = "";
+  selectedItem.dataset.recordField = "";
+
+  await applyTextDynamicFromBar();
+});
+
+textSelectedRecordEl?.addEventListener("change", async () => {
+  console.log("[text/event] selectedRecord changed:", textSelectedRecordEl.value);
+  if (!selectedItem || selectedItem.dataset.type !== "text") return;
+
+  selectedItem.dataset.selectedRecordId = textSelectedRecordEl.value || "";
+  selectedItem.dataset.nestedField = "";
+  selectedItem.dataset.nestedSelectedRecordId = "";
+  selectedItem.dataset.recordField = "";
+
+  await applyTextDynamicFromBar();
+});
+textRecordFieldEl?.addEventListener("change", async () => {
+  console.log("[text/event] recordField changed:", textRecordFieldEl.value);
+  if (!selectedItem || selectedItem.dataset.type !== "text") return;
+
+  selectedItem.dataset.recordField = textRecordFieldEl.value || "";
+
+  await applyTextDynamicFromBar();
+});
+
+textNestedFieldEl?.addEventListener("change", async () => {
+  if (!selectedItem || selectedItem.dataset.type !== "text") return;
+
+  selectedItem.dataset.nestedField = textNestedFieldEl.value || "";
+  selectedItem.dataset.nestedSelectedRecordId = "";
+  selectedItem.dataset.recordField = "";
+
+  await applyTextDynamicFromBar();
+});
+
+textNestedSelectedRecordEl?.addEventListener("change", async () => {
+  if (!selectedItem || selectedItem.dataset.type !== "text") return;
+
+  selectedItem.dataset.nestedSelectedRecordId = textNestedSelectedRecordEl.value || "";
+  selectedItem.dataset.recordField = "";
+
+  await applyTextDynamicFromBar();
+});
+
+//Group
+
+groupModeEl?.addEventListener("change", async () => {
+  populateGroupDynamicFieldOptions(selectedItem);
+  await populateGroupSelectedItemOptions(selectedItem);
+  await populateGroupItemFieldOptions(selectedItem);
+  applyGroupDynamicFromBar();
+});
+
+groupDynamicSourceEl?.addEventListener("change", async () => {
+  populateGroupDynamicFieldOptions(selectedItem);
+  await populateGroupSelectedItemOptions(selectedItem);
+  await populateGroupItemFieldOptions(selectedItem);
+  applyGroupDynamicFromBar();
+});
+
+groupBindModeEl?.addEventListener("change", async () => {
+  populateGroupDynamicFieldOptions(selectedItem);
+  await populateGroupSelectedItemOptions(selectedItem);
+  await populateGroupItemFieldOptions(selectedItem);
+  applyGroupDynamicFromBar();
+});
+
+groupDynamicFieldEl?.addEventListener("change", async () => {
+  if (selectedItem) {
+    selectedItem.dataset.dynamicField = groupDynamicFieldEl.value;
+  }
+
+  await applyGroupDynamicFromBar();
+});
+
+groupSelectedItemEl?.addEventListener("change", async () => {
+  if (!selectedItem || selectedItem.dataset.type !== "group") return;
+
+  // save selected suite
+  selectedItem.dataset.selectedItemId = groupSelectedItemEl.value || "";
+
+  // 🔥 RESET downstream state (VERY IMPORTANT)
+
+  selectedItem.dataset.finalDataType = "";
+  selectedItem.dataset.finalDataTypeId = "";
+  selectedItem.dataset.itemField = "";
+
+  // 🔥 THIS IS THE MISSING STEP
+  await populateGroupNestedFieldOptions(selectedItem);
+
+  // keep these
+  await populateGroupNestedSelectedItemOptions(selectedItem);
+  await populateGroupItemFieldOptions(selectedItem);
+
+  updateGroupBarVisibility(selectedItem);
+  await applyGroupDynamicFromBar();
+});
+
+groupItemFieldEl?.addEventListener("change", () => {
+  applyGroupDynamicFromBar();
+});
+
+groupNestedFieldEl?.addEventListener("change", async () => {
+  if (!selectedItem || selectedItem.dataset.type !== "group") return;
+
+  selectedItem.dataset.nestedField = groupNestedFieldEl.value || "";
+  selectedItem.dataset.nestedSelectedItemId = "";
+  selectedItem.dataset.itemField = "";
+  selectedItem.dataset.finalDataType = "";
+  selectedItem.dataset.finalDataTypeId = "";
+
+  await populateGroupNestedSelectedItemOptions(selectedItem);
+  await populateGroupItemFieldOptions(selectedItem);
+
+  updateGroupBarVisibility(selectedItem);
+  await applyGroupDynamicFromBar();
+});
+
+groupNestedSelectedItemEl?.addEventListener("change", async () => {
+  if (!selectedItem || selectedItem.dataset.type !== "group") return;
+
+  selectedItem.dataset.nestedSelectedItemId = groupNestedSelectedItemEl.value || "";
+  selectedItem.dataset.itemField = "";
+
+  await populateGroupItemFieldOptions(selectedItem);
+
+  updateGroupBarVisibility(selectedItem);
+  await applyGroupDynamicFromBar();
+});
 
 // ✅ Fill font dropdown from FONT_LIBRARY
 const fontSelect = floatingBar.querySelector(".da-floatingBar__font");
@@ -303,7 +6186,7 @@ if (fontSelect) {
     FONT_LIBRARY.map(f => `<option value="${f.css}" data-gf="${f.gf}">${f.label}</option>`).join("");
 }
 
-let selectedItem = null;
+
 
 // ✅ SECTION BORDER inputs (PUT THIS RIGHT HERE)
 const bwEl = floatingBar.querySelector(".da-secBorder__width");
@@ -311,9 +6194,63 @@ const bcEl = floatingBar.querySelector(".da-secBorder__color");
 const bsEl = floatingBar.querySelector(".da-secBorder__style");
 const brEl = floatingBar.querySelector(".da-secBorder__radius");
 
+const parallaxEl = floatingBar.querySelector(".da-parallax");
+
+parallaxEl?.addEventListener("input", () => {
+  if (!selectedItem) return;
+  selectedItem.dataset.parallax = parallaxEl.value || "0";
+});
+
+function reorderItemWithinParent(item, direction) {
+  if (!item) return;
+
+  const parentId = item.dataset.parent || "";
+  const parentEl = parentId ? getItemById(parentId) : null;
+
+  const siblings = [...grid.querySelectorAll(".da-item")].filter((el) => {
+    return (el.dataset.parent || "") === parentId;
+  });
+
+  if (!siblings.length) return;
+
+  siblings.sort((a, b) => {
+    const za = parseInt(a.style.zIndex || "1", 10);
+    const zb = parseInt(b.style.zIndex || "1", 10);
+    return za - zb;
+  });
+
+  const currentIndex = siblings.indexOf(item);
+  if (currentIndex === -1) return;
+
+  siblings.splice(currentIndex, 1);
+
+  if (direction === "front") {
+    siblings.push(item);
+  }
+
+  if (direction === "back") {
+    siblings.unshift(item);
+  }
+
+  // IMPORTANT:
+  // children must stay ABOVE their parent container
+  const parentZ = parentEl ? parseInt(parentEl.style.zIndex || "1", 10) : 1;
+  const baseZ = parentEl ? parentZ + 1 : 1;
+
+  siblings.forEach((el, index) => {
+    el.style.zIndex = String(baseZ + index);
+  });
+}
+
 function applySectionBorderFromBar() {
   if (!selectedItem) return;
-  if (selectedItem.dataset.type !== "section") return;
+
+if (
+  selectedItem.dataset.type !== "section" &&
+  selectedItem.dataset.type !== "group" &&
+  selectedItem.dataset.type !== "popup" &&
+  selectedItem.dataset.type !== "header"
+) return;
 
   selectedItem.dataset.borderWidth = String(parseInt(bwEl?.value || "0", 10) || 0);
   selectedItem.dataset.borderColor = bcEl?.value || "#111111";
@@ -321,13 +6258,36 @@ function applySectionBorderFromBar() {
   selectedItem.dataset.radius = String(parseInt(brEl?.value || "0", 10) || 0);
 
   const on = selectedItem.dataset.borderOn === "1";
+
   selectedItem.style.border = on
     ? `${selectedItem.dataset.borderWidth}px ${selectedItem.dataset.borderStyle} ${selectedItem.dataset.borderColor}`
     : "none";
 
   selectedItem.style.borderRadius = `${parseInt(selectedItem.dataset.radius, 10) || 0}px`;
+}
+function applySectionDynamicFromBar() {
+  if (!selectedItem) return;
 
+  const t = selectedItem.dataset.type;
+  if (t !== "section" && t !== "group" && t !== "popup") return;
 
+  const pageType = window.TPL_PAGE_TYPE || "booking";
+  const dataType = getMainDataTypeForPageType(pageType);
+
+  selectedItem.dataset.dynamicMode = sectionModeEl?.value || "static";
+  selectedItem.dataset.dynamicSource = sectionDynamicSourceEl?.value || "page";
+  selectedItem.dataset.dynamicDataType = dataType || "";
+
+  const showDynamicStuff = selectedItem.dataset.dynamicMode === "dynamic";
+
+  if (sectionDynamicSourceEl) {
+    sectionDynamicSourceEl.style.display = showDynamicStuff ? "inline-block" : "none";
+  }
+
+  if (sectionDynamicDataTypeEl) {
+    sectionDynamicDataTypeEl.style.display = showDynamicStuff ? "inline-block" : "none";
+    sectionDynamicDataTypeEl.value = dataType || "";
+  }
 }
 
 bwEl?.addEventListener("input", applySectionBorderFromBar);
@@ -354,6 +6314,36 @@ if (fontEl) {
     if (textEl) textEl.style.fontFamily = css;
   });
 }
+//Floating Bar Helper to show and hide in sidebar
+floatingBar.addEventListener("click", (e) => {
+  const backBtn = e.target.closest(".da-editorBackBtn");
+  if (!backBtn) return;
+
+  e.preventDefault();
+  e.stopPropagation();
+
+  grid.querySelectorAll(".da-item").forEach((x) => x.classList.remove("is-selected"));
+  selectedItem = null;
+  unmountBarToCanvas();
+});
+
+//Show and hide buttons for Header store name,logo,and tabs
+floatingBar.addEventListener("click", (e) => {
+  const btn = e.target.closest(".da-headerPartBtn");
+  if (!btn) return;
+
+  const partName = btn.dataset.headerPart || "";
+  const parts = getHeaderPartsMap();
+  const part = parts[partName];
+  if (!part) return;
+
+  const hiddenNow = part.dataset.hidden === "1";
+  setHeaderPartHidden(partName, !hiddenNow);
+
+  layoutHeaderChildren();
+  syncHeaderPartButtons();
+});
+
 
 
 // ✅ Handle layer buttons even when clicked inside the floating bar
@@ -369,10 +6359,29 @@ if (!btn) return;
 
   const action = btn.getAttribute("data-action");
 
+  if (action === "toggleHide") {
+  if (!selectedItem) return;
+  if (selectedItem.dataset.type === "header") return;
+
+  const next = selectedItem.dataset.hidden === "1" ? "0" : "1";
+  selectedItem.dataset.hidden = next;
+  selectedItem.style.display = next === "1" ? "none" : "";
+
+  const kids = getChildrenDeep(selectedItem);
+  kids.forEach((child) => {
+    child.dataset.hidden = next;
+    child.style.display = next === "1" ? "none" : "";
+  });
+
+  showBarForItem(null);
+  return;
+}
+
     if (action === "duplicate") {
     // clone the selected item
     const clone = selectedItem.cloneNode(true);
-
+grid.appendChild(clone);
+refreshPopupList();
     // give it a new id so it’s unique
     clone.dataset.id = uid("section");
 
@@ -411,7 +6420,7 @@ if (t === "text") {
 }
 
 else if (t === "button") {
-  clone.dataset.label = selectedItem.dataset.label || "Button";
+  clone.dataset.label = selectedItem.dataset.label ?? "Button";
   clone.dataset.btnBg = selectedItem.dataset.btnBg || "#111111";
   clone.dataset.btnTextColor = selectedItem.dataset.btnTextColor || "#ffffff";
   clone.dataset.borderWidth = selectedItem.dataset.borderWidth || "0";
@@ -423,7 +6432,10 @@ else if (t === "button") {
   const b = clone.querySelector(".da-btn");
   if (b) {
     b.textContent = clone.dataset.label;
-    b.style.background = clone.dataset.btnBg;
+    b.style.background =
+  clone.dataset.btnBgOn === "0"
+    ? "transparent"
+    : (clone.dataset.btnBg || "#111111");
     b.style.color = clone.dataset.btnTextColor;
 
     const bw = parseInt(clone.dataset.borderWidth, 10) || 0;
@@ -461,7 +6473,7 @@ else {
 
     // add it
     grid.appendChild(clone);
-
+refreshPopupList();
     // select the clone + show bar on it
     grid.querySelectorAll(".da-item").forEach(x => x.classList.remove("is-selected"));
     clone.classList.add("is-selected");
@@ -471,28 +6483,41 @@ else {
   }
 
 if (action === "remove") {
-  if (selectedItem?.dataset?.locked === "1") return; // ✅ can't delete locked
-  selectedItem.remove();
-  selectedItem = null;
-  showBarForItem(null);
+    if (selectedItem?.dataset?.locked === "1") return;
+
+    const kids = getChildrenDeep(selectedItem);
+    kids.forEach((el) => el.remove());
+
+    selectedItem.remove();
+    selectedItem = null;
+    showBarForItem(null);
+    refreshPopupList();
+    return;
+  }
+
+if (action === "bringFront") {
+  reorderItemWithinParent(selectedItem, "front");
   return;
 }
 
-
-  const curZ = parseInt(selectedItem.style.zIndex || "1", 10);
-  const all = [...grid.querySelectorAll(".da-item")];
-  const maxZ = all.reduce((m, el) => Math.max(m, parseInt(el.style.zIndex || "1", 10)), 1);
-
-  if (action === "bringFront") selectedItem.style.zIndex = String(maxZ + 1);
-  if (action === "sendBack") selectedItem.style.zIndex = String(Math.max(1, curZ - 1));
+if (action === "sendBack") {
+  reorderItemWithinParent(selectedItem, "back");
+  return;
+}
 });
+
 //Border Styling
 floatingBar.addEventListener("click", (e) => {
   const btn = e.target.closest("[data-sec]");
   if (!btn) return;
 
   if (!selectedItem) return;
-  if (selectedItem.dataset.type !== "section") return;
+
+  if (
+    selectedItem.dataset.type !== "section" &&
+    selectedItem.dataset.type !== "group" &&
+    selectedItem.dataset.type !== "popup"
+  ) return;
 
   e.preventDefault();
   e.stopPropagation();
@@ -502,6 +6527,7 @@ floatingBar.addEventListener("click", (e) => {
   if (action === "borderToggle") {
     const next = (selectedItem.dataset.borderOn === "1") ? "0" : "1";
     selectedItem.dataset.borderOn = next;
+
     selectedItem.style.border = (next === "1")
       ? `${selectedItem.dataset.borderWidth || 2}px ${selectedItem.dataset.borderStyle || "solid"} ${selectedItem.dataset.borderColor || "#111111"}`
       : "none";
@@ -509,6 +6535,93 @@ floatingBar.addEventListener("click", (e) => {
     showBarForItem(selectedItem);
   }
 });
+//Header background
+floatingBar.addEventListener("click", (e) => {
+  const btn = e.target.closest("[data-sec]");
+  if (!btn) return;
+  if (!selectedItem) return;
+
+if (
+  selectedItem.dataset.type !== "section" &&
+  selectedItem.dataset.type !== "group" &&
+  selectedItem.dataset.type !== "popup" &&
+  selectedItem.dataset.type !== "header"
+) return;
+
+  const action = btn.getAttribute("data-sec");
+
+  if (action === "bgToggle") {
+    const next = (selectedItem.dataset.bgOn === "1") ? "0" : "1";
+    selectedItem.dataset.bgOn = next;
+
+    selectedItem.style.background =
+      next === "1"
+        ? (selectedItem.dataset.bg || "#f2f2f2")
+        : "transparent";
+
+    showBarForItem(selectedItem);
+  }
+});
+
+//Header Helper
+function getHeaderChildByName(name) {
+  const header = grid.querySelector(".da-item.da-header");
+  if (!header) return null;
+
+  const headerId = header.dataset.id;
+  if (!headerId) return null;
+
+  const kids = [...grid.querySelectorAll(`.da-item[data-parent="${headerId}"]`)];
+  return kids.find((el) => (el.dataset.name || "") === name) || null;
+}
+
+function setHeaderPartVisible(name, isVisible) {
+  const part = getHeaderChildByName(name);
+  if (!part) return;
+
+  part.dataset.hidden = isVisible ? "0" : "1";
+  part.style.display = isVisible ? "" : "none";
+
+  const kids = getChildrenDeep(part);
+  kids.forEach((child) => {
+    child.dataset.hidden = isVisible ? "0" : "1";
+    child.style.display = isVisible ? "" : "none";
+  });
+}
+
+function syncHeaderToggleButtons() {
+  const wrap = floatingBar.querySelector(".da-headerControls");
+  if (!wrap) return;
+
+  const buttons = wrap.querySelectorAll(".da-headerPartBtn");
+
+  buttons.forEach((btn) => {
+    const name = btn.dataset.headerPart || "";
+    const part = getHeaderChildByName(name);
+    const hidden = part?.dataset?.hidden === "1";
+
+    btn.classList.toggle("is-off", hidden);
+  });
+}
+
+floatingBar.addEventListener("click", (e) => {
+  const btn = e.target.closest(".da-headerPartBtn");
+  if (!btn) return;
+
+  e.preventDefault();
+  e.stopPropagation();
+
+  const partName = btn.dataset.headerPart || "";
+  const parts = getHeaderPartsMap();
+  const part = parts[partName];
+  if (!part) return;
+
+  const hiddenNow = part.dataset.hidden === "1";
+  setHeaderPartHidden(partName, !hiddenNow);
+
+  syncHeaderPartButtons();
+});
+
 
 //Add italics and bold to bar for texts 
 // ✅ Text controls (bold/italic/underline/align) for TEXT items only
@@ -557,359 +6670,667 @@ floatingBar.addEventListener("click", (e) => {
   showBarForItem(selectedItem);
 });
 
+//Header
+// =======================
+// HEADER
+//Header Helper
+function getFullCanvasWidth() {
+  return grid.scrollWidth || grid.clientWidth || 1200;
+}
+const canvasWrap = document.querySelector(".tpl-dropArea");
 
-function addLockedHeaderAt(pos = {}) {
-  // base position (default pinned to top-left)
-  const baseX = Number.isFinite(pos.x) ? pos.x : 0;
-  const baseY = Number.isFinite(pos.y) ? pos.y : 0;
+function addLockedHeaderAt(saved = {}) {
+  grid.querySelectorAll(".da-item.da-header").forEach((el) => el.remove());
 
-  // create header like a section
-  const header = makeSectionEl({ x: baseX, y: baseY, w: grid.clientWidth, h: 90, title: "Header" });
-
+  const header = document.createElement("div");
+  header.className = "da-item da-header";
   header.dataset.type = "header";
   header.dataset.locked = "1";
-  header.classList.add("da-header");
+  header.dataset.id = saved.id || uid("header");
 
-  // full width + pinned
+  header.dataset.bg = saved.bg || "#ffffff";
+  header.dataset.bgOn = saved.bgOn || "1";
+
+  header.style.position = "absolute";
   header.style.left = "0px";
   header.style.top = "0px";
-  header.style.width = `${grid.clientWidth}px`;
+  header.style.width = "100%";
   header.style.height = "90px";
-  header.style.zIndex = "9999";
-
-  header.dataset.bg = header.dataset.bg || "#ffffff";
-  header.style.background = header.dataset.bg;
+  header.style.background = header.dataset.bgOn === "1" ? header.dataset.bg : "transparent";
   header.style.border = "none";
-  header.style.borderRadius = "0px";
+  header.style.zIndex = "9999";
+  header.style.boxSizing = "border-box";
+
+  requestAnimationFrame(() => {
+    layoutHeaderChildren();
+  });
 
   grid.appendChild(header);
+  return header;
+}
+
+function layoutHeaderChildren() {
+  const header = grid.querySelector(".da-item.da-header");
+  if (!header) return;
 
   const headerId = header.dataset.id;
+  if (!headerId) return;
 
-  // lock children into header (so they move with it)
-  const lockIntoHeader = (child) => {
-    child.dataset.parent = headerId;
-    child.dataset.locked = "1";
-    child.style.zIndex = String(parseInt(header.style.zIndex || "9999", 10) + 1);
-    grid.appendChild(child);
-    return child;
-  };
+  const kids = [...grid.querySelectorAll(`.da-item[data-parent="${headerId}"]`)];
 
-  // ---------- Logo ----------
-  const logo = makeImageEl({ x: 18, y: 18, src: "" });
-  logo.style.width = "54px";
-  logo.style.height = "54px";
-  logo.dataset.radius = "999";
-  // ✅ keep logo square when resizing
-logo.dataset.lockRatio = "1";
+  const storeName = kids.find(el => (el.dataset.name || "").toLowerCase().includes("store"));
+  const tabsGroup = kids.find(el => (el.dataset.name || "").toLowerCase().includes("tabs"));
+  const cartIcon = kids.find(el => (el.dataset.name || "").toLowerCase().includes("cart"));
+  const userIcon = kids.find(el => {
+    const n = (el.dataset.name || "").toLowerCase();
+    return n.includes("user") || n.includes("profile");
+  });
 
-  logo.style.borderRadius = "999px";
-  logo.style.overflow = "hidden";
-  const logoImg = logo.querySelector(".da-img");
-  if (logoImg) logoImg.style.borderRadius = "999px";
-  lockIntoHeader(logo);
+  const headerW = header.offsetWidth;
 
-  // ---------- Store name ----------
-  const storeName = makeTextEl({ x: 86, y: 28, text: "Store Name" });
-  storeName.style.width = "240px";
-  lockIntoHeader(storeName);
+  if (storeName) {
+    storeName.style.left = "40px";
+    storeName.style.top = "22px";
+  }
 
-  // ---------- Tabs GROUP (so all tabs can move together) ----------
-  const tabsGroup = makeSectionEl({ x: 360, y: 18, w: 420, h: 54, title: "Tabs" });
-  tabsGroup.dataset.type = "group";
-  tabsGroup.dataset.parent = headerId; // 👈 group belongs to header
-  tabsGroup.dataset.locked = "1";
+if (tabsGroup) {
+  if (!tabsGroup.dataset.defaultSized) {
+    tabsGroup.style.width = "420px";
+    tabsGroup.style.height = "56px";
+    tabsGroup.dataset.defaultSized = "1";
+  }
 
-  tabsGroup.style.background = "transparent";
-  tabsGroup.style.border = "none";
-  tabsGroup.style.borderRadius = "0px";
-  tabsGroup.style.zIndex = String(parseInt(header.style.zIndex || "9999", 10) + 2);
-
-  grid.appendChild(tabsGroup);
-
-  const tabsGroupId = tabsGroup.dataset.id;
-
-  // lock children into tabs group
-  const lockIntoTabsGroup = (child) => {
-    child.dataset.parent = tabsGroupId;
-    child.dataset.locked = "1";
-    child.style.zIndex = String(parseInt(tabsGroup.style.zIndex || "1", 10) + 1);
-    grid.appendChild(child);
-    return child;
-  };
-
-  // Tabs (positions are absolute in grid, so place them inside group area)
-  lockIntoTabsGroup(makeTextEl({ x: 380, y: 28, text: "Home" }));
-  lockIntoTabsGroup(makeTextEl({ x: 460, y: 28, text: "Shop" }));
-  lockIntoTabsGroup(makeTextEl({ x: 540, y: 28, text: "About" }));
-  lockIntoTabsGroup(makeTextEl({ x: 620, y: 28, text: "Contact" }));
-
-  // ---------- Cart + Profile ----------
-  const cart = makeTextEl({ x: grid.clientWidth - 90, y: 26, text: "🛒" });
-  cart.style.width = "40px";
-  lockIntoHeader(cart);
-
-  const prof = makeTextEl({ x: grid.clientWidth - 45, y: 26, text: "👤" });
-  prof.style.width = "40px";
-  lockIntoHeader(prof);
+  if (!tabsGroup.classList.contains("is-selected")) {
+    const tabsW = tabsGroup.offsetWidth || 420;
+    tabsGroup.style.left = `${Math.round((headerW - tabsW) / 2)}px`;
+    tabsGroup.style.top = "22px";
+  }
 }
-// ✅ Header default on canvas
-function ensureDefaultHeader() {
-  const already = grid.querySelector('.da-item.da-header');
-  if (already) return;
 
-  addLockedHeaderAt({ x: 0, y: 0 });
+  if (cartIcon) {
+    const cartW = cartIcon.offsetWidth || 32;
+    cartIcon.style.left = `${headerW - 110}px`;
+    cartIcon.style.top = "28px";
+  }
+
+  if (userIcon) {
+    const userW = userIcon.offsetWidth || 32;
+    userIcon.style.left = `${headerW - 60}px`;
+    userIcon.style.top = "28px";
+  }
+}
+
+function ensureDefaultHeader() {
+  addLockedHeaderAt();
 }
 
 ensureDefaultHeader();
 
 window.addEventListener("resize", () => {
-  const header = grid.querySelector('.da-item.da-header');
-  if (!header) return;
-  header.style.left = "0px";
-  header.style.top = "0px";
-  header.style.width = `${grid.clientWidth}px`;
-});
-
-// =======================
-// ✅ HEADER: default on canvas + show/hide toggle
-// =======================
-
-// create a toggle button
-const headerToggleBtn = document.createElement("button");
-headerToggleBtn.type = "button";
-headerToggleBtn.className = "da-headerToggleBtn";
-headerToggleBtn.textContent = "Hide Header";
-grid.appendChild(headerToggleBtn);
-
-// place the button on the canvas
-headerToggleBtn.style.position = "absolute";
-headerToggleBtn.style.left = "12px";
-headerToggleBtn.style.top = "12px";
-headerToggleBtn.style.zIndex = "10000";
-
-// create header if it doesn't exist
-function ensureDefaultHeader() {
-  const already = grid.querySelector(".da-item.da-header");
-  if (already) return;
-  addLockedHeaderAt({ x: 0, y: 0 });
-}
-
-// hide/show header + all children
-function setHeaderVisible(isVisible) {
   const header = grid.querySelector(".da-item.da-header");
   if (!header) return;
 
-  header.style.display = isVisible ? "" : "none";
+  header.style.left = "0px";
+  header.style.top = "0px";
+ header.style.width = "100%";
+layoutHeaderChildren();
+  header.style.height = "90px";
 
-  const kids = getChildrenDeep(header);
-  kids.forEach((el) => {
-    el.style.display = isVisible ? "" : "none";
-  });
 
-  localStorage.setItem("tpl_header_visible", isVisible ? "1" : "0");
-}
-
-// initial boot
-ensureDefaultHeader();
-
-const saved = (localStorage.getItem("tpl_header_visible") ?? "1") === "1";
-setHeaderVisible(saved);
-headerToggleBtn.textContent = saved ? "Hide Header" : "Show Header";
-
-// click toggle
-headerToggleBtn.addEventListener("click", () => {
-  const cur = (localStorage.getItem("tpl_header_visible") ?? "1") === "1";
-  const next = !cur;
-
-  setHeaderVisible(next);
-  headerToggleBtn.textContent = next ? "Hide Header" : "Show Header";
-
-  // if you hid it while selected, clear selection + bar
-  if (!next) {
-    const header = grid.querySelector(".da-item.da-header");
-    if (selectedItem && (selectedItem === header || selectedItem.dataset.parent === header?.dataset.id)) {
-      selectedItem = null;
-      showBarForItem(null);
-    }
-  }
 });
 
-function showBarForItem(item) {
-  selectedItem = item;
+//Header Helper (logo,store name,and tabs)
+function getHeaderPartsMap() {
+  const header = grid.querySelector(".da-item.da-header");
+  if (!header) return {};
 
-  const headerAncestor = getHeaderAncestor(item);
-if (headerAncestor && item.dataset.type !== "header") {
-  clampElToHeaderBounds(item, headerAncestor);
+  const all = getChildrenDeep(header);
+
+  const byName = (matcher) =>
+    all.find((el) => matcher((el.dataset.name || "").trim().toLowerCase())) || null;
+
+  const byText = (matcher) =>
+    all.find((el) => {
+      const txt = (el.querySelector(".da-text")?.textContent || "").trim().toLowerCase();
+      return matcher(txt);
+    }) || null;
+
+  const tabs =
+    byName((n) => n.includes("tabs") || n.includes("tab")) ||
+    null;
+
+  const logo =
+    byName((n) => n.includes("logo")) ||
+    all.find((el) => el.dataset.type === "image") ||
+    null;
+
+  const store =
+    byName((n) => n.includes("store") || n.includes("location")) ||
+    byText((t) => t.includes("my store") || t.includes("location")) ||
+    all.find((el) => el.dataset.type === "text" && el !== tabs) ||
+    null;
+
+  const cart =
+    byName((n) => n.includes("cart")) ||
+    byText((t) => t.includes("cart") || t.includes("🛒") || t.includes("bag")) ||
+    null;
+
+  const profile =
+    byName((n) => n.includes("profile") || n.includes("user")) ||
+    byText((t) => t.includes("user") || t.includes("profile") || t.includes("👤")) ||
+    null;
+
+  if (logo && !logo.dataset.name) logo.dataset.name = "Logo";
+  if (store && !store.dataset.name) store.dataset.name = "Store Name";
+  if (tabs && !tabs.dataset.name) tabs.dataset.name = "Tabs";
+  if (cart && !cart.dataset.name) cart.dataset.name = "Cart";
+  if (profile && !profile.dataset.name) profile.dataset.name = "Profile";
+
+  return {
+    "Logo": logo,
+    "Store Name": store,
+    "Tabs": tabs,
+    "Cart": cart,
+    "Profile": profile,
+  };
 }
 
-  if (!item) {
-    floatingBar.style.display = "none";
-    return;
+function syncLockedHeaderWidth() {
+  const header = document.querySelector(".da-item.da-header");
+  const grid = document.getElementById("dropAreaInner");
+  if (!header || !grid) return;
+
+  let targetWidth;
+
+  if (currentResponsiveView === "mobile") {
+    targetWidth = parseFloat(grid.style.width) || grid.clientWidth;
+  } else {
+    targetWidth = grid.scrollWidth || grid.clientWidth;
   }
 
-  const r = item.getBoundingClientRect();
-  const gr = grid.getBoundingClientRect();
-
-  // position the bar relative to the grid
-  const left = (r.left - gr.left) + grid.scrollLeft + 12;
-  const top  = (r.top  - gr.top)  + grid.scrollTop  - 12;
-
-  floatingBar.style.left = `${Math.round(left)}px`;
-  floatingBar.style.top  = `${Math.round(top)}px`;
-  floatingBar.style.display = "flex";
-
-  const isText = item.dataset.type === "text";
-                                                   // =======================
-                                            // STEP 5C showBarForItem(item) function
-                                             //Just add that code right below this 
-                                             // =======================
-    // =======================
-// Show/Hide header
-// =======================                                         
- const delBtn = floatingBar.querySelector('[data-action="remove"]');
-if (delBtn) {
-  const locked = item?.dataset?.locked === "1";
-  delBtn.style.opacity = locked ? "0.35" : "1";
-  delBtn.style.pointerEvents = locked ? "none" : "auto";
-  delBtn.title = locked ? "This element can't be removed" : "Remove";
+  header.style.left = "0px";
+  header.style.top = "0px";
+  header.style.width = `${targetWidth}px`;
+  header.style.minWidth = `${targetWidth}px`;
+  header.style.maxWidth = `${targetWidth}px`;
+  header.style.boxSizing = "border-box";
 }
-//Block keyboard Delete too
-window.addEventListener("keydown", (e) => {
-  if (!selectedItem) return;
 
-  const isDelete = (e.key === "Delete" || e.key === "Backspace");
-  if (!isDelete) return;
+function setHeaderPartHidden(partName, hidden) {
+  const parts = getHeaderPartsMap();
+  const el = parts[partName];
+  if (!el) return;
 
-  // don’t delete while typing in an input/textarea/contenteditable
-  if (document.activeElement && (
-    document.activeElement.tagName === "INPUT" ||
-    document.activeElement.tagName === "TEXTAREA" ||
-    document.activeElement.isContentEditable
-  )) return;
+  el.dataset.hidden = hidden ? "1" : "0";
+  el.style.display = hidden ? "none" : "";
+
+  const kids = getChildrenDeep(el);
+  kids.forEach((child) => {
+    child.dataset.hidden = hidden ? "1" : "0";
+    child.style.display = hidden ? "none" : "";
+  });
+}
+
+function syncHeaderPartButtons() {
+  const wrap = floatingBar.querySelector(".da-headerControls");
+  if (!wrap) return;
+
+  const parts = getHeaderPartsMap();
+
+  wrap.querySelectorAll(".da-headerPartBtn").forEach((btn) => {
+    const partName = btn.dataset.headerPart;
+    const el = parts[partName];
+    const hidden = el?.dataset?.hidden === "1";
+
+    btn.classList.toggle("is-off", !!hidden);
+
+    if (partName === "Store Name") {
+      btn.textContent = hidden ? "Show Store" : "Hide Store";
+    } else if (partName === "Profile") {
+      btn.textContent = hidden ? "Show User" : "Hide User";
+    } else {
+      btn.textContent = hidden ? `Show ${partName}` : `Hide ${partName}`;
+    }
+  });
+}
+//Show and Hide buttons for Header
+floatingBar.addEventListener("click", (e) => {
+  const btn = e.target.closest(".da-headerPartBtn");
+  if (!btn) return;
 
   e.preventDefault();
+  e.stopPropagation();
 
-  if (selectedItem.dataset.locked === "1") return; // ✅ locked stays
-  selectedItem.remove();
-  selectedItem = null;
-  showBarForItem(null);
+  const partName = btn.dataset.headerPart || "";
+  const parts = getHeaderPartsMap();
+  const part = parts[partName];
+  if (!part) return;
+
+  const hiddenNow = part.dataset.hidden === "1";
+  setHeaderPartHidden(partName, !hiddenNow);
+
+  syncHeaderPartButtons();
 });
 
-// =======================
-// Show/Hide Image controls + fill values
-// =======================
-const isImage = item.dataset.type === "image";
-if (imgWrap) imgWrap.style.display = isImage ? "block" : "none";
+
+
+
+
+
+
+
+
+
+
+
+async function showBarForItem(item) {
+ selectedItem = item;
+window.selectedItem = item;
+
+  const headerAncestor = getHeaderAncestor(item);
+  if (headerAncestor && item.dataset.type !== "header") {
+    clampElToHeaderBounds(item, headerAncestor);
+  }
+
+if (!item) {
+  unmountBarToCanvas();
+  return;
+}
+
+  const headerControls = floatingBar.querySelector(".da-headerControls");
+if (headerControls) {
+  headerControls.style.display = item?.dataset?.type === "header" ? "flex" : "none";
+}
+
+if (item?.dataset?.type === "header") {
+  syncHeaderPartButtons();
+}
+
+const root = document.querySelector(".tpl");
+if (!root?.classList.contains("is-collapsed")) {
+  mountBarInSidebar();
+}
+const nameEl = floatingBar.querySelector(".da-floatingBar__name");
+
+if (nameEl) {
+  nameEl.value =
+    item.dataset.name ||
+    (item.dataset.type === "text" ? "Text" :
+     item.dataset.type === "image" ? "Image" :
+     item.dataset.type === "button" ? "Button" :
+     item.dataset.type === "group" ? "Group" :
+     item.dataset.type === "popup" ? "Popup" :
+     item.dataset.type === "section" ? "Section" :
+     item.dataset.type || "");
+}
+
+//Parallax
+if (parallaxEl) {
+  parallaxEl.value = item.dataset.parallax || "0";
+}
+
+/////////
+
+
+  const isText = item.dataset.type === "text";
+  const isGroup = item.dataset.type === "group";
+
+  const isImage = item.dataset.type === "image";
+
+  const isPopup = item.dataset.type === "popup";
+const isSection = item.dataset.type === "section";
+const isButton = item.dataset.type === "button";
+const isInput = item.dataset.type === "input";
+const isActionableText = item.dataset.type === "text";
+const isButtonLike = item.dataset.type === "button" || isActionableText;
+
+const isSectionLike = isSection || isGroup || isPopup;
+
+// show/hide SECTION/GROUP/POPUP border controls
+if (bwEl) bwEl.style.display = isSectionLike ? "inline-block" : "none";
+if (bcEl) bcEl.style.display = isSectionLike ? "inline-block" : "none";
+if (bsEl) bsEl.style.display = isSectionLike ? "inline-block" : "none";
+if (brEl) brEl.style.display = isSectionLike ? "inline-block" : "none";
+  //Text
+  if (textDynamicWrap) {
+  textDynamicWrap.style.display = isText ? "flex" : "none";
+}
+
+if (isText) {
+  if (textModeEl) {
+    textModeEl.value = item.dataset.dynamicMode || "static";
+  }
+
+  if (textDynamicSourceEl) {
+    textDynamicSourceEl.value = item.dataset.dynamicSource || "page";
+  }
+
+  await populateDynamicFieldOptions(item);
+
+  if (textDynamicFieldEl) {
+    textDynamicFieldEl.value = item.dataset.dynamicField || "";
+  }
+
+  await populateTextSelectedRecordOptions(item);
+
+  if (textSelectedRecordEl) {
+    textSelectedRecordEl.value = item.dataset.selectedRecordId || "";
+  }
+
+  await populateTextNestedFieldOptions(item);
+
+  if (textNestedFieldEl) {
+    textNestedFieldEl.value = item.dataset.nestedField || "";
+  }
+
+  await populateTextNestedSelectedRecordOptions(item);
+
+  if (textNestedSelectedRecordEl) {
+    textNestedSelectedRecordEl.value = item.dataset.nestedSelectedRecordId || "";
+  }
+
+  await populateTextRecordFieldOptions(item);
+
+  if (textRecordFieldEl) {
+    textRecordFieldEl.value = item.dataset.recordField || "";
+  }
+
+  const showDynamicStuff = (item.dataset.dynamicMode || "static") === "dynamic";
+  const showSelectedRecord =
+    showDynamicStuff && !!item.dataset.dynamicField;
+  const showNestedField =
+    showSelectedRecord && !!item.dataset.selectedRecordId;
+  const showNestedSelectedRecord =
+    showNestedField && !!item.dataset.nestedField;
+  const showRecordField =
+    (showNestedSelectedRecord && !!item.dataset.nestedSelectedRecordId) ||
+    (showSelectedRecord && !!item.dataset.selectedRecordId && !item.dataset.nestedField);
+
+  if (textDynamicSourceEl) {
+    textDynamicSourceEl.style.display = showDynamicStuff ? "inline-block" : "none";
+  }
+
+  if (textDynamicFieldEl) {
+    textDynamicFieldEl.style.display = showDynamicStuff ? "inline-block" : "none";
+  }
+
+  if (textSelectedRecordEl) {
+    textSelectedRecordEl.style.display = showSelectedRecord ? "inline-block" : "none";
+  }
+
+  if (textNestedFieldEl) {
+    textNestedFieldEl.style.display = showNestedField ? "inline-block" : "none";
+  }
+
+  if (textNestedSelectedRecordEl) {
+    textNestedSelectedRecordEl.style.display = showNestedSelectedRecord ? "inline-block" : "none";
+  }
+
+  if (textRecordFieldEl) {
+    textRecordFieldEl.style.display = showRecordField ? "inline-block" : "none";
+  }
+} else {
+  if (textDynamicWrap) {
+    textDynamicWrap.style.display = "none";
+  }
+}
+
+
+//Image
+
+if (imgWrap) {
+  imgWrap.style.display = isImage ? "flex" : "none";
+}
 
 if (isImage) {
-  // load values into controls
-  imgFitEl.value  = item.dataset.fit || "cover";
-  imgZoomEl.value = item.dataset.zoom || "1";
-  imgBWEl.value   = item.dataset.borderWidth || "0";
-  imgBCEl.value   = item.dataset.borderColor || "#111111";
-  imgRadEl.value  = item.dataset.radius || "12";
+  if (imgModeEl) {
+    imgModeEl.value = item.dataset.dynamicMode || "static";
+  }
+
+  if (imgDynamicSourceEl) {
+    imgDynamicSourceEl.value = item.dataset.dynamicSource || "page";
+  }
+
+  await populateImageDynamicFieldOptions(item);
+
+if (imgDynamicFieldEl) {
+  imgDynamicFieldEl.value = item.dataset.dynamicField || "";
 }
+  if (imgFitEl) {
+    imgFitEl.value = item.dataset.fit || "cover";
+  }
 
+  if (imgZoomEl) {
+    imgZoomEl.value = item.dataset.zoom || "1";
+  }
 
-// =======================
-// Show/Hide BUTTON controls + fill values
-// =======================
-const isButton = item.dataset.type === "button";
+  if (imgBWEl) {
+    imgBWEl.value = item.dataset.borderWidth || "0";
+  }
 
-// show/hide the button controls block
-if (btnWrap) btnWrap.style.display = isButton ? "block" : "none";
+  if (imgBCEl) {
+    imgBCEl.value = item.dataset.borderColor || "#111111";
+  }
 
+  if (imgRadEl) {
+    imgRadEl.value = item.dataset.radius || "12";
+  }
 
-if (isButton) {
-  btnLabelEl.value = item.dataset.label || "Button";
-  btnBgEl.value = item.dataset.btnBg || "#111111";
-  btnTextColorEl.value = item.dataset.btnTextColor || "#ffffff";
-  btnBwEl.value = item.dataset.borderWidth || "0";
-  btnBcEl.value = item.dataset.borderColor || "#111111";
-  btnBsEl.value = item.dataset.borderStyle || "solid";
-  btnRadiusEl.value = item.dataset.radius || "12";
-  btnHrefEl.value = item.dataset.href || "";
-}
+  const showDynamicStuff = (item.dataset.dynamicMode || "static") === "dynamic";
 
+  if (imgDynamicSourceEl) {
+    imgDynamicSourceEl.style.display = showDynamicStuff ? "inline-block" : "none";
+  }
 
+  if (imgDynamicFieldEl) {
+    imgDynamicFieldEl.style.display = showDynamicStuff ? "inline-block" : "none";
+  }
 
-  const brEl = floatingBar.querySelector(".da-secBorder__radius");
-if (brEl) {
-  brEl.style.display = (!isText) ? "inline-block" : "none";
-  if (!isText) brEl.value = item.dataset.radius || "0";
-}
-
-const isSection = item.dataset.type === "section";
-
-const secControls = [
-  floatingBar.querySelector('[data-sec="borderToggle"]'),
-  floatingBar.querySelector(".da-secBorder__width"),
-  floatingBar.querySelector(".da-secBorder__color"),
-  floatingBar.querySelector(".da-secBorder__style"),
-  floatingBar.querySelector(".da-secBorder__radius"),
-];
-
-secControls.forEach((c) => { if (c) c.style.display = isSection ? "inline-block" : "none"; });
-
-if (isSection) {
-  // load into bar
-  floatingBar.querySelector(".da-secBorder__width").value  = item.dataset.borderWidth || "2";
-  floatingBar.querySelector(".da-secBorder__color").value  = item.dataset.borderColor || "#111111";
-  floatingBar.querySelector(".da-secBorder__style").value  = item.dataset.borderStyle || "solid";
-  floatingBar.querySelector(".da-secBorder__radius").value = item.dataset.radius || "12";
-
-  // highlight border toggle
-  floatingBar.querySelector('[data-sec="borderToggle"]')
-    ?.classList.toggle("is-on", item.dataset.borderOn === "1");
-}
-
-  // name
-  floatingBar.querySelector(".da-floatingBar__name").value =
-    item.dataset.name || (isText ? "Text" : isButton ? "Button" : "Section");
-
-  // color (text => font color, section => bg color)
-  const colorVal = isText
-    ? (item.dataset.color || "#111111")
-    : (item.dataset.bg || "#f9f7f6");
-
-  floatingBar.querySelector(".da-floatingBar__color").value = colorVal;
-
-const fontEl = floatingBar.querySelector(".da-floatingBar__font");
-if (fontEl) {
-  fontEl.style.display = isText ? "inline-block" : "none";
-  if (isText) {
-    fontEl.value = item.dataset.fontFamily || "system-ui";
+  if (imgPickBtn) {
+    imgPickBtn.style.display = showDynamicStuff ? "none" : "inline-block";
   }
 }
-
-  // font size control (only show for text)
-  const fsEl = floatingBar.querySelector(".da-floatingBar__fontSize");
-  fsEl.style.display = isText ? "inline-block" : "none";
-  if (isText) fsEl.value = item.dataset.fontSize || "24";
-
-  // ✅ show/hide text buttons + highlight on/off states
-  const txtBtns = [...floatingBar.querySelectorAll("[data-txt]")];
-  txtBtns.forEach((b) => (b.style.display = isText ? "inline-block" : "none"));
-
-  if (isText) {
-    floatingBar.querySelector('[data-txt="bold"]')?.classList.toggle("is-on", item.dataset.bold === "1");
-    floatingBar.querySelector('[data-txt="italic"]')?.classList.toggle("is-on", item.dataset.italic === "1");
-    floatingBar.querySelector('[data-txt="underline"]')?.classList.toggle("is-on", item.dataset.underline === "1");
-
-    // align highlight
-    floatingBar.querySelectorAll('[data-txt^="align"]').forEach(b => b.classList.remove("is-on"));
-    const a = item.dataset.align || "left";
-    const key = a === "center" ? "alignCenter" : a === "right" ? "alignRight" : "alignLeft";
-    floatingBar.querySelector(`[data-txt="${key}"]`)?.classList.add("is-on");
+  if (groupDynamicWrap) {
+    groupDynamicWrap.style.display = isGroup ? "block" : "none";
   }
+
+if (isGroup) {
+  if (groupModeEl) {
+    groupModeEl.value = item.dataset.dynamicMode || "static";
+  }
+
+  if (groupDynamicSourceEl) {
+    groupDynamicSourceEl.value = item.dataset.dynamicSource || "parentSection";
+  }
+
+  if (groupBindModeEl) {
+    groupBindModeEl.value = item.dataset.bindMode || "single";
+  }
+
+  await populateGroupDynamicFieldOptions(item);
+
+  if (groupDynamicFieldEl) {
+    groupDynamicFieldEl.value = item.dataset.dynamicField || "";
+  }
+
+  await populateGroupSelectedItemOptions(item);
+
+  if (groupSelectedItemEl) {
+    groupSelectedItemEl.value = item.dataset.selectedItemId || "";
+  }
+
+  await populateGroupNestedFieldOptions(item);
+
+  if (groupNestedFieldEl) {
+    groupNestedFieldEl.value = item.dataset.nestedField || "";
+  }
+
+  await populateGroupNestedSelectedItemOptions(item);
+
+  if (groupNestedSelectedItemEl) {
+    groupNestedSelectedItemEl.value = item.dataset.nestedSelectedItemId || "";
+  }
+
+  await populateGroupItemFieldOptions(item);
+
+  if (groupItemFieldEl) {
+    groupItemFieldEl.value = item.dataset.itemField || "";
+  }
+
+  updateGroupBarVisibility(item);
 }
-// ✅ on load: hide bar until something is clicked
-selectedItem = null;
-floatingBar.style.display = "none";
+
+  //Input 
+  if (item.dataset.type === "input") {
+  if (inputWrapEl) inputWrapEl.style.display = "flex";
+
+  if (inputBgToggleEl) inputBgToggleEl.checked = item.dataset.bgOn !== "0";
+  if (inputBgEl) inputBgEl.value = item.dataset.bg || "#020202";
+
+  if (inputLabelBgEl) inputLabelBgEl.value = item.dataset.labelBg || "#ffffff";
+  if (inputFieldBgEl) inputFieldBgEl.value = item.dataset.inputBg || "#ffffff";
+
+  if (inputLabelBgModeEl) inputLabelBgModeEl.value = item.dataset.labelBgMode || "none";
+if (inputLabelBgEl) inputLabelBgEl.value = item.dataset.labelBg || "#ffffff";
+
+if (inputFieldBgModeEl) inputFieldBgModeEl.value = item.dataset.inputBgMode || "none";
+if (inputFieldBgEl) inputFieldBgEl.value = item.dataset.inputBg || "#ffffff";
+
+  if (inputLabelTextEl) inputLabelTextEl.value = item.dataset.label || "Label";
+  if (inputPlaceholderEl) inputPlaceholderEl.value = item.dataset.placeholder || "Type here";
+  if (inputTypeEl) inputTypeEl.value = item.dataset.inputType || "text";
+  if (inputRequiredEl) inputRequiredEl.checked = item.dataset.required === "1";
+} else {
+  if (inputWrapEl) inputWrapEl.style.display = "none";
+} 
 
 
+  //Button
+  if (isButtonLike) {
+  if (btnWrap) btnWrap.style.display = "flex";
 
+  if (btnLabelEl) {
+  btnLabelEl.value =
+    item.dataset.type === "text"
+      ? (item.dataset.text ?? "")
+      : (item.dataset.label ?? "Button");
+}
+  if (btnBgEl) btnBgEl.value = item.dataset.btnBg || "#111111";
+  if (btnTextColorEl) btnTextColorEl.value = item.dataset.btnTextColor || "#ffffff";
+  if (btnBwEl) btnBwEl.value = item.dataset.borderWidth || "0";
+  if (btnBcEl) btnBcEl.value = item.dataset.borderColor || "#111111";
+  if (btnBsEl) btnBsEl.value = item.dataset.borderStyle || "solid";
+  if (btnRadiusEl) btnRadiusEl.value = item.dataset.radius || "12";
+
+if (btnActionTypeEl) btnActionTypeEl.value = item.dataset.actionType || "none";
+if (btnActionTargetEl) btnActionTargetEl.value = item.dataset.actionTarget || "";
+if (btnActionSourceEl) btnActionSourceEl.value = item.dataset.actionSource || "page";
+  if (btnDisplayTypeEl) btnDisplayTypeEl.value = item.dataset.displayType || "text";
+  if (btnIconEl) btnIconEl.value = item.dataset.icon || "";
+
+if (btnActionSourceEl) {
+  btnActionSourceEl.value = item.dataset.actionSource || "page";
+}
+
+  updateButtonActionUI();
+syncButtonBgToggleLabel();
+
+  if (btnActionTargetSelectEl && btnActionTargetSelectEl.style.display !== "none") {
+  btnActionTargetSelectEl.value = item.dataset.actionTarget || "";
+}
+
+} else {
+  if (btnWrap) btnWrap.style.display = "none";
+}
+
+
+//Video
+const isVideo = item.dataset.type === "video";
+
+if (videoWrap) {
+  videoWrap.style.display = isVideo ? "flex" : "none";
+}
+
+if (isVideo) {
+  if (videoRadiusEl) videoRadiusEl.value = item.dataset.radius || "12";
+  if (videoControlsToggleEl) videoControlsToggleEl.checked = item.dataset.controls !== "0";
+  if (videoAutoplayEl) videoAutoplayEl.checked = item.dataset.autoplay === "1";
+  if (videoMutedEl) videoMutedEl.checked = item.dataset.muted === "1";
+  if (videoLoopEl) videoLoopEl.checked = item.dataset.loop === "1";
+}
+} 
+
+function applyVideoFromBar() {
+  if (!selectedItem || selectedItem.dataset.type !== "video") return;
+
+  selectedItem.dataset.radius = videoRadiusEl?.value || "12";
+  selectedItem.dataset.controls = videoControlsToggleEl?.checked ? "1" : "0";
+  selectedItem.dataset.autoplay = videoAutoplayEl?.checked ? "1" : "0";
+  selectedItem.dataset.muted = videoMutedEl?.checked ? "1" : "0";
+  selectedItem.dataset.loop = videoLoopEl?.checked ? "1" : "0";
+
+  renderVideoContent(selectedItem);
+}
+
+videoRadiusEl?.addEventListener("input", applyVideoFromBar);
+videoControlsToggleEl?.addEventListener("change", applyVideoFromBar);
+videoAutoplayEl?.addEventListener("change", applyVideoFromBar);
+videoMutedEl?.addEventListener("change", applyVideoFromBar);
+videoLoopEl?.addEventListener("change", applyVideoFromBar);
+
+videoPickBtn?.addEventListener("click", () => {
+  if (!selectedItem || selectedItem.dataset.type !== "video") return;
+  videoFileEl?.click();
+});
+
+videoFileEl?.addEventListener("change", async () => {
+  if (!selectedItem || selectedItem.dataset.type !== "video") return;
+  const file = videoFileEl.files?.[0];
+  if (!file) return;
+
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const res = await fetch("/api/upload", {
+    method: "POST",
+    body: formData
+  });
+
+  const data = await res.json();
+  selectedItem.dataset.src = data.url || "";
+  renderVideoContent(selectedItem);
+});
+
+
+//Parallax Helper
+function applyParallax() {
+  if (!window.TPL_PREVIEW) return;
+
+  const scrollWrap = document.querySelector(".tpl__dropArea");
+  if (!scrollWrap) return;
+
+  const scrollY = scrollWrap.scrollTop || 0;
+
+  console.log("[parallax] applyParallax called", {
+    preview: window.TPL_PREVIEW,
+    scrollTop: scrollY
+  });
+
+  document.querySelectorAll('.da-item[data-type="section"], .da-item[data-type="image"]').forEach((el) => {
+    const strength = parseFloat(el.dataset.parallax || "0");
+    const offset = -scrollY * strength;
+
+    el.style.setProperty("--parallaxY", `${offset}px`);
+
+    console.log("[parallax] item", {
+      type: el.dataset.type,
+      name: el.dataset.name || "",
+      strength,
+      offset
+    });
+  });
+}
+document.querySelector(".tpl__dropArea")?.addEventListener("scroll", applyParallax);
 
 // keep bar stuck to item while dragging
 function refreshBarPosition() {
@@ -922,7 +7343,7 @@ let lastPickSig = "";
 let lastPickIdx = 0;
 
 function getHitsAtPoint(clientX, clientY) {
-  const items = [...grid.querySelectorAll(".da-item")];
+const items = [...grid.querySelectorAll(".da-item")];
 
   const hits = items.filter((el) => {
     const r = el.getBoundingClientRect();
@@ -966,8 +7387,18 @@ let lastPickIndex = 0;
   // name + color change
 floatingBar.querySelector(".da-floatingBar__name").addEventListener("input", (e) => {
   if (!selectedItem) return;
-  selectedItem.dataset.name = e.target.value || "Section";
+
+  const nextName = e.target.value || "Section";
+  selectedItem.dataset.name = nextName;
+
+  if (selectedItem.dataset.type === "popup") {
+    const titleEl = selectedItem.querySelector(".da-popup__title");
+    if (titleEl) titleEl.textContent = nextName;
+
+    refreshPopupList();  
+  }
 });
+
 floatingBar.querySelector(".da-floatingBar__fontSize").addEventListener("input", (e) => {
   if (!selectedItem) return;
   if (selectedItem.dataset.type !== "text") return;
@@ -985,26 +7416,45 @@ floatingBar.querySelector(".da-floatingBar__color").addEventListener("input", (e
   const val = e.target.value;
 
   if (selectedItem.dataset.type === "text") {
-    // ✅ for text elements: change text color
     selectedItem.dataset.color = val;
     const t = selectedItem.querySelector(".da-text");
     if (t) t.style.color = val;
   } else {
-    // ✅ for sections: change background color
     selectedItem.dataset.bg = val;
-    selectedItem.style.background = val;
+    selectedItem.style.background =
+      selectedItem.dataset.bgOn === "0" ? "transparent" : val;
   }
 });
 
+btnBgToggleEl?.addEventListener("click", () => {
+  if (!selectedItem) return;
+  if (selectedItem.dataset.type !== "button") return;
 
-  let active = null;
-let resizeActive = null;
+  const next = selectedItem.dataset.btnBgOn === "0" ? "1" : "0";
+  selectedItem.dataset.btnBgOn = next;
 
+  const b = selectedItem.querySelector(".da-btn");
+  if (b) {
+    b.style.background =
+      next === "0"
+        ? "transparent"
+        : (selectedItem.dataset.btnBg || "#111111");
+  }
+
+  syncButtonBgToggleLabel();
+});
+
+
+//Element Resizing 
 function getMinSizeForItem(el) {
   const t = el?.dataset?.type || "";
-  if (t === "text")   return { w: 40,  h: 24 };
-  if (t === "button") return { w: 60,  h: 30 };
-  // section default
+
+  if (t === "text") return { w: 40, h: 24 };
+  if (t === "button") return { w: 60, h: 30 };
+  if (t === "input") return { w: 70, h: 30 };
+  if (t === "popup") return { w: 180, h: 80 };
+  if (t === "group") return { w: 70, h: 30 };
+
   return { w: 120, h: 80 };
 }
 
@@ -1046,6 +7496,12 @@ grid.addEventListener("mousedown", (e) => {
 
   const item = handle.closest(".da-item");
   if (!item) return;
+
+    if (item.dataset.type === "header") {
+    e.preventDefault();
+    e.stopPropagation();
+    return;
+  }
 
   // Select the item when resizing
   grid.querySelectorAll(".da-item").forEach((x) => x.classList.remove("is-selected"));
@@ -1143,6 +7599,18 @@ function getParentGroupEl(childEl) {
   return (p.dataset.type === "group") ? p : null;
 }
 
+function getParentContainerEl(childEl) {
+  const pid = childEl?.dataset?.parent;
+  if (!pid) return null;
+  return getItemById(pid);
+}
+
+function getParentContainerDataType(childEl) {
+  const parent = getParentContainerEl(childEl);
+  if (!parent) return "";
+
+  return parent.dataset.dynamicDataType || "";
+}
 function setHeaderVisible(isVisible) {
   const header = grid.querySelector('.da-item.da-header');
   if (!header) return;
@@ -1185,6 +7653,31 @@ function getChildrenDeep(parentEl) {
   return out;
 }
 
+function setPopupMinimized(popupEl, minimized) {
+  if (!popupEl || popupEl.dataset.type !== "popup") return;
+
+  popupEl.dataset.popupMinimized = minimized ? "1" : "0";
+
+  const topbarHeight = 42;
+  const body = popupEl.querySelector(".da-popup__body");
+
+  if (minimized) {
+    popupEl.dataset.expandedHeight = popupEl.style.height || `${popupEl.offsetHeight}px`;
+    popupEl.style.height = `${topbarHeight}px`;
+    if (body) body.style.display = "none";
+  } else {
+    popupEl.style.height = popupEl.dataset.expandedHeight || "220px";
+    if (body) body.style.display = "";
+  }
+
+  const kids = getChildrenDeep(popupEl);
+  kids.forEach((child) => {
+    child.style.display = minimized ? "none" : "";
+  });
+
+  const btn = popupEl.querySelector(".da-popup__minBtn");
+  if (btn) btn.textContent = minimized ? "+" : "—";
+}
   function toLocalXY(container, clientX, clientY) {
     const r = container.getBoundingClientRect();
     return {
@@ -1193,297 +7686,44 @@ function getChildrenDeep(parentEl) {
     };
   }
 
-                                                 // =======================
-                                            // STEP 4: //makeTextEl
-                                             //Put all elements above Section Element
-                                             // =======================
-  //Add New Element
-  //Image Element
-  function makeImageEl({ x, y, src = "" }) {
-  const el = document.createElement("div");
-  el.className = "da-item da-item--image";
-  el.dataset.type = "image";
-  el.dataset.id = uid("img");
-
-  // defaults
-  el.dataset.src = src;               // later we’ll set this from the bar
-  el.dataset.fit = el.dataset.fit || "cover";  // cover | contain
-  el.dataset.radius = el.dataset.radius || "12";
-
-  el.style.left = `${Math.round(x)}px`;
-  el.style.top  = `${Math.round(y)}px`;
-  el.style.width = `220px`;
-  el.style.height = `160px`;
-el.dataset.borderWidth = el.dataset.borderWidth || "0";
-el.dataset.borderColor = el.dataset.borderColor || "#111111";
-el.dataset.borderStyle = el.dataset.borderStyle || "solid";
-el.dataset.radius = el.dataset.radius || "12";
-  const all = grid.querySelectorAll(".da-item");
-  const maxZ = [...all].reduce((m, n) => Math.max(m, parseInt(n.style.zIndex || "1", 10)), 1);
-  el.style.zIndex = String(maxZ + 1);
-
-  el.innerHTML = `
-    <img class="da-img" alt="" />
-
-    <div class="da-resize da-resize--nw" data-resize="nw"></div>
-    <div class="da-resize da-resize--n"  data-resize="n"></div>
-    <div class="da-resize da-resize--ne" data-resize="ne"></div>
-    <div class="da-resize da-resize--w"  data-resize="w"></div>
-    <div class="da-resize da-resize--e"  data-resize="e"></div>
-    <div class="da-resize da-resize--sw" data-resize="sw"></div>
-    <div class="da-resize da-resize--s"  data-resize="s"></div>
-    <div class="da-resize da-resize--se" data-resize="se"></div>
-  `;
-
-  const img = el.querySelector(".da-img");
-  if (img) {
-    // if no src yet, show a simple placeholder
-    img.src = el.dataset.src || "data:image/svg+xml;charset=utf-8," + encodeURIComponent(`
-      <svg xmlns="http://www.w3.org/2000/svg" width="400" height="260">
-        <rect width="100%" height="100%" fill="#f3f3f3"/>
-        <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle"
-              font-family="system-ui, Arial" font-size="18" fill="#777">Drop image</text>
-      </svg>
-    `);
-
-    img.style.objectFit = el.dataset.fit || "cover";
-    img.style.borderRadius = `${parseInt(el.dataset.radius, 10) || 0}px`;
-  }
-
-  el.dataset.name = el.dataset.name || "Image";
-  return el;
-}
-
-  //Text Element
-function makeTextEl({ x, y, text = "Type here" }) {
-  const el = document.createElement("div");
-  el.className = "da-item da-item--text";
-  el.dataset.type = "text";
-  el.dataset.id = uid("text");
-el.dataset.fontFamily = el.dataset.fontFamily || "system-ui";
-
-  // defaults (stored on element)
-  el.dataset.fontSize = el.dataset.fontSize || "24";
-  el.dataset.bold     = el.dataset.bold || "0";
-  el.dataset.italic   = el.dataset.italic || "0";
-  el.dataset.underline = el.dataset.underline || "0";
-  el.dataset.align    = el.dataset.align || "left"; // left | center | right
-
-  el.style.left = `${Math.round(x)}px`;
-  el.style.top  = `${Math.round(y)}px`;
-  el.style.width  = `240px`;
-  el.style.height = `48px`;
-
-  const all = grid.querySelectorAll(".da-item");
-  const maxZ = [...all].reduce((m, n) => Math.max(m, parseInt(n.style.zIndex || "1", 10)), 1);
-  el.style.zIndex = String(maxZ + 1);
-
-  // store text
-  el.dataset.text = text;
-
-  el.innerHTML = `
-    <div class="da-text" contenteditable="true" spellcheck="false"></div>
-
-    <div class="da-resize da-resize--nw" data-resize="nw"></div>
-    <div class="da-resize da-resize--n"  data-resize="n"></div>
-    <div class="da-resize da-resize--ne" data-resize="ne"></div>
-    <div class="da-resize da-resize--w"  data-resize="w"></div>
-    <div class="da-resize da-resize--e"  data-resize="e"></div>
-    <div class="da-resize da-resize--sw" data-resize="sw"></div>
-    <div class="da-resize da-resize--s"  data-resize="s"></div>
-    <div class="da-resize da-resize--se" data-resize="se"></div>
-  `;
-
-  const textEl = el.querySelector(".da-text");
-  textEl.textContent = text;
-
-  // apply styles from dataset
-  const fs = parseInt(el.dataset.fontSize, 10) || 24;
-  textEl.style.fontFamily = el.dataset.fontFamily || "system-ui";
-
-  textEl.style.fontSize = `${fs}px`;
-  textEl.style.fontWeight = (el.dataset.bold === "1") ? "700" : "400";
-  textEl.style.fontStyle  = (el.dataset.italic === "1") ? "italic" : "normal";
-  textEl.style.textDecoration = (el.dataset.underline === "1") ? "underline" : "none";
-  textEl.style.textAlign = el.dataset.align || "left";
-
-  // keep dataset in sync when user types
-  textEl.addEventListener("input", () => {
-    el.dataset.text = textEl.textContent || "";
-  });
-
-  // allow typing without starting drag
-  textEl.addEventListener("mousedown", (ev) => {
-    ev.stopPropagation();
-  });
-
-  return el;
-}
-
-  //Button Element
-function makeButtonEl({ x, y, label = "Button" }) {
-  const el = document.createElement("div");
-  el.className = "da-item da-item--button";
-  el.dataset.type = "button";
-  el.dataset.id = uid("btn");
-
-  // defaults
-  el.dataset.label = label;
-  el.dataset.btnBg = el.dataset.btnBg || "#111111";
-  el.dataset.btnTextColor = el.dataset.btnTextColor || "#ffffff";
-  el.dataset.borderWidth = el.dataset.borderWidth || "0";
-  el.dataset.borderColor = el.dataset.borderColor || "#111111";
-  el.dataset.borderStyle = el.dataset.borderStyle || "solid";
-  el.dataset.radius = el.dataset.radius || "12";
-  el.dataset.href = el.dataset.href || "";
-
-  el.style.left = `${Math.round(x)}px`;
-  el.style.top  = `${Math.round(y)}px`;
-  el.style.width = `180px`;
-  el.style.height = `48px`;
-el.dataset.name = el.dataset.name || "Button";
-
-
-  const all = grid.querySelectorAll(".da-item");
-  const maxZ = [...all].reduce((m, n) => Math.max(m, parseInt(n.style.zIndex || "1", 10)), 1);
-  el.style.zIndex = String(maxZ + 1);
-
-  el.innerHTML = `
-    <button class="da-btn" type="button"></button>
-
-    <div class="da-resize da-resize--nw" data-resize="nw"></div>
-    <div class="da-resize da-resize--n"  data-resize="n"></div>
-    <div class="da-resize da-resize--ne" data-resize="ne"></div>
-    <div class="da-resize da-resize--w"  data-resize="w"></div>
-    <div class="da-resize da-resize--e"  data-resize="e"></div>
-    <div class="da-resize da-resize--sw" data-resize="sw"></div>
-    <div class="da-resize da-resize--s"  data-resize="s"></div>
-    <div class="da-resize da-resize--se" data-resize="se"></div>
-  `;
-
-  const b = el.querySelector(".da-btn");
-  if (b) {
-    b.textContent = el.dataset.label;
-
-    b.style.background = el.dataset.btnBg;
-    b.style.color = el.dataset.btnTextColor;
-
-    const bw = parseInt(el.dataset.borderWidth, 10) || 0;
-    const bs = el.dataset.borderStyle || "solid";
-    const bc = el.dataset.borderColor || "#111111";
-    b.style.border = (bs === "none" || bw === 0) ? "none" : `${bw}px ${bs} ${bc}`;
-
-    b.style.borderRadius = `${parseInt(el.dataset.radius, 10) || 0}px`;
-
-    // ✅ click opens link
-b.addEventListener("click", (ev) => {
-  if (!window.TPL_PREVIEW) return; // ✅ editing mode: don't open links
-  ev.preventDefault();
-  ev.stopPropagation();
-
-  const href = (el.dataset.href || "").trim();
-  if (href) window.open(href, "_blank");
-});
-
- 
-  }
-
-  return el;
-}
-
-
-  //Section Element
- function makeSectionEl({ x, y, w = 420, h = 168, title = "Section" }) {
-
-    const el = document.createElement("div");
-   el.className = "da-item da-item--section";
-el.dataset.type = "section";
-// defaults for section border styling
-el.dataset.borderOn    = el.dataset.borderOn || "0";
-el.dataset.borderWidth = el.dataset.borderWidth || "2";
-el.dataset.borderStyle = el.dataset.borderStyle || "solid";
-el.dataset.borderColor = el.dataset.borderColor || "#111111";
-
-el.dataset.radius = el.dataset.radius || "0";
-el.dataset.borderOn = el.dataset.borderOn || "0"; // if you’re using the toggle
-
-// apply defaults immediately
-el.style.border = (el.dataset.borderOn === "1")
-  ? `${el.dataset.borderWidth}px ${el.dataset.borderStyle} ${el.dataset.borderColor}`
-  : "none";
-
-el.style.borderRadius = `${parseInt(el.dataset.radius, 10) || 0}px`;
-
-    el.dataset.id = uid("section");
-    el.style.left = `${Math.round(x)}px`;
-    el.style.top = `${Math.round(y)}px`;
-    el.style.width = `${Math.round(w)}px`;
-    el.style.height = `${Math.round(h)}px`;
-  const all = grid.querySelectorAll(".da-item");
-const maxZ = [...all].reduce((m, n) => Math.max(m, parseInt(n.style.zIndex || "1", 10)), 1);
-el.style.zIndex = String(maxZ + 1); // ✅ new items appear on top by default
 
 
 
 
-//Rename Section
-const safe = String(title || "Section").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
 
 
-el.innerHTML = ``;
-// --- resize handles (8) ---
-el.innerHTML = `
-  <div class="da-resize da-resize--nw" data-resize="nw"></div>
-  <div class="da-resize da-resize--n"  data-resize="n"></div>
-  <div class="da-resize da-resize--ne" data-resize="ne"></div>
-
-  <div class="da-resize da-resize--w"  data-resize="w"></div>
-  <div class="da-resize da-resize--e"  data-resize="e"></div>
-
-  <div class="da-resize da-resize--sw" data-resize="sw"></div>
-  <div class="da-resize da-resize--s"  data-resize="s"></div>
-  <div class="da-resize da-resize--se" data-resize="se"></div>
-`;
 
 
-
-// store name on the element so you can read it later
-el.dataset.name = title || "Section";
-
-
-/////////////////////////////////////////////////////////
-
-    return el;
-  }
-//get a section’s children
-function getSectionChildren(sectionEl) {
-  const id = sectionEl?.dataset?.id;
-  if (!id) return [];
-  return [...grid.querySelectorAll(`.da-item[data-parent="${id}"]`)];
-}
 
 
                                              // =======================
-                                            // STEP 8A
+                                            // STEP 6
                                              //
                                              // =======================
 function serializeCanvas() {
   const items = [...grid.querySelectorAll(".da-item")];
 
-  return items.map((el) => ({
-    type: el.dataset.type,
-    id: el.dataset.id,
-    parent: el.dataset.parent || "",
-    x: parseFloat(el.style.left) || 0,
-    y: parseFloat(el.style.top) || 0,
-    w: el.offsetWidth,
-    h: el.offsetHeight,
-    z: parseInt(el.style.zIndex || "1", 10),
+  return {
+    pageType: window.TPL_PAGE_TYPE || "booking",
+    canvasHeight: parseFloat(grid.style.height) || grid.offsetHeight || 0,
+    items: items.map((el) => ({
+      type: el.dataset.type,
+      id: el.dataset.id,
+      parent: el.dataset.parent || "",
+      x: parseFloat(el.style.left) || 0,
+      y: parseFloat(el.style.top) || 0,
+      w: el.offsetWidth,
+      h: el.offsetHeight,
+      z: parseInt(el.style.zIndex || "1", 10),
+      data: { ...el.dataset },
+    })),
+  };
+}
 
-    // store ALL dataset fields (font, colors, borders, href, etc.)
-    data: { ...el.dataset },
-  }));
+function getSelectedPageId() {
+  const select = document.getElementById("tpl-page-record");
+  return select?.value || "";
 }
 function clearCanvasItems() {
   grid.querySelectorAll(".da-item").forEach((n) => n.remove());
@@ -1492,547 +7732,1073 @@ function clearCanvasItems() {
 function applyDatasetToElement(el, data) {
   Object.entries(data || {}).forEach(([k, v]) => (el.dataset[k] = v));
 }
+async function applyGroupDynamicFromBar() {
+  if (!selectedItem) return;
+  if (selectedItem.dataset.type !== "group") return;
 
-function restoreCanvas(items = []) {
+  selectedItem.dataset.dynamicMode = groupModeEl?.value || "static";
+  selectedItem.dataset.dynamicSource = groupDynamicSourceEl?.value || "page";
+  selectedItem.dataset.bindMode = groupBindModeEl?.value || "single";
+  selectedItem.dataset.dynamicField = groupDynamicFieldEl?.value || "";
+  selectedItem.dataset.selectedItemId = groupSelectedItemEl?.value || "";
+
+  // NEW
+  selectedItem.dataset.nestedField = groupNestedFieldEl?.value || "";
+  selectedItem.dataset.nestedSelectedItemId = groupNestedSelectedItemEl?.value || "";
+
+  selectedItem.dataset.itemField = groupItemFieldEl?.value || "";
+
+  updateGroupBarVisibility(selectedItem);
+
+  await populateGroupSelectedItemOptions(selectedItem);
+
+  // NEW
+  await populateGroupNestedFieldOptions(selectedItem);
+  await populateGroupNestedSelectedItemOptions(selectedItem);
+
+  await populateGroupItemFieldOptions(selectedItem);
+
+  updateGroupBarVisibility(selectedItem);
+
+  if (typeof renderAllDynamicContent === "function") {
+    await renderAllDynamicContent();
+  }
+}
+
+async function restoreCanvas(saved = null) {
+  const payload = saved && Array.isArray(saved.items) ? saved : { items: [] };
+
   clearCanvasItems();
 
-  items.forEach((it) => {
+  for (const it of payload.items) {
     let el = null;
 
-    if (it.type === "section") el = makeSectionEl({ x: it.x, y: it.y, w: it.w, h: it.h, title: it.data?.name || "Section" });
-    if (it.type === "text") el = makeTextEl({ x: it.x, y: it.y, text: it.data?.text || "Type here" });
-    if (it.type === "button") el = makeButtonEl({ x: it.x, y: it.y, label: it.data?.label || "Button" });
-if (el.dataset.type === "image") {
-  const img = el.querySelector(".da-img");
-  if (img) {
-    img.src = el.dataset.src || img.src;
-    img.style.objectFit = el.dataset.fit || "cover";
+    if (it.type === "popup") {
+      el = makePopupEl({
+        x: it.x,
+        y: it.y,
+        w: it.w,
+        h: it.h,
+        title: it.data?.name || "Popup",
+      });
+    }
 
-    const zx = parseFloat(el.dataset.zoom || "1") || 1;
-    img.style.transform = `scale(${zx})`;
+    if (it.type === "header") {
+      el = document.createElement("div");
+      el.className = "da-item da-header";
+      el.dataset.type = "header";
+      el.dataset.locked = "1";
+    }
 
-    const px = parseFloat(el.dataset.posX || "50");
-    const py = parseFloat(el.dataset.posY || "50");
-    img.style.objectPosition = `${px}% ${py}%`;
-  }
+    if (it.type === "section") {
+      el = makeSectionEl({
+        x: it.x,
+        y: it.y,
+        w: it.w,
+        h: it.h,
+        title: it.data?.name || "Section",
+      });
+    }
 
-  const bw = parseInt(el.dataset.borderWidth || "0", 10) || 0;
-  const bc = el.dataset.borderColor || "#111111";
-  const rad = parseInt(el.dataset.radius || "0", 10) || 0;
-  el.style.border = bw > 0 ? `${bw}px solid ${bc}` : "none";
-  el.style.borderRadius = `${rad}px`;
+    if (it.type === "group") {
+      el = makeGroupEl({
+        x: it.x,
+        y: it.y,
+        w: it.w,
+        h: it.h,
+        title: it.data?.name || "Group",
+      });
+    }
+
+    if (it.type === "text") {
+      el = makeTextEl({
+        x: it.x,
+        y: it.y,
+        text: it.data?.text || "Type here",
+      });
+    }
+
+if (it.type === "button") {
+  el = makeButtonEl({
+    x: it.x,
+    y: it.y,
+    label: it.data?.label ?? "Button",
+  });
 }
-if (it.type === "image") el = makeImageEl({ x: it.x, y: it.y, src: it.data?.src || "" });
 
+    if (it.type === "image") {
+      el = makeImageEl({
+        x: it.x,
+        y: it.y,
+        src: it.data?.src || "",
+      });
+    }
 
-    if (!el) return;
+    if (!el) continue;
 
-    // restore exact ID + dataset
     el.dataset.id = it.id || el.dataset.id;
     applyDatasetToElement(el, it.data);
 
-    if (el.dataset.type === "image") {
-  const img = el.querySelector(".da-img");
-  if (img) {
-    img.src = el.dataset.src || img.src;
-    img.style.objectFit = el.dataset.fit || "cover";
-
-    const zx = parseFloat(el.dataset.zoom || "1") || 1;
-    img.style.transform = `scale(${zx})`;
-
-    const px = parseFloat(el.dataset.posX || "50");
-    const py = parseFloat(el.dataset.posY || "50");
-    img.style.objectPosition = `${px}% ${py}%`;
-
-    const rad = parseInt(el.dataset.radius || "0", 10) || 0;
-    img.style.borderRadius = `${rad}px`;
-  }
-
-  const bw = parseInt(el.dataset.borderWidth || "0", 10) || 0;
-  const bc = el.dataset.borderColor || "#111111";
-  const rad = parseInt(el.dataset.radius || "0", 10) || 0;
-
-  el.style.border = bw > 0 ? `${bw}px solid ${bc}` : "none";
-  el.style.borderRadius = `${rad}px`;
-  el.style.overflow = "hidden";
+    if (el.dataset.hidden === "1") {
+  el.style.display = "none";
 }
 
-    // restore position/size/z
-    el.style.left = `${Math.round(it.x)}px`;
-    el.style.top  = `${Math.round(it.y)}px`;
-    el.style.width  = `${Math.round(it.w)}px`;
-    el.style.height = `${Math.round(it.h)}px`;
-    el.style.zIndex = String(it.z || 1);
-
-    // re-apply visual styles that depend on dataset
-    if (el.dataset.type === "text") {
-      const t = el.querySelector(".da-text");
-      if (t) {
-        t.textContent = el.dataset.text || "";
-        t.style.color = el.dataset.color || "#111111";
-        t.style.fontSize = `${parseInt(el.dataset.fontSize, 10) || 24}px`;
-        t.style.fontFamily = el.dataset.fontFamily || "system-ui";
-        t.style.fontWeight = (el.dataset.bold === "1") ? "700" : "400";
-        t.style.fontStyle  = (el.dataset.italic === "1") ? "italic" : "normal";
-        t.style.textDecoration = (el.dataset.underline === "1") ? "underline" : "none";
-        t.style.textAlign = el.dataset.align || "left";
-
-        // load google font if needed (optional)
-        // you can only do this if you stored a gf param; otherwise skip
-      }
+if (it.type === "header") {
+  el.style.position = "absolute";
+  el.style.left = "0px";
+  el.style.top = "0px";
+  el.style.width = "100%";
+  el.style.height = "90px";
+  el.style.zIndex = "9999";
+  el.style.boxSizing = "border-box";
+}
+ else {
+      el.style.left = `${Math.round(it.x)}px`;
+      el.style.top = `${Math.round(it.y)}px`;
+      el.style.width = `${Math.round(it.w)}px`;
+      el.style.height = `${Math.round(it.h)}px`;
+      el.style.zIndex = String(it.z || 1);
     }
 
-    if (el.dataset.type === "section") {
-      el.style.background = el.dataset.bg || "#f2b26b";
+    if (el.dataset.type === "text") {
+      await renderTextContent(el);
+    }
+
+if (el.dataset.type === "header") {
+  el.style.background =
+    el.dataset.bgOn === "0"
+      ? "transparent"
+      : (el.dataset.bg || "#ffffff");
+
+  el.style.border = "none";
+  el.style.borderRadius = "0px";
+}
+
+if (el.dataset.hidden === "1") {
+  el.style.display = "none";
+}
+
+if (el.dataset.type === "section" || el.dataset.type === "group" || el.dataset.type === "popup") {
+  el.style.background =
+    el.dataset.bgOn === "0"
+      ? "transparent"
+      : (el.dataset.bg || "#f2f2f2");
+
+  const on = el.dataset.borderOn === "1";
+  const bw = parseInt(el.dataset.borderWidth, 10) || 0;
+  const bs = el.dataset.borderStyle || "solid";
+  const bc = el.dataset.borderColor || "#111111";
+
+  el.style.border = on && bw > 0
+    ? `${bw}px ${bs} ${bc}`
+    : "none";
+
+  el.style.borderRadius = `${parseInt(el.dataset.radius, 10) || 0}px`;
+}
+
+if (el.dataset.type === "popup") {
+  el.style.background =
+    el.dataset.bgOn === "0"
+      ? "transparent"
+      : (el.dataset.bg || "#ffffff");
+
       const on = el.dataset.borderOn === "1";
       const bw = parseInt(el.dataset.borderWidth, 10) || 0;
       const bs = el.dataset.borderStyle || "solid";
       const bc = el.dataset.borderColor || "#111111";
+      const br = parseInt(el.dataset.radius, 10) || 0;
+
       el.style.border = on && bw > 0 ? `${bw}px ${bs} ${bc}` : "none";
-      el.style.borderRadius = `${parseInt(el.dataset.radius, 10) || 0}px`;
+      el.style.borderRadius = `${br}px`;
+
+      const titleEl = el.querySelector(".da-popup__title");
+      if (titleEl) {
+        titleEl.textContent = el.dataset.name || "Popup";
+      }
     }
 
     if (el.dataset.type === "button") {
       const b = el.querySelector(".da-btn");
       if (b) {
-        b.textContent = el.dataset.label || "Button";
-        b.style.background = el.dataset.btnBg || "#111111";
+        renderButtonContent(el);
+
+        b.style.background =
+  el.dataset.btnBgOn === "0"
+    ? "transparent"
+    : (el.dataset.btnBg || "#111111");
         b.style.color = el.dataset.btnTextColor || "#ffffff";
 
         const bw = parseInt(el.dataset.borderWidth, 10) || 0;
         const bs = el.dataset.borderStyle || "solid";
         const bc = el.dataset.borderColor || "#111111";
-        b.style.border = (bs === "none" || bw === 0) ? "none" : `${bw}px ${bs} ${bc}`;
+        b.style.border = bs === "none" || bw === 0 ? "none" : `${bw}px ${bs} ${bc}`;
         b.style.borderRadius = `${parseInt(el.dataset.radius, 10) || 0}px`;
+
+        b.addEventListener("click", (ev) => {
+          handleElementAction(ev, el);
+        });
       }
     }
 
+    if (el.dataset.type === "image") {
+      const bw = parseInt(el.dataset.borderWidth || "0", 10) || 0;
+      const bc = el.dataset.borderColor || "#111111";
+      const rad = parseInt(el.dataset.radius || "0", 10) || 0;
+
+      el.style.border = bw > 0 ? `${bw}px solid ${bc}` : "none";
+      el.style.borderRadius = `${rad}px`;
+      el.style.overflow = "hidden";
+
+      await renderImageContent(el);
+    }
+
     grid.appendChild(el);
-  });
+
+    if (el.dataset.type === "popup") {
+      el.style.display = "none";
+    }
+  }
+
+  // 🔥 FORCE HEADER WIDTH AFTER EVERYTHING LOADS
+const header = grid.querySelector(".da-item.da-header");
+if (header) {
+  syncLockedHeaderWidth();
+
+  if (typeof layoutHeaderChildren === "function") {
+    layoutHeaderChildren();
+  }
+}
+
+trimCanvasHeight();
+refreshPopupList();
+}
+
+async function saveTemplateToDatabase() {
+  try {
+    const locationId = getSelectedPageId();
+    if (!locationId) {
+      alert("Please select a page first.");
+      return;
+    }
+
+ saveBuilderSelectionState();
+
+const payload = buildPagePayload();
+
+console.log(
+  "[builder] buttons being saved:",
+  (payload.views && Object.entries(payload.views).flatMap(([viewKey, view]) =>
+    (view.items || [])
+      .filter((item) => item.type === "button")
+      .map((item) => ({
+        viewKey,
+        id: item.id,
+        label: item.data?.label,
+        actionType: item.data?.actionType,
+        actionTarget: item.data?.actionTarget,
+        displayType: item.data?.displayType,
+        icon: item.data?.icon
+      }))
+  )) || []
+);
+    const values = {
+      "Custom Page Type": window.TPL_PAGE_TYPE || "booking",
+      "Custom Page JSON": JSON.stringify(payload),
+    };
+
+    console.log("[builder] saving to db...", {
+      locationId,
+      values,
+    });
+
+    console.log("[builder] payload being saved:", payload);
+
+    const res = await apiFetch(`/api/records/Location/${encodeURIComponent(locationId)}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({ values }),
+    });
+
+const data = await res.json().catch(() => ({}));
+
+if (!res.ok) {
+  throw new Error(data?.message || "Failed to save template");
+}
+
+console.log("[builder] save success:", data);
+console.log("[builder] save success response:", data);
+console.log("[builder] saved json length:", values["Custom Page JSON"]?.length || 0);
+
+alert("Page saved.");
+  } catch (err) {
+    console.error("[builder] save error:", err);
+    alert(err?.message || "Failed to save page.");
+  }
+}
+
+async function loadTemplateFromDatabase() {
+  try {
+    const locationId = getSelectedPageId();
+    if (!locationId) return;
+
+    const res = await apiFetch(`/api/records/Location/${encodeURIComponent(locationId)}`, {
+      method: "GET",
+      headers: { Accept: "application/json" },
+    });
+
+    const raw = await res.json().catch(() => ({}));
+
+    const row =
+      raw?.item ||
+      raw?.record ||
+      raw?.data ||
+      raw?.items?.[0] ||
+      raw?.records?.[0] ||
+      raw;
+
+    if (!row) return;
+
+    window.TPL_CURRENT_PAGE_ROW = row || null;
+    window.TPL_CURRENT_PAGE_DATATYPE_ID =
+      row?.dataTypeId ||
+      row?.values?.dataTypeId ||
+      "694ca3228079ae580face921";
+
+    console.log("[builder] TPL_CURRENT_PAGE_ROW:", window.TPL_CURRENT_PAGE_ROW);
+    console.log("[builder] TPL_CURRENT_PAGE_DATATYPE_ID:", window.TPL_CURRENT_PAGE_DATATYPE_ID);
+
+    const v = row.values || row;
+    const savedType = v["Custom Page Type"] || "booking";
+    const savedJson = v["Custom Page JSON"] || "";
+
+    window.TPL_PAGE_TYPE = savedType;
+
+    if (!savedJson) {
+      pageViews = {
+        default: {
+          name: "Default View",
+          desktop: { items: [] },
+          mobile: { items: [] }
+        }
+      };
+
+      currentViewKey = "default";
+      rebuildViewDropdown();
+      await loadViewIntoCanvas("default");
+      return;
+    }
+
+    const payload = JSON.parse(savedJson);
+
+    if (payload.views && typeof payload.views === "object") {
+      pageViews = payload.views;
+    } else {
+      pageViews = {
+        default: {
+          name: "Default View",
+          desktop: { items: payload.items || [] },
+          mobile: { items: [] }
+        }
+      };
+    }
+
+    // upgrade old views that still use .items
+    Object.keys(pageViews).forEach((key) => {
+      const view = pageViews[key];
+
+      if (!view.desktop) {
+        view.desktop = { items: view.items || [] };
+      }
+
+      if (!view.mobile) {
+        view.mobile = { items: [] };
+      }
+
+      delete view.items;
+    });
+
+    currentViewKey = payload.currentView || "default";
+
+    if (!pageViews[currentViewKey]) {
+      currentViewKey = Object.keys(pageViews)[0] || "default";
+    }
+
+    rebuildViewDropdown();
+    await loadViewIntoCanvas(currentViewKey);
+  } catch (err) {
+    console.error("[builder] load error:", err);
+  }
+}
+
+window.saveTemplateToDatabase = saveTemplateToDatabase;
+window.loadTemplateFromDatabase = loadTemplateFromDatabase;
+
+
+
+////////////////////////////////
+//View
+//////////////////////
+//Helpers
+
+function getCurrentViewData() {
+  if (!pageViews[currentViewKey]) {
+    pageViews[currentViewKey] = {
+      name: currentViewKey === "default" ? "Default View" : currentViewKey,
+      desktop: { items: [] },
+      mobile: { items: [] }
+    };
+  }
+
+  const viewData = pageViews[currentViewKey];
+
+  if (!viewData.desktop) {
+    viewData.desktop = { items: viewData.items || [] };
+  }
+
+  if (!viewData.mobile) {
+    viewData.mobile = { items: [] };
+  }
+
+  delete viewData.items;
+
+  return viewData;
 }
 
 
-                                             // =======================
-                                            // STEP 2: DRAGSTART PICKUP
-                                             //Do not Change
-                                             // =======================
-  // ---------------------------
-  // DRAG FROM SIDEBAR -> DROPAREA
-  // ---------------------------
-  document.addEventListener("dragstart", (e) => {
-    const item = e.target.closest("[draggable='true'][data-type]");
-    if (!item) return;
-    dragType = item.getAttribute("data-type");
-    e.dataTransfer.effectAllowed = "copy";
-    e.dataTransfer.setData("text/plain", dragType);
-  });
-////////////////////////////////////////////////////////////////////////////////////
+function rebuildViewDropdown() {
+  const viewSelect = document.getElementById("tpl-page-view");
+  if (!viewSelect) return;
 
-  document.addEventListener("dragend", () => {
-    dragType = null;
+  viewSelect.innerHTML = "";
+
+  Object.entries(pageViews).forEach(([viewKey, viewData]) => {
+    const option = document.createElement("option");
+    option.value = viewKey;
+    option.textContent = viewData?.name || viewKey;
+    viewSelect.appendChild(option);
   });
 
-  grid.addEventListener("dragover", (e) => {
-    if (!dragType) return;
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "copy";
-  });
+  if (pageViews[currentViewKey]) {
+    viewSelect.value = currentViewKey;
+  }
+}
 
-                                               // =======================
-                                            // STEP 3: DropArea
-                                             //
-                                             // =======================
-grid.addEventListener("drop", (e) => {
-  e.preventDefault();
 
-  const type = e.dataTransfer.getData("text/plain") || dragType;
-  if (!type) return;
 
-  const pt = toLocalXY(grid, e.clientX, e.clientY);
-  const x = Math.round(pt.x);
-  const y = snapY(Math.round(pt.y));
+////
+let currentViewKey = "default";
 
-  // ✅ find a section under the cursor (top-most)
-const els = document.elementsFromPoint(e.clientX, e.clientY);
-const parentSection = els
-  .filter((n) => !n.closest?.(".da-floatingBar"))
-  .map((n) => n.closest?.(".da-item--section"))
-  .find((n) => n) || null;
+let pageViews = {
+  default: {
+    name: "Default View",
+    desktop: { items: [] },
+    mobile: { items: [] }
+  }
+};
 
-  ////////////////////////////////////////////
-//this is where you add the new element
-//
+let popupViews = {
+  popup1: { name: "Popup 1", items: [] }
+};
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function rehydrateCanvasItem(item) {
+  if (!item || !item.type) return null;
+
   let el = null;
-  if (type === "section") el = makeSectionEl({ x, y });
-  if (type === "text") el = makeTextEl({ x, y });
-  if (type === "button") el = makeButtonEl({ x, y });
-  if (type === "image") el = makeImageEl({ x, y });
-if (type === "header") {
-  addLockedHeaderAt({ x, y });
-  return;
+
+  if (item.type === "section") {
+    el = makeSectionEl({
+      x: item.x || 0,
+      y: item.y || 0,
+      w: item.w || 420,
+      h: item.h || 168,
+      title: item.data?.name || "Section"
+    });
+  }
+
+  if (item.type === "group") {
+    el = makeGroupEl({
+      x: item.x || 0,
+      y: item.y || 0,
+      w: item.w || 420,
+      h: item.h || 168,
+      title: item.data?.name || "Group"
+    });
+  }
+
+  if (item.type === "text") {
+    el = makeTextEl({
+      x: item.x || 0,
+      y: item.y || 0,
+      w: item.w || 240,
+      h: item.h || 48,
+      text: item.data?.text || "Type here"
+    });
+  }
+
+  if (item.type === "image") {
+    el = makeImageEl({
+      x: item.x || 0,
+      y: item.y || 0,
+      w: item.w || 180,
+      h: item.h || 180
+    });
+  }
+
+  if (item.type === "button") {
+el = makeButtonEl({
+  x: item.x || 0,
+  y: item.y || 0,
+  label: item.data?.label ?? "Button"
+});
+  }
+
+  if (item.type === "popup") {
+    el = makePopupEl({
+      x: item.x || 0,
+      y: item.y || 0,
+      w: item.w || 420,
+      h: item.h || 220,
+      title: item.data?.name || "Popup"
+    });
+  }
+
+  if (item.type === "input") {
+  el = makeInputEl({
+    x: item.x || 0,
+    y: item.y || 0,
+    w: item.w || 220,
+    h: item.h || 44,
+    placeholder: item.data?.placeholder || "Type here"
+  });
 }
 
+if (item.type === "header") {
+  el = document.createElement("div");
+  el.className = "da-item da-header";
+  el.dataset.type = "header";
+  el.dataset.locked = "1";
+}
+
+if (item.type === "video") {
+  el = makeVideoEl({
+    x: item.x || 0,
+    y: item.y || 0,
+    w: item.w || 320,
+    h: item.h || 180,
+    src: item.data?.src || ""
+  });
+}
+
+if (el.dataset.type === "video") {
+  renderVideoContent(el);
+}
+  if (!el) return null;
 
 
+  if (item.data) {
+    Object.entries(item.data).forEach(([key, value]) => {
+      el.dataset[key] = value ?? "";
+    });
+  }
 
-  if (!el) return;
+  if (el.dataset.hidden === "1") {
+  el.style.display = "none";
+}
 
-  // ✅ if dropping text on a section, "contain" it
-if ((type === "text" || type === "button" || type === "image") && parentSection) {
-  el.dataset.parent = parentSection.dataset.id;
-  el.style.zIndex = String(parseInt(parentSection.style.zIndex || "1", 10) + 1);
+  el.style.left = `${item.x || 0}px`;
+  el.style.top = `${item.y || 0}px`;
+  el.style.width = `${item.w || 0}px`;
+  el.style.height = `${item.h || 0}px`;
+  el.style.zIndex = String(item.z || 1);
+
+  if (el.dataset.type === "input") {
+  renderInputContent(el);
+}
+
+  if (item.parent) {
+    el.dataset.parent = item.parent;
+  }
+//Header Styling
+if (el.dataset.type === "header") {
+  el.style.position = "absolute";
+  el.style.left = "0px";
+  el.style.top = "0px";
+  el.style.width = `${getFullCanvasWidth()}px`;
+  el.style.height = "60px";
+  el.style.zIndex = "9999";
+  el.style.boxSizing = "border-box";
+  el.style.background =
+    el.dataset.bgOn === "0"
+      ? "transparent"
+      : (el.dataset.bg || "#ffffff");
+  el.style.border = "none";
+  el.style.borderRadius = "0px";
+}
+
+if (
+  el.dataset.type === "section" ||
+  el.dataset.type === "group" ||
+  el.dataset.type === "popup"
+) {
+  el.style.background =
+    el.dataset.bgOn === "0"
+      ? "transparent"
+      : (el.dataset.bg || "#f2f2f2");
+
+  const on = el.dataset.borderOn === "1";
+  const bw = parseInt(el.dataset.borderWidth, 10) || 0;
+  const bs = el.dataset.borderStyle || "solid";
+  const bc = el.dataset.borderColor || "#111111";
+
+  el.style.border = on && bw > 0 ? `${bw}px ${bs} ${bc}` : "none";
+  el.style.borderRadius = `${parseInt(el.dataset.radius, 10) || 0}px`;
+}
+
+  if (el.dataset.type === "text") {
+    el.style.color = el.dataset.color || "#111111";
+    el.style.fontSize = `${parseInt(el.dataset.fontSize, 10) || 24}px`;
+    el.style.fontWeight = el.dataset.bold === "1" ? "700" : "400";
+    el.style.textAlign = el.dataset.align || "left";
+
+    if (typeof renderTextContent === "function") {
+      renderTextContent(el);
+    }
+  }
+
+  if (el.dataset.type === "button") {
+    const b = el.querySelector(".da-btn");
+    if (b) {
+      renderButtonContent(el);
+
+      b.style.background =
+  el.dataset.btnBgOn === "0"
+    ? "transparent"
+    : (el.dataset.btnBg || "#111111");
+      b.style.color = el.dataset.btnTextColor || "#ffffff";
+
+      const bw = parseInt(el.dataset.borderWidth, 10) || 0;
+      const bs = el.dataset.borderStyle || "solid";
+      const bc = el.dataset.borderColor || "#111111";
+      b.style.border = (bs === "none" || bw === 0) ? "none" : `${bw}px ${bs} ${bc}`;
+      b.style.borderRadius = `${parseInt(el.dataset.radius, 10) || 0}px`;
+
+      b.onclick = (ev) => handleElementAction(ev, el);
+    }
+  }
+
+if (el.dataset.type === "image") {
+  const rad = parseInt(el.dataset.radius, 10) || 0;
+  const bw = parseInt(el.dataset.borderWidth, 10) || 0;
+  const bc = el.dataset.borderColor || "#111111";
+
+  el.style.borderRadius = `${rad}px`;
+  el.style.border = bw > 0 ? `${bw}px solid ${bc}` : "none";
+  el.style.overflow = "hidden";
+
+  if (typeof renderImageContent === "function") {
+    renderImageContent(el);
+  }
+
+  const img = el.querySelector(".da-img");
+  if (img) {
+    img.style.borderRadius = `${rad}px`;
+    img.style.width = "100%";
+    img.style.height = "100%";
+    img.style.display = "block";
+  }
 }
 
   grid.appendChild(el);
 
-  grid.querySelector(".tpl-dropArea__label")?.remove();
-});
+  if (el.dataset.type === "popup") {
+    el.style.display = "none";
+  }
 
-
-
-  // ---------------------------
-  // DRAG EXISTING SECTIONS (x free, y snaps)
-  // ---------------------------
-// ---------------------------
-// SELECT + DRAG (universal for all .da-item)
-// ---------------------------
-grid.addEventListener("click", (e) => {
-  const item = e.target.closest(".da-item--image");
-  if (!item) return;
-
-  if (!window.TPL_PREVIEW) return; // ✅ only preview mode
-  e.preventDefault();
-  e.stopPropagation();
-
-  const src = (item.dataset.src || "").trim();
-  if (!src) return;
-
-  previewModal.querySelector("img").src = src;
-  previewModal.classList.add("is-open");
-});
-
-grid.addEventListener("mousedown", (e) => {
- // ✅ normal click picks the top item, shift-click cycles through stacked items
-  // ✅ If the user clicks the floating bar, do NOT unselect/hide it
-   if (e.target.closest(".da-resize")) return;
-    if (e.target.closest(".da-floatingBar")) return;
-
- let item = e.target.closest(".da-item");
-// ✅ PREVIEW MODE: clicking a real button should NOT drag the canvas item
-if (window.TPL_PREVIEW && e.target.closest(".da-btn")) {
-  return; // let the button's own click handler open the link
+  return el;
 }
 
-// ✅ if click hits overlap, allow selecting the back one with SHIFT
-if (e.shiftKey) {
-  item = pickAtPoint(e.clientX, e.clientY) || item;
+//Load a view into the canvas
+async function loadViewIntoCanvas(viewKey) {
+  currentViewKey = viewKey || "default";
+
+  const viewData = getCurrentViewData();
+  const items = viewData[currentResponsiveView]?.items || [];
+
+  await restoreCanvas({ items });
+
+  const viewSelect = document.getElementById("tpl-page-view");
+  if (viewSelect) {
+    viewSelect.value = currentViewKey;
+  }
+
+  if (typeof renderAllDynamicContent === "function") {
+    await renderAllDynamicContent();
+  }
+
+  if (typeof syncLockedHeaderWidth === "function") {
+    syncLockedHeaderWidth();
+  }
+
+  if (typeof layoutHeaderChildren === "function") {
+    layoutHeaderChildren();
+  }
+
+  refreshPopupList();
 }
-// ✅ if you clicked a tab inside a group, drag the group instead
-const parentGroup = getParentGroupEl(item);
-const dragEl = parentGroup || item; // drag group if exists, otherwise drag item
-
-
-  // ✅ CLICKED EMPTY SPACE = UNSELECT
-if (!item) {
-  grid.querySelectorAll(".da-item").forEach((x) => x.classList.remove("is-selected"));
-  showBarForItem(null);
-  return;
-}
-
-// ✅ if user clicked inputs/editable text, don't start drag
-if (e.target.closest("input, textarea, [contenteditable='true']")) return;
-
-
-  // ✅ remember if it was already selected BEFORE we change selection
-  const wasSelected = item.classList.contains("is-selected");
-
-  // ✅ SELECT (shows bar)
-  grid.querySelectorAll(".da-item").forEach((x) => x.classList.remove("is-selected"));
-item.classList.add("is-selected");
-showBarForItem(item);
-
-
- 
-  // ✅ RULE:
-  // first click selects only. second click/drag actually drags.
-// ✅ Sections drag immediately, everything else still needs select-then-drag
-if (!wasSelected && item.dataset.type !== "section") return;
-
-e.preventDefault();
-document.body.style.userSelect = "none";
-
-const rect = dragEl.getBoundingClientRect();
-const gridRect = grid.getBoundingClientRect();
-
-const startLeft = rect.left - gridRect.left + grid.scrollLeft;
-const startTop  = rect.top  - gridRect.top  + grid.scrollTop;
-
-let childrenStart = null;
-if (dragEl.dataset.type === "section" || dragEl.dataset.type === "header" || dragEl.dataset.type === "group") {
-  const kids = getChildrenDeep(dragEl);
-  childrenStart = kids.map((k) => ({
-    el: k,
-    left: parseFloat(k.style.left) || 0,
-    top: parseFloat(k.style.top) || 0,
-  }));
+//Save current canvas back into current view
+function saveCurrentCanvasToView() {
+  const viewData = getCurrentViewData();
+  viewData[currentResponsiveView].items = serializeCanvasItems();
 }
 
-active = {
-  el: dragEl,
-  startX: e.clientX,
-  startY: e.clientY,
-  startLeft,
-  startTop,
-  childrenStart,
+//Add View Button 
+document.getElementById("tpl-add-view-btn")?.addEventListener("click", () => {
+  const name = prompt("Enter a name for the new view:");
+  if (!name) return;
+
+  const cleanKey = name.trim().toLowerCase().replace(/\s+/g, "-");
+  if (!cleanKey) return;
+
+  if (!pageViews[cleanKey]) {
+pageViews[cleanKey] = {
+  name: name.trim(),
+  desktop: { items: [] },
+  mobile: { items: [] }
 };
-
-dragEl.classList.add("is-dragging");
-
-});
-
-let imgPan = null;
-
-grid.addEventListener("mousedown", (e) => {
-  const item = e.target.closest(".da-item--image");
-  if (!item) return;
-
-  // ✅ only pan when holding ALT (otherwise normal drag should work)
-  if (!e.altKey) return;
-
-  if (e.target.closest(".da-resize") || e.target.closest(".da-floatingBar")) return;
-  if (!item.classList.contains("is-selected")) return;
-
-  const img = item.querySelector(".da-img");
-  if (!img) return;
-
-  e.preventDefault();
-  e.stopPropagation();
-
-  const startX = e.clientX;
-  const startY = e.clientY;
-
-  const startPosX = parseFloat(item.dataset.posX || "50");
-  const startPosY = parseFloat(item.dataset.posY || "50");
-
-  imgPan = { item, img, startX, startY, startPosX, startPosY };
-  document.body.style.userSelect = "none";
-}, true);
-
-
-window.addEventListener("mousemove", (e) => {
-  if (!imgPan) return;
-
-  const dx = e.clientX - imgPan.startX;
-  const dy = e.clientY - imgPan.startY;
-
-  // tweak sensitivity
-  const speed = 0.12;
-
-  let nextX = imgPan.startPosX + dx * speed;
-  let nextY = imgPan.startPosY + dy * speed;
-
-  // clamp 0–100%
-  nextX = Math.max(0, Math.min(100, nextX));
-  nextY = Math.max(0, Math.min(100, nextY));
-
-  imgPan.item.dataset.posX = String(nextX);
-  imgPan.item.dataset.posY = String(nextY);
-
-  imgPan.img.style.objectPosition = `${nextX}% ${nextY}%`;
-  refreshBarPosition();
-});
-
-window.addEventListener("mouseup", () => {
-  if (!imgPan) return;
-  document.body.style.userSelect = "";
-  imgPan = null;
-});
-
-  window.addEventListener("mousemove", (e) => {
-   // RESIZE has priority
-if (resizeActive) {
-  const r = resizeActive;
-  const dx = e.clientX - r.startX;
-  const dy = e.clientY - r.startY;
-
-  let left = r.startLeft;
-  let top  = r.startTop;
-  let w    = r.startW;
-  let h    = r.startH;
-
-  // ✅ If resizing something inside header, clamp size + position to header
-const headerAncestor = getHeaderAncestor(r.el);
-if (headerAncestor && r.el.dataset.type !== "header") {
-  // apply the current computed values first (so offsets match)
-  r.el.style.left = px(left);
-  r.el.style.top  = px(top);
-  r.el.style.width = px(w);
-  r.el.style.height = px(h);
-
-  clampElToHeaderBounds(r.el, headerAncestor);
-
-  refreshBarPosition();
-  return;
-}
-
-  // Horizontal
-const mins = getMinSizeForItem(r.el);
-
-if (r.dir.includes("e")) w = Math.max(mins.w, r.startW + dx);
-if (r.dir.includes("w")) {
-  w = Math.max(mins.w, r.startW - dx);
-  left = r.startLeft + (r.startW - w);
-}
-  // Vertical
-if (r.dir.includes("s")) h = Math.max(mins.h, r.startH + dy);
-if (r.dir.includes("n")) {
-  h = Math.max(mins.h, r.startH - dy);
-  top = r.startTop + (r.startH - h);
-}
-
-  r.el.style.left = px(left);
-  r.el.style.top  = px(top);
-  r.el.style.width  = px(w);
-  r.el.style.height = px(h);
-  // ✅ LOCK ASPECT RATIO (logo)
-  const lockRatio = r.el?.dataset?.lockRatio === "1";
-  if (lockRatio) {
-    const ratio = (r.startW / r.startH) || 1; // square => 1
-
-    // If resizing side handles, force the other dimension
-    const isSideOnly =
-      (r.dir === "e" || r.dir === "w" || r.dir === "n" || r.dir === "s");
-
-    if (isSideOnly) {
-      if (r.dir === "e" || r.dir === "w") {
-        // width changed -> set height to match
-        h = Math.max(mins.h, w / ratio);
-        // keep vertically centered while height changes
-        top = r.startTop + (r.startH - h) / 2;
-      } else {
-        // height changed -> set width to match
-        w = Math.max(mins.w, h * ratio);
-        // keep horizontally centered while width changes
-        left = r.startLeft + (r.startW - w) / 2;
-      }
-    } else {
-      // corner resize: pick the dominant change
-      if (Math.abs(dx) >= Math.abs(dy)) {
-        h = Math.max(mins.h, w / ratio);
-        if (r.dir.includes("n")) top = r.startTop + (r.startH - h);
-      } else {
-        w = Math.max(mins.w, h * ratio);
-        if (r.dir.includes("w")) left = r.startLeft + (r.startW - w);
-      }
+    const viewSelect = document.getElementById("tpl-page-view");
+    if (viewSelect) {
+      const option = document.createElement("option");
+      option.value = cleanKey;
+      option.textContent = name.trim();
+      viewSelect.appendChild(option);
     }
   }
 
-  refreshBarPosition();
-  return;
+  saveCurrentCanvasToView();
+  loadViewIntoCanvas(cleanKey);
+});
+
+//View dropdown change
+document.getElementById("tpl-page-view")?.addEventListener("change", (e) => {
+  const nextViewKey = e.target.value;
+  saveCurrentCanvasToView();
+  loadViewIntoCanvas(nextViewKey);
+});
+
+function buildPagePayload() {
+  saveCurrentCanvasToView();
+
+  return {
+    pageType: window.TPL_PAGE_TYPE || "booking",
+    currentView: currentViewKey,
+    views: pageViews,
+    popupViews: popupViews
+  };
 }
 
-if (!active) return;
+function serializeCanvasItems() {
+  if (!grid) return [];
 
-    const dx = e.clientX - active.startX;
-    const dy = e.clientY - active.startY;
+  const items = [...grid.querySelectorAll(".da-item")];
 
-  let nextLeft = active.startLeft + dx;
-let nextTop  = active.startTop + dy;
-
-// keep it inside drop area bounds (basic clamp)
-const maxLeft = grid.scrollWidth - active.el.offsetWidth;
-const maxTop  = grid.scrollHeight - active.el.offsetHeight;
-
-nextLeft = clamp(nextLeft, 0, Math.max(0, maxLeft));
-nextTop  = clamp(nextTop, 0, Math.max(0, maxTop));
-
-// ✅ only sections snap vertically
-if (active?.el?.dataset?.type === "section") {
-  nextTop = snapY(nextTop);
+  return items.map((el) => ({
+    type: el.dataset.type || "",
+    id: el.dataset.id || "",
+    parent: el.dataset.parent || "",
+    x: parseInt(el.style.left || "0", 10) || 0,
+    y: parseInt(el.style.top || "0", 10) || 0,
+    w: parseInt(el.style.width || "0", 10) || 0,
+    h: parseInt(el.style.height || "0", 10) || 0,
+    z: parseInt(el.style.zIndex || "1", 10) || 1,
+    data: { ...el.dataset }
+  }));
 }
 
-// ✅ If dragging something inside header, clamp to header bounds
-const headerAncestor = getHeaderAncestor(active.el);
-if (headerAncestor && active.el.dataset.type !== "header") {
-  const hLeft = getNum(headerAncestor, "left", 0);
-  const hTop  = getNum(headerAncestor, "top", 0);
-  const hW    = headerAncestor.offsetWidth;
-  const hH    = headerAncestor.offsetHeight;
+                                /////////////////////
+                                   //Preview Mode
+                                //////////////////
+window.TPL_PREVIEW = false;
+//turn preview on and off
+window.setPreviewMode = function setPreviewMode(isOn) {
+ window.TPL_PREVIEW = !!isOn;
 
-  const elW = active.el.offsetWidth;
-  const elH = active.el.offsetHeight;
+  document.body.classList.toggle("is-preview-mode", window.TPL_PREVIEW);
 
-  nextLeft = clamp(nextLeft, hLeft, hLeft + hW - elW);
-  nextTop  = clamp(nextTop,  hTop,  hTop  + hH - elH);
+  const root = document.querySelector(".tpl");
+  if (root) {
+    root.classList.toggle("is-preview-mode", window.TPL_PREVIEW);
+  }
+
+  grid.classList.toggle("is-preview-mode", window.TPL_PREVIEW);
+
+  const previewBtn = document.getElementById("tpl-preview-btn");
+  if (previewBtn) {
+    previewBtn.textContent = window.TPL_PREVIEW ? "Exit Preview" : "Preview";
+  }
+
+  if (!window.TPL_PREVIEW) {
+    closePopupEditMode?.();
+    grid.querySelectorAll(".da-item").forEach((x) => x.classList.remove("is-selected"));
+    showBarForItem(null);
+  }
+
+  if (typeof renderAllDynamicContent === "function") {
+    renderAllDynamicContent();
+  }
+  applyParallax();
 }
 
-// ✅ NOW compute final delta (after clamp + snap)
-const finalDx = nextLeft - active.startLeft;
-const finalDy = nextTop  - active.startTop;
 
-// ✅ if dragging a container (section/header/group), drag its children too
-if (
-  (active.el.dataset.type === "section" ||
-   active.el.dataset.type === "header"  ||
-   active.el.dataset.type === "group") &&
-  Array.isArray(active.childrenStart)
-) {
-  active.childrenStart.forEach((c) => {
-    c.el.style.left = `${Math.round(c.left + finalDx)}px`;
-    c.el.style.top  = `${Math.round(c.top + finalDy)}px`;
+
+
+///////////////////////////////////////////////////////////////
+                           //Responsive Views
+let currentResponsiveView = "desktop";
+
+async function loadViewIntoCanvas(viewName) { 
+  currentViewName = viewName || "default";
+
+  const saved =
+    pageViews?.[currentViewName]?.[currentResponsiveView] ||
+    { items: [] };
+
+  await restoreCanvas(saved);
+  trimCanvasHeight();
+}
+
+//View Helper
+function ensureResponsiveLayoutExists(viewName, responsiveView) {
+  if (!pageViews[viewName]) {
+    pageViews[viewName] = {
+      desktop: { items: [] },
+      mobile: { items: [] }
+    };
+  }
+
+  const targetLayout = pageViews[viewName][responsiveView];
+  const hasItems = targetLayout && Array.isArray(targetLayout.items) && targetLayout.items.length > 0;
+
+  if (hasItems) return;
+
+  if (responsiveView === "mobile") {
+    const desktopLayout = pageViews[viewName].desktop;
+
+    if (desktopLayout?.items?.length) {
+      pageViews[viewName].mobile = JSON.parse(JSON.stringify(desktopLayout));
+    }
+  }
+
+  if (responsiveView === "desktop") {
+    const mobileLayout = pageViews[viewName].mobile;
+
+    if (mobileLayout?.items?.length) {
+      pageViews[viewName].desktop = JSON.parse(JSON.stringify(mobileLayout));
+    }
+  }
+}
+
+//Then add the switch button logic
+
+async function switchResponsiveView(nextView) {
+  if (nextView !== "desktop" && nextView !== "mobile") return;
+
+  saveCurrentCanvasToView();
+  currentResponsiveView = nextView;
+
+  const viewData = getCurrentViewData();
+
+  if (
+    nextView === "mobile" &&
+    (!viewData.mobile.items || viewData.mobile.items.length === 0) &&
+    viewData.desktop.items?.length
+  ) {
+    viewData.mobile.items = JSON.parse(JSON.stringify(viewData.desktop.items));
+  }
+
+  if (
+    nextView === "desktop" &&
+    (!viewData.desktop.items || viewData.desktop.items.length === 0) &&
+    viewData.mobile.items?.length
+  ) {
+    viewData.desktop.items = JSON.parse(JSON.stringify(viewData.mobile.items));
+  }
+
+  applyResponsiveCanvasWidth();
+  await loadViewIntoCanvas(currentViewKey);
+}
+
+function applyResponsiveCanvasWidth() {
+  const viewport = document.getElementById("tpl-dropArea");
+  const grid = document.getElementById("dropAreaInner");
+  if (!grid) return;
+
+  if (currentResponsiveView === "mobile") {
+    if (viewport) {
+      viewport.style.width = "430px";
+      viewport.style.maxWidth = "430px";
+      viewport.style.minWidth = "430px";
+      viewport.style.margin = "0 auto";
+      viewport.style.overflowX = "auto";
+    }
+
+    grid.style.width = "390px";
+    grid.style.maxWidth = "390px";
+    grid.style.minWidth = "390px";
+  } else {
+    if (viewport) {
+      viewport.style.width = "";
+      viewport.style.maxWidth = "";
+      viewport.style.minWidth = "";
+      viewport.style.margin = "";
+      viewport.style.overflowX = "";
+    }
+
+    grid.style.width = "";
+    grid.style.maxWidth = "";
+    grid.style.minWidth = "";
+  }
+
+  if (typeof syncLockedHeaderWidth === "function") {
+    syncLockedHeaderWidth();
+  }
+
+  if (typeof layoutHeaderChildren === "function") {
+    layoutHeaderChildren();
+  }
+}
+
+
+function trimCanvasHeight() {
+  const grid = document.getElementById("dropAreaInner");
+  if (!grid) return;
+
+  const items = [...grid.querySelectorAll(".da-item")].filter((el) => {
+    if (el.style.display === "none") return false;
+    if (el.dataset.type === "popup") return false;
+    return true;
   });
-}
 
-active.el.style.left = `${Math.round(nextLeft)}px`;
-active.el.style.top  = `${Math.round(nextTop)}px`;
+  const minHeight = 600;
+  const bottomPadding = 40;
 
-refreshBarPosition();
-
-
-  });
-
-window.addEventListener("mouseup", () => {
-  if (resizeActive) {
-    document.body.style.userSelect = "";
-    resizeActive = null;
+  if (!items.length) {
+    grid.style.height = `${minHeight}px`;
+    grid.style.minHeight = `${minHeight}px`;
     return;
   }
 
-  if (!active) return;
+  let maxBottom = 0;
 
-  document.body.style.userSelect = ""; // ✅ restore
-  active.el.classList.remove("is-dragging");
-  active = null;
-});
+  items.forEach((el) => {
+    const top = parseFloat(el.style.top) || 0;
+    const height = parseFloat(el.style.height) || el.offsetHeight || 0;
+    const bottom = top + height;
+    maxBottom = Math.max(maxBottom, bottom);
+  });
+
+  const nextHeight = Math.max(minHeight, Math.ceil(maxBottom + bottomPadding));
+
+  grid.style.height = `${nextHeight}px`;
+  grid.style.minHeight = `${nextHeight}px`;
+}
+
+
+
 })();
 
-//Flip label inside element
-function updateLabelPlacement(el, grid) {
- const nameWrap = el.querySelector(".da-item__namebar");
 
-  if (!nameWrap) return;
 
-  const left = parseFloat(el.style.left) || 0;
-  const top  = parseFloat(el.style.top)  || 0;
 
-  const gridW = grid.clientWidth || 0;
-  const labelW = nameWrap.offsetWidth || 210;
-  const pad = 8;
+                                               // =======================
+                                            // DOM
+                                             //
+                                             // =======================
 
-  // reset (default = outside, top-left)
-  nameWrap.style.top = "-12px";
-  nameWrap.style.left = "12px";
-  nameWrap.style.right = "auto";
+document.addEventListener("DOMContentLoaded", () => {
+  const root = document.querySelector(".tpl");
+  const btn = document.getElementById("sidebar-toggle");
+  if (!root || !btn) return;
 
-  // ✅ too close to top → move inside
-  if (top < 16) nameWrap.style.top = `${pad}px`;
-
-  // ✅ too close to left → move inside-left
-  if (left < 8) nameWrap.style.left = `${pad}px`;
-
-  // ✅ too close to right → pin inside-right
-  if (left + labelW + 12 > gridW) {
-    nameWrap.style.left = "auto";
-    nameWrap.style.right = `${pad}px`;
+  function syncSidebarToggle() {
+    const collapsed = root.classList.contains("is-collapsed");
+    btn.setAttribute("aria-label", collapsed ? "Expand sidebar" : "Collapse sidebar");
+    btn.textContent = collapsed ? "Show Builder" : "← Back";
   }
-}
+
+btn.addEventListener("click", () => {
+  root.classList.toggle("is-collapsed");
+
+  syncSidebarToggle();
+
+  requestAnimationFrame(() => {
+    syncLockedHeaderWidth();
+
+    if (typeof layoutHeaderChildren === "function") {
+      layoutHeaderChildren();
+    }
+
+    const panel = document.querySelector(".sidebar-panel");
+    if (panel) panel.style.display = "";
+
+    if (typeof mountBarInSidebar === "function") {
+      mountBarInSidebar();
+    }
+
+    if (window.selectedItem && typeof showBarForItem === "function") {
+      showBarForItem(window.selectedItem);
+    }
+  });
+});
+
+  syncSidebarToggle();
+
+  document.getElementById("tpl-preview-btn")?.addEventListener("click", () => {
+    setPreviewMode(!window.TPL_PREVIEW);
+  });
+});
+
+//Pdf Close Button 
+document.getElementById("pdf-preview-close")?.addEventListener("click", () => {
+  closePdfPreview();
+});
+
+document.getElementById("pdf-preview-close")?.addEventListener("click", () => {
+  const overlay = document.getElementById("pdf-preview-overlay");
+  const frame = document.getElementById("pdf-preview-frame");
+
+  if (overlay) overlay.hidden = true;
+  if (frame) frame.src = "";
+});
+////////////////////End of dom
+
+
+ 
