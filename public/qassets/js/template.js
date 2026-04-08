@@ -2347,409 +2347,404 @@ mobile: {
         fit: "cover",
         radius: "0"
       }
+    },
+
+    {
+      type: "section",
+      id: "default_available_suites_bg_mobile",
+      parent: "",
+      x: 0,
+      y: 400,
+      w: 390,
+      h: 1220,
+      z: 0,
+      data: {
+        type: "section",
+        name: "Available Suites Background Mobile",
+        bg: "transparent",
+        bgOn: "0",
+        borderOn: "0",
+        radius: "0"
+      }
+    },
+    {
+      type: "text",
+      id: "default_available_suites_heading_mobile",
+      parent: "default_available_suites_bg_mobile",
+      x: 95,
+      y: 430,
+      w: 200,
+      h: 36,
+      z: 2,
+      data: {
+        type: "text",
+        name: "Available Suites Heading Mobile",
+        text: "Available Suites",
+        fontSize: "18",
+        color: "#ff7a00",
+        bold: "0",
+        align: "center"
+      }
+    },
+
+    {
+      type: "section",
+      id: "default_suite_card_1_mobile",
+      parent: "default_available_suites_bg_mobile",
+      x: 20,
+      y: 490,
+      w: 350,
+      h: 320,
+      z: 3,
+      data: {
+        type: "section",
+        name: "Suite Card 1 Mobile",
+        bg: "#ffffff",
+        bgOn: "1",
+        borderOn: "0",
+        radius: "18"
+      }
+    },
+    {
+      type: "image",
+      id: "default_suite_card_1_image_mobile",
+      parent: "default_suite_card_1_mobile",
+      x: 20,
+      y: 490,
+      w: 350,
+      h: 180,
+      z: 4,
+      data: {
+        type: "image",
+        name: "Suite Card Image 1 Mobile",
+        fit: "cover",
+        radius: "18"
+      }
+    },
+    {
+      type: "button",
+      id: "default_suite_card_1_name_mobile",
+      parent: "default_suite_card_1_mobile",
+      x: 145,
+      y: 690,
+      w: 100,
+      h: 36,
+      z: 4,
+      data: {
+        type: "button",
+        name: "Suite Card Name 1 Mobile",
+        label: "red suite",
+        btnBg: "#111111",
+        btnTextColor: "#ffffff",
+        borderWidth: "0",
+        borderColor: "#111111",
+        borderStyle: "solid",
+        radius: "999"
+      }
+    },
+    {
+      type: "text",
+      id: "default_suite_card_1_available_label_mobile",
+      parent: "default_suite_card_1_mobile",
+      x: 130,
+      y: 745,
+      w: 130,
+      h: 28,
+      z: 4,
+      data: {
+        type: "text",
+        name: "Suite Card Available Label 1 Mobile",
+        text: "Available On",
+        fontSize: "18",
+        color: "#ff7a00",
+        bold: "0",
+        align: "center"
+      }
+    },
+    {
+      type: "text",
+      id: "default_suite_card_1_date_mobile",
+      parent: "default_suite_card_1_mobile",
+      x: 145,
+      y: 785,
+      w: 100,
+      h: 24,
+      z: 4,
+      data: {
+        type: "text",
+        name: "Suite Card Date 1 Mobile",
+        text: "Dec 29, 2025",
+        fontSize: "14",
+        color: "#555555",
+        bold: "0",
+        align: "center"
+      }
+    },
+
+    {
+      type: "section",
+      id: "default_suite_card_2_mobile",
+      parent: "default_available_suites_bg_mobile",
+      x: 20,
+      y: 840,
+      w: 350,
+      h: 320,
+      z: 3,
+      data: {
+        type: "section",
+        name: "Suite Card 2 Mobile",
+        bg: "#ffffff",
+        bgOn: "1",
+        borderOn: "0",
+        radius: "18"
+      }
+    },
+    {
+      type: "image",
+      id: "default_suite_card_2_image_mobile",
+      parent: "default_suite_card_2_mobile",
+      x: 20,
+      y: 840,
+      w: 350,
+      h: 180,
+      z: 4,
+      data: {
+        type: "image",
+        name: "Suite Card Image 2 Mobile",
+        fit: "cover",
+        radius: "18"
+      }
+    },
+    {
+      type: "button",
+      id: "default_suite_card_2_name_mobile",
+      parent: "default_suite_card_2_mobile",
+      x: 145,
+      y: 1040,
+      w: 100,
+      h: 36,
+      z: 4,
+      data: {
+        type: "button",
+        name: "Suite Card Name 2 Mobile",
+        label: "pink suite",
+        btnBg: "#111111",
+        btnTextColor: "#ffffff",
+        borderWidth: "0",
+        borderColor: "#111111",
+        borderStyle: "solid",
+        radius: "999"
+      }
+    },
+    {
+      type: "text",
+      id: "default_suite_card_2_available_label_mobile",
+      parent: "default_suite_card_2_mobile",
+      x: 130,
+      y: 1095,
+      w: 130,
+      h: 28,
+      z: 4,
+      data: {
+        type: "text",
+        name: "Suite Card Available Label 2 Mobile",
+        text: "Available On",
+        fontSize: "18",
+        color: "#ff7a00",
+        bold: "0",
+        align: "center"
+      }
+    },
+    {
+      type: "text",
+      id: "default_suite_card_2_date_mobile",
+      parent: "default_suite_card_2_mobile",
+      x: 145,
+      y: 1135,
+      w: 100,
+      h: 24,
+      z: 4,
+      data: {
+        type: "text",
+        name: "Suite Card Date 2 Mobile",
+        text: "Dec 30, 2025",
+        fontSize: "14",
+        color: "#555555",
+        bold: "0",
+        align: "center"
+      }
+    },
+
+    {
+      type: "section",
+      id: "default_suite_card_3_mobile",
+      parent: "default_available_suites_bg_mobile",
+      x: 20,
+      y: 1190,
+      w: 350,
+      h: 320,
+      z: 3,
+      data: {
+        type: "section",
+        name: "Suite Card 3 Mobile",
+        bg: "#ffffff",
+        bgOn: "1",
+        borderOn: "0",
+        radius: "18"
+      }
+    },
+    {
+      type: "image",
+      id: "default_suite_card_3_image_mobile",
+      parent: "default_suite_card_3_mobile",
+      x: 20,
+      y: 1190,
+      w: 350,
+      h: 180,
+      z: 4,
+      data: {
+        type: "image",
+        name: "Suite Card Image 3 Mobile",
+        fit: "cover",
+        radius: "18"
+      }
+    },
+    {
+      type: "button",
+      id: "default_suite_card_3_name_mobile",
+      parent: "default_suite_card_3_mobile",
+      x: 145,
+      y: 1390,
+      w: 100,
+      h: 36,
+      z: 4,
+      data: {
+        type: "button",
+        name: "Suite Card Name 3 Mobile",
+        label: "gold suite",
+        btnBg: "#111111",
+        btnTextColor: "#ffffff",
+        borderWidth: "0",
+        borderColor: "#111111",
+        borderStyle: "solid",
+        radius: "999"
+      }
+    },
+    {
+      type: "text",
+      id: "default_suite_card_3_available_label_mobile",
+      parent: "default_suite_card_3_mobile",
+      x: 130,
+      y: 1445,
+      w: 130,
+      h: 28,
+      z: 4,
+      data: {
+        type: "text",
+        name: "Suite Card Available Label 3 Mobile",
+        text: "Available On",
+        fontSize: "18",
+        color: "#ff7a00",
+        bold: "0",
+        align: "center"
+      }
+    },
+    {
+      type: "text",
+      id: "default_suite_card_3_date_mobile",
+      parent: "default_suite_card_3_mobile",
+      x: 145,
+      y: 1485,
+      w: 100,
+      h: 24,
+      z: 4,
+      data: {
+        type: "text",
+        name: "Suite Card Date 3 Mobile",
+        text: "Feb 6, 2026",
+        fontSize: "14",
+        color: "#555555",
+        bold: "0",
+        align: "center"
+      }
+    },
+
+    {
+      type: "section",
+      id: "default_about_wrap_mobile",
+      parent: "",
+      x: 20,
+      y: 1550,
+      w: 350,
+      h: 260,
+      z: 1,
+      data: {
+        type: "section",
+        name: "About Wrap Mobile",
+        bg: "transparent",
+        bgOn: "0",
+        borderOn: "0",
+        radius: "0"
+      }
+    },
+    {
+      type: "text",
+      id: "default_about_heading_mobile",
+      parent: "default_about_wrap_mobile",
+      x: 20,
+      y: 1570,
+      w: 220,
+      h: 40,
+      z: 2,
+      data: {
+        type: "text",
+        name: "About Heading Mobile",
+        text: "About this location",
+        fontSize: "18",
+        color: "#ff7a00",
+        bold: "1",
+        align: "left"
+      }
+    },
+    {
+      type: "section",
+      id: "default_about_card_mobile",
+      parent: "default_about_wrap_mobile",
+      x: 20,
+      y: 1625,
+      w: 350,
+      h: 160,
+      z: 2,
+      data: {
+        type: "section",
+        name: "About Card Mobile",
+        bg: "#ffffff",
+        bgOn: "1",
+        borderOn: "0",
+        radius: "18"
+      }
+    },
+    {
+      type: "text",
+      id: "default_about_text_mobile",
+      parent: "default_about_card_mobile",
+      x: 40,
+      y: 1655,
+      w: 310,
+      h: 90,
+      z: 3,
+      data: {
+        type: "text",
+        name: "About Text Mobile",
+        text: "This is the details section",
+        fontSize: "15",
+        color: "#222222",
+        bold: "0",
+        align: "left"
+      }
     }
-,
-{
-  type: "section",
-  id: "default_available_suites_bg_mobile",
-  parent: "",
-  x: 0,
-  y: 400,
-  w: 390,
-  h: 1220,
-  z: 0,
-  data: {
-    type: "section",
-    name: "Available Suites Background Mobile",
-    bg: "transparent",
-    bgOn: "0",
-    borderOn: "0",
-    radius: "0"
-  }
-},
-{
-  type: "text",
-  id: "default_available_suites_heading_mobile",
-  parent: "default_available_suites_bg_mobile",
-  x: 95,
-  y: 430,
-  w: 200,
-  h: 36,
-  z: 2,
-  data: {
-    type: "text",
-    name: "Available Suites Heading Mobile",
-    text: "Available Suites",
-    fontSize: "18",
-    color: "#ff7a00",
-    bold: "0",
-    align: "center"
-  }
-},
-
-// Card 1
-{
-  type: "section",
-  id: "default_suite_card_1_mobile",
-  parent: "default_available_suites_bg_mobile",
-  x: 20,
-  y: 490,
-  w: 350,
-  h: 320,
-  z: 3,
-  data: {
-    type: "section",
-    name: "Suite Card 1 Mobile",
-    bg: "#ffffff",
-    bgOn: "1",
-    borderOn: "0",
-    radius: "18"
-  }
-},
-{
-  type: "image",
-  id: "default_suite_card_1_image_mobile",
-  parent: "default_suite_card_1_mobile",
-  x: 20,
-  y: 490,
-  w: 350,
-  h: 180,
-  z: 4,
-  data: {
-    type: "image",
-    name: "Suite Card Image 1 Mobile",
-    fit: "cover",
-    radius: "18"
-  }
-},
-{
-  type: "button",
-  id: "default_suite_card_1_name_mobile",
-  parent: "default_suite_card_1_mobile",
-  x: 145,
-  y: 690,
-  w: 100,
-  h: 36,
-  z: 4,
-  data: {
-    type: "button",
-    name: "Suite Card Name 1 Mobile",
-    label: "red suite",
-    btnBg: "#111111",
-    btnTextColor: "#ffffff",
-    borderWidth: "0",
-    borderColor: "#111111",
-    borderStyle: "solid",
-    radius: "999"
-  }
-},
-{
-  type: "text",
-  id: "default_suite_card_1_available_label_mobile",
-  parent: "default_suite_card_1_mobile",
-  x: 130,
-  y: 745,
-  w: 130,
-  h: 28,
-  z: 4,
-  data: {
-    type: "text",
-    name: "Suite Card Available Label 1 Mobile",
-    text: "Available On",
-    fontSize: "18",
-    color: "#ff7a00",
-    bold: "0",
-    align: "center"
-  }
-},
-{
-  type: "text",
-  id: "default_suite_card_1_date_mobile",
-  parent: "default_suite_card_1_mobile",
-  x: 145,
-  y: 785,
-  w: 100,
-  h: 24,
-  z: 4,
-  data: {
-    type: "text",
-    name: "Suite Card Date 1 Mobile",
-    text: "Dec 29, 2025",
-    fontSize: "14",
-    color: "#555555",
-    bold: "0",
-    align: "center"
-  }
-},
-
-// Card 2
-{
-  type: "section",
-  id: "default_suite_card_2_mobile",
-  parent: "default_available_suites_bg_mobile",
-  x: 20,
-  y: 840,
-  w: 350,
-  h: 320,
-  z: 3,
-  data: {
-    type: "section",
-    name: "Suite Card 2 Mobile",
-    bg: "#ffffff",
-    bgOn: "1",
-    borderOn: "0",
-    radius: "18"
-  }
-},
-{
-  type: "image",
-  id: "default_suite_card_2_image_mobile",
-  parent: "default_suite_card_2_mobile",
-  x: 20,
-  y: 840,
-  w: 350,
-  h: 180,
-  z: 4,
-  data: {
-    type: "image",
-    name: "Suite Card Image 2 Mobile",
-    fit: "cover",
-    radius: "18"
-  }
-},
-{
-  type: "button",
-  id: "default_suite_card_2_name_mobile",
-  parent: "default_suite_card_2_mobile",
-  x: 145,
-  y: 1040,
-  w: 100,
-  h: 36,
-  z: 4,
-  data: {
-    type: "button",
-    name: "Suite Card Name 2 Mobile",
-    label: "pink suite",
-    btnBg: "#111111",
-    btnTextColor: "#ffffff",
-    borderWidth: "0",
-    borderColor: "#111111",
-    borderStyle: "solid",
-    radius: "999"
-  }
-},
-{
-  type: "text",
-  id: "default_suite_card_2_available_label_mobile",
-  parent: "default_suite_card_2_mobile",
-  x: 130,
-  y: 1095,
-  w: 130,
-  h: 28,
-  z: 4,
-  data: {
-    type: "text",
-    name: "Suite Card Available Label 2 Mobile",
-    text: "Available On",
-    fontSize: "18",
-    color: "#ff7a00",
-    bold: "0",
-    align: "center"
-  }
-},
-{
-  type: "text",
-  id: "default_suite_card_2_date_mobile",
-  parent: "default_suite_card_2_mobile",
-  x: 145,
-  y: 1135,
-  w: 100,
-  h: 24,
-  z: 4,
-  data: {
-    type: "text",
-    name: "Suite Card Date 2 Mobile",
-    text: "Dec 30, 2025",
-    fontSize: "14",
-    color: "#555555",
-    bold: "0",
-    align: "center"
-  }
-},
-
-// Card 3
-{
-  type: "section",
-  id: "default_suite_card_3_mobile",
-  parent: "default_available_suites_bg_mobile",
-  x: 20,
-  y: 1190,
-  w: 350,
-  h: 320,
-  z: 3,
-  data: {
-    type: "section",
-    name: "Suite Card 3 Mobile",
-    bg: "#ffffff",
-    bgOn: "1",
-    borderOn: "0",
-    radius: "18"
-  }
-},
-{
-  type: "image",
-  id: "default_suite_card_3_image_mobile",
-  parent: "default_suite_card_3_mobile",
-  x: 20,
-  y: 1190,
-  w: 350,
-  h: 180,
-  z: 4,
-  data: {
-    type: "image",
-    name: "Suite Card Image 3 Mobile",
-    fit: "cover",
-    radius: "18"
-  }
-},
-{
-  type: "button",
-  id: "default_suite_card_3_name_mobile",
-  parent: "default_suite_card_3_mobile",
-  x: 145,
-  y: 1390,
-  w: 100,
-  h: 36,
-  z: 4,
-  data: {
-    type: "button",
-    name: "Suite Card Name 3 Mobile",
-    label: "gold suite",
-    btnBg: "#111111",
-    btnTextColor: "#ffffff",
-    borderWidth: "0",
-    borderColor: "#111111",
-    borderStyle: "solid",
-    radius: "999"
-  }
-},
-{
-  type: "text",
-  id: "default_suite_card_3_available_label_mobile",
-  parent: "default_suite_card_3_mobile",
-  x: 130,
-  y: 1445,
-  w: 130,
-  h: 28,
-  z: 4,
-  data: {
-    type: "text",
-    name: "Suite Card Available Label 3 Mobile",
-    text: "Available On",
-    fontSize: "18",
-    color: "#ff7a00",
-    bold: "0",
-    align: "center"
-  }
-},
-{
-  type: "text",
-  id: "default_suite_card_3_date_mobile",
-  parent: "default_suite_card_3_mobile",
-  x: 145,
-  y: 1485,
-  w: 100,
-  h: 24,
-  z: 4,
-  data: {
-    type: "text",
-    name: "Suite Card Date 3 Mobile",
-    text: "Feb 6, 2026",
-    fontSize: "14",
-    color: "#555555",
-    bold: "0",
-    align: "center"
-  }
-},
-
-// About
-{
-  type: "section",
-  id: "default_about_wrap_mobile",
-  parent: "",
-  x: 20,
-  y: 1550,
-  w: 350,
-  h: 260,
-  z: 1,
-  data: {
-    type: "section",
-    name: "About Wrap Mobile",
-    bg: "transparent",
-    bgOn: "0",
-    borderOn: "0",
-    radius: "0"
-  }
-},
-{
-  type: "text",
-  id: "default_about_heading_mobile",
-  parent: "default_about_wrap_mobile",
-  x: 20,
-  y: 1570,
-  w: 220,
-  h: 40,
-  z: 2,
-  data: {
-    type: "text",
-    name: "About Heading Mobile",
-    text: "About this location",
-    fontSize: "18",
-    color: "#ff7a00",
-    bold: "1",
-    align: "left"
-  }
-},
-{
-  type: "section",
-  id: "default_about_card_mobile",
-  parent: "default_about_wrap_mobile",
-  x: 20,
-  y: 1625,
-  w: 350,
-  h: 160,
-  z: 2,
-  data: {
-    type: "section",
-    name: "About Card Mobile",
-    bg: "#ffffff",
-    bgOn: "1",
-    borderOn: "0",
-    radius: "18"
-  }
-},
-{
-  type: "text",
-  id: "default_about_text_mobile",
-  parent: "default_about_card_mobile",
-  x: 40,
-  y: 1655,
-  w: 310,
-  h: 90,
-  z: 3,
-  data: {
-    type: "text",
-    name: "About Text Mobile",
-    text: "This is the details section",
-    fontSize: "15",
-    color: "#222222",
-    bold: "0",
-    align: "left"
-  }
-}
-
   ]
-}     
+}
     }
   }
 },
