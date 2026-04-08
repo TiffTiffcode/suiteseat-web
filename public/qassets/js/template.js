@@ -209,10 +209,16 @@ async function loadSuitePageOptions() {
 
 
 document.addEventListener("DOMContentLoaded", async () => {
-  const pageTypeEl = document.getElementById("tpl-page-type");
-  const pageRecordEl = document.getElementById("tpl-page-record");
-  const saveBtn = document.getElementById("tpl-save-btn");
+  console.log("[builder boot] url:", window.location.href);
 
+  const launch = getBuilderLaunchParams();
+  console.log("[builder boot] launch params at startup:", launch);
+
+const pageTypeEl = document.getElementById("tpl-page-type");
+const pageRecordEl = document.getElementById("tpl-page-record");
+const saveBtn = document.getElementById("tpl-save-btn");
+const resetBtn = document.getElementById("tpl-reset-btn");
+  
   const user = await hydrateUser();
 
   if (!user) {
@@ -223,17 +229,46 @@ document.addEventListener("DOMContentLoaded", async () => {
   restoreBuilderSelectionState();
   filterElementsForPageType();
 
+  window.populateDynamicFieldOptions?.();
+  window.populateSectionDataTypeOption?.();
 
-window.populateDynamicFieldOptions?.();
-window.populateSectionDataTypeOption?.();
+  if (pageTypeEl) {
+    pageTypeEl.addEventListener("change", async () => {
+      saveBuilderSelectionState();
+      filterElementsForPageType();
+      populateDynamicFieldOptions();
+      populateSectionDataTypeOption();
+      await loadPageRecordOptionsByType();
 
-if (pageTypeEl) {
-  pageTypeEl.addEventListener("change", async () => {
-saveBuilderSelectionState();
-filterElementsForPageType();
-populateDynamicFieldOptions();
-populateSectionDataTypeOption();
-await loadPageRecordOptionsByType();
+      const savedRecordId = localStorage.getItem("tpl_selected_page_record") || "";
+      if (pageRecordEl && savedRecordId) {
+        pageRecordEl.value = savedRecordId;
+      }
+
+      if (pageRecordEl?.value) {
+        await loadTemplateFromDatabase();
+      }
+    });
+  }
+
+  pageRecordEl?.addEventListener("change", async () => {
+    saveBuilderSelectionState();
+    console.log("[builder] selected page id:", pageRecordEl.value);
+    await loadTemplateFromDatabase();
+  });
+
+  saveBtn?.addEventListener("click", () => {
+    window.saveTemplateToDatabase?.();
+  });
+
+  resetBtn?.addEventListener("click", () => {
+  window.resetTemplateToDefault?.();
+});
+
+  const usedLaunchParams = await applyLaunchParamsToBuilder();
+
+  if (!usedLaunchParams) {
+    await loadPageRecordOptionsByType();
 
     const savedRecordId = localStorage.getItem("tpl_selected_page_record") || "";
     if (pageRecordEl && savedRecordId) {
@@ -243,30 +278,8 @@ await loadPageRecordOptionsByType();
     if (pageRecordEl?.value) {
       await loadTemplateFromDatabase();
     }
-  });
-}
-  pageRecordEl?.addEventListener("change", async () => {
-    saveBuilderSelectionState();
-    console.log("[builder] selected page id:", pageRecordEl.value);
-    await loadTemplateFromDatabase();
-  });
-
-  saveBtn?.addEventListener("click", () => {
-  window.saveTemplateToDatabase?.();
-});
-
-  await loadPageRecordOptionsByType();
-
-  const savedRecordId = localStorage.getItem("tpl_selected_page_record") || "";
-  if (pageRecordEl && savedRecordId) {
-    pageRecordEl.value = savedRecordId;
-  }
-
-  if (pageRecordEl?.value) {
-    await loadTemplateFromDatabase();
   }
 });
-
 async function loadPageRecordOptionsByType() {
   const pageTypeEl = document.getElementById("tpl-page-type");
   if (!pageTypeEl) return;
@@ -288,6 +301,68 @@ async function loadPageRecordOptionsByType() {
 }
 
 
+//Redirect Helper
+function getBuilderLaunchParams() {
+  const params = new URLSearchParams(window.location.search);
+
+  const result = {
+    locationId: params.get("locationId") || "",
+    pageType: params.get("pageType") || "",
+    templateKey: params.get("template") || "default",
+    slug: params.get("slug") || "",
+  };
+
+  console.log("[builder launch] raw search:", window.location.search);
+  console.log("[builder launch] params:", result);
+
+  return result;
+}
+
+async function applyLaunchParamsToBuilder() {
+  const { locationId, pageType, templateKey, slug } = getBuilderLaunchParams();
+
+  console.log("[builder applyLaunch] locationId:", locationId);
+  console.log("[builder applyLaunch] pageType:", pageType);
+  console.log("[builder applyLaunch] templateKey:", templateKey);
+  console.log("[builder applyLaunch] slug:", slug);
+
+  const pageTypeSelect = document.getElementById("tpl-page-type");
+  const pageRecordSelect = document.getElementById("tpl-page-record");
+  const templateSelect = document.getElementById("tpl-template-select");
+
+  if (!locationId && !pageType && !templateKey) {
+    console.log("[builder applyLaunch] no launch params found");
+    return false;
+  }
+
+  if (pageType && pageTypeSelect) {
+    console.log("[builder applyLaunch] setting pageType dropdown to:", pageType);
+    pageTypeSelect.value = pageType;
+    window.TPL_PAGE_TYPE = pageType;
+    filterElementsForPageType();
+    await loadPageRecordOptionsByType();
+  }
+
+  if (templateSelect) {
+    const nextTemplate = templateKey || "custom";
+    console.log("[builder applyLaunch] setting template dropdown to:", nextTemplate);
+    templateSelect.value = nextTemplate;
+    window.TPL_SELECTED_TEMPLATE = nextTemplate;
+  }
+
+  if (locationId && pageRecordSelect) {
+    console.log("[builder applyLaunch] setting page record dropdown to:", locationId);
+    pageRecordSelect.value = locationId;
+    localStorage.setItem("tpl_selected_page_record", locationId);
+  }
+
+  if (pageRecordSelect?.value) {
+    console.log("[builder applyLaunch] loading template for page:", pageRecordSelect.value);
+    await loadTemplateFromDatabase();
+  }
+
+  return true;
+}
 
 //Canvas Helper
 function clampElToCanvasBounds(el) {
@@ -319,16 +394,30 @@ function saveBuilderSelectionState() {
 
 function restoreBuilderSelectionState() {
   const pageTypeEl = document.getElementById("tpl-page-type");
+
+  const launch = getBuilderLaunchParams();
+  const hasLaunchParams = !!(launch.pageType || launch.locationId);
+
+  console.log("[builder restore] hasLaunchParams:", hasLaunchParams);
+  console.log("[builder restore] launch params:", launch);
+  console.log("[builder restore] localStorage page type:", localStorage.getItem("tpl_selected_page_type"));
+  console.log("[builder restore] localStorage page record:", localStorage.getItem("tpl_selected_page_record"));
+
+  if (hasLaunchParams) {
+    if (pageTypeEl && launch.pageType) {
+      pageTypeEl.value = launch.pageType;
+      window.TPL_PAGE_TYPE = launch.pageType;
+    }
+    return;
+  }
+
   const savedType = localStorage.getItem("tpl_selected_page_type") || "booking";
 
   if (pageTypeEl) {
     pageTypeEl.value = savedType;
     window.TPL_PAGE_TYPE = savedType;
   }
-} 
-
-
-
+}
 
 
 
@@ -1358,6 +1447,2489 @@ let resizeActive = null;
 let imgPan = null;
 
 
+
+                                  ////////////////
+                                  //Template Loader
+                                  ////////
+//Allow elements to move with groups and sections 
+function applySavedItemToEl(el, item) {
+  if (!el || !item) return;
+
+  el.dataset.id = item.id || "";
+  el.dataset.parent = item.parent || "";
+  el.dataset.type = item.type || item?.data?.type || "";
+
+  el.style.left = `${item.x || 0}px`;
+  el.style.top = `${item.y || 0}px`;
+  el.style.width = `${item.w || 0}px`;
+  el.style.height = `${item.h || 0}px`;
+  el.style.zIndex = String(item.z || 1);
+
+  const data = item.data || {};
+  Object.entries(data).forEach(([key, value]) => {
+    if (value == null) return;
+    el.dataset[key] = String(value);
+  });
+
+  // keep the real top-level type from item.type
+  el.dataset.type = item.type || el.dataset.type || "";
+}
+
+//Choose what type of template to load 
+const TEMPLATE_STARTERS = {
+                       ////////////////////////////
+                     //Default
+                     ////////////////////////////
+
+
+default: {
+  currentView: "default",
+  views: {
+    default: {
+      name: "Default View",
+      desktop: {
+        items: [
+          {
+            type: "section",
+            id: "default_header_top_desktop",
+            parent: "",
+            x: 0,
+            y: 0,
+            w: 1400,
+            h: 90,
+            z: 9999,
+            data: {
+              type: "section",
+              name: "Header Top Bar",
+              bg: "#ffffff",
+              bgOn: "1",
+              borderOn: "1",
+              borderWidth: "1",
+              borderStyle: "solid",
+              borderColor: "rgba(0,0,0,0.08)",
+              radius: "0",
+              locked: "1"
+            }
+          },
+{
+  type: "text",
+  id: "default_header_location_label_desktop",
+  parent: "default_header_top_desktop",
+  x: 70,
+  y: 34,
+  w: 100,
+  h: 18,
+  z: 10000,
+  data: {
+    type: "text",
+    name: "Header Location Label",
+    text: "Location",
+    fontSize: "13",
+    color: "#6b6258",
+    bold: "0",
+    align: "left"
+  }
+},
+
+          {
+  type: "text",
+  id: "",
+  parent: "default_header_top_desktop",
+  x: 70,
+  y: 58,
+  w: 260,
+  h: 28,
+  z: 10000,
+  data: {
+    type: "text",
+    name: "Header Location Name",
+    text: "First Location58",
+    fontSize: "18",
+    color: "#ff7a00",
+    bold: "1",
+    align: "left",
+    dynamicMode: "dynamic",
+    dynamicSource: "page",
+    dynamicField: "Location Name"
+  }
+},
+          {
+            type: "text",
+            id: "default_header_location_name_desktop",
+            parent: "default_header_top_desktop",
+            x: 60,
+            y: 42,
+            w: 320,
+            h: 28,
+            z: 10000,
+            data: {
+              type: "text",
+              name: "Header Location Name",
+              text: "Location Name",
+              fontSize: "22",
+              color: "#171717",
+              bold: "1",
+              align: "left",
+              dynamicMode: "dynamic",
+              dynamicSource: "page",
+              dynamicField: "Location Name"
+            }
+          },
+
+{
+  type: "button",
+  id: "default_header_menu_icon_desktop",
+  parent: "default_header_top_desktop",
+  x: 1300,
+  y: 22,
+  w: 50,
+  h: 50,
+  z: 10000,
+  data: {
+    type: "button",
+    name: "Header Menu Icon",
+    label: "☰",
+    btnBg: "transparent",
+    btnBgOn: "0",
+    btnTextColor: "#171717",
+    borderWidth: "0",
+    borderColor: "#171717",
+    borderStyle: "none",
+    radius: "0",
+    actionType: "open-popup",
+    actionTarget: "default_header_menu_popup_desktop",
+    displayType: "text"
+  }
+},
+
+//Menu Floating Group
+{
+  type: "popup",
+  id: "default_header_menu_popup_desktop",
+  parent: "",
+  x: 1040,
+  y: 70,
+  w: 320,
+  h: 430,
+  z: 20000,
+  data: {
+    type: "popup",
+    name: "Header Menu Popup",
+    bg: "#ffffff",
+    bgOn: "1",
+    borderOn: "1",
+    borderWidth: "2",
+    borderStyle: "solid",
+    borderColor: "#111111",
+    radius: "22",
+    popupMode: "anchored"
+  }
+},
+
+{
+  type: "button",
+  id: "default_menu_about_btn_desktop",
+  parent: "default_header_menu_popup_desktop",
+  x: 1065,
+  y: 110,
+  w: 180,
+  h: 32,
+  z: 20002,
+  data: {
+    type: "button",
+    name: "Menu About Button",
+    label: "About",
+    btnBg: "transparent",
+    btnTextColor: "#ff7a00",
+    borderWidth: "0",
+    borderStyle: "none",
+    actionType: "scroll",
+    actionTarget: "default_about_wrap_desktop",
+    displayType: "text"
+  }
+},
+{
+  type: "button",
+  id: "default_menu_gallery_btn_desktop",
+  parent: "default_header_menu_popup_desktop",
+  x: 1065,
+  y: 160,
+  w: 180,
+  h: 32,
+  z: 20002,
+  data: {
+    type: "button",
+    name: "Menu Gallery Button",
+    label: "Gallery",
+    btnBg: "transparent",
+    btnTextColor: "#ff7a00",
+    borderWidth: "0",
+    borderStyle: "none",
+    actionType: "scroll",
+    actionTarget: "default_gallery_wrap_desktop",
+    displayType: "text"
+  }
+},
+//Header
+
+
+          {
+            type: "section",
+            id: "default_header_subbar_desktop",
+            parent: "",
+            x: 0,
+            y: 90,
+            w: 1400,
+            h: 64,
+            z: 9998,
+            data: {
+              type: "section",
+              name: "Header Sub Bar",
+              bg: "#ffffff",
+              bgOn: "1",
+              borderOn: "1",
+              borderWidth: "1",
+              borderStyle: "solid",
+              borderColor: "rgba(0,0,0,0.06)",
+              radius: "0",
+              locked: "1"
+            }
+          },
+        
+          //Header Tabs
+{
+  type: "text",
+  id: "default_header_about_link_desktop",
+  parent: "default_header_subbar_desktop",
+  x: 420,
+  y: 118,
+  w: 70,
+  h: 24,
+  z: 10000,
+  data: {
+    type: "text",
+    name: "Header About Link",
+    text: "About",
+    fontSize: "15",
+    color: "#ff7a00",
+    bold: "1",
+    align: "left"
+  }
+},
+{
+  type: "text",
+  id: "default_header_gallery_link_desktop",
+  parent: "default_header_subbar_desktop",
+  x: 510,
+  y: 118,
+  w: 80,
+  h: 24,
+  z: 10000,
+  data: {
+    type: "text",
+    name: "Header Gallery Link",
+    text: "Gallery",
+    fontSize: "15",
+    color: "#ff7a00",
+    bold: "1",
+    align: "left"
+  }
+},
+{
+  type: "text",
+  id: "default_header_locations_link_desktop",
+  parent: "default_header_subbar_desktop",
+  x: 605,
+  y: 118,
+  w: 95,
+  h: 24,
+  z: 10000,
+  data: {
+    type: "text",
+    name: "Header Locations Link",
+    text: "Locations",
+    fontSize: "15",
+    color: "#ff7a00",
+    bold: "1",
+    align: "left"
+  }
+},
+{
+  type: "text",
+  id: "default_header_pros_link_desktop",
+  parent: "default_header_subbar_desktop",
+  x: 720,
+  y: 118,
+  w: 150,
+  h: 24,
+  z: 10000,
+  data: {
+    type: "text",
+    name: "Header Professionals Link",
+    text: "Our Professionals",
+    fontSize: "15",
+    color: "#ff7a00",
+    bold: "1",
+    align: "left"
+  }
+},
+{
+  type: "text",
+  id: "default_header_suites_link_desktop",
+  parent: "default_header_subbar_desktop",
+  x: 895,
+  y: 118,
+  w: 70,
+  h: 24,
+  z: 10000,
+  data: {
+    type: "text",
+    name: "Header Suites Link",
+    text: "Suites",
+    fontSize: "15",
+    color: "#ff7a00",
+    bold: "1",
+    align: "left"
+  }
+},
+{
+  type: "text",
+  id: "default_header_contact_link_desktop",
+  parent: "default_header_subbar_desktop",
+  x: 985,
+  y: 118,
+  w: 100,
+  h: 24,
+  z: 10000,
+  data: {
+    type: "text",
+    name: "Header Contact Link",
+    text: "Contact Us",
+    fontSize: "15",
+    color: "#ff7a00",
+    bold: "1",
+    align: "left"
+  }
+},
+
+       //Default Hero Section
+
+{
+  type: "section",
+  id: "default_hero_wrap_desktop",
+  parent: "",
+  x: 0,
+  y: 150,
+  w: 1400,
+  h: 520,
+  z: 1,
+  data: {
+    type: "section",
+    name: "Hero Image Wrap",
+    bg: "#e9e9e9",
+    bgOn: "1",
+    borderOn: "0",
+    radius: "0"
+  }
+},
+{
+  type: "image",
+  id: "default_hero_image_desktop",
+  parent: "",
+  x: 0,
+  y: 150,
+  w: 1400,
+  h: 520,
+  z: 2,
+  data: {
+    type: "image",
+    name: "Hero Image",
+    dynamicMode: "dynamic",
+    dynamicSource: "page",
+    dynamicField: "Location Photo",
+    fit: "cover",
+    radius: "0"
+  }
+},
+
+//Avalable Suites Section 
+{
+  type: "section",
+  id: "default_available_suites_bg_desktop",
+  parent: "",
+  x: 0,
+  y: 670,
+  w: 1400,
+  h: 700,
+  z: 0,
+  data: {
+    type: "section",
+    name: "Available Suites Background",
+    bg: "transparent",
+    bgOn: "0",
+    borderOn: "0",
+    radius: "0"
+  }
+},
+{
+  type: "text",
+  id: "default_available_suites_heading_desktop",
+  parent: "default_available_suites_bg_desktop",
+  x: 610,
+  y: 720,
+  w: 220,
+  h: 36,
+  z: 2,
+  data: {
+    type: "text",
+    name: "Available Suites Heading",
+    text: "Available Suites",
+    fontSize: "18",
+    color: "#ff7a00",
+    bold: "0",
+    align: "center"
+  }
+},
+{
+  type: "section",
+  id: "default_available_suites_wrap_desktop",
+  parent: "default_available_suites_bg_desktop",
+  x: 280,
+  y: 790,
+  w: 920,
+  h: 430,
+  z: 1,
+  data: {
+    type: "section",
+    name: "Available Suites Wrap",
+    bg: "#ffffff",
+    bgOn: "1",
+    borderOn: "0",
+    radius: "24"
+  }
+},
+{
+  type: "group",
+  id: "default_available_suites_group_desktop",
+  parent: "default_available_suites_wrap_desktop",
+  x: 300,
+  y: 810,
+  w: 880,
+  h: 390,
+  z: 2,
+  data: {
+    type: "group",
+    name: "Available Suites Group",
+    bg: "transparent",
+    bgOn: "0",
+    borderOn: "0",
+    radius: "0"
+  }
+},
+//Availability Cards
+//Card 1
+{
+  type: "section",
+  id: "default_suite_card_1_desktop",
+ parent: "default_available_suites_group_desktop",
+  x: 315,
+  y: 820,
+  w: 260,
+  h: 360,
+  z: 3,
+  data: {
+    type: "section",
+    name: "Suite Card 1",
+    bg: "#ffffff",
+    bgOn: "1",
+    borderOn: "0",
+    radius: "18"
+  }
+},
+{
+  type: "image",
+  id: "default_suite_card_1_image_desktop",
+  parent: "default_suite_card_1_desktop",
+  x: 315,
+  y: 820,
+  w: 260,
+  h: 190,
+  z: 4,
+  data: {
+    type: "image",
+    name: "Suite Card Image 1",
+    fit: "cover",
+    radius: "18"
+  }
+},
+{
+  type: "button",
+  id: "default_suite_card_1_name_desktop",
+  parent: "default_suite_card_1_desktop",
+  x: 395,
+  y: 1030,
+  w: 100,
+  h: 36,
+  z: 4,
+  data: {
+    type: "button",
+    name: "Suite Card Name 1",
+    label: "red suite",
+    btnBg: "#111111",
+    btnTextColor: "#ffffff",
+    borderWidth: "0",
+    borderColor: "#111111",
+    borderStyle: "solid",
+    radius: "999"
+  }
+},
+{
+  type: "text",
+  id: "default_suite_card_1_available_label_desktop",
+  parent: "default_suite_card_1_desktop",
+  x: 390,
+  y: 1085,
+  w: 110,
+  h: 28,
+  z: 4,
+  data: {
+    type: "text",
+    name: "Suite Card Available Label 1",
+    text: "Available On",
+    fontSize: "18",
+    color: "#ff7a00",
+    bold: "0",
+    align: "center"
+  }
+},
+{
+  type: "text",
+  id: "default_suite_card_1_date_desktop",
+  parent: "default_suite_card_1_desktop",
+  x: 405,
+  y: 1130,
+  w: 85,
+  h: 30,
+  z: 4,
+  data: {
+    type: "text",
+    name: "Suite Card Date 1",
+    text: "Dec 29, 2025",
+    fontSize: "14",
+    color: "#555555",
+    bold: "0",
+    align: "center"
+  }
+},
+// Card 2
+{
+  type: "section",
+  id: "default_suite_card_2_desktop",
+  parent: "default_available_suites_group_desktop",
+  x: 595,
+  y: 820,
+  w: 260,
+  h: 360,
+  z: 3,
+  data: {
+    type: "section",
+    name: "Suite Card 2",
+    bg: "#ffffff",
+    bgOn: "1",
+    borderOn: "0",
+    radius: "18"
+  }
+},
+{
+  type: "image",
+  id: "default_suite_card_2_image_desktop",
+  parent: "default_suite_card_2_desktop",
+  x: 595,
+  y: 820,
+  w: 260,
+  h: 190,
+  z: 4,
+  data: {
+    type: "image",
+    name: "Suite Card Image 2",
+    fit: "cover",
+    radius: "18"
+  }
+},
+{
+  type: "button",
+  id: "default_suite_card_2_name_desktop",
+  parent: "default_suite_card_2_desktop",
+  x: 675,
+  y: 1030,
+  w: 100,
+  h: 36,
+  z: 4,
+  data: {
+    type: "button",
+    name: "Suite Card Name 2",
+    label: "pink suite",
+    btnBg: "#111111",
+    btnTextColor: "#ffffff",
+    borderWidth: "0",
+    borderColor: "#111111",
+    borderStyle: "solid",
+    radius: "999"
+  }
+},
+{
+  type: "text",
+  id: "default_suite_card_2_available_label_desktop",
+  parent: "default_suite_card_2_desktop",
+  x: 670,
+  y: 1085,
+  w: 110,
+  h: 28,
+  z: 4,
+  data: {
+    type: "text",
+    name: "Suite Card Available Label 2",
+    text: "Available On",
+    fontSize: "18",
+    color: "#ff7a00",
+    bold: "0",
+    align: "center"
+  }
+},
+{
+  type: "text",
+  id: "default_suite_card_2_date_desktop",
+  parent: "default_suite_card_2_desktop",
+  x: 685,
+  y: 1130,
+  w: 85,
+  h: 30,
+  z: 4,
+  data: {
+    type: "text",
+    name: "Suite Card Date 2",
+    text: "Dec 30, 2025",
+    fontSize: "14",
+    color: "#555555",
+    bold: "0",
+    align: "center"
+  }
+},
+
+// Card 3
+{
+  type: "section",
+  id: "default_suite_card_3_desktop",
+  parent: "default_available_suites_group_desktop",
+  x: 875,
+  y: 820,
+  w: 260,
+  h: 360,
+  z: 3,
+  data: {
+    type: "section",
+    name: "Suite Card 3",
+    bg: "#ffffff",
+    bgOn: "1",
+    borderOn: "0",
+    radius: "18"
+  }
+},
+{
+  type: "image",
+  id: "default_suite_card_3_image_desktop",
+  parent: "default_suite_card_3_desktop",
+  x: 875,
+  y: 820,
+  w: 260,
+  h: 190,
+  z: 4,
+  data: {
+    type: "image",
+    name: "Suite Card Image 3",
+    fit: "cover",
+    radius: "18"
+  }
+},
+{
+  type: "button",
+  id: "default_suite_card_3_name_desktop",
+  parent: "default_suite_card_3_desktop",
+  x: 955,
+  y: 1030,
+  w: 100,
+  h: 36,
+  z: 4,
+  data: {
+    type: "button",
+    name: "Suite Card Name 3",
+    label: "gold suite",
+    btnBg: "#111111",
+    btnTextColor: "#ffffff",
+    borderWidth: "0",
+    borderColor: "#111111",
+    borderStyle: "solid",
+    radius: "999"
+  }
+},
+{
+  type: "text",
+  id: "default_suite_card_3_available_label_desktop",
+  parent: "default_suite_card_3_desktop",
+  x: 950,
+  y: 1085,
+  w: 110,
+  h: 28,
+  z: 4,
+  data: {
+    type: "text",
+    name: "Suite Card Available Label 3",
+    text: "Available On",
+    fontSize: "18",
+    color: "#ff7a00",
+    bold: "0",
+    align: "center"
+  }
+},
+{
+  type: "text",
+  id: "default_suite_card_3_date_desktop",
+  parent: "default_suite_card_3_desktop",
+  x: 965,
+  y: 1130,
+  w: 85,
+  h: 30,
+  z: 4,
+  data: {
+    type: "text",
+    name: "Suite Card Date 3",
+    text: "Feb 6, 2026",
+    fontSize: "14",
+    color: "#555555",
+    bold: "0",
+    align: "center"
+  }
+},
+
+//About This Location
+{
+  type: "section",
+  id: "default_about_wrap_desktop",
+  parent: "",
+  x: 200,
+  y: 1430,
+  w: 1000,
+  h: 220,
+  z: 1,
+  data: {
+    type: "section",
+    name: "About Wrap",
+    bg: "transparent",
+    bgOn: "0",
+    borderOn: "0",
+    radius: "0"
+  }
+},
+{
+  type: "text",
+  id: "default_about_heading_desktop",
+  parent: "default_about_wrap_desktop",
+  x: 210,
+  y: 1450,
+  w: 280,
+  h: 40,
+  z: 2,
+  data: {
+    type: "text",
+    name: "About Heading",
+    text: "About this location",
+    fontSize: "18",
+    color: "#ff7a00",
+    bold: "1",
+    align: "left"
+  }
+},
+{
+  type: "section",
+  id: "default_about_card_desktop",
+  parent: "default_about_wrap_desktop",
+  x: 210,
+  y: 1510,
+  w: 980,
+  h: 140,
+  z: 2,
+  data: {
+    type: "section",
+    name: "About Card",
+    bg: "#ffffff",
+    bgOn: "1",
+    borderOn: "0",
+    radius: "18"
+  }
+},
+{
+  type: "text",
+  id: "default_about_text_desktop",
+  parent: "default_about_card_desktop",
+  x: 240,
+  y: 1540,
+  w: 920,
+  h: 50,
+  z: 3,
+  data: {
+    type: "text",
+    name: "About Text",
+    text: "This is the details 2section63",
+    fontSize: "16",
+    color: "#222222",
+    bold: "0",
+    align: "left"
+  }
+},
+        ]
+      },
+
+      /////////////////////
+      //Default Mobile
+      ////////////////////
+mobile: {
+  items: [
+    {
+      type: "header",
+      id: "default_header_mobile",
+      parent: "",
+      x: 0,
+      y: 0,
+      w: 390,
+      h: 90,
+      z: 9999,
+      data: {
+        type: "header",
+        name: "Default Header Mobile",
+        bg: "#ffffff",
+        bgOn: "1",
+        locked: "1"
+      }
+    },
+    {
+      type: "section",
+      id: "default_hero_wrap_mobile",
+      parent: "",
+      x: 0,
+      y: 100,
+      w: 390,
+      h: 280,
+      z: 1,
+      data: {
+        type: "section",
+        name: "Hero Image Wrap Mobile",
+        bg: "#e9e9e9",
+        bgOn: "1",
+        borderOn: "0",
+        radius: "0"
+      }
+    },
+    {
+      type: "image",
+      id: "default_hero_image_mobile",
+      parent: "default_hero_wrap_mobile",
+      x: 0,
+      y: 100,
+      w: 390,
+      h: 280,
+      z: 2,
+      data: {
+        type: "image",
+        name: "Hero Image Mobile",
+        dynamicMode: "dynamic",
+        dynamicSource: "page",
+        dynamicField: "Location Photo",
+        fit: "cover",
+        radius: "0"
+      }
+    }
+,
+{
+  type: "section",
+  id: "default_available_suites_bg_mobile",
+  parent: "",
+  x: 0,
+  y: 400,
+  w: 390,
+  h: 1220,
+  z: 0,
+  data: {
+    type: "section",
+    name: "Available Suites Background Mobile",
+    bg: "transparent",
+    bgOn: "0",
+    borderOn: "0",
+    radius: "0"
+  }
+},
+{
+  type: "text",
+  id: "default_available_suites_heading_mobile",
+  parent: "default_available_suites_bg_mobile",
+  x: 95,
+  y: 430,
+  w: 200,
+  h: 36,
+  z: 2,
+  data: {
+    type: "text",
+    name: "Available Suites Heading Mobile",
+    text: "Available Suites",
+    fontSize: "18",
+    color: "#ff7a00",
+    bold: "0",
+    align: "center"
+  }
+},
+
+// Card 1
+{
+  type: "section",
+  id: "default_suite_card_1_mobile",
+  parent: "default_available_suites_bg_mobile",
+  x: 20,
+  y: 490,
+  w: 350,
+  h: 320,
+  z: 3,
+  data: {
+    type: "section",
+    name: "Suite Card 1 Mobile",
+    bg: "#ffffff",
+    bgOn: "1",
+    borderOn: "0",
+    radius: "18"
+  }
+},
+{
+  type: "image",
+  id: "default_suite_card_1_image_mobile",
+  parent: "default_suite_card_1_mobile",
+  x: 20,
+  y: 490,
+  w: 350,
+  h: 180,
+  z: 4,
+  data: {
+    type: "image",
+    name: "Suite Card Image 1 Mobile",
+    fit: "cover",
+    radius: "18"
+  }
+},
+{
+  type: "button",
+  id: "default_suite_card_1_name_mobile",
+  parent: "default_suite_card_1_mobile",
+  x: 145,
+  y: 690,
+  w: 100,
+  h: 36,
+  z: 4,
+  data: {
+    type: "button",
+    name: "Suite Card Name 1 Mobile",
+    label: "red suite",
+    btnBg: "#111111",
+    btnTextColor: "#ffffff",
+    borderWidth: "0",
+    borderColor: "#111111",
+    borderStyle: "solid",
+    radius: "999"
+  }
+},
+{
+  type: "text",
+  id: "default_suite_card_1_available_label_mobile",
+  parent: "default_suite_card_1_mobile",
+  x: 130,
+  y: 745,
+  w: 130,
+  h: 28,
+  z: 4,
+  data: {
+    type: "text",
+    name: "Suite Card Available Label 1 Mobile",
+    text: "Available On",
+    fontSize: "18",
+    color: "#ff7a00",
+    bold: "0",
+    align: "center"
+  }
+},
+{
+  type: "text",
+  id: "default_suite_card_1_date_mobile",
+  parent: "default_suite_card_1_mobile",
+  x: 145,
+  y: 785,
+  w: 100,
+  h: 24,
+  z: 4,
+  data: {
+    type: "text",
+    name: "Suite Card Date 1 Mobile",
+    text: "Dec 29, 2025",
+    fontSize: "14",
+    color: "#555555",
+    bold: "0",
+    align: "center"
+  }
+},
+
+// Card 2
+{
+  type: "section",
+  id: "default_suite_card_2_mobile",
+  parent: "default_available_suites_bg_mobile",
+  x: 20,
+  y: 840,
+  w: 350,
+  h: 320,
+  z: 3,
+  data: {
+    type: "section",
+    name: "Suite Card 2 Mobile",
+    bg: "#ffffff",
+    bgOn: "1",
+    borderOn: "0",
+    radius: "18"
+  }
+},
+{
+  type: "image",
+  id: "default_suite_card_2_image_mobile",
+  parent: "default_suite_card_2_mobile",
+  x: 20,
+  y: 840,
+  w: 350,
+  h: 180,
+  z: 4,
+  data: {
+    type: "image",
+    name: "Suite Card Image 2 Mobile",
+    fit: "cover",
+    radius: "18"
+  }
+},
+{
+  type: "button",
+  id: "default_suite_card_2_name_mobile",
+  parent: "default_suite_card_2_mobile",
+  x: 145,
+  y: 1040,
+  w: 100,
+  h: 36,
+  z: 4,
+  data: {
+    type: "button",
+    name: "Suite Card Name 2 Mobile",
+    label: "pink suite",
+    btnBg: "#111111",
+    btnTextColor: "#ffffff",
+    borderWidth: "0",
+    borderColor: "#111111",
+    borderStyle: "solid",
+    radius: "999"
+  }
+},
+{
+  type: "text",
+  id: "default_suite_card_2_available_label_mobile",
+  parent: "default_suite_card_2_mobile",
+  x: 130,
+  y: 1095,
+  w: 130,
+  h: 28,
+  z: 4,
+  data: {
+    type: "text",
+    name: "Suite Card Available Label 2 Mobile",
+    text: "Available On",
+    fontSize: "18",
+    color: "#ff7a00",
+    bold: "0",
+    align: "center"
+  }
+},
+{
+  type: "text",
+  id: "default_suite_card_2_date_mobile",
+  parent: "default_suite_card_2_mobile",
+  x: 145,
+  y: 1135,
+  w: 100,
+  h: 24,
+  z: 4,
+  data: {
+    type: "text",
+    name: "Suite Card Date 2 Mobile",
+    text: "Dec 30, 2025",
+    fontSize: "14",
+    color: "#555555",
+    bold: "0",
+    align: "center"
+  }
+},
+
+// Card 3
+{
+  type: "section",
+  id: "default_suite_card_3_mobile",
+  parent: "default_available_suites_bg_mobile",
+  x: 20,
+  y: 1190,
+  w: 350,
+  h: 320,
+  z: 3,
+  data: {
+    type: "section",
+    name: "Suite Card 3 Mobile",
+    bg: "#ffffff",
+    bgOn: "1",
+    borderOn: "0",
+    radius: "18"
+  }
+},
+{
+  type: "image",
+  id: "default_suite_card_3_image_mobile",
+  parent: "default_suite_card_3_mobile",
+  x: 20,
+  y: 1190,
+  w: 350,
+  h: 180,
+  z: 4,
+  data: {
+    type: "image",
+    name: "Suite Card Image 3 Mobile",
+    fit: "cover",
+    radius: "18"
+  }
+},
+{
+  type: "button",
+  id: "default_suite_card_3_name_mobile",
+  parent: "default_suite_card_3_mobile",
+  x: 145,
+  y: 1390,
+  w: 100,
+  h: 36,
+  z: 4,
+  data: {
+    type: "button",
+    name: "Suite Card Name 3 Mobile",
+    label: "gold suite",
+    btnBg: "#111111",
+    btnTextColor: "#ffffff",
+    borderWidth: "0",
+    borderColor: "#111111",
+    borderStyle: "solid",
+    radius: "999"
+  }
+},
+{
+  type: "text",
+  id: "default_suite_card_3_available_label_mobile",
+  parent: "default_suite_card_3_mobile",
+  x: 130,
+  y: 1445,
+  w: 130,
+  h: 28,
+  z: 4,
+  data: {
+    type: "text",
+    name: "Suite Card Available Label 3 Mobile",
+    text: "Available On",
+    fontSize: "18",
+    color: "#ff7a00",
+    bold: "0",
+    align: "center"
+  }
+},
+{
+  type: "text",
+  id: "default_suite_card_3_date_mobile",
+  parent: "default_suite_card_3_mobile",
+  x: 145,
+  y: 1485,
+  w: 100,
+  h: 24,
+  z: 4,
+  data: {
+    type: "text",
+    name: "Suite Card Date 3 Mobile",
+    text: "Feb 6, 2026",
+    fontSize: "14",
+    color: "#555555",
+    bold: "0",
+    align: "center"
+  }
+},
+
+// About
+{
+  type: "section",
+  id: "default_about_wrap_mobile",
+  parent: "",
+  x: 20,
+  y: 1550,
+  w: 350,
+  h: 260,
+  z: 1,
+  data: {
+    type: "section",
+    name: "About Wrap Mobile",
+    bg: "transparent",
+    bgOn: "0",
+    borderOn: "0",
+    radius: "0"
+  }
+},
+{
+  type: "text",
+  id: "default_about_heading_mobile",
+  parent: "default_about_wrap_mobile",
+  x: 20,
+  y: 1570,
+  w: 220,
+  h: 40,
+  z: 2,
+  data: {
+    type: "text",
+    name: "About Heading Mobile",
+    text: "About this location",
+    fontSize: "18",
+    color: "#ff7a00",
+    bold: "1",
+    align: "left"
+  }
+},
+{
+  type: "section",
+  id: "default_about_card_mobile",
+  parent: "default_about_wrap_mobile",
+  x: 20,
+  y: 1625,
+  w: 350,
+  h: 160,
+  z: 2,
+  data: {
+    type: "section",
+    name: "About Card Mobile",
+    bg: "#ffffff",
+    bgOn: "1",
+    borderOn: "0",
+    radius: "18"
+  }
+},
+{
+  type: "text",
+  id: "default_about_text_mobile",
+  parent: "default_about_card_mobile",
+  x: 40,
+  y: 1655,
+  w: 310,
+  h: 90,
+  z: 3,
+  data: {
+    type: "text",
+    name: "About Text Mobile",
+    text: "This is the details section",
+    fontSize: "15",
+    color: "#222222",
+    bold: "0",
+    align: "left"
+  }
+}
+
+  ]
+}     
+    }
+  }
+},
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+template1: {
+  currentView: "default",
+  views: {
+    default: {
+      name: "Default View",
+     desktop: {
+  items: [
+    {
+      type: "header",
+      id: "header_t1",
+      parent: "",
+      x: 0,
+      y: 0,
+      w: 1200,
+      h: 90,
+      z: 9999,
+      data: {
+        type: "header",
+        name: "Header",
+        bg: "#ffffff",
+        bgOn: "1",
+        locked: "1"
+      }
+    },
+    {
+      type: "section",
+      id: "hero_image_wrap_t1",
+      parent: "",
+      x: 40,
+      y: 120,
+      w: 680,
+      h: 420,
+      z: 1,
+      data: {
+        type: "section",
+        name: "Hero Image Wrap",
+        bg: "#dddddd",
+        bgOn: "1",
+        borderOn: "0",
+        radius: "24"
+      }
+    },
+    {
+      type: "image",
+      id: "hero_image_t1",
+      parent: "hero_image_wrap_t1",
+      x: 40,
+      y: 120,
+      w: 680,
+      h: 420,
+      z: 2,
+      data: {
+        type: "image",
+        name: "Hero Image",
+        dynamicMode: "dynamic",
+        dynamicSource: "page",
+        dynamicField: "Location Photo",
+        fit: "cover",
+        radius: "24"
+      }
+    },
+    {
+      type: "section",
+      id: "hero_text_card_t1",
+      parent: "",
+      x: 750,
+      y: 120,
+      w: 410,
+      h: 420,
+      z: 1,
+      data: {
+        type: "section",
+        name: "Hero Text Card",
+        bg: "#ffffff",
+        bgOn: "1",
+        borderOn: "0",
+        radius: "24"
+      }
+    },
+    {
+      type: "text",
+      id: "hero_eyebrow_t1",
+      parent: "hero_text_card_t1",
+      x: 780,
+      y: 160,
+      w: 220,
+      h: 28,
+      z: 2,
+      data: {
+        type: "text",
+        name: "Hero Eyebrow",
+        text: "Suite Location",
+        fontSize: "14",
+        color: "#efb37c",
+        bold: "0",
+        align: "left"
+      }
+    },
+    {
+      type: "text",
+      id: "hero_title_t1",
+      parent: "hero_text_card_t1",
+      x: 780,
+      y: 205,
+      w: 320,
+      h: 80,
+      z: 2,
+      data: {
+        type: "text",
+        name: "Location Name",
+        text: "Location",
+        fontSize: "48",
+        color: "#111111",
+        bold: "1",
+        align: "left"
+      }
+    },
+    {
+      type: "text",
+      id: "hero_about_t1",
+      parent: "hero_text_card_t1",
+      x: 780,
+      y: 310,
+      w: 320,
+      h: 120,
+      z: 2,
+      data: {
+        type: "text",
+        name: "About Text",
+        text: "Explore available suites at this location.",
+        fontSize: "16",
+        color: "#555555",
+        bold: "0",
+        align: "left"
+      }
+    },
+    {//Available Suites Section
+      type: "text",
+      id: "available_suites_heading_t1",
+      parent: "",
+      x: 40,
+      y: 590,
+      w: 320,
+      h: 40,
+      z: 1,
+      data: {
+        type: "text",
+        name: "Available Suites Heading",
+        text: "Available Suites",
+        fontSize: "30",
+        color: "#111111",
+        bold: "1",
+        align: "left"
+      }
+    },
+    {
+      type: "group",
+      id: "suite_cards_group_t1",
+      parent: "",
+      x: 40,
+      y: 650,
+      w: 1120,
+      h: 320,
+      z: 1,
+      data: {
+        type: "group",
+        name: "Suite Cards Group",
+        bg: "transparent",
+        bgOn: "0",
+        borderOn: "0",
+        radius: "0",
+        dynamicMode: "dynamic",
+        dynamicSource: "page",
+        bindMode: "list",
+        dynamicField: "Suites"
+      }
+    },
+    {
+      type: "section",
+      id: "suite_card_placeholder_t1",
+      parent: "",
+      x: 40,
+      y: 650,
+      w: 1120,
+      h: 420,
+      z: 2,
+      data: {
+        type: "section",
+        name: "Suite Card Placeholder",
+        bg: "#ffffff",
+        bgOn: "1",
+        borderOn: "0",
+        radius: "22"
+      }
+    },
+
+    {
+  type: "image",
+  id: "suite_card_placeholder_image_t1",
+  parent: "suite_card_placeholder_t1",
+  x: 40,
+  y: 650,
+  w: 1120,
+  h: 280,
+  z: 3,
+  data: {
+    type: "image",
+    name: "Suite Placeholder Image",
+    fit: "cover",
+    radius: "22"
+  }
+},
+
+{
+  type: "text",
+  id: "suite_card_placeholder_title_t1",
+  parent: "suite_card_placeholder_t1",
+  x: 70,
+  y: 955,
+  w: 260,
+  h: 30,
+  z: 3,
+  data: {
+    type: "text",
+    name: "Suite Placeholder Title",
+    text: "Suite name goes here",
+    fontSize: "22",
+    color: "#111111",
+    bold: "1",
+    align: "left"
+  }
+},
+{
+  type: "text",
+  id: "suite_card_placeholder_date_t1",
+  parent: "suite_card_placeholder_t1",
+  x: 70,
+  y: 995,
+  w: 260,
+  h: 24,
+  z: 3,
+  data: {
+    type: "text",
+    name: "Suite Placeholder Date",
+    text: "Available date goes here",
+    fontSize: "14",
+    color: "#555555",
+    bold: "0",
+    align: "left"
+  }
+},
+{
+  type: "text",
+  id: "suite_card_placeholder_rate_t1",
+  parent: "suite_card_placeholder_t1",
+  x: 70,
+  y: 1030,
+  w: 220,
+  h: 24,
+  z: 3,
+  data: {
+    type: "text",
+    name: "Suite Placeholder Rate",
+    text: "$23 / weekly",
+    fontSize: "16",
+    color: "#111111",
+    bold: "1",
+    align: "left"
+  }
+},
+  ]
+},
+
+
+      //Template 1 Mobile
+      mobile: {
+        items: [
+          {
+            type: "header",
+            id: "header_t1_mobile",
+            parent: "",
+            x: 0,
+            y: 0,
+            w: 390,
+            h: 90,
+            z: 9999,
+            data: {
+              type: "header",
+              name: "Header",
+              bg: "#ffffff",
+              bgOn: "1",
+              locked: "1"
+            }
+          },
+          {
+            type: "section",
+            id: "hero_image_wrap_t1_mobile",
+            parent: "",
+            x: 0,
+            y: 100,
+            w: 390,
+            h: 280,
+            z: 1,
+            data: {
+              type: "section",
+              name: "Hero Image Wrap",
+              bg: "#dddddd",
+              bgOn: "1",
+              borderOn: "0",
+              radius: "24"
+            }
+          },
+          {
+            type: "image",
+            id: "hero_image_t1_mobile",
+            parent: "hero_image_wrap_t1_mobile",
+            x: 0,
+            y: 100,
+            w: 390,
+            h: 280,
+            z: 2,
+            data: {
+              type: "image",
+              name: "Hero Image",
+              dynamicMode: "dynamic",
+              dynamicSource: "page",
+              dynamicField: "Location Photo",
+              fit: "cover",
+              radius: "24"
+            }
+          },
+          {
+            type: "section",
+            id: "hero_text_card_t1_mobile",
+            parent: "",
+            x: 0,
+            y: 400,
+            w: 390,
+            h: 260,
+            z: 1,
+            data: {
+              type: "section",
+              name: "Hero Text Card",
+              bg: "#ffffff",
+              bgOn: "1",
+              borderOn: "0",
+              radius: "24"
+            }
+          },
+          {
+            type: "text",
+            id: "available_suites_heading_t1_mobile",
+            parent: "",
+            x: 20,
+            y: 700,
+            w: 260,
+            h: 36,
+            z: 1,
+            data: {
+              type: "text",
+              name: "Available Suites Heading",
+              text: "Available Suites",
+              fontSize: "26",
+              color: "#111111",
+              bold: "1",
+              align: "left"
+            }
+          },
+          {
+            type: "group",
+            id: "suite_cards_group_t1_mobile",
+            parent: "",
+            x: 0,
+            y: 760,
+            w: 390,
+            h: 700,
+            z: 1,
+            data: {
+              type: "group",
+              name: "Suite Cards Group",
+              bg: "transparent",
+              bgOn: "0",
+              borderOn: "0",
+              radius: "0",
+              dynamicMode: "dynamic",
+              dynamicSource: "page",
+              bindMode: "list",
+              dynamicField: "Suites"
+            }
+          }
+        ]
+      }
+    }
+  }
+},
+
+                     ////////////////////////////
+                     //Template 2
+                     ////////////////////////////
+template2: {
+  currentView: "default",
+  views: {
+    default: {
+      name: "Default View",
+      desktop: {
+        items: [
+          {
+            type: "header",
+            id: "header_t2",
+            parent: "",
+            x: 0,
+            y: 0,
+            w: 1400,
+            h: 90,
+            z: 9999,
+            data: {
+              type: "header",
+              name: "Header",
+              bg: "#ffffff",
+              bgOn: "1",
+              locked: "1"
+            }
+          },
+
+          {
+            type: "section",
+            id: "hero_wrap_t2",
+            parent: "",
+            x: 30,
+            y: 120,
+            w: 1320,
+            h: 680,
+            z: 1,
+            data: {
+              type: "section",
+              name: "Hero Wrap",
+              bg: "#efe7dc",
+              bgOn: "1",
+              borderOn: "0",
+              radius: "36"
+            }
+          },
+          {
+            type: "image",
+            id: "hero_image_t2",
+            parent: "hero_wrap_t2",
+            x: 30,
+            y: 120,
+            w: 1320,
+            h: 680,
+            z: 2,
+            data: {
+              type: "image",
+              name: "Hero Image",
+              dynamicMode: "dynamic",
+              dynamicSource: "page",
+              dynamicField: "Location Photo",
+              fit: "cover",
+              radius: "36"
+            }
+          },
+          {
+            type: "text",
+            id: "hero_suite_count_t2",
+            parent: "hero_wrap_t2",
+            x: 1140,
+            y: 160,
+            w: 160,
+            h: 30,
+            z: 3,
+            data: {
+              type: "text",
+              name: "Hero Suite Count",
+              text: "3 suites",
+              fontSize: "14",
+              color: "#ffffff",
+              bold: "0",
+              align: "right"
+            }
+          },
+          {
+            type: "text",
+            id: "hero_title_t2",
+            parent: "hero_wrap_t2",
+            x: 90,
+            y: 560,
+            w: 700,
+            h: 90,
+            z: 3,
+            data: {
+              type: "text",
+              name: "Hero Title",
+              text: "Location",
+              fontSize: "78",
+              color: "#ffffff",
+              bold: "1",
+              align: "left"
+            }
+          },
+          {
+            type: "text",
+            id: "hero_about_t2",
+            parent: "hero_wrap_t2",
+            x: 90,
+            y: 660,
+            w: 640,
+            h: 80,
+            z: 3,
+            data: {
+              type: "text",
+              name: "Hero About",
+              text: "Discover a refined suite experience designed for professionals who want a polished, premium environment.",
+              fontSize: "19",
+              color: "#ffffff",
+              bold: "0",
+              align: "left"
+            }
+          },
+
+          {
+            type: "section",
+            id: "featured_suite_image_wrap_t2",
+            parent: "",
+            x: 30,
+            y: 840,
+            w: 680,
+            h: 520,
+            z: 1,
+            data: {
+              type: "section",
+              name: "Featured Suite Image Wrap",
+              bg: "#efe7dc",
+              bgOn: "1",
+              borderOn: "0",
+              radius: "30"
+            }
+          },
+          {
+            type: "image",
+            id: "featured_suite_image_t2",
+            parent: "featured_suite_image_wrap_t2",
+            x: 30,
+            y: 840,
+            w: 680,
+            h: 520,
+            z: 2,
+            data: {
+              type: "image",
+              name: "Featured Suite Image",
+              fit: "cover",
+              radius: "30"
+            }
+          },
+
+          {
+            type: "section",
+            id: "featured_suite_card_t2",
+            parent: "",
+            x: 740,
+            y: 840,
+            w: 610,
+            h: 520,
+            z: 1,
+            data: {
+              type: "section",
+              name: "Featured Suite Card",
+              bg: "#ffffff",
+              bgOn: "1",
+              borderOn: "1",
+              borderWidth: "1",
+              borderStyle: "solid",
+              borderColor: "rgba(0,0,0,0.08)",
+              radius: "30"
+            }
+          },
+          {
+            type: "text",
+            id: "featured_suite_label_t2",
+            parent: "featured_suite_card_t2",
+            x: 780,
+            y: 890,
+            w: 220,
+            h: 24,
+            z: 2,
+            data: {
+              type: "text",
+              name: "Featured Suite Label",
+              text: "Featured Suite",
+              fontSize: "12",
+              color: "#b88a58",
+              bold: "0",
+              align: "left"
+            }
+          },
+          {
+            type: "text",
+            id: "featured_suite_title_t2",
+            parent: "featured_suite_card_t2",
+            x: 780,
+            y: 940,
+            w: 360,
+            h: 70,
+            z: 2,
+            data: {
+              type: "text",
+              name: "Featured Suite Title",
+              text: "Suite Name",
+              fontSize: "52",
+              color: "#171717",
+              bold: "1",
+              align: "left"
+            }
+          },
+          {
+            type: "text",
+            id: "featured_suite_date_t2",
+            parent: "featured_suite_card_t2",
+            x: 780,
+            y: 1030,
+            w: 260,
+            h: 24,
+            z: 2,
+            data: {
+              type: "text",
+              name: "Featured Suite Date",
+              text: "Available Jan 5, 2026",
+              fontSize: "16",
+              color: "#6b6258",
+              bold: "0",
+              align: "left"
+            }
+          },
+          {
+            type: "text",
+            id: "featured_suite_rate_t2",
+            parent: "featured_suite_card_t2",
+            x: 780,
+            y: 1080,
+            w: 220,
+            h: 34,
+            z: 2,
+            data: {
+              type: "text",
+              name: "Featured Suite Rate",
+              text: "$23 / weekly",
+              fontSize: "30",
+              color: "#171717",
+              bold: "1",
+              align: "left"
+            }
+          },
+          {
+            type: "button",
+            id: "featured_suite_btn_t2",
+            parent: "featured_suite_card_t2",
+            x: 780,
+            y: 1220,
+            w: 170,
+            h: 50,
+            z: 2,
+            data: {
+              type: "button",
+              name: "Featured Suite Button",
+              label: "View Suite",
+              btnBg: "#171717",
+              btnTextColor: "#ffffff",
+              borderWidth: "0",
+              borderColor: "#171717",
+              borderStyle: "solid",
+              radius: "999"
+            }
+          },
+
+             
+{
+  type: "section",
+  id: "more_suites_wrap_t2",
+  parent: "",
+  x: 30,
+  y: 1390,
+  w: 1320,
+  h: 380,
+  z: 1,
+  data: {
+    type: "section",
+    name: "More Suites Wrap",
+    bg: "#ffffff",
+    bgOn: "1",
+    borderOn: "1",
+    borderWidth: "1",
+    borderStyle: "solid",
+    borderColor: "rgba(0,0,0,0.08)",
+    radius: "28"
+  }
+},
+{
+  type: "text",
+  id: "more_suites_heading_t2",
+  parent: "more_suites_wrap_t2",
+  x: 70,
+  y: 1415,
+  w: 420,
+  h: 40,
+  z: 2,
+  data: {
+    type: "text",
+    name: "More Suites Heading",
+    text: "More Available Suites",
+    fontSize: "32",
+    color: "#171717",
+    bold: "1",
+    align: "left"
+  }
+},
+{
+  type: "text",
+  id: "more_suites_label_t2",
+  parent: "more_suites_wrap_t2",
+  x: 1080,
+  y: 1420,
+  w: 220,
+  h: 24,
+  z: 2,
+  data: {
+    type: "text",
+    name: "More Suites Label",
+   
+    fontSize: "13",
+    color: "#6b6258",
+    bold: "0",
+    align: "right"
+  }
+},
+{
+  type: "group",
+  id: "more_suites_group_t2",
+  parent: "",
+  x: 30,
+  y: 1500,
+  w: 1320,
+  h: 500,
+  z: 1,
+  data: {
+    type: "group",
+    name: "More Suites Group",
+    bg: "transparent",
+    bgOn: "0",
+    borderOn: "0",
+    radius: "0",
+    dynamicMode: "dynamic",
+    dynamicSource: "page",
+    bindMode: "list",
+    dynamicField: "Suites"
+  }
+}
+        ]
+      },
+                                           //Template 2 Mobile
+    //Template 2 Mobile
+mobile: {
+  items: [
+    {
+      type: "header",
+      id: "header_t2_mobile",
+      parent: "",
+      x: 0,
+      y: 0,
+      w: 390,
+      h: 90,
+      z: 9999,
+      data: {
+        type: "header",
+        name: "Header",
+        bg: "#ffffff",
+        bgOn: "1",
+        locked: "1"
+      }
+    },
+    {
+      type: "section",
+      id: "hero_wrap_t2_mobile",
+      parent: "",
+      x: 10,
+      y: 100,
+      w: 370,
+      h: 420,
+      z: 1,
+      data: {
+        type: "section",
+        name: "Hero Wrap",
+        bg: "#efe7dc",
+        bgOn: "1",
+        borderOn: "0",
+        radius: "28"
+      }
+    },
+    {
+      type: "image",
+      id: "hero_image_t2_mobile",
+      parent: "hero_wrap_t2_mobile",
+      x: 10,
+      y: 100,
+      w: 370,
+      h: 420,
+      z: 2,
+      data: {
+        type: "image",
+        name: "Hero Image",
+        dynamicMode: "dynamic",
+        dynamicSource: "page",
+        dynamicField: "Location Photo",
+        fit: "cover",
+        radius: "28"
+      }
+    },
+    {
+      type: "text",
+      id: "hero_title_t2_mobile",
+      parent: "hero_wrap_t2_mobile",
+      x: 30,
+      y: 380,
+      w: 300,
+      h: 60,
+      z: 3,
+      data: {
+        type: "text",
+        name: "Hero Title",
+        text: "Location",
+        fontSize: "42",
+        color: "#ffffff",
+        bold: "1",
+        align: "left"
+      }
+    },
+    {
+      type: "text",
+      id: "hero_about_t2_mobile",
+      parent: "hero_wrap_t2_mobile",
+      x: 30,
+      y: 450,
+      w: 300,
+      h: 60,
+      z: 3,
+      data: {
+        type: "text",
+        name: "Hero About",
+        text: "Refined suite experience.",
+        fontSize: "16",
+        color: "#ffffff",
+        bold: "0",
+        align: "left"
+      }
+    },
+    {
+      type: "section",
+      id: "featured_suite_card_t2_mobile",
+      parent: "",
+      x: 10,
+      y: 560,
+      w: 370,
+      h: 380,
+      z: 1,
+      data: {
+        type: "section",
+        name: "Featured Suite Card",
+        bg: "#ffffff",
+        bgOn: "1",
+        borderOn: "1",
+        borderWidth: "1",
+        borderStyle: "solid",
+        borderColor: "rgba(0,0,0,0.08)",
+        radius: "28"
+      }
+    },
+    {
+      type: "text",
+      id: "featured_suite_label_t2_mobile",
+      parent: "featured_suite_card_t2_mobile",
+      x: 30,
+      y: 600,
+      w: 180,
+      h: 24,
+      z: 2,
+      data: {
+        type: "text",
+        name: "Featured Suite Label",
+        text: "Featured Suite",
+        fontSize: "12",
+        color: "#b88a58",
+        bold: "0",
+        align: "left"
+      }
+    },
+    {
+      type: "text",
+      id: "featured_suite_title_t2_mobile",
+      parent: "featured_suite_card_t2_mobile",
+      x: 30,
+      y: 640,
+      w: 260,
+      h: 60,
+      z: 2,
+      data: {
+        type: "text",
+        name: "Featured Suite Title",
+        text: "Suite Name",
+        fontSize: "34",
+        color: "#171717",
+        bold: "1",
+        align: "left"
+      }
+    },
+    {
+      type: "text",
+      id: "featured_suite_date_t2_mobile",
+      parent: "featured_suite_card_t2_mobile",
+      x: 30,
+      y: 720,
+      w: 220,
+      h: 24,
+      z: 2,
+      data: {
+        type: "text",
+        name: "Featured Suite Date",
+        text: "Available Jan 5, 2026",
+        fontSize: "15",
+        color: "#6b6258",
+        bold: "0",
+        align: "left"
+      }
+    },
+    {
+      type: "text",
+      id: "featured_suite_rate_t2_mobile",
+      parent: "featured_suite_card_t2_mobile",
+      x: 30,
+      y: 760,
+      w: 220,
+      h: 34,
+      z: 2,
+      data: {
+        type: "text",
+        name: "Featured Suite Rate",
+        text: "$23 / weekly",
+        fontSize: "26",
+        color: "#171717",
+        bold: "1",
+        align: "left"
+      }
+    },
+    {
+      type: "button",
+      id: "featured_suite_btn_t2_mobile",
+      parent: "featured_suite_card_t2_mobile",
+      x: 30,
+      y: 840,
+      w: 150,
+      h: 48,
+      z: 2,
+      data: {
+        type: "button",
+        name: "Featured Suite Button",
+        label: "View Suite",
+        btnBg: "#171717",
+        btnTextColor: "#ffffff",
+        borderWidth: "0",
+        borderColor: "#171717",
+        borderStyle: "solid",
+        radius: "999"
+      }
+    },
+    //More Available Suites Card
+    {
+  type: "section",
+  id: "more_suites_wrap_t2_mobile",
+  parent: "",
+  x: 10,
+  y: 960,
+  w: 370,
+  h: 380,
+  z: 1,
+  data: {
+    type: "section",
+    name: "More Suites Wrap",
+    bg: "#ffffff",
+    bgOn: "1",
+    borderOn: "1",
+    borderWidth: "1",
+    borderStyle: "solid",
+    borderColor: "rgba(0,0,0,0.08)",
+    radius: "28"
+  }
+},
+   {
+  type: "text",
+  id: "more_suites_heading_t2_mobile",
+  parent: "more_suites_wrap_t2_mobile",
+  x: 30,
+  y: 995,
+  w: 260,
+  h: 60,
+  z: 2,
+  data: {
+    type: "text",
+    name: "More Suites Heading",
+    text: "More Available Suites",
+    fontSize: "26",
+    color: "#171717",
+    bold: "1",
+    align: "left"
+  }
+},
+    {
+      type: "text",
+      id: "more_suites_label_t2_mobile",
+      parent: "",
+      x: 20,
+      y: 1040,
+      w: 180,
+      h: 22,
+      z: 1,
+      data: {
+        type: "text",
+        name: "More Suites Label",
+       
+        fontSize: "12",
+        color: "#6b6258",
+        bold: "0",
+        align: "left"
+      }
+    },
+    {
+      type: "group",
+      id: "more_suites_group_t2_mobile",
+      parent: "",
+      x: 10,
+      y: 1080,
+      w: 370,
+      h: 900,
+      z: 1,
+      data: {
+        type: "group",
+        name: "More Suites Group",
+        bg: "transparent",
+        bgOn: "0",
+        borderOn: "0",
+        radius: "0",
+        dynamicMode: "dynamic",
+        dynamicSource: "page",
+        bindMode: "list",
+        dynamicField: "Suites"
+      }
+    }
+  ]
+}
+
+    }
+  }
+},
+
+  custom: {
+    currentView: "default",
+    views: {
+      default: {
+        name: "Default View",
+        desktop: { items: [] },
+        mobile: { items: [] }
+      }
+    }
+  }
+};
+
+function cloneTemplateStarter(templateKey) {
+  const starter = TEMPLATE_STARTERS[templateKey] || TEMPLATE_STARTERS.default;
+  return JSON.parse(JSON.stringify(starter));
+}
+
+
+function getTemplateJsonFieldName(templateKey) {
+  if (templateKey === "default") return "Default Template JSON";
+  if (templateKey === "template1") return "Template 1 JSON";
+  if (templateKey === "template2") return "Template 2 JSON";
+  return "Custom Page JSON";
+}
+
+
+
+//Adding Templates 
+const tplTemplateSelect = document.getElementById("tpl-template-select");
+
+tplTemplateSelect?.addEventListener("change", async function () {
+  const selectedTemplate = this.value || "default";
+
+  console.log("[builder] template dropdown changed:", selectedTemplate);
+
+  window.TPL_SELECTED_TEMPLATE = selectedTemplate;
+
+  const pageRecordEl = document.getElementById("tpl-page-record");
+  const hasPageSelected = !!pageRecordEl?.value;
+
+  if (hasPageSelected) {
+    await loadTemplateFromDatabase();
+    return;
+  }
+
+  const starter = cloneTemplateStarter(selectedTemplate);
+
+  pageViews = starter.views || {
+    default: {
+      name: "Default View",
+      desktop: { items: [] },
+      mobile: { items: [] }
+    }
+  };
+
+  currentViewKey = starter.currentView || "default";
+
+  if (!pageViews[currentViewKey]) {
+    currentViewKey = Object.keys(pageViews)[0] || "default";
+  }
+
+  rebuildViewDropdown();
+  await loadViewIntoCanvas(currentViewKey);
+});
+
+
+//Create template loader
+
+
+tplTemplateSelect?.addEventListener("change", async function () {
+ const selectedTemplate = this.value || "default";
+
+  console.log("[builder] template dropdown changed:", selectedTemplate);
+
+  window.TPL_SELECTED_TEMPLATE = selectedTemplate;
+
+  const pageRecordEl = document.getElementById("tpl-page-record");
+  const hasPageSelected = !!pageRecordEl?.value;
+
+  if (hasPageSelected) {
+    await loadTemplateFromDatabase();
+    return;
+  }
+
+  const starter = cloneTemplateStarter(selectedTemplate);
+
+  pageViews = starter.views || {
+    default: {
+      name: "Default View",
+      desktop: { items: [] },
+      mobile: { items: [] }
+    }
+  };
+
+  currentViewKey = starter.currentView || "default";
+
+  if (!pageViews[currentViewKey]) {
+    currentViewKey = Object.keys(pageViews)[0] || "default";
+  }
+
+  rebuildViewDropdown();
+  await loadViewIntoCanvas(currentViewKey);
+});
                                              // =======================
                                             // STEP 1: DRAGSTART PICKUP
                                              //Do not Change
@@ -1383,16 +3955,6 @@ let imgPan = null;
     e.preventDefault();
     e.dataTransfer.dropEffect = "copy";
   });
-
-
-
-
-
-
-
-
-
-
                                                // =======================
                                             // STEP 2: DropArea
                                              //
@@ -1447,15 +4009,26 @@ if (!droppingInsideHeader) {
   if (type === "popup") el = makePopupEl({ x, y });
   if (type === "input") el = makeInputEl({ x, y });
   if (type === "video") el = makeVideoEl({ x, y });
+ if (type === "shape") el = makeShapeEl({ x, y, shapeType: "circle", w: 120, h: 120 });
+if (type === "background") {
+  const header = grid.querySelector(".da-item.da-header");
+  const headerBottom = header ? header.offsetHeight : 90;
 
+  el = makeBackgroundEl({
+    x: 0,
+    y: headerBottom,
+    w: grid.clientWidth,
+    h: 600
+  });
 
-
+  el.dataset.autoHeight = "1";
+  el.style.left = "0px";
+  el.style.width = `${grid.clientWidth}px`;
+}
 if (type === "header") {
   addLockedHeaderAt({ x, y });
   return;
 }
-
-
 
 
 if (!el) return;
@@ -1468,7 +4041,8 @@ if (
    type === "input" ||
    type === "section" ||
    type === "group" ||
-   type === "popup") &&
+   type === "popup" ||
+   type === "shape") &&
   parentContainer
 )
 {
@@ -1478,7 +4052,11 @@ if (
 
 grid.appendChild(el);
 
-if (el.dataset.type === "section") {
+if (
+  el.dataset.type === "section" ||
+  el.dataset.type === "shape" ||
+  el.dataset.type === "background"
+) {
   clampElToCanvasBounds(el);
 }
 
@@ -1494,6 +4072,7 @@ if (el.dataset.type === "popup") {
 
 grid.querySelector(".tpl-dropArea__label")?.remove();
 trimCanvasHeight();
+syncAutoBackgrounds();
 });
 
 
@@ -1514,6 +4093,16 @@ grid.addEventListener("click", (e) => {
 
   const src = (item.dataset.src || "").trim();
   if (!src) return;
+
+  //Button Clicks
+grid.addEventListener("click", (e) => {
+  const btn = e.target.closest('.da-item[data-type="button"]');
+  if (!btn) return;
+
+  if (!window.TPL_PREVIEW) return;
+
+  handleButtonAction(btn);
+});
 
  // previewModal.querySelector("img").src = src;
   //previewModal.classList.add("is-open");
@@ -1596,7 +4185,23 @@ window.selectedItem = item;
 
 // ✅ if you clicked a tab inside a group, drag the group instead
 // ✅ exact clicked item should drag itself
-const dragEl = item;
+let dragEl = item;
+
+// if user clicks an image inside a section/group, drag the parent container instead
+if (item.dataset.type === "image" && item.dataset.parent) {
+  const parentEl = grid.querySelector(`.da-item[data-id="${item.dataset.parent}"]`);
+
+  if (
+    parentEl &&
+    (
+      parentEl.dataset.type === "section" ||
+      parentEl.dataset.type === "group" ||
+      parentEl.dataset.type === "popup"
+    )
+  ) {
+    dragEl = parentEl;
+  }
+}
 
 
 // ✅ CLICKED EMPTY SPACE = UNSELECT
@@ -1661,37 +4266,62 @@ if (root?.classList.contains("is-collapsed")) {
   // ✅ RULE:
   // first click selects only. second click/drag actually drags.
 // ✅ Sections drag immediately, everything else still needs select-then-drag
-if (
-  !wasSelected &&
-  item.dataset.type !== "section" &&
-  item.dataset.type !== "group" &&
-  item.dataset.type !== "popup"
-) return;
+// first click = select only for everything
+if (!wasSelected) {
+  e.preventDefault();
+  return;
+}
 
 e.preventDefault();
 document.body.style.userSelect = "none";
 
-const rect = dragEl.getBoundingClientRect();
-const gridRect = grid.getBoundingClientRect();
+const kids = getChildrenDeep(dragEl);
+const hasChildren = kids.length > 0;
+const hasParent = !!dragEl.dataset.parent;
 
-const startLeft = rect.left - gridRect.left + grid.scrollLeft;
-const startTop  = rect.top  - gridRect.top  + grid.scrollTop;
+const shouldUseCanvasCoords =
+  hasParent ||
+  hasChildren ||
+  dragEl.dataset.type === "group" ||
+  dragEl.dataset.type === "popup" ||
+  dragEl.dataset.type === "header" ||
+  dragEl.dataset.type === "shape";
+
+let startLeft, startTop;
+
+if (shouldUseCanvasCoords) {
+  startLeft = parseFloat(dragEl.style.left) || 0;
+  startTop = parseFloat(dragEl.style.top) || 0;
+} else {
+  const rect = dragEl.getBoundingClientRect();
+  const gridRect = grid.getBoundingClientRect();
+
+  startLeft = rect.left - gridRect.left + grid.scrollLeft;
+  startTop = rect.top - gridRect.top + grid.scrollTop;
+}
 
 let childrenStart = null;
 if (
   dragEl.dataset.type === "section" ||
   dragEl.dataset.type === "header" ||
   dragEl.dataset.type === "group" ||
-  dragEl.dataset.type === "popup"
+  dragEl.dataset.type === "popup" ||
+  dragEl.dataset.type === "shape"
 ) {
-  const kids = getChildrenDeep(dragEl);
-
   childrenStart = kids.map((k) => ({
     el: k,
     left: parseFloat(k.style.left) || 0,
     top: parseFloat(k.style.top) || 0,
   }));
 }
+
+console.log("[drag start about to happen]", {
+  id: dragEl?.dataset?.id,
+  type: dragEl?.dataset?.type,
+  wasSelected,
+  startLeft,
+  startTop
+});
 
 active = {
   el: dragEl,
@@ -1700,9 +4330,10 @@ active = {
   startLeft,
   startTop,
   childrenStart,
+  hasStartedDrag: false,
 };
 
-dragEl.classList.add("is-dragging");
+dragEl.classList.remove("is-dragging");
 
 });
 
@@ -1844,8 +4475,24 @@ clampElToCanvasBounds(r.el);
 
 if (!active) return;
 
-    const dx = e.clientX - active.startX;
-    const dy = e.clientY - active.startY;
+console.log("[mousemove active]", {
+  id: active?.el?.dataset?.id,
+  type: active?.el?.dataset?.type,
+  startLeft: active?.startLeft,
+  startTop: active?.startTop
+});
+
+const dx = e.clientX - active.startX;
+const dy = e.clientY - active.startY;
+
+const DRAG_THRESHOLD = 6;
+if (!active.hasStartedDrag) {
+  if (Math.abs(dx) < DRAG_THRESHOLD && Math.abs(dy) < DRAG_THRESHOLD) {
+    return;
+  }
+  active.hasStartedDrag = true;
+  active.el.classList.add("is-dragging");
+}
 
   let nextLeft = active.startLeft + dx;
 let nextTop  = active.startTop + dy;
@@ -1928,6 +4575,11 @@ window.addEventListener("mouseup", () => {
       }
     }
 
+        // ✅ if user manually resized a background, stop auto height
+    if (resizeActive?.el?.dataset?.type === "background") {
+      resizeActive.el.dataset.autoHeight = "0";
+    }
+
     resizeActive = null;
     trimCanvasHeight();
     return;
@@ -1939,12 +4591,78 @@ window.addEventListener("mouseup", () => {
   active.el.classList.remove("is-dragging");
   active = null;
   trimCanvasHeight();
+  syncAutoBackgrounds();
 });
 
 
 
 
+//Reset Template 
+async function resetTemplateToDefault() {
+  try {
+    const locationId = getSelectedPageId();
+    if (!locationId) {
+      alert("Please select a page first.");
+      return;
+    }
 
+    const selectedTemplate =
+      tplTemplateSelect?.value ||
+      getBuilderLaunchParams().templateKey ||
+      "custom";
+
+    const confirmed = window.confirm(
+      `Reset ${selectedTemplate} back to its default layout?\n\nThis cannot be undone.`
+    );
+
+    if (!confirmed) return;
+
+    const starter = cloneTemplateStarter(selectedTemplate);
+    const jsonFieldName = getTemplateJsonFieldName(selectedTemplate);
+
+    const values = {
+      "Selected Template": selectedTemplate,
+      [jsonFieldName]: JSON.stringify(starter),
+    };
+
+    const res = await apiFetch(`/api/records/Location/${encodeURIComponent(locationId)}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({ values }),
+    });
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      throw new Error(data?.message || "Failed to reset template");
+    }
+
+    pageViews = starter.views || {
+      default: {
+        name: "Default View",
+        desktop: { items: [] },
+        mobile: { items: [] }
+      }
+    };
+
+    currentViewKey = starter.currentView || "default";
+
+    if (!pageViews[currentViewKey]) {
+      currentViewKey = Object.keys(pageViews)[0] || "default";
+    }
+
+    rebuildViewDropdown();
+    await loadViewIntoCanvas(currentViewKey);
+
+    alert("Template reset to default.");
+  } catch (err) {
+    console.error("[builder] reset template error:", err);
+    alert(err?.message || "Failed to reset template.");
+  }
+}
 
 
 
@@ -2023,12 +4741,26 @@ floatingBar.innerHTML = `
     <option value="contain">Contain</option>
   </select>
 
+<div class="da-imgPositionControls">
+  <button type="button" class="da-imgMoveBtn" data-move="up">↑</button>
+  <button type="button" class="da-imgMoveBtn" data-move="left">←</button>
+  <button type="button" class="da-imgMoveBtn" data-move="right">→</button>
+  <button type="button" class="da-imgMoveBtn" data-move="down">↓</button>
+
+  <input class="da-imgPosX" type="range" min="0" max="100" step="1" value="50" />
+  <input class="da-imgPosY" type="range" min="0" max="100" step="1" value="50" />
+</div>
+
   <input class="da-imgZoom" type="range" min="0.2" max="3" step="0.05" value="1" />
 
   <input class="da-imgBorderW" type="number" min="0" max="20" step="1" value="0" title="Border width" aria-label="Border width" />
   <input class="da-imgBorderC" type="color" value="#111111" title="Border color" aria-label="Border color" />
   <input class="da-imgRadius" type="number" min="0" max="120" step="1" value="12" title="Border radius" aria-label="Border radius" />
-</div>
+
+
+  </div>
+
+
 
 <!-- ✅ Video Controls  -->
 <div class="da-videoControls" style="display:none">
@@ -2275,6 +5007,89 @@ floatingBar.innerHTML = `
 </div>
 
 
+<!-- ✅ Shape Controls -->
+<div class="da-shapeControls" style="display:none">
+  <select class="da-shape__type" aria-label="Shape type">
+    <option value="rectangle">Rectangle</option>
+    <option value="circle">Circle</option>
+    <option value="pill">Pill</option>
+  </select>
+
+  <input class="da-shape__bg" type="color" value="#d9d9d9" aria-label="Shape color" />
+
+  <label>
+    <input class="da-shape__bgOn" type="checkbox" checked />
+    Fill
+  </label>
+
+  <label>
+    <input class="da-shape__borderOn" type="checkbox" />
+    Border
+  </label>
+
+  <input class="da-shape__borderWidth" type="number" min="0" max="20" step="1" value="2" aria-label="Border width" />
+  <input class="da-shape__borderColor" type="color" value="#111111" aria-label="Border color" />
+
+  <select class="da-shape__borderStyle" aria-label="Border style">
+    <option value="solid">Solid</option>
+    <option value="dashed">Dashed</option>
+    <option value="dotted">Dotted</option>
+    <option value="none">None</option>
+  </select>
+
+  <input class="da-shape__radius" type="number" min="0" max="200" step="1" value="0" aria-label="Corner radius" />
+</div>
+
+
+<!-- ✅ Background Controls -->
+<div class="da-backgroundControls" style="display:none">
+
+  <select class="da-background__mode" aria-label="Background mode">
+    <option value="color">Color</option>
+    <option value="image">Image</option>
+    <option value="video">Video</option>
+  </select>
+
+ 
+
+  <input class="da-background__color" type="color" value="#ffffff" aria-label="Background color" />
+
+  <button type="button" class="da-backgroundPickBtn">🖼️</button>
+  <input class="da-backgroundFile" type="file" accept="image/*" style="display:none" />
+
+  <button type="button" class="da-backgroundVideoPickBtn">🎥</button>
+  <input class="da-backgroundVideoFile" type="file" accept="video/*" style="display:none" />
+
+  <select class="da-background__fit" aria-label="Background fit">
+    <option value="cover">Cover</option>
+    <option value="contain">Contain</option>
+  </select>
+
+     <div class="da-backgroundPositionControls">
+  <button type="button" class="da-backgroundMoveBtn" data-move="up">↑</button>
+  <button type="button" class="da-backgroundMoveBtn" data-move="left">←</button>
+  <button type="button" class="da-backgroundMoveBtn" data-move="right">→</button>
+  <button type="button" class="da-backgroundMoveBtn" data-move="down">↓</button>
+
+  <input class="da-backgroundPosX" type="range" min="0" max="100" step="1" value="50" />
+  <input class="da-backgroundPosY" type="range" min="0" max="100" step="1" value="50" />
+</div>
+
+  <input class="da-background__radius" type="number" min="0" max="200" step="1" value="0" aria-label="Corner radius" />
+
+  <input class="da-background__opacity" type="range" min="0" max="1" step="0.05" value="1" aria-label="Opacity" />
+
+  <label>
+    <input class="da-background__bgOn" type="checkbox" checked />
+    Show BG
+  </label>
+  <br>
+
+
+</div>
+
+
+
 <!-- ✅ Section border controls (only for sections) -->
 <input class="da-secBorder__radius" type="number" min="0" max="200" step="1" value="0" title="Corner radius" aria-label="Corner radius" />
 
@@ -2306,19 +5121,104 @@ floatingBar.innerHTML = `
 
 grid.appendChild(floatingBar);
 
+const bgWrap = floatingBar.querySelector(".da-backgroundControls");
+const bgModeEl = floatingBar.querySelector(".da-background__mode");
+const bgColorEl = floatingBar.querySelector(".da-background__color");
+const bgPickBtn = floatingBar.querySelector(".da-backgroundPickBtn");
+const bgFileEl = floatingBar.querySelector(".da-backgroundFile");
+const bgVideoPickBtn = floatingBar.querySelector(".da-backgroundVideoPickBtn");
+const bgVideoFileEl = floatingBar.querySelector(".da-backgroundVideoFile");
+const bgFitEl = floatingBar.querySelector(".da-background__fit");
+const bgRadiusEl = floatingBar.querySelector(".da-background__radius");
+const bgOpacityEl = floatingBar.querySelector(".da-background__opacity");
+const bgOnEl = floatingBar.querySelector(".da-background__bgOn");
+
+const bgPosXEl = floatingBar.querySelector(".da-backgroundPosX");
+const bgPosYEl = floatingBar.querySelector(".da-backgroundPosY");
+const bgMoveBtns = floatingBar.querySelectorAll(".da-backgroundMoveBtn");
+
 const btnBgToggleEl = floatingBar.querySelector(".da-btn__bgToggle");
 
+const imgPosXEl = floatingBar.querySelector(".da-imgPosX");
+const imgPosYEl = floatingBar.querySelector(".da-imgPosY");
+const imgMoveBtns = floatingBar.querySelectorAll(".da-imgMoveBtn");
 // ✅ start hidden until an element is selected
 floatingBar.style.display = "none";
 
+//Image
+
+//move image 
+function getMovedPosition(move, currentX, currentY) {
+  const stepX = 10;
+  const stepY = 10;
+
+  let x = Number(currentX ?? 50);
+  let y = Number(currentY ?? 50);
+
+  if (move === "left") x = Math.max(0, x - stepX);
+  if (move === "right") x = Math.min(100, x + stepX);
+  if (move === "up") y = Math.max(0, y - stepY);
+  if (move === "down") y = Math.min(100, y + stepY);
+
+  return { x, y };
+}
+function applyImagePosition(item) {
+  if (!item || item.dataset.type !== "image") return;
+
+  const img = item.querySelector(".da-img");
+  if (!img) return;
+
+  const posX = parseFloat(item.dataset.posX || "50");
+  const posY = parseFloat(item.dataset.posY || "50");
+
+  img.style.objectFit = item.dataset.fit || "cover";
+  img.style.objectPosition = `${posX}% ${posY}%`;
+}
 
 
+//Image Listeners
+imgPosXEl?.addEventListener("input", () => {
+  if (!selectedItem || selectedItem.dataset.type !== "image") return;
+  selectedItem.dataset.posX = imgPosXEl.value;
+  applyImagePosition(selectedItem);
+});
 
+imgPosYEl?.addEventListener("input", () => {
+  if (!selectedItem || selectedItem.dataset.type !== "image") return;
+  selectedItem.dataset.posY = imgPosYEl.value;
+  applyImagePosition(selectedItem);
+});
 
+imgMoveBtns.forEach((btn) => {
+  btn.addEventListener("click", () => {
+    if (!selectedItem || selectedItem.dataset.type !== "image") return;
 
+    const { x, y } = getMovedPosition(
+      btn.dataset.move,
+      selectedItem.dataset.posX,
+      selectedItem.dataset.posY
+    );
 
+    selectedItem.dataset.posX = String(x);
+    selectedItem.dataset.posY = String(y);
 
+    if (imgPosXEl) imgPosXEl.value = String(x);
+    if (imgPosYEl) imgPosYEl.value = String(y);
 
+    applyImagePosition(selectedItem);
+
+    console.log("[image move]", {
+      move: btn.dataset.move,
+      x,
+      y
+    });
+  });
+});
+
+if (selectedItem && selectedItem.dataset.type === "image") {
+  if (imgPosXEl) imgPosXEl.value = selectedItem.dataset.posX ?? "50";
+  if (imgPosYEl) imgPosYEl.value = selectedItem.dataset.posY ?? "50";
+}
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////  
 //Elements
@@ -2333,11 +5233,344 @@ floatingBar.style.display = "none";
 //Add New Element
 //////////
 
+                                             //////////
+                                         // Background Element
+                                        //////// ////
+function makeBackgroundEl({ x = 0, y = 90, w = grid.clientWidth, h = 600, title = "Background" }) {
+  const el = document.createElement("div");
+  el.className = "da-item da-item--background";
+  el.dataset.type = "background";
+  el.dataset.id = uid("background");
+  el.dataset.name = title || "Background";
+
+  el.dataset.bgMode = el.dataset.bgMode || "color"; // color | image | video
+  el.dataset.bg = el.dataset.bg || "#ffffff";
+  el.dataset.bgOn = el.dataset.bgOn || "1";
+  el.dataset.radius = el.dataset.radius || "0";
+
+  el.dataset.src = el.dataset.src || "";       // image src
+  el.dataset.videoSrc = el.dataset.videoSrc || ""; // video src
+  el.dataset.fit = el.dataset.fit || "cover";
+  el.dataset.opacity = el.dataset.opacity || "1";
+  el.dataset.autoHeight = el.dataset.autoHeight || "1";
+
+  el.dataset.posX = el.dataset.posX || "50";
+  el.dataset.posY = el.dataset.posY || "50";
+
+  el.style.left = `${Math.round(x)}px`;
+  el.style.top = `${Math.round(y)}px`;
+  el.style.width = `${Math.round(w)}px`;
+  el.style.height = `${Math.round(h)}px`;
+  el.style.zIndex = "0";
+
+  el.innerHTML = `
+    <div class="da-background__media"></div>
+
+    <div class="da-resize da-resize--nw" data-resize="nw"></div>
+    <div class="da-resize da-resize--n"  data-resize="n"></div>
+    <div class="da-resize da-resize--ne" data-resize="ne"></div>
+    <div class="da-resize da-resize--w"  data-resize="w"></div>
+    <div class="da-resize da-resize--e"  data-resize="e"></div>
+    <div class="da-resize da-resize--sw" data-resize="sw"></div>
+    <div class="da-resize da-resize--s"  data-resize="s"></div>
+    <div class="da-resize da-resize--se" data-resize="se"></div>
+  `;
+
+  renderBackgroundContent(el);
+  return el;
+}
+
+function renderBackgroundContent(el) {
+  if (!el || el.dataset.type !== "background") return;
+
+  const media = el.querySelector(".da-background__media");
+  if (!media) return;
+
+  const mode = el.dataset.bgMode || "color";
+  const radius = parseInt(el.dataset.radius || "0", 10);
+  const opacity = parseFloat(el.dataset.opacity || "1");
+
+  el.style.borderRadius = `${radius}px`;
+  el.style.overflow = "hidden";
+
+  media.innerHTML = "";
+  media.style.position = "absolute";
+  media.style.inset = "0";
+  media.style.borderRadius = `${radius}px`;
+  media.style.opacity = String(opacity);
+
+  if (mode === "color") {
+    media.style.background = el.dataset.bg || "#ffffff";
+    media.style.backgroundImage = "";
+  }
+
+if (mode === "image") {
+  const x = Number(el.dataset.posX ?? 50);
+  const y = Number(el.dataset.posY ?? 50);
+
+  media.style.background = "transparent";
+  media.style.backgroundImage = `url("${el.dataset.src || ""}")`;
+  media.style.backgroundSize = "120% 120%";
+  media.style.backgroundPosition = `${x}% ${y}%`;
+  media.style.backgroundRepeat = "no-repeat";
+}
+
+  if (mode === "video") {
+    media.style.background = "transparent";
+    media.innerHTML = `<video class="da-background__video" autoplay muted loop playsinline></video>`;
+    const video = media.querySelector("video");
+if (video) {
+  const x = Number(el.dataset.posX ?? 50);
+  const y = Number(el.dataset.posY ?? 50);
+
+  video.src = el.dataset.videoSrc || "";
+  video.style.width = "100%";
+  video.style.height = "100%";
+  video.style.objectFit = el.dataset.fit || "cover";
+  video.style.objectPosition = `${x}% ${y}%`;
+  video.style.display = "block";
+}
+  }
+}
+
+function syncAutoBackgrounds() {
+    const grid = document.getElementById("dropAreaInner");
+  if (!grid) return;
+
+  const header = grid.querySelector(".da-item.da-header");
+  const headerBottom = header ? header.offsetHeight : 90;
+
+  const allItems = [...grid.querySelectorAll(".da-item")];
+  const backgrounds = allItems.filter(el => el.dataset.type === "background");
+
+  backgrounds.forEach((bg) => {
+    if (bg.dataset.autoHeight !== "1") return;
+
+    const bgTop = headerBottom;
+
+    // everything except this background and header
+    const contentItems = allItems.filter((el) => {
+      return el !== bg && el.dataset.type !== "header";
+    });
+
+    let maxBottom = bgTop + 400; // minimum fallback height
+
+    contentItems.forEach((el) => {
+      if (el.style.display === "none") return;
+
+      const top = parseFloat(el.style.top) || 0;
+      const height = el.offsetHeight || parseFloat(el.style.height) || 0;
+      const bottom = top + height;
+
+      if (bottom > maxBottom) {
+        maxBottom = bottom;
+      }
+    });
+
+    // optional bottom padding
+    const paddingBottom = 40;
+
+    bg.style.left = "0px";
+    bg.style.top = `${bgTop}px`;
+    bg.style.width = `${grid.clientWidth}px`;
+    bg.style.height = `${Math.max(200, maxBottom - bgTop + paddingBottom)}px`;
+  });
+}
+
+function applyBackgroundPosition(item) {
+  if (!item || item.dataset.type !== "background") return;
+
+  const x = Number(item.dataset.posX ?? 50);
+  const y = Number(item.dataset.posY ?? 50);
+
+  const media = item.querySelector(".da-background__media");
+  if (!media) return;
+
+  if ((item.dataset.bgMode || "color") === "image") {
+    media.style.backgroundPosition = `${x}% ${y}%`;
+  }
+
+  if ((item.dataset.bgMode || "color") === "video") {
+    const video = media.querySelector("video");
+    if (video) {
+      video.style.objectFit = item.dataset.fit || "cover";
+      video.style.objectPosition = `${x}% ${y}%`;
+    }
+  }
+}
+//Background Listeners
+bgMoveBtns.forEach((btn) => {
+  btn.addEventListener("click", () => {
+    if (!selectedItem || selectedItem.dataset.type !== "background") return;
+
+    const { x, y } = getMovedPosition(
+      btn.dataset.move,
+      selectedItem.dataset.posX,
+      selectedItem.dataset.posY
+    );
+
+    selectedItem.dataset.posX = String(x);
+    selectedItem.dataset.posY = String(y);
+
+    if (bgPosXEl) bgPosXEl.value = String(x);
+    if (bgPosYEl) bgPosYEl.value = String(y);
+
+    renderBackgroundContent(selectedItem);
+    applyBackgroundPosition(selectedItem);
+
+    console.log("[background move]", {
+      move: btn.dataset.move,
+      x,
+      y
+    });
+  });
+});
+
+
+bgPosXEl?.addEventListener("input", () => {
+  if (!selectedItem || selectedItem.dataset.type !== "background") return;
+  selectedItem.dataset.posX = bgPosXEl.value;
+  renderBackgroundContent(selectedItem);
+  applyBackgroundPosition(selectedItem);
+});
+
+bgPosYEl?.addEventListener("input", () => {
+  if (!selectedItem || selectedItem.dataset.type !== "background") return;
+  selectedItem.dataset.posY = bgPosYEl.value;
+  renderBackgroundContent(selectedItem);
+  applyBackgroundPosition(selectedItem);
+});
+  ////////////////////////////////////////                                      
+//Make Elements from Template 
+function makeElementFromSavedItem(item) {
+  const type = item?.type || item?.data?.type || "text";
+
+  let el = null;
+
+  if (type === "section") el = makeSectionEl({ x: item.x, y: item.y, w: item.w, h: item.h });
+  else if (type === "group") el = makeGroupEl({ x: item.x, y: item.y, w: item.w, h: item.h });
+  else if (type === "text") el = makeTextEl({ x: item.x, y: item.y, w: item.w, h: item.h });
+  else if (type === "image") el = makeImageEl({ x: item.x, y: item.y, w: item.w, h: item.h });
+  else if (type === "button") el = makeButtonEl({ x: item.x, y: item.y, w: item.w, h: item.h });
+  else if (type === "popup") el = makePopupEl({ x: item.x, y: item.y, w: item.w, h: item.h });
+  else if (type === "input") el = makeInputEl({ x: item.x, y: item.y, w: item.w, h: item.h });
+  else if (type === "video") el = makeVideoEl({ x: item.x, y: item.y, w: item.w, h: item.h });
+  else if (type === "shape") el = makeShapeEl({ x: item.x, y: item.y, w: item.w, h: item.h });
+ else if (type === "background") el = makeBackgroundEl({ x: item.x, y: item.y, w: item.w, h: item.h });
+  if (!el) return null;
+
+  el.dataset.type = type;
+  el.dataset.id = item.id || crypto.randomUUID();
+  el.dataset.parent = item.parent || "";
+
+  return el;
+}
+
+function applySavedItemData(el, item) {
+  const data = item?.data || {};
+
+  Object.entries(data).forEach(([key, value]) => {
+    if (value == null) return;
+    el.dataset[key] = String(value);
+  });
+
+  el.dataset.type = item.type || data.type || el.dataset.type || "";
+  el.style.left = `${item.x || 0}px`;
+  el.style.top = `${item.y || 0}px`;
+  el.style.width = `${item.w || el.offsetWidth || 0}px`;
+  el.style.height = `${item.h || el.offsetHeight || 0}px`;
+  el.style.zIndex = String(item.z || 1);
+
+  if (el.dataset.type === "background") {
+    renderBackgroundContent(el);
+    applyBackgroundPosition(el);
+  }
+}
+
+  //Shape Element
+
+function makeShapeEl({ x, y, w = 140, h = 140, title = "Shape", shapeType = "rectangle" } = {}) {
+  const el = document.createElement("div");
+  el.className = "da-item da-item--shape";
+
+  el.dataset.type = "shape";
+  el.dataset.id = uid("shape");
+  el.dataset.name = title || "Shape";
+  el.dataset.parent = "";
+
+  el.dataset.shapeType = shapeType || "rectangle";
+  el.dataset.bg = "#d9d9d9";
+  el.dataset.bgOn = "1";
+
+  el.dataset.borderOn = "0";
+  el.dataset.borderWidth = "2";
+  el.dataset.borderStyle = "solid";
+  el.dataset.borderColor = "#111111";
+  el.dataset.radius = "0";
+
+  el.style.left = `${Math.round(x)}px`;
+  el.style.top = `${Math.round(y)}px`;
+  el.style.width = `${Math.round(w)}px`;
+  el.style.height = `${Math.round(h)}px`;
+
+  const all = grid.querySelectorAll(".da-item");
+  const maxZ = [...all].reduce(
+    (m, n) => Math.max(m, parseInt(n.style.zIndex || "1", 10)),
+    1
+  );
+  el.style.zIndex = String(maxZ + 1);
+
+  applyShapeStyles(el);
+
+  el.innerHTML = `
+    <div class="da-resize da-resize--nw" data-resize="nw"></div>
+    <div class="da-resize da-resize--n"  data-resize="n"></div>
+    <div class="da-resize da-resize--ne" data-resize="ne"></div>
+
+    <div class="da-resize da-resize--w"  data-resize="w"></div>
+    <div class="da-resize da-resize--e"  data-resize="e"></div>
+
+    <div class="da-resize da-resize--sw" data-resize="sw"></div>
+    <div class="da-resize da-resize--s"  data-resize="s"></div>
+    <div class="da-resize da-resize--se" data-resize="se"></div>
+  `;
+
+  return el;
+}
+function applyShapeStyles(el) {
+  if (!el || el.dataset.type !== "shape") return;
+
+  const bgOn = el.dataset.bgOn !== "0";
+  const bg = el.dataset.bg || "#d9d9d9";
+  const borderOn = el.dataset.borderOn === "1";
+  const borderWidth = parseInt(el.dataset.borderWidth || "0", 10) || 0;
+  const borderStyle = el.dataset.borderStyle || "solid";
+  const borderColor = el.dataset.borderColor || "#111111";
+  const radius = parseInt(el.dataset.radius || "0", 10) || 0;
+  const shapeType = el.dataset.shapeType || "rectangle";
+
+  el.style.background = bgOn ? bg : "transparent";
+  el.style.border = borderOn
+    ? `${borderWidth}px ${borderStyle} ${borderColor}`
+    : "none";
+
+  if (shapeType === "circle") {
+    el.style.borderRadius = "999px";
+  } else if (shapeType === "pill") {
+    el.style.borderRadius = "999px";
+  } else {
+    el.style.borderRadius = `${radius}px`;
+  }
+}
+
+
   //Image Element
   function makeImageEl({ x, y, src = "" }) {
   const el = document.createElement("div");
   el.className = "da-item da-item--image";
   el.dataset.type = "image";
+  el.dataset.parallax = el.dataset.parallax || "0";
+
   el.dataset.id = uid("img");
 
   // defaults
@@ -2349,6 +5582,9 @@ floatingBar.style.display = "none";
   el.style.top  = `${Math.round(y)}px`;
   el.style.width = `220px`;
   el.style.height = `160px`;
+
+  el.dataset.posX = el.dataset.posX || "50";
+el.dataset.posY = el.dataset.posY || "50";
 
 el.dataset.dynamicMode = el.dataset.dynamicMode || "static";
 el.dataset.dynamicSource = el.dataset.dynamicSource || "page";
@@ -2392,6 +5628,7 @@ el.dataset.radius = el.dataset.radius || "12";
       </svg>
     `);
 
+     img.style.objectPosition = `${el.dataset.posX}% ${el.dataset.posY}%`;
     img.style.objectFit = el.dataset.fit || "cover";
     img.style.borderRadius = `${parseInt(el.dataset.radius, 10) || 0}px`;
   }
@@ -2399,6 +5636,8 @@ el.dataset.radius = el.dataset.radius || "12";
   el.dataset.name = el.dataset.name || "Image";
   return el;
 }
+
+
 
 function normalizeImageValueToUrl(value) {
   if (!value) return "";
@@ -2554,7 +5793,7 @@ async function renderImageContent(el) {
 
   img.style.objectFit = el.dataset.fit || "cover";
 
-  const zx = parseFloat(el.dataset.zoom || "1") || 1;
+ const zx = 1.4;
   img.style.transform = `scale(${zx})`;
 
   const px = parseFloat(el.dataset.posX || "50");
@@ -2648,7 +5887,6 @@ if (source === "parentGroup" && item) {
     imgDynamicFieldEl.value = currentValue;
   }
 } 
-
 
 
 
@@ -3865,6 +7103,48 @@ async function applyTextDynamicFromBar() {
 }
 
                                        //////////////////////////////
+                                           //Shape Element
+                                      ///////////////////////////////
+const shapeWrap = floatingBar.querySelector(".da-shapeControls");
+const shapeTypeEl = floatingBar.querySelector(".da-shape__type");
+const shapeBgEl = floatingBar.querySelector(".da-shape__bg");
+const shapeBgOnEl = floatingBar.querySelector(".da-shape__bgOn");
+const shapeBorderOnEl = floatingBar.querySelector(".da-shape__borderOn");
+const shapeBorderWidthEl = floatingBar.querySelector(".da-shape__borderWidth");
+const shapeBorderColorEl = floatingBar.querySelector(".da-shape__borderColor");
+const shapeBorderStyleEl = floatingBar.querySelector(".da-shape__borderStyle");
+const shapeRadiusEl = floatingBar.querySelector(".da-shape__radius");
+
+const colorEl = floatingBar.querySelector(".da-floatingBar__color");
+
+
+
+function applyShapeFromBar() {
+  if (!selectedItem || selectedItem.dataset.type !== "shape") return;
+
+  selectedItem.dataset.shapeType = shapeTypeEl?.value || "rectangle";
+  selectedItem.dataset.bg = shapeBgEl?.value || "#d9d9d9";
+  selectedItem.dataset.bgOn = shapeBgOnEl?.checked ? "1" : "0";
+  selectedItem.dataset.borderOn = shapeBorderOnEl?.checked ? "1" : "0";
+  selectedItem.dataset.borderWidth = String(parseInt(shapeBorderWidthEl?.value || "0", 10) || 0);
+  selectedItem.dataset.borderColor = shapeBorderColorEl?.value || "#111111";
+  selectedItem.dataset.borderStyle = shapeBorderStyleEl?.value || "solid";
+  selectedItem.dataset.radius = String(parseInt(shapeRadiusEl?.value || "0", 10) || 0);
+
+  applyShapeStyles(selectedItem);
+}
+
+shapeTypeEl?.addEventListener("change", applyShapeFromBar);
+shapeBgEl?.addEventListener("input", applyShapeFromBar);
+shapeBgOnEl?.addEventListener("change", applyShapeFromBar);
+shapeBorderOnEl?.addEventListener("change", applyShapeFromBar);
+shapeBorderWidthEl?.addEventListener("input", applyShapeFromBar);
+shapeBorderColorEl?.addEventListener("input", applyShapeFromBar);
+shapeBorderStyleEl?.addEventListener("change", applyShapeFromBar);
+shapeRadiusEl?.addEventListener("input", applyShapeFromBar);
+
+
+                                       //////////////////////////////
                                            //Input Element
                                       ///////////////////////////////
 const inputWrapEl = floatingBar.querySelector(".da-inputControls");
@@ -4062,7 +7342,7 @@ async function handleElementAction(ev, el) {
     actionTarget: el?.dataset?.actionTarget
   });
 
-  if (!window.TPL_PREVIEW) return;
+   if (!window.TPL_PREVIEW && actionType !== "open-popup") return;
 
   ev.preventDefault();
   ev.stopPropagation();
@@ -4280,7 +7560,10 @@ function openPopupById(popupId) {
   if (!popupId) return;
 
   const popup = [...grid.querySelectorAll('.da-item[data-type="popup"]')]
-    .find((el) => String(el.dataset.popupId || "") === String(popupId));
+    .find((el) =>
+      String(el.dataset.id || "") === String(popupId) ||
+      String(el.dataset.popupId || "") === String(popupId)
+    );
 
   if (!popup) {
     console.warn("[builder] popup not found:", popupId);
@@ -4993,6 +8276,21 @@ function getCheckedSubmitInputIds() {
                                              //////////
                                          // Popup Element
                                                 ////
+//Popup Element
+function hasPopupAncestor(el) {
+  if (!el) return false;
+
+  let parentId = el.dataset.parent || "";
+  while (parentId) {
+    const parentEl = grid.querySelector(`.da-item[data-id="${parentId}"]`);
+    if (!parentEl) return false;
+    if (parentEl.dataset.type === "popup") return true;
+    parentId = parentEl.dataset.parent || "";
+  }
+
+  return false;
+}
+
 function makePopupEl({ x, y, w = 360, h = 220, title = "" }) {
   const el = document.createElement("div");
   el.className = "da-item da-item--popup";
@@ -5154,11 +8452,6 @@ function openPopupEditMode(popupEl) {
   if (!popupEl || popupEl.dataset.type !== "popup") return;
 
   const overlay = document.getElementById("popup-edit-overlay");
-  console.log("overlay:", overlay);
-  if (overlay) {
-    console.log("overlay hidden before:", overlay.hidden);
-  }
-
   if (!overlay) return;
 
   closePopupEditMode();
@@ -5171,16 +8464,35 @@ function openPopupEditMode(popupEl) {
     zIndex: popupEl.style.zIndex || ""
   };
 
-overlay.hidden = false;
-console.log("overlay hidden after:", overlay.hidden);
+  overlay.hidden = false;
 
-popupEl.style.display = "block";
-popupEl.classList.add("is-popup-editing");
+  popupEl.style.display = "block";
+  popupEl.classList.add("is-popup-editing");
 
-popupEl.style.left = "50%";
-popupEl.style.top = "24px";
-popupEl.style.transform = "translateX(-50%)";
-popupEl.style.zIndex = "1001";
+  if ((popupEl.dataset.popupMode || "modal") === "modal") {
+    popupEl.style.left = "50%";
+    popupEl.style.top = "24px";
+    popupEl.style.transform = "translateX(-50%)";
+  } else {
+    popupEl.style.left = popupEditReturnState?.left || popupEl.style.left;
+    popupEl.style.top = popupEditReturnState?.top || popupEl.style.top;
+    popupEl.style.transform = "";
+  }
+
+  popupEl.style.zIndex = "20001";
+
+  // show popup children too
+  const kids = getChildrenDeep(popupEl);
+  popupEditChildrenState = kids.map((child) => ({
+    el: child,
+    display: child.style.display || "",
+    zIndex: child.style.zIndex || "",
+  }));
+
+  kids.forEach((child) => {
+    child.style.display = "block";
+    child.style.zIndex = "20002";
+  });
 
   selectedItem = popupEl;
   showBarForItem(popupEl);
@@ -5190,18 +8502,23 @@ function closePopupEditMode() {
   const overlay = document.getElementById("popup-edit-overlay");
   const editingPopup = grid.querySelector('.da-item[data-type="popup"].is-popup-editing');
 
-  if (overlay) {
-    overlay.hidden = true;
-  }
+  if (overlay) overlay.hidden = true;
 
   if (!editingPopup) {
     popupEditReturnState = null;
+    popupEditChildrenState = [];
+    if (typeof showBarForItem === "function") showBarForItem(null);
+    if (typeof unmountBarToCanvas === "function") unmountBarToCanvas();
     return;
   }
 
   editingPopup.classList.remove("is-popup-editing");
 
-  if (popupEditReturnState && (!popupEditReturnState.popupId || popupEditReturnState.popupId === editingPopup.dataset.popupId)) {
+  if (
+    popupEditReturnState &&
+    (!popupEditReturnState.popupId ||
+      popupEditReturnState.popupId === editingPopup.dataset.popupId)
+  ) {
     editingPopup.style.left = popupEditReturnState.left;
     editingPopup.style.top = popupEditReturnState.top;
     editingPopup.style.transform = popupEditReturnState.transform;
@@ -5209,13 +8526,33 @@ function closePopupEditMode() {
   } else {
     editingPopup.style.transform = "";
   }
-editingPopup.style.display = "none";
+
+  editingPopup.style.display = "none";
+
+  popupEditChildrenState.forEach(({ el, display, zIndex }) => {
+    el.style.display = display;
+    el.style.zIndex = zIndex;
+  });
+
+  popupEditChildrenState = [];
   popupEditReturnState = null;
+
+  editingPopup.classList.remove("is-selected");
+  selectedItem = null;
+  window.selectedItem = null;
+
+  if (typeof showBarForItem === "function") showBarForItem(null);
+  if (typeof unmountBarToCanvas === "function") unmountBarToCanvas();
 }
+
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") {
     closePopupEditMode();
   }
+  document.getElementById("popup-edit-overlay")?.addEventListener("click", () => {
+  closePopupEditMode();
+});
+
 });
 
 //////////////////////////
@@ -5606,9 +8943,26 @@ async function fetchRowsForDynamicReference(dataTypeName, dataTypeId = "") {
 
 
 
+//Responsive View
+let responsiveViewMode = "auto"; // "auto" | "manual"
+let manualResponsiveView = "desktop"; // "desktop" | "mobile"
 
+function getAutoResponsiveView() {
+  const dropArea = document.querySelector(".tpl__dropArea");
+  const width = dropArea?.clientWidth || window.innerWidth;
 
+  // choose your breakpoint
+  return width <= 900 ? "mobile" : "desktop";
+}
 
+function applyResponsiveViewMode() {
+  const nextView =
+    responsiveViewMode === "manual"
+      ? manualResponsiveView
+      : getAutoResponsiveView();
+
+  switchResponsiveView(nextView);
+}
 
                                                  // =======================
                                             // STEP 5 Element Wiring
@@ -5714,11 +9068,15 @@ const desktopViewBtn = document.getElementById("desktop-view-btn");
 const mobileViewBtn = document.getElementById("mobile-view-btn");
 
 desktopViewBtn?.addEventListener("click", () => {
-  switchResponsiveView("desktop");
+  responsiveViewMode = "manual";
+  manualResponsiveView = "desktop";
+  applyResponsiveViewMode();
 });
 
 mobileViewBtn?.addEventListener("click", () => {
-  switchResponsiveView("mobile");
+  responsiveViewMode = "manual";
+  manualResponsiveView = "mobile";
+  applyResponsiveViewMode();
 });
 
 // open file picker by icon click
@@ -5825,6 +9183,7 @@ const btnRadiusEl = floatingBar.querySelector(".da-btn__radius");
 // NEW
 const btnDisplayTypeEl = floatingBar.querySelector(".da-btn__displayType");
 const btnIconEl = floatingBar.querySelector(".da-btn__icon");
+
 
 //Button Helper
 function updateButtonActionUI() {
@@ -6198,7 +9557,18 @@ const parallaxEl = floatingBar.querySelector(".da-parallax");
 
 parallaxEl?.addEventListener("input", () => {
   if (!selectedItem) return;
+
   selectedItem.dataset.parallax = parallaxEl.value || "0";
+
+  console.log("[parallax slider]", {
+    selectedId: selectedItem.dataset.id,
+    type: selectedItem.dataset.type,
+    value: parallaxEl.value,
+    saved: selectedItem.dataset.parallax
+  });
+
+  applyParallax();
+  saveCurrentCanvasToView();
 });
 
 function reorderItemWithinParent(item, direction) {
@@ -6296,6 +9666,9 @@ bsEl?.addEventListener("change", applySectionBorderFromBar);
 brEl?.addEventListener("input", applySectionBorderFromBar);
 
 // ✅ ADD THIS RIGHT HERE (ONCE)
+const fontSizeEl = floatingBar.querySelector(".da-floatingBar__fontSize");
+const txtBtns = [...floatingBar.querySelectorAll(".da-txtBtn")];
+
 const fontEl = floatingBar.querySelector(".da-floatingBar__font");
 if (fontEl) {
   fontEl.addEventListener("change", (e) => {
@@ -6924,14 +10297,108 @@ floatingBar.addEventListener("click", (e) => {
 
 
 async function showBarForItem(item) {
+  if (!item) {
+    floatingBar.style.display = "none";
+    return;
+  }
+
+  const type = item.dataset.type || "";
+
+  const imgWrap = floatingBar.querySelector(".da-imgControls");
+  const videoWrap = floatingBar.querySelector(".da-videoControls");
+  const headerWrap = floatingBar.querySelector(".da-headerControls");
+  const groupWrap = floatingBar.querySelector(".da-groupDynamicControls");
+  const sectionWrap = floatingBar.querySelector(".da-sectionDynamicControls");
+  const textWrap = floatingBar.querySelector(".da-textDynamicControls");
+  const btnWrap = floatingBar.querySelector(".da-btnControls");
+  const inputWrap = floatingBar.querySelector(".da-inputControls");
+  const shapeWrap = floatingBar.querySelector(".da-shapeControls");
+
+  const fontEl = floatingBar.querySelector(".da-floatingBar__font");
+  const fontSizeEl = floatingBar.querySelector(".da-floatingBar__fontSize");
+  const txtBtns = floatingBar.querySelectorAll(".da-txtBtn");
+
+const bgPosXEl = floatingBar.querySelector(".da-backgroundPosX");
+const bgPosYEl = floatingBar.querySelector(".da-backgroundPosY");
+const bgMoveBtns = floatingBar.querySelectorAll(".da-backgroundMoveBtn");
+
+  if (bgWrap) bgWrap.style.display = "none";
+
+  // hide everything first
+  if (imgWrap) imgWrap.style.display = "none";
+  if (videoWrap) videoWrap.style.display = "none";
+  if (headerWrap) headerWrap.style.display = "none";
+  if (groupWrap) groupWrap.style.display = "none";
+  if (sectionWrap) sectionWrap.style.display = "none";
+  if (textWrap) textWrap.style.display = "none";
+  if (btnWrap) btnWrap.style.display = "none";
+  if (inputWrap) inputWrap.style.display = "none";
+  if (shapeWrap) shapeWrap.style.display = "none";
+
+  if (fontEl) fontEl.style.display = "none";
+  if (fontSizeEl) fontSizeEl.style.display = "none";
+  txtBtns.forEach((btn) => (btn.style.display = "none"));
+
+  // now show only what matches
+if (type === "section") {
+  if (sectionWrap) sectionWrap.style.display = "";
+  if (floatingBar.querySelector(".da-secBorder__radius")) floatingBar.querySelector(".da-secBorder__radius").style.display = "";
+  if (floatingBar.querySelector(".da-secBorder__width")) floatingBar.querySelector(".da-secBorder__width").style.display = "";
+  if (floatingBar.querySelector(".da-secBorder__color")) floatingBar.querySelector(".da-secBorder__color").style.display = "";
+  if (floatingBar.querySelector(".da-secBorder__style")) floatingBar.querySelector(".da-secBorder__style").style.display = "";
+  if (floatingBar.querySelector(".da-floatingBar__color")) floatingBar.querySelector(".da-floatingBar__color").style.display = "";
+  if (floatingBar.querySelector('[data-sec="bgToggle"]')) floatingBar.querySelector('[data-sec="bgToggle"]').style.display = "";
+  if (floatingBar.querySelector('[data-sec="borderToggle"]')) floatingBar.querySelector('[data-sec="borderToggle"]').style.display = "";
+}
+
+if (type === "group") {
+  if (groupWrap) groupWrap.style.display = "";
+  if (floatingBar.querySelector(".da-secBorder__radius")) floatingBar.querySelector(".da-secBorder__radius").style.display = "";
+  if (floatingBar.querySelector(".da-secBorder__width")) floatingBar.querySelector(".da-secBorder__width").style.display = "";
+  if (floatingBar.querySelector(".da-secBorder__color")) floatingBar.querySelector(".da-secBorder__color").style.display = "";
+  if (floatingBar.querySelector(".da-secBorder__style")) floatingBar.querySelector(".da-secBorder__style").style.display = "";
+  if (floatingBar.querySelector(".da-floatingBar__color")) floatingBar.querySelector(".da-floatingBar__color").style.display = "";
+  if (floatingBar.querySelector('[data-sec="bgToggle"]')) floatingBar.querySelector('[data-sec="bgToggle"]').style.display = "";
+  if (floatingBar.querySelector('[data-sec="borderToggle"]')) floatingBar.querySelector('[data-sec="borderToggle"]').style.display = "";
+}
+
+if (item.dataset.type === "background") {
+  if (bgWrap) bgWrap.style.display = "flex";
+
+  if (bgPosXEl) bgPosXEl.value = item.dataset.posX || "50";
+  if (bgPosYEl) bgPosYEl.value = item.dataset.posY || "50";
+}
+if (item.dataset.type === "image") {
+  if (imgPosXEl) imgPosXEl.value = item.dataset.posX || "50";
+  if (imgPosYEl) imgPosYEl.value = item.dataset.posY || "50";
+}
+
+if (type === "text") {
+  if (textWrap) textWrap.style.display = "";
+  if (fontEl) fontEl.style.display = "";
+  if (fontSizeEl) fontSizeEl.style.display = "";
+  txtBtns.forEach((btn) => (btn.style.display = ""));
+}
+
  selectedItem = item;
 window.selectedItem = item;
 
-  const headerAncestor = getHeaderAncestor(item);
-  if (headerAncestor && item.dataset.type !== "header") {
-    clampElToHeaderBounds(item, headerAncestor);
-  }
+const headerAncestor = getHeaderAncestor(item);
+console.log("[header clamp check]", {
+  clickedId: item?.dataset?.id,
+  clickedType: item?.dataset?.type,
+  clickedParent: item?.dataset?.parent,
+  headerAncestorId: headerAncestor?.dataset?.id || null
+});
 
+const isActuallyInsideHeader =
+  !!headerAncestor &&
+  !!item.dataset.parent &&
+  item.dataset.parent === headerAncestor.dataset.id;
+
+if (isActuallyInsideHeader && item.dataset.type !== "header") {
+  clampElToHeaderBounds(item, headerAncestor);
+}
 if (!item) {
   unmountBarToCanvas();
   return;
@@ -6970,8 +10437,32 @@ if (parallaxEl) {
 }
 
 /////////
+//Shape Element
+const isShape = item?.dataset?.type === "shape";
+
+if (shapeWrap) shapeWrap.style.display = isShape ? "" : "none";
+
+// hide text-only controls for shape
+if (fontEl) fontEl.style.display = isShape ? "none" : "";
+if (fontSizeEl) fontSizeEl.style.display = isShape ? "none" : "";
+
+txtBtns.forEach((btn) => {
+  btn.style.display = isShape ? "none" : "";
+});
+
+if (isShape) {
+  if (shapeTypeEl) shapeTypeEl.value = item.dataset.shapeType || "rectangle";
+  if (shapeBgEl) shapeBgEl.value = item.dataset.bg || "#d9d9d9";
+  if (shapeBgOnEl) shapeBgOnEl.checked = item.dataset.bgOn !== "0";
+  if (shapeBorderOnEl) shapeBorderOnEl.checked = item.dataset.borderOn === "1";
+  if (shapeBorderWidthEl) shapeBorderWidthEl.value = item.dataset.borderWidth || "2";
+  if (shapeBorderColorEl) shapeBorderColorEl.value = item.dataset.borderColor || "#111111";
+  if (shapeBorderStyleEl) shapeBorderStyleEl.value = item.dataset.borderStyle || "solid";
+  if (shapeRadiusEl) shapeRadiusEl.value = item.dataset.radius || "0";
+}
 
 
+//////////
   const isText = item.dataset.type === "text";
   const isGroup = item.dataset.type === "group";
 
@@ -6985,6 +10476,22 @@ const isActionableText = item.dataset.type === "text";
 const isButtonLike = item.dataset.type === "button" || isActionableText;
 
 const isSectionLike = isSection || isGroup || isPopup;
+
+if (isSection) {
+  if (bcEl) bcEl.value = item.dataset.borderColor || "#111111";
+  if (bwEl) bwEl.value = item.dataset.borderWidth || "0";
+  if (bsEl) bsEl.value = item.dataset.borderStyle || "solid";
+  if (brEl) brEl.value = item.dataset.radius || "0";
+  if (colorEl) colorEl.value = item.dataset.bg || "#ffffff";
+}
+
+if (isGroup) {
+  if (bcEl) bcEl.value = item.dataset.borderColor || "#111111";
+  if (bwEl) bwEl.value = item.dataset.borderWidth || "0";
+  if (bsEl) bsEl.value = item.dataset.borderStyle || "solid";
+  if (brEl) brEl.value = item.dataset.radius || "0";
+  if (colorEl) colorEl.value = item.dataset.bg || "#ffffff";
+}
 
 // show/hide SECTION/GROUP/POPUP border controls
 if (bwEl) bwEl.style.display = isSectionLike ? "inline-block" : "none";
@@ -7180,6 +10687,35 @@ if (isGroup) {
   updateGroupBarVisibility(item);
 }
 
+//Background 
+// Background
+if (item.dataset.type === "background") {
+  if (bgWrap) bgWrap.style.display = "flex";
+
+  // hide shared text controls
+  if (fontEl) fontEl.style.display = "none";
+  if (fontSizeEl) fontSizeEl.style.display = "none";
+  txtBtns.forEach((btn) => (btn.style.display = "none"));
+
+  // hide text-only/dynamic text wrap
+  if (textWrap) textWrap.style.display = "none";
+
+  // hide image controls
+  if (imgWrap) imgWrap.style.display = "none";
+
+  // load background values
+  if (bgModeEl) bgModeEl.value = item.dataset.bgMode || "color";
+  if (bgColorEl) bgColorEl.value = item.dataset.bg || "#ffffff";
+  if (bgFitEl) bgFitEl.value = item.dataset.fit || "cover";
+  if (bgRadiusEl) bgRadiusEl.value = item.dataset.radius || "0";
+  if (bgOpacityEl) bgOpacityEl.value = item.dataset.opacity || "1";
+  if (bgOnEl) bgOnEl.checked = item.dataset.bgOn !== "0";
+
+  // load new background position controls
+  if (bgPosXEl) bgPosXEl.value = item.dataset.posX || "50";
+  if (bgPosYEl) bgPosYEl.value = item.dataset.posY || "50";
+}
+
   //Input 
   if (item.dataset.type === "input") {
   if (inputWrapEl) inputWrapEl.style.display = "flex";
@@ -7298,39 +10834,84 @@ videoFileEl?.addEventListener("change", async () => {
 
   const data = await res.json();
   selectedItem.dataset.src = data.url || "";
+
+  // 🔥 FORCE SAVE immediately
+saveCurrentCanvasToView();
   renderVideoContent(selectedItem);
 });
 
 
+
 //Parallax Helper
+const scrollArea1 = document.querySelector(".tpl__dropArea");
+const scrollArea2 = document.getElementById("tpl-dropArea");
+const scrollArea3 = document.getElementById("dropAreaInner");
+
+scrollArea1?.addEventListener("scroll", () => {
+  console.log("[scroll test] .tpl__dropArea", scrollArea1.scrollTop);
+});
+
+scrollArea2?.addEventListener("scroll", () => {
+  console.log("[scroll test] #tpl-dropArea", scrollArea2.scrollTop);
+});
+
+scrollArea3?.addEventListener("scroll", () => {
+  console.log("[scroll test] #dropAreaInner", scrollArea3.scrollTop);
+});
+
+window.addEventListener("scroll", () => {
+  console.log("[scroll test] window", window.scrollY);
+});
+
+function getParallaxScrollY() {
+  const a = document.querySelector(".tpl__dropArea");
+  const b = document.getElementById("tpl-dropArea");
+  const c = document.getElementById("dropAreaInner");
+
+  return (
+    a?.scrollTop ||
+    b?.scrollTop ||
+    c?.scrollTop ||
+    window.scrollY ||
+    document.documentElement.scrollTop ||
+    0
+  );
+}
+
 function applyParallax() {
   if (!window.TPL_PREVIEW) return;
 
-  const scrollWrap = document.querySelector(".tpl__dropArea");
+  const scrollWrap = document.getElementById("tpl-dropArea");
   if (!scrollWrap) return;
 
   const scrollY = scrollWrap.scrollTop || 0;
 
-  console.log("[parallax] applyParallax called", {
-    preview: window.TPL_PREVIEW,
-    scrollTop: scrollY
-  });
+  console.log("[parallax] preview:", window.TPL_PREVIEW);
+  console.log("[parallax] scrollTop:", scrollY);
 
-  document.querySelectorAll('.da-item[data-type="section"], .da-item[data-type="image"]').forEach((el) => {
-    const strength = parseFloat(el.dataset.parallax || "0");
-    const offset = -scrollY * strength;
+  document
+    .querySelectorAll(
+      '.da-item[data-type="section"], .da-item[data-type="image"], .da-item[data-type="group"]'
+    )
+    .forEach((el) => {
+      const strength = parseFloat(el.dataset.parallax || "0");
+      const offset = -scrollY * strength;
 
-    el.style.setProperty("--parallaxY", `${offset}px`);
+      el.style.setProperty("--parallaxY", `${offset}px`);
 
-    console.log("[parallax] item", {
-      type: el.dataset.type,
-      name: el.dataset.name || "",
-      strength,
-      offset
+      console.log("[parallax] item", {
+        id: el.dataset.id,
+        type: el.dataset.type,
+        name: el.dataset.name || "",
+        parallax: el.dataset.parallax || "0",
+        strength,
+        offset
+      });
     });
-  });
 }
-document.querySelector(".tpl__dropArea")?.addEventListener("scroll", applyParallax);
+
+document.getElementById("tpl-dropArea")?.addEventListener("scroll", applyParallax);
+
 
 // keep bar stuck to item while dragging
 function refreshBarPosition() {
@@ -7454,6 +11035,7 @@ function getMinSizeForItem(el) {
   if (t === "input") return { w: 70, h: 30 };
   if (t === "popup") return { w: 180, h: 80 };
   if (t === "group") return { w: 70, h: 30 };
+ if (t === "shape") return { w: 2, h: 2 };
 
   return { w: 120, h: 80 };
 }
@@ -7764,7 +11346,22 @@ async function applyGroupDynamicFromBar() {
     await renderAllDynamicContent();
   }
 }
+function hasPopupAncestorById(itemId) {
+  if (!itemId) return false;
 
+  const el = grid.querySelector(`.da-item[data-id="${itemId}"]`);
+  if (!el) return false;
+
+  let parentId = el.dataset.parent || "";
+  while (parentId) {
+    const parentEl = grid.querySelector(`.da-item[data-id="${parentId}"]`);
+    if (!parentEl) return false;
+    if (parentEl.dataset.type === "popup") return true;
+    parentId = parentEl.dataset.parent || "";
+  }
+
+  return false;
+}
 async function restoreCanvas(saved = null) {
   const payload = saved && Array.isArray(saved.items) ? saved : { items: [] };
 
@@ -7773,6 +11370,9 @@ async function restoreCanvas(saved = null) {
   for (const it of payload.items) {
     let el = null;
 
+    console.log("RESTORING:", it.type, it.id, it.parent);
+
+    
     if (it.type === "popup") {
       el = makePopupEl({
         x: it.x,
@@ -7818,6 +11418,16 @@ async function restoreCanvas(saved = null) {
       });
     }
 
+    if (it.type === "video") {
+  el = makeVideoEl({
+    x: it.x,
+    y: it.y,
+    w: it.w,
+    h: it.h,
+    src: it.data?.src || "",
+  });
+}
+
 if (it.type === "button") {
   el = makeButtonEl({
     x: it.x,
@@ -7825,6 +11435,17 @@ if (it.type === "button") {
     label: it.data?.label ?? "Button",
   });
 }
+
+    if (it.type === "background") {
+      el = makeBackgroundEl({
+        x: it.x,
+        y: it.y,
+        w: it.w,
+        h: it.h,
+        title: it.data?.name || "Background",
+      });
+    }
+
 
     if (it.type === "image") {
       el = makeImageEl({
@@ -7836,8 +11457,30 @@ if (it.type === "button") {
 
     if (!el) continue;
 
-    el.dataset.id = it.id || el.dataset.id;
-    applyDatasetToElement(el, it.data);
+el.dataset.id = it.id || el.dataset.id;
+el.dataset.parent = it.parent || "";
+el.dataset.type = it.type || el.dataset.type || it.data?.type || "";
+applyDatasetToElement(el, it.data);
+
+if (el.dataset.decorative === "1") {
+  el.style.pointerEvents = "none";
+}
+console.log("RESTORED ITEM", {
+  savedId: it.id,
+  savedParent: it.parent,
+  savedType: it.type,
+  domId: el?.dataset?.id,
+  domParent: el?.dataset?.parent,
+  domType: el?.dataset?.type
+});
+
+    if (el.dataset.type === "video") {
+  renderVideoContent(el);
+}
+
+  if (el.dataset.type === "background") {
+      renderBackgroundContent(el);
+    }
 
     if (el.dataset.hidden === "1") {
   el.style.display = "none";
@@ -7950,14 +11593,21 @@ if (el.dataset.type === "popup") {
       el.style.overflow = "hidden";
 
       await renderImageContent(el);
+      applyImagePosition(el);
     }
 
     grid.appendChild(el);
 
+
+// hide popup shells and popup children on initial load
+if (el.dataset.type === "popup" || hasPopupAncestorById(el.dataset.id)) {
+  el.style.display = "none";
+}
     if (el.dataset.type === "popup") {
       el.style.display = "none";
     }
   }
+
 
   // 🔥 FORCE HEADER WIDTH AFTER EVERYTHING LOADS
 const header = grid.querySelector(".da-item.da-header");
@@ -7970,6 +11620,7 @@ if (header) {
 }
 
 trimCanvasHeight();
+syncAutoBackgrounds();
 refreshPopupList();
 }
 
@@ -7981,29 +11632,46 @@ async function saveTemplateToDatabase() {
       return;
     }
 
- saveBuilderSelectionState();
+    saveBuilderSelectionState();
 
-const payload = buildPagePayload();
+    const payload = buildPagePayload();
 
-console.log(
-  "[builder] buttons being saved:",
-  (payload.views && Object.entries(payload.views).flatMap(([viewKey, view]) =>
-    (view.items || [])
-      .filter((item) => item.type === "button")
-      .map((item) => ({
-        viewKey,
-        id: item.id,
-        label: item.data?.label,
-        actionType: item.data?.actionType,
-        actionTarget: item.data?.actionTarget,
-        displayType: item.data?.displayType,
-        icon: item.data?.icon
-      }))
-  )) || []
-);
+const selectedTemplate =
+  tplTemplateSelect?.value ||
+  getBuilderLaunchParams().templateKey ||
+  "custom";
+
+if (selectedTemplate === "custom") {
+  alert("Custom pages do not have a default template to reset to.");
+  return;
+}
+
+    const jsonFieldName = getTemplateJsonFieldName(selectedTemplate);
+
+    console.log("[builder] selectedTemplate being saved:", selectedTemplate);
+    console.log("[builder] jsonFieldName being saved:", jsonFieldName);
+
+    console.log(
+      "[builder] buttons being saved:",
+      (payload.views && Object.entries(payload.views).flatMap(([viewKey, view]) =>
+        ((view.desktop?.items || []).concat(view.mobile?.items || []))
+          .filter((item) => item.type === "button")
+          .map((item) => ({
+            viewKey,
+            id: item.id,
+            label: item.data?.label,
+            actionType: item.data?.actionType,
+            actionTarget: item.data?.actionTarget,
+            displayType: item.data?.displayType,
+            icon: item.data?.icon
+          }))
+      )) || []
+    );
+
     const values = {
       "Custom Page Type": window.TPL_PAGE_TYPE || "booking",
-      "Custom Page JSON": JSON.stringify(payload),
+      "Selected Template": selectedTemplate,
+      [jsonFieldName]: JSON.stringify(payload),
     };
 
     console.log("[builder] saving to db...", {
@@ -8022,17 +11690,17 @@ console.log(
       body: JSON.stringify({ values }),
     });
 
-const data = await res.json().catch(() => ({}));
+    const data = await res.json().catch(() => ({}));
 
-if (!res.ok) {
-  throw new Error(data?.message || "Failed to save template");
-}
+    if (!res.ok) {
+      throw new Error(data?.message || "Failed to save template");
+    }
 
-console.log("[builder] save success:", data);
-console.log("[builder] save success response:", data);
-console.log("[builder] saved json length:", values["Custom Page JSON"]?.length || 0);
+    console.log("[builder] save success:", data);
+    console.log("[builder] save success response:", data);
+    console.log("[builder] saved json length:", values[jsonFieldName]?.length || 0);
 
-alert("Page saved.");
+    alert("Page saved.");
   } catch (err) {
     console.error("[builder] save error:", err);
     alert(err?.message || "Failed to save page.");
@@ -8072,12 +11740,33 @@ async function loadTemplateFromDatabase() {
 
     const v = row.values || row;
     const savedType = v["Custom Page Type"] || "booking";
-    const savedJson = v["Custom Page JSON"] || "";
-
     window.TPL_PAGE_TYPE = savedType;
 
+    const launch = getBuilderLaunchParams();
+
+    const selectedTemplate =
+      tplTemplateSelect?.value ||
+      launch.templateKey ||
+      v["Selected Template"] ||
+      "custom";
+
+    window.TPL_SELECTED_TEMPLATE = selectedTemplate;
+
+    if (tplTemplateSelect) {
+      tplTemplateSelect.value = selectedTemplate;
+    }
+
+    const jsonFieldName = getTemplateJsonFieldName(selectedTemplate);
+    const savedJson = v[jsonFieldName] || "";
+
+    console.log("[builder] selectedTemplate:", selectedTemplate);
+    console.log("[builder] jsonFieldName:", jsonFieldName);
+    console.log("[builder] savedJson exists:", !!savedJson);
+
     if (!savedJson) {
-      pageViews = {
+      const starter = cloneTemplateStarter(selectedTemplate);
+
+      pageViews = starter.views || {
         default: {
           name: "Default View",
           desktop: { items: [] },
@@ -8085,9 +11774,14 @@ async function loadTemplateFromDatabase() {
         }
       };
 
-      currentViewKey = "default";
+      currentViewKey = starter.currentView || "default";
+
+      if (!pageViews[currentViewKey]) {
+        currentViewKey = Object.keys(pageViews)[0] || "default";
+      }
+
       rebuildViewDropdown();
-      await loadViewIntoCanvas("default");
+      await loadViewIntoCanvas(currentViewKey);
       return;
     }
 
@@ -8105,7 +11799,6 @@ async function loadTemplateFromDatabase() {
       };
     }
 
-    // upgrade old views that still use .items
     Object.keys(pageViews).forEach((key) => {
       const view = pageViews[key];
 
@@ -8135,8 +11828,7 @@ async function loadTemplateFromDatabase() {
 
 window.saveTemplateToDatabase = saveTemplateToDatabase;
 window.loadTemplateFromDatabase = loadTemplateFromDatabase;
-
-
+window.resetTemplateToDefault = resetTemplateToDefault;
 
 ////////////////////////////////
 //View
@@ -8301,6 +11993,38 @@ el = makeButtonEl({
   });
 }
 
+if (item.type === "shape") {
+  el = makeShapeEl({
+    x: item.x,
+    y: item.y,
+    w: item.w,
+    h: item.h,
+    title: item.data?.name || "Shape"
+  });
+}
+if (item.type === "shape") {
+  el.dataset.shapeType = item.data?.shapeType || "rectangle";
+  el.dataset.bg = item.data?.bg || "#d9d9d9";
+  el.dataset.bgOn = item.data?.bgOn || "1";
+  el.dataset.borderOn = item.data?.borderOn || "0";
+  el.dataset.borderWidth = item.data?.borderWidth || "2";
+  el.dataset.borderStyle = item.data?.borderStyle || "solid";
+  el.dataset.borderColor = item.data?.borderColor || "#111111";
+  el.dataset.radius = item.data?.radius || "0";
+  el.dataset.parent = item.parent || "";
+
+  el.style.background = el.dataset.bgOn === "1" ? el.dataset.bg : "transparent";
+  el.style.border =
+    el.dataset.borderOn === "1"
+      ? `${el.dataset.borderWidth}px ${el.dataset.borderStyle} ${el.dataset.borderColor}`
+      : "none";
+  el.style.borderRadius = `${parseInt(el.dataset.radius, 10) || 0}px`;
+
+  if (el.dataset.shapeType === "circle") {
+    el.style.borderRadius = "999px";
+  }
+}
+
 if (item.type === "header") {
   el = document.createElement("div");
   el.className = "da-item da-header";
@@ -8445,13 +12169,15 @@ if (el.dataset.type === "image") {
 
   return el;
 }
+let currentResponsiveView = "desktop";
 
 //Load a view into the canvas
 async function loadViewIntoCanvas(viewKey) {
   currentViewKey = viewKey || "default";
 
   const viewData = getCurrentViewData();
-  const items = viewData[currentResponsiveView]?.items || [];
+  const responsiveKey = currentResponsiveView || "desktop";
+const items = viewData[responsiveKey]?.items || [];
 
   await restoreCanvas({ items });
 
@@ -8544,6 +12270,80 @@ function serializeCanvasItems() {
 }
 
                                 /////////////////////
+                                   //Background
+                                //////////////////
+bgModeEl?.addEventListener("change", () => {
+  if (!selectedItem || selectedItem.dataset.type !== "background") return;
+  selectedItem.dataset.bgMode = bgModeEl.value;
+  renderBackgroundContent(selectedItem);
+});
+
+bgColorEl?.addEventListener("input", () => {
+  if (!selectedItem || selectedItem.dataset.type !== "background") return;
+  selectedItem.dataset.bg = bgColorEl.value;
+  renderBackgroundContent(selectedItem);
+});
+
+bgFitEl?.addEventListener("change", () => {
+  if (!selectedItem || selectedItem.dataset.type !== "background") return;
+  selectedItem.dataset.fit = bgFitEl.value;
+  renderBackgroundContent(selectedItem);
+});
+
+bgRadiusEl?.addEventListener("input", () => {
+  if (!selectedItem || selectedItem.dataset.type !== "background") return;
+  selectedItem.dataset.radius = bgRadiusEl.value;
+  renderBackgroundContent(selectedItem);
+});
+
+bgOpacityEl?.addEventListener("input", () => {
+  if (!selectedItem || selectedItem.dataset.type !== "background") return;
+  selectedItem.dataset.opacity = bgOpacityEl.value;
+  renderBackgroundContent(selectedItem);
+});
+
+bgOnEl?.addEventListener("change", () => {
+  if (!selectedItem || selectedItem.dataset.type !== "background") return;
+  selectedItem.dataset.bgOn = bgOnEl.checked ? "1" : "0";
+  renderBackgroundContent(selectedItem);
+});
+
+bgPickBtn?.addEventListener("click", () => bgFileEl?.click());
+
+bgFileEl?.addEventListener("change", async (e) => {
+  if (!selectedItem || selectedItem.dataset.type !== "background") return;
+  const file = e.target.files?.[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = () => {
+    selectedItem.dataset.src = reader.result;
+    selectedItem.dataset.bgMode = "image";
+    if (bgModeEl) bgModeEl.value = "image";
+    renderBackgroundContent(selectedItem);
+  };
+  reader.readAsDataURL(file);
+});
+
+bgVideoPickBtn?.addEventListener("click", () => bgVideoFileEl?.click());
+
+bgVideoFileEl?.addEventListener("change", async (e) => {
+  if (!selectedItem || selectedItem.dataset.type !== "background") return;
+  const file = e.target.files?.[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = () => {
+    selectedItem.dataset.videoSrc = reader.result;
+    selectedItem.dataset.bgMode = "video";
+    if (bgModeEl) bgModeEl.value = "video";
+    renderBackgroundContent(selectedItem);
+  };
+  reader.readAsDataURL(file);
+});
+
+
+                                /////////////////////
                                    //Preview Mode
                                 //////////////////
 window.TPL_PREVIEW = false;
@@ -8565,6 +12365,9 @@ window.setPreviewMode = function setPreviewMode(isOn) {
     previewBtn.textContent = window.TPL_PREVIEW ? "Exit Preview" : "Preview";
   }
 
+    // show or hide the fixed exit-preview button
+  ensureExitPreviewButton();
+
   if (!window.TPL_PREVIEW) {
     closePopupEditMode?.();
     grid.querySelectorAll(".da-item").forEach((x) => x.classList.remove("is-selected"));
@@ -8575,25 +12378,47 @@ window.setPreviewMode = function setPreviewMode(isOn) {
     renderAllDynamicContent();
   }
   applyParallax();
+  requestAnimationFrame(applyParallax);
 }
 
 
+//Exit Preview Mode
+function ensureExitPreviewButton() {
+  let btn = document.getElementById("tpl-exit-preview-btn");
 
+  if (!btn) {
+    btn = document.createElement("button");
+    btn.id = "tpl-exit-preview-btn";
+    btn.type = "button";
+    btn.textContent = "Back to Edit";
+
+    Object.assign(btn.style, {
+      position: "fixed",
+      top: "16px",
+      right: "16px",
+      zIndex: "50000",
+      padding: "10px 14px",
+      borderRadius: "10px",
+      border: "1px solid #111",
+      background: "#fff",
+      color: "#111",
+      cursor: "pointer",
+      display: "none"
+    });
+
+    btn.addEventListener("click", () => {
+      window.setPreviewMode(false);
+    });
+
+    document.body.appendChild(btn);
+  }
+
+  btn.style.display = window.TPL_PREVIEW ? "block" : "none";
+}
 
 ///////////////////////////////////////////////////////////////
                            //Responsive Views
-let currentResponsiveView = "desktop";
 
-async function loadViewIntoCanvas(viewName) { 
-  currentViewName = viewName || "default";
-
-  const saved =
-    pageViews?.[currentViewName]?.[currentResponsiveView] ||
-    { items: [] };
-
-  await restoreCanvas(saved);
-  trimCanvasHeight();
-}
 
 //View Helper
 function ensureResponsiveLayoutExists(viewName, responsiveView) {
@@ -8654,26 +12479,45 @@ async function switchResponsiveView(nextView) {
 
   applyResponsiveCanvasWidth();
   await loadViewIntoCanvas(currentViewKey);
+  if (currentResponsiveView === "mobile") {
+  clampAllItemsToCurrentCanvas();
+}
 }
 
 function applyResponsiveCanvasWidth() {
+  const mainArea = document.querySelector(".tpl__dropArea");
   const viewport = document.getElementById("tpl-dropArea");
   const grid = document.getElementById("dropAreaInner");
   if (!grid) return;
 
   if (currentResponsiveView === "mobile") {
+    if (mainArea) {
+      mainArea.style.display = "flex";
+      mainArea.style.justifyContent = "center";
+      mainArea.style.alignItems = "flex-start";
+      mainArea.style.overflowX = "hidden";
+    }
+
     if (viewport) {
-      viewport.style.width = "430px";
-      viewport.style.maxWidth = "430px";
-      viewport.style.minWidth = "430px";
+      viewport.style.width = "390px";
+      viewport.style.maxWidth = "390px";
+      viewport.style.minWidth = "390px";
       viewport.style.margin = "0 auto";
-      viewport.style.overflowX = "auto";
+      viewport.style.overflowX = "hidden";
     }
 
     grid.style.width = "390px";
     grid.style.maxWidth = "390px";
     grid.style.minWidth = "390px";
+    grid.style.overflowX = "hidden";
   } else {
+    if (mainArea) {
+      mainArea.style.display = "";
+      mainArea.style.justifyContent = "";
+      mainArea.style.alignItems = "";
+      mainArea.style.overflowX = "";
+    }
+
     if (viewport) {
       viewport.style.width = "";
       viewport.style.maxWidth = "";
@@ -8685,6 +12529,7 @@ function applyResponsiveCanvasWidth() {
     grid.style.width = "";
     grid.style.maxWidth = "";
     grid.style.minWidth = "";
+    grid.style.overflowX = "";
   }
 
   if (typeof syncLockedHeaderWidth === "function") {
@@ -8694,6 +12539,8 @@ function applyResponsiveCanvasWidth() {
   if (typeof layoutHeaderChildren === "function") {
     layoutHeaderChildren();
   }
+
+  trimCanvasHeight?.();
 }
 
 
@@ -8707,8 +12554,8 @@ function trimCanvasHeight() {
     return true;
   });
 
-  const minHeight = 600;
-  const bottomPadding = 40;
+const minHeight = 1400;
+const bottomPadding = 200;
 
   if (!items.length) {
     grid.style.height = `${minHeight}px`;
@@ -8732,6 +12579,36 @@ function trimCanvasHeight() {
 }
 
 
+function clampAllItemsToCurrentCanvas() {
+  const grid = document.getElementById("dropAreaInner");
+  if (!grid) return;
+
+  const maxWidth = grid.clientWidth;
+
+  grid.querySelectorAll(".da-item").forEach((el) => {
+    if (el.dataset.type === "header") return;
+
+    const left = parseFloat(el.style.left) || 0;
+    const width = parseFloat(el.style.width) || el.offsetWidth || 0;
+
+    let nextLeft = left;
+    let nextWidth = width;
+
+    if (nextWidth > maxWidth) {
+      nextWidth = maxWidth;
+      el.style.width = `${Math.round(nextWidth)}px`;
+    }
+
+    if (nextLeft + nextWidth > maxWidth) {
+      nextLeft = Math.max(0, maxWidth - nextWidth);
+      el.style.left = `${Math.round(nextLeft)}px`;
+    }
+  });
+}
+
+
+
+
 
 })();
 
@@ -8743,7 +12620,7 @@ function trimCanvasHeight() {
                                              //
                                              // =======================
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
   const root = document.querySelector(".tpl");
   const btn = document.getElementById("sidebar-toggle");
   if (!root || !btn) return;
@@ -8751,7 +12628,7 @@ document.addEventListener("DOMContentLoaded", () => {
   function syncSidebarToggle() {
     const collapsed = root.classList.contains("is-collapsed");
     btn.setAttribute("aria-label", collapsed ? "Expand sidebar" : "Collapse sidebar");
-    btn.textContent = collapsed ? "Show Builder" : "← Back";
+    btn.textContent = collapsed ? "Show " : "← Back";
   }
 
 btn.addEventListener("click", () => {
@@ -8784,6 +12661,8 @@ btn.addEventListener("click", () => {
   document.getElementById("tpl-preview-btn")?.addEventListener("click", () => {
     setPreviewMode(!window.TPL_PREVIEW);
   });
+
+await applyLaunchParamsToBuilder();
 });
 
 //Pdf Close Button 
@@ -8797,6 +12676,17 @@ document.getElementById("pdf-preview-close")?.addEventListener("click", () => {
 
   if (overlay) overlay.hidden = true;
   if (frame) frame.src = "";
+
+
+
+  //Reset Template 
+  const resetBtn = document.getElementById("tpl-reset-btn");
+
+resetBtn?.addEventListener("click", async () => {
+  await resetTemplateToDefault();
+});
+
+  applyResponsiveViewMode();
 });
 ////////////////////End of dom
 

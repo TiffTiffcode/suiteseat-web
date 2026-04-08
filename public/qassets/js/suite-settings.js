@@ -1233,6 +1233,7 @@ if (pageTypeRow) {
 const pageType = v["Suite Template"] || "default";
 if (pageTypeEl) {
   pageTypeEl.value = pageType;
+  syncTemplateCardsWithSelect(pageTypeEl.value);
 }
 
   // preload fields (these match your DataType fields)
@@ -1432,6 +1433,106 @@ function initLocationStyleSave(closeModalFn) {
     }
   });
 }
+
+/////////////////////////////////////////////////
+
+//Public Template Syling 
+const locationPageTypeSelect = document.getElementById("location-page-type");
+const locationTemplatePicker = document.getElementById("location-template-picker");
+
+function syncTemplateCardsWithSelect(value) {
+  document.querySelectorAll(".location-template-card").forEach((card) => {
+    card.classList.toggle("is-selected", card.dataset.template === value);
+  });
+}
+
+locationTemplatePicker?.addEventListener("click", (e) => {
+  const card = e.target.closest(".location-template-card");
+  if (!card) return;
+
+  const templateValue = card.dataset.template || "default";
+
+  if (locationPageTypeSelect) {
+    locationPageTypeSelect.value = templateValue;
+  }
+
+  syncTemplateCardsWithSelect(templateValue);
+});
+
+locationPageTypeSelect?.addEventListener("change", () => {
+  syncTemplateCardsWithSelect(locationPageTypeSelect.value);
+});
+
+document.querySelectorAll("[data-template-edit]").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    if (!selectedLocation) {
+      alert("Open a location first.");
+      return;
+    }
+
+    const templateKey = btn.dataset.templateEdit || "default";
+
+    const locId =
+      selectedLocation?._id ||
+      selectedLocation?.id ||
+      "";
+
+    const slug =
+      selectedLocation?.values?.slug ||
+      selectedLocation?.values?.Slug ||
+      "";
+
+    const url =
+      `/template.html?locationId=${encodeURIComponent(locId)}` +
+      `&pageType=suite` +
+      `&template=${encodeURIComponent(templateKey)}` +
+      `&slug=${encodeURIComponent(slug)}`;
+
+    window.location.href = url;
+  });
+});
+
+//Edit Public Template Button
+document.querySelectorAll("[data-template-edit]").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    if (!selectedLocation) {
+      alert("Open a location first.");
+      return;
+    }
+
+    const templateKey = btn.dataset.templateEdit || "default";
+
+    const locId =
+      selectedLocation?._id ||
+      selectedLocation?.id ||
+      "";
+
+    const slug =
+      selectedLocation?.values?.slug ||
+      selectedLocation?.values?.Slug ||
+      "";
+
+    const url =
+      `/template.html?locationId=${encodeURIComponent(locId)}` +
+      `&pageType=${encodeURIComponent("suite")}` +
+      `&template=${encodeURIComponent(templateKey)}` +
+      `&slug=${encodeURIComponent(slug)}`;
+
+    console.log("[suite settings redirect] url:", url);
+
+    window.location.href = url;
+  });
+});
+
+
+
+
+
+
+
+
+
+
 
   // =========================================================
       // ✅ SHOW LOCATION DETAILS SECTION
@@ -1760,6 +1861,10 @@ listEl.querySelectorAll("[data-suite-id]").forEach((btn) => {
 
 
 }
+
+
+
+
 
 
 // ------------------------------

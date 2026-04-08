@@ -1071,15 +1071,138 @@ Years of experience'
   <label for="location-page-type">Page type</label>
   <select id="location-page-type">
     <option value="default">Default</option>
-    <option value="template1">Template 1</option>
-    <option value="template2">Template 2</option>
+    <option value="template1">Pepla</option>
+    <option value="template2">Icon</option>
     <option value="custom">Custom</option>
   </select>
   <p class="muted small">
     Pick which type of public page this location should use.
   </p>
+
+
+<!--Template Selection-->
+<div class="location-template-picker" id="location-template-picker">
+
+  <div class="location-template-card-wrap">
+    <button
+      type="button"
+      class="location-template-card is-selected"
+      data-template="default"
+    >
+      <div class="location-template-thumb default-thumb">
+        <div class="thumb-header"></div>
+        <div class="thumb-hero"></div>
+        <div class="thumb-row">
+          <span></span><span></span><span></span>
+        </div>
+      </div>
+      <div class="location-template-meta">
+        <strong>Default</strong>
+        <p>Classic suite layout</p>
+      </div>
+    </button>
+
+    <button
+      type="button"
+      class="location-template-edit-btn"
+      data-template-edit="default"
+    >
+      Edit Default Template
+    </button>
+  </div>
+
+  <div class="location-template-card-wrap">
+    <button
+      type="button"
+      class="location-template-card"
+      data-template="template1"
+    >
+      <div class="location-template-thumb template1-thumb">
+        <div class="thumb-split">
+          <div class="thumb-image"></div>
+          <div class="thumb-panel"></div>
+        </div>
+        <div class="thumb-grid">
+          <span></span><span></span><span></span>
+        </div>
+      </div>
+      <div class="location-template-meta">
+        <strong>Pepla</strong>
+        <p>Clean card layout</p>
+      </div>
+    </button>
+
+    <button
+      type="button"
+      class="location-template-edit-btn"
+      data-template-edit="template1"
+    >
+      Edit Pepla Template
+    </button>
+  </div>
+
+  <div class="location-template-card-wrap">
+    <button
+      type="button"
+      class="location-template-card"
+      data-template="template2"
+    >
+      <div class="location-template-thumb template2-thumb">
+        <div class="thumb-full-hero"></div>
+        <div class="thumb-featured"></div>
+        <div class="thumb-mini-row">
+          <span></span><span></span>
+        </div>
+      </div>
+      <div class="location-template-meta">
+        <strong>Icon</strong>
+        <p>Luxury editorial layout</p>
+      </div>
+    </button>
+
+    <button
+      type="button"
+      class="location-template-edit-btn"
+      data-template-edit="template2"
+    >
+      Edit Icon Template
+    </button>
+  </div>
+
+  <div class="location-template-card-wrap">
+    <button
+      type="button"
+      class="location-template-card"
+      data-template="custom"
+    >
+      <div class="location-template-thumb custom-thumb">
+        <div class="thumb-builder-box"></div>
+        <div class="thumb-builder-line"></div>
+        <div class="thumb-builder-line short"></div>
+      </div>
+      <div class="location-template-meta">
+        <strong>Custom</strong>
+        <p>Builder-designed page</p>
+      </div>
+    </button>
+
+    <button
+      type="button"
+      class="location-template-edit-btn"
+      data-template-edit="custom"
+    >
+      Edit Custom Template
+    </button>
+  </div>
+
 </div>
 
+
+
+
+
+           <!--Branding Section-->
+             <h3> Branding</h3>
   <div class="location-style-row">
   <label for="location-style-bg-color">Background color</label>
   <input type="color" id="location-style-bg-color" />

@@ -20,28 +20,25 @@
 }
 
 .tpl{
-  position: relative;
+  display: flex;
   width: 100%;
   min-height: 100vh;
   height: 100vh;
   overflow: hidden;
 }
 
-
-/* sidebar now overlays instead of shrinking layout */
 .tpl__sidebar{
-  position: absolute;
-  left: 12px;
-  top: 2px;
+  position: relative;
+  flex: 0 0 260px;
   width: 260px;
-  height: calc(100vh - 104px);
+  height: 100vh;
   z-index: 30;
   background: var(--sidebar);
   padding: 12px;
   overflow-x: hidden;
   overflow-y: auto;
-  border: 2px solid #000;
-  box-shadow: 0 8px 24px rgba(0,0,0,.18);
+  border-right: 2px solid #000;
+  box-shadow: none;
 }
 
     /* White bar with arrow */
@@ -90,7 +87,7 @@
 }
 
 .tpl.is-collapsed .sidebar-toggle::after{
-  content: " Show Builder";
+  content: " Show ";
   font-size: 14px;
   font-weight: 700;
   white-space: nowrap;
@@ -116,7 +113,7 @@
 }
 
 .tpl.is-collapsed .sidebar-toggle::after{
-  content: "Show Builder";
+  content: "Show ";
   font-size: 12px;
   font-weight: 600;
   color: #111;
@@ -124,26 +121,30 @@
 }
 /* drop area stays full width in all modes */
 #tpl-dropArea{
-  width: max(100vw, 1400px);
-  min-width: max(100vw, 1400px);
+  width: 100%;
+  min-width: 0;
   height: 100%;
 }
 
 #dropAreaInner{
   position: relative;
-  width: max(100vw, 1400px);
-  min-width: max(100vw, 1400px);
-  min-height: 2000px;
+  width: 100%;
+  min-width: 1400px;
+  min-height: 3000px;
 }
 .tpl.is-collapsed .tpl__sidebar{
-  width: auto;
-  height: auto;
+  position: relative;
+  flex: 0 0 54px;
+  width: 54px;
+  min-width: 54px;
+  height: 100vh;
   padding: 0;
   background: transparent;
-  border: 0;
+  border-right: 0;
   overflow: visible;
   box-shadow: none;
 }
+
 .tpl.is-collapsed .sidebar-panel{
   display: none;
 }
@@ -157,12 +158,14 @@
 
 
 .tpl.is-collapsed .sidebar-topbar{
-  width: 44px;
-  min-width: 44px;
+  width: 54px;
+  min-width: 54px;
+  height: 44px;
   padding: 0;
   justify-content: center;
+  background: transparent;
+  border: 0;
 }
-
 
 
 
@@ -710,7 +713,8 @@ pointer-events: auto;
 /* canvas always gets full width */
 .tpl__dropArea{
   position: relative;
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   height: 100vh;
   z-index: 1;
   background: var(--canvas);
@@ -718,11 +722,10 @@ pointer-events: auto;
   overflow-y: auto;
   padding: 0;
 }
-
 .tpl-dropArea{
   height: 100%;
-  border: 3px solid #7a52ff; /* purple outline like screenshot */
-  background: #eee;
+  border: 3px solid #7a52ff;
+  background: transparent;
   padding: 0px;
   box-sizing: border-box;
   position: relative;
@@ -755,7 +758,49 @@ pointer-events: auto;
   pointer-events: none;
 }
 
+.tpl__dropArea{
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  height: 100vh;
+  z-index: 1;
+  background: var(--canvas);
+  overflow: auto;
+  padding: 0;
+}
 
+#tpl-dropArea{
+  width: fit-content;
+  min-width: fit-content;
+  height: 100%;
+  overflow: visible;
+}
+.tpl:not(.is-collapsed) #tpl-dropArea{
+  width: calc(1400px * 0.82);
+  min-width: calc(1400px * 0.82);
+}
+
+.tpl.is-collapsed #tpl-dropArea{
+  width: 1400px;
+  min-width: 1400px;
+}
+#dropAreaInner{
+  position: relative;
+  width: 1400px;
+  min-width: 1400px;
+  min-height: 3000px;
+  transform-origin: top left;
+}
+
+/* sidebar open = canvas shrinks a bit so more of template fits */
+.tpl:not(.is-collapsed) #dropAreaInner{
+  transform: scale(0.82);
+}
+
+/* sidebar collapsed = canvas full size */
+.tpl.is-collapsed #dropAreaInner{
+  transform: scale(1);
+}
 .da-delBtn{
   border: 1px solid rgba(0,0,0,.35);
   background: #fff;
@@ -912,13 +957,12 @@ pointer-events: auto;
   display: none;
 }
 
-.da-item--popup.is-popup-editing {
+.da-item--popup.is-popup-editing[data-popup-mode="modal"] {
   left: 50% !important;
   top: 24px !important;
   transform: translateX(-50%) !important;
   z-index: 1001 !important;
 }
-
 
 
 
@@ -978,7 +1022,24 @@ pointer-events: auto;
   border: 0;
 }
 
+                                          /*Exit Preview Mode*/
+#tpl-exit-preview-btn {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 50000;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid #111;
+  background: #fff;
+  color: #111;
+  cursor: pointer;
+  display: none;
+}
 
+body.is-preview-mode #tpl-exit-preview-btn {
+  display: block;
+}
 
                                             /*Input*/
 .da-item--input {
@@ -994,7 +1055,8 @@ pointer-events: auto;
 
                                              /*Parallax*/
 .is-preview-mode .da-item[data-type="section"],
-.is-preview-mode .da-item[data-type="image"] {
+.is-preview-mode .da-item[data-type="image"],
+.is-preview-mode .da-item[data-type="group"] {
   transform: translateY(var(--parallaxY, 0px));
   will-change: transform;
 }
@@ -1073,3 +1135,58 @@ pointer-events: auto;
   background: white;
   box-shadow: 0 10px 30px rgba(0,0,0,0.08);
 }
+
+
+                                  /*Background*/
+   .da-item--background {
+  box-sizing: border-box;
+}
+
+.da-background__media {
+  position: absolute;
+  inset: 0;
+}
+
+.da-item--background.is-preview-mode,
+body.is-preview-mode .da-item--background {
+  pointer-events: none;
+}
+
+.da-backgroundControls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+}
+
+.da-backgroundPositionControls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  width: 100%;
+  margin-top: 8px;
+}
+
+.da-backgroundPositionControls input[type="range"] {
+  width: 100%;
+}
+
+                                   /*Shape Element*/
+.da-item--shape{
+  background: #d9d9d9;
+  border: none;
+}
+
+.da-item--shape[data-shape-type="circle"]{
+  border-radius: 999px !important;
+}
+
+.da-item--shape[data-shape-type="pill"]{
+  border-radius: 999px !important;
+}
+
+.da-item--shape[data-shape-type="rectangle"]{
+  border-radius: 0 !important;
+}                               
+

@@ -1,7 +1,7 @@
 //C:\Users\tiffa\OneDrive\Desktop\suiteseat-web\src\app\[slug]\SuiteTemplates\custom\Template.tsx
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import "../../styles/SuitePage/custom.css";
 
 
@@ -40,9 +40,25 @@ const [activeResponsiveView, setActiveResponsiveView] = useState<"desktop" | "mo
 
     return () => window.removeEventListener("resize", updateResponsiveView);
   }, []);
+//Parallax Helper
+const [scrollY, setScrollY] = useState(0);
 
+//Parallax
+useEffect(() => {
+  const scrollEl = document.querySelector(".custom-page");
 
-    
+  if (!scrollEl) return;
+
+  const onScroll = () => {
+    setScrollY(scrollEl.scrollTop || 0);
+  };
+
+  onScroll();
+  scrollEl.addEventListener("scroll", onScroll);
+
+  return () => scrollEl.removeEventListener("scroll", onScroll);
+}, []);
+
 const currentView = pageJson?.views?.[activeViewKey] || null;
 
 // fallback for old saved pages that still use .items
@@ -63,6 +79,8 @@ const canvasHeight = Math.max(
   600,
   ...elements.map((el: any) => Number(el?.y || 0) + Number(el?.h || 0))
 );
+
+
 
 //Template Helper
 const [appSections, setAppSections] = useState<any[]>([]);
@@ -121,7 +139,11 @@ function getSelectedRecordFromGroupItem(groupItem: any) {
 
 
 const allViewItems = Object.values(pageJson?.views || {}).flatMap((view: any) => {
+  if (Array.isArray(view?.desktop?.items) && Array.isArray(view?.mobile?.items)) {
+    return [...view.desktop.items, ...view.mobile.items];
+  }
   if (Array.isArray(view?.desktop?.items)) return view.desktop.items;
+  if (Array.isArray(view?.mobile?.items)) return view.mobile.items;
   if (Array.isArray(view?.items)) return view.items;
   return [];
 });
@@ -283,7 +305,11 @@ function handleElementAction(element: any) {
     // Find popup element in the CURRENT saved page items by popupId first,
     // then fall back to matching element id.
 const allViewItems = Object.values(pageJson?.views || {}).flatMap((view: any) => {
+  if (Array.isArray(view?.desktop?.items) && Array.isArray(view?.mobile?.items)) {
+    return [...view.desktop.items, ...view.mobile.items];
+  }
   if (Array.isArray(view?.desktop?.items)) return view.desktop.items;
+  if (Array.isArray(view?.mobile?.items)) return view.mobile.items;
   if (Array.isArray(view?.items)) return view.items;
   return [];
 });
@@ -455,6 +481,46 @@ setAppModalOpen(true);
   console.warn("[public/action] unsupported action:", actionType);
 }
 
+const elementMap = useMemo(() => {
+  const map = new Map<string, any>();
+
+  (elements || []).forEach((el: any) => {
+    const id = String(el?.id || "");
+    if (id) map.set(id, el);
+  });
+
+  return map;
+}, [elements]);
+function getParallaxStrength(element: any) {
+  let total = parseFloat(element?.data?.parallax || "0") || 0;
+
+  let parentId = String(element?.parent || "").trim();
+  let guard = 0;
+
+  while (parentId && guard < 20) {
+    const parent = elementMap.get(parentId);
+    if (!parent) break;
+
+    total += parseFloat(parent?.data?.parallax || "0") || 0;
+    parentId = String(parent?.parent || "").trim();
+    guard += 1;
+  }
+
+  return total;
+}
+
+function getParallaxStyle(element: any): React.CSSProperties {
+  const strength = getParallaxStrength(element);
+  if (!strength) return {};
+
+  const offset = -scrollY * strength;
+
+  return {
+    transform: `translateY(${offset}px)`,
+    willChange: "transform",
+  };
+}
+
   function renderElement(element: any, index: number) {
     const key = element?.id || index;
     const type = element?.type;
@@ -481,20 +547,23 @@ const style: React.CSSProperties = {
   zIndex: element?.z || 1,
 };
 
+const parallaxStyle = getParallaxStyle(element);
+
     if (type === "text") {
       return (
         <div
           key={key}
-          style={{
-            ...style,
-            fontSize: `${data?.fontSize || 16}px`,
-            fontFamily: data?.fontFamily || "system-ui",
-            fontWeight: data?.bold === "1" ? 700 : 400,
-            fontStyle: data?.italic === "1" ? "italic" : "normal",
-            textDecoration: data?.underline === "1" ? "underline" : "none",
-            textAlign: data?.align || "left",
-            color: data?.color || "#111111",
-          }}
+style={{
+  ...style,
+  ...parallaxStyle,
+  fontSize: `${data?.fontSize || 16}px`,
+  fontFamily: data?.fontFamily || "system-ui",
+  fontWeight: data?.bold === "1" ? 700 : 400,
+  fontStyle: data?.italic === "1" ? "italic" : "normal",
+  textDecoration: data?.underline === "1" ? "underline" : "none",
+  textAlign: data?.align || "left",
+  color: data?.color || "#111111",
+}}
         >
           {data?.text || "Text"}
         </div>
@@ -519,12 +588,13 @@ if (type === "image") {
       key={key}
       src={imageSrc}
       alt={data?.alt || "Image"}
-      style={{
-        ...style,
-        objectFit: data?.objectFit || "cover",
-        borderRadius: `${data?.radius || 0}px`,
-        display: "block",
-      }}
+style={{
+  ...style,
+  ...parallaxStyle,
+  objectFit: data?.objectFit || "cover",
+  borderRadius: `${data?.radius || 0}px`,
+  display: "block",
+}}
     />
   );
 }
@@ -536,16 +606,17 @@ if (type === "image") {
           key={key}
           type="button"
           onClick={() => handleElementAction(element)}
-          style={{
-            ...style,
-            background: data?.btnBg || "#111111",
-            color: data?.btnTextColor || "#ffffff",
-            borderWidth: `${data?.borderWidth || 0}px`,
-            borderStyle: data?.borderStyle || "solid",
-            borderColor: data?.borderColor || "#111111",
-            borderRadius: `${data?.radius || 12}px`,
-            cursor: "pointer",
-          }}
+style={{
+  ...style,
+  ...parallaxStyle,
+  background: data?.btnBg || "#111111",
+  color: data?.btnTextColor || "#ffffff",
+  borderWidth: `${data?.borderWidth || 0}px`,
+  borderStyle: data?.borderStyle || "solid",
+  borderColor: data?.borderColor || "#111111",
+  borderRadius: `${data?.radius || 12}px`,
+  cursor: "pointer",
+}}
         >
           {data?.label || "Button"}
         </button>
@@ -572,19 +643,20 @@ if (type === "section" || type === "group" || type === "header") {
     <div
       key={key}
       data-id={element?.id || ""}
-      style={{
-        ...style,
-        backgroundColor: bgColor,
-        backgroundImage: bgImage ? `url(${bgImage})` : "none",
-        backgroundSize: data?.backgroundSize || "cover",
-        backgroundPosition: data?.backgroundPosition || "center",
-        backgroundRepeat: "no-repeat",
-        border:
-          borderOn && borderWidth > 0
-            ? `${borderWidth}px ${data?.borderStyle || "solid"} ${data?.borderColor || "#111111"}`
-            : "none",
-        borderRadius: `${data?.radius || 0}px`,
-      }}
+style={{
+  ...style,
+  ...parallaxStyle,
+  backgroundColor: bgColor,
+  backgroundImage: bgImage ? `url(${bgImage})` : "none",
+  backgroundSize: data?.backgroundSize || "cover",
+  backgroundPosition: data?.backgroundPosition || "center",
+  backgroundRepeat: "no-repeat",
+  border:
+    borderOn && borderWidth > 0
+      ? `${borderWidth}px ${data?.borderStyle || "solid"} ${data?.borderColor || "#111111"}`
+      : "none",
+  borderRadius: `${data?.radius || 0}px`,
+}}
     />
   );
 }
@@ -676,7 +748,13 @@ if (type === "video") {
 //End 
 
 return (
-  <div className="custom-page">
+  <div
+    className="custom-page"
+    style={{
+      height: "100vh",
+      overflowY: "auto",
+    }}
+  >
     {loading && <p>Loading...</p>}
     {error && <p>{error}</p>}
 
@@ -684,11 +762,14 @@ return (
   className="custom-page-canvas"
   style={{
     position: "relative",
-    width: "100vw",
-    minWidth: `${canvasWidth}px`,
+    width: activeResponsiveView === "mobile" ? "390px" : "100%",
+    maxWidth: activeResponsiveView === "mobile" ? "390px" : `${canvasWidth}px`,
+    minWidth: activeResponsiveView === "mobile" ? "390px" : `${canvasWidth}px`,
     minHeight: `${canvasHeight}px`,
     background: "#fff",
     zIndex: 1,
+    margin: "0 auto",
+    overflow: "visible",
   }}
 >
       {Array.isArray(elements) && elements.length > 0 ? (
@@ -964,15 +1045,16 @@ return (
             Your details
           </div>
 
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "240px 1fr",
-              gap: "16px 24px",
-              alignItems: "center",
-              marginBottom: "28px",
-            }}
-          >
+<div
+  style={{
+    display: "grid",
+    gridTemplateColumns:
+      activeResponsiveView === "mobile" ? "1fr" : "240px 1fr",
+    gap: "16px 24px",
+    alignItems: activeResponsiveView === "mobile" ? "stretch" : "center",
+    marginBottom: "28px",
+  }}
+>
             <label style={{ fontWeight: 500 }}>Full name</label>
             <input
               value={applicantName}
@@ -1005,14 +1087,16 @@ return (
                 {section.title}
               </div>
 
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "240px 1fr",
-                  gap: "16px 24px",
-                  alignItems: "center",
-                }}
-              >
+<div
+  style={{
+    display: "grid",
+    gridTemplateColumns:
+      activeResponsiveView === "mobile" ? "1fr" : "240px 1fr",
+    gap: "16px 24px",
+    alignItems: activeResponsiveView === "mobile" ? "stretch" : "center",
+    marginBottom: "28px",
+  }}
+>
                 {section.questions.map((question: any) => (
                   <React.Fragment key={question.id}>
                     <label style={{ fontWeight: 500 }}>{question.label}</label>

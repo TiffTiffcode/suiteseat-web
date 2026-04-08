@@ -90,3 +90,11 @@
   padding: 20px;
 }
 
+.custom-page {
+  width: 100%;
+  overflow-x: hidden;
+}
+
+.custom-page-canvas {
+  overflow-x: hidden;
+}
