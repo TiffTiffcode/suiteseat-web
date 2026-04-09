@@ -1482,6 +1482,1275 @@ const TEMPLATE_STARTERS = {
                      ////////////////////////////
 
 
+default: {
+  currentView: "default",
+  views: {
+    default: {
+      name: "Default View",
+      desktop: {
+        items: [
+          {
+            type: "section",
+            id: "default_header_top_desktop",
+            parent: "",
+            x: 0,
+            y: 0,
+            w: 1400,
+            h: 90,
+            z: 9999,
+            data: {
+              type: "section",
+              name: "Header Top Bar",
+              bg: "#ffffff",
+              bgOn: "1",
+              borderOn: "1",
+              borderWidth: "1",
+              borderStyle: "solid",
+              borderColor: "rgba(0,0,0,0.08)",
+              radius: "0",
+              locked: "1"
+            }
+          },
+{
+  type: "text",
+  id: "default_header_location_label_desktop",
+  parent: "default_header_top_desktop",
+  x: 70,
+  y: 34,
+  w: 100,
+  h: 18,
+  z: 10000,
+  data: {
+    type: "text",
+    name: "Header Location Label",
+    text: "Location",
+    fontSize: "13",
+    color: "#6b6258",
+    bold: "0",
+    align: "left"
+  }
+},
+
+          {
+  type: "text",
+  id: "",
+  parent: "default_header_top_desktop",
+  x: 70,
+  y: 58,
+  w: 260,
+  h: 28,
+  z: 10000,
+  data: {
+    type: "text",
+    name: "Header Location Name",
+    text: "First Location58",
+    fontSize: "18",
+    color: "#ff7a00",
+    bold: "1",
+    align: "left",
+    dynamicMode: "dynamic",
+    dynamicSource: "page",
+    dynamicField: "Location Name"
+  }
+},
+          {
+            type: "text",
+            id: "default_header_location_name_desktop",
+            parent: "default_header_top_desktop",
+            x: 60,
+            y: 42,
+            w: 320,
+            h: 28,
+            z: 10000,
+            data: {
+              type: "text",
+              name: "Header Location Name",
+              text: "Location Name",
+              fontSize: "22",
+              color: "#171717",
+              bold: "1",
+              align: "left",
+              dynamicMode: "dynamic",
+              dynamicSource: "page",
+              dynamicField: "Location Name"
+            }
+          },
+
+{
+  type: "button",
+  id: "default_header_menu_icon_desktop",
+  parent: "default_header_top_desktop",
+  x: 1300,
+  y: 22,
+  w: 50,
+  h: 50,
+  z: 10000,
+  data: {
+    type: "button",
+    name: "Header Menu Icon",
+    label: "☰",
+    btnBg: "transparent",
+    btnBgOn: "0",
+    btnTextColor: "#171717",
+    borderWidth: "0",
+    borderColor: "#171717",
+    borderStyle: "none",
+    radius: "0",
+    actionType: "open-popup",
+    actionTarget: "default_header_menu_popup_desktop",
+    displayType: "text"
+  }
+},
+
+//Menu Floating Group
+{
+  type: "popup",
+  id: "default_header_menu_popup_desktop",
+  parent: "",
+  x: 1040,
+  y: 70,
+  w: 320,
+  h: 430,
+  z: 20000,
+  data: {
+    type: "popup",
+    name: "Header Menu Popup",
+    bg: "#ffffff",
+    bgOn: "1",
+    borderOn: "1",
+    borderWidth: "2",
+    borderStyle: "solid",
+    borderColor: "#111111",
+    radius: "22",
+    popupMode: "anchored"
+  }
+},
+
+{
+  type: "button",
+  id: "default_menu_about_btn_desktop",
+  parent: "default_header_menu_popup_desktop",
+  x: 1065,
+  y: 110,
+  w: 180,
+  h: 32,
+  z: 20002,
+  data: {
+    type: "button",
+    name: "Menu About Button",
+    label: "About",
+    btnBg: "transparent",
+    btnTextColor: "#ff7a00",
+    borderWidth: "0",
+    borderStyle: "none",
+    actionType: "scroll",
+    actionTarget: "default_about_wrap_desktop",
+    displayType: "text"
+  }
+},
+{
+  type: "button",
+  id: "default_menu_gallery_btn_desktop",
+  parent: "default_header_menu_popup_desktop",
+  x: 1065,
+  y: 160,
+  w: 180,
+  h: 32,
+  z: 20002,
+  data: {
+    type: "button",
+    name: "Menu Gallery Button",
+    label: "Gallery",
+    btnBg: "transparent",
+    btnTextColor: "#ff7a00",
+    borderWidth: "0",
+    borderStyle: "none",
+    actionType: "scroll",
+    actionTarget: "default_gallery_wrap_desktop",
+    displayType: "text"
+  }
+},
+//Header
+
+
+          {
+            type: "section",
+            id: "default_header_subbar_desktop",
+            parent: "",
+            x: 0,
+            y: 90,
+            w: 1400,
+            h: 64,
+            z: 9998,
+            data: {
+              type: "section",
+              name: "Header Sub Bar",
+              bg: "#ffffff",
+              bgOn: "1",
+              borderOn: "1",
+              borderWidth: "1",
+              borderStyle: "solid",
+              borderColor: "rgba(0,0,0,0.06)",
+              radius: "0",
+              locked: "1"
+            }
+          },
+        
+          //Header Tabs
+{
+  type: "text",
+  id: "default_header_about_link_desktop",
+  parent: "default_header_subbar_desktop",
+  x: 420,
+  y: 118,
+  w: 70,
+  h: 24,
+  z: 10000,
+  data: {
+    type: "text",
+    name: "Header About Link",
+    text: "About",
+    fontSize: "15",
+    color: "#ff7a00",
+    bold: "1",
+    align: "left"
+  }
+},
+{
+  type: "text",
+  id: "default_header_gallery_link_desktop",
+  parent: "default_header_subbar_desktop",
+  x: 510,
+  y: 118,
+  w: 80,
+  h: 24,
+  z: 10000,
+  data: {
+    type: "text",
+    name: "Header Gallery Link",
+    text: "Gallery",
+    fontSize: "15",
+    color: "#ff7a00",
+    bold: "1",
+    align: "left"
+  }
+},
+{
+  type: "text",
+  id: "default_header_locations_link_desktop",
+  parent: "default_header_subbar_desktop",
+  x: 605,
+  y: 118,
+  w: 95,
+  h: 24,
+  z: 10000,
+  data: {
+    type: "text",
+    name: "Header Locations Link",
+    text: "Locations",
+    fontSize: "15",
+    color: "#ff7a00",
+    bold: "1",
+    align: "left"
+  }
+},
+{
+  type: "text",
+  id: "default_header_pros_link_desktop",
+  parent: "default_header_subbar_desktop",
+  x: 720,
+  y: 118,
+  w: 150,
+  h: 24,
+  z: 10000,
+  data: {
+    type: "text",
+    name: "Header Professionals Link",
+    text: "Our Professionals",
+    fontSize: "15",
+    color: "#ff7a00",
+    bold: "1",
+    align: "left"
+  }
+},
+{
+  type: "text",
+  id: "default_header_suites_link_desktop",
+  parent: "default_header_subbar_desktop",
+  x: 895,
+  y: 118,
+  w: 70,
+  h: 24,
+  z: 10000,
+  data: {
+    type: "text",
+    name: "Header Suites Link",
+    text: "Suites",
+    fontSize: "15",
+    color: "#ff7a00",
+    bold: "1",
+    align: "left"
+  }
+},
+{
+  type: "text",
+  id: "default_header_contact_link_desktop",
+  parent: "default_header_subbar_desktop",
+  x: 985,
+  y: 118,
+  w: 100,
+  h: 24,
+  z: 10000,
+  data: {
+    type: "text",
+    name: "Header Contact Link",
+    text: "Contact Us",
+    fontSize: "15",
+    color: "#ff7a00",
+    bold: "1",
+    align: "left"
+  }
+},
+
+       //Default Hero Section
+
+{
+  type: "section",
+  id: "default_hero_wrap_desktop",
+  parent: "",
+  x: 0,
+  y: 150,
+  w: 1400,
+  h: 520,
+  z: 1,
+  data: {
+    type: "section",
+    name: "Hero Image Wrap",
+    bg: "#e9e9e9",
+    bgOn: "1",
+    borderOn: "0",
+    radius: "0"
+  }
+},
+{
+  type: "image",
+  id: "default_hero_image_desktop",
+  parent: "",
+  x: 0,
+  y: 150,
+  w: 1400,
+  h: 520,
+  z: 2,
+  data: {
+    type: "image",
+    name: "Hero Image",
+    dynamicMode: "dynamic",
+    dynamicSource: "page",
+    dynamicField: "Location Photo",
+    fit: "cover",
+    radius: "0"
+  }
+},
+
+//Avalable Suites Section 
+{
+  type: "section",
+  id: "default_available_suites_bg_desktop",
+  parent: "",
+  x: 0,
+  y: 670,
+  w: 1400,
+  h: 700,
+  z: 0,
+  data: {
+    type: "section",
+    name: "Available Suites Background",
+    bg: "transparent",
+    bgOn: "0",
+    borderOn: "0",
+    radius: "0"
+  }
+},
+{
+  type: "text",
+  id: "default_available_suites_heading_desktop",
+  parent: "default_available_suites_bg_desktop",
+  x: 610,
+  y: 720,
+  w: 220,
+  h: 36,
+  z: 2,
+  data: {
+    type: "text",
+    name: "Available Suites Heading",
+    text: "Available Suites",
+    fontSize: "18",
+    color: "#ff7a00",
+    bold: "0",
+    align: "center"
+  }
+},
+{
+  type: "section",
+  id: "default_available_suites_wrap_desktop",
+  parent: "default_available_suites_bg_desktop",
+  x: 280,
+  y: 790,
+  w: 920,
+  h: 430,
+  z: 1,
+  data: {
+    type: "section",
+    name: "Available Suites Wrap",
+    bg: "#ffffff",
+    bgOn: "1",
+    borderOn: "0",
+    radius: "24"
+  }
+},
+{
+  type: "group",
+  id: "default_available_suites_group_desktop",
+  parent: "default_available_suites_wrap_desktop",
+  x: 300,
+  y: 810,
+  w: 880,
+  h: 390,
+  z: 2,
+  data: {
+    type: "group",
+    name: "Available Suites Group",
+    bg: "transparent",
+    bgOn: "0",
+    borderOn: "0",
+    radius: "0"
+  }
+},
+//Availability Cards
+//Card 1
+{
+  type: "section",
+  id: "default_suite_card_1_desktop",
+ parent: "default_available_suites_group_desktop",
+  x: 315,
+  y: 820,
+  w: 260,
+  h: 360,
+  z: 3,
+  data: {
+    type: "section",
+    name: "Suite Card 1",
+    bg: "#ffffff",
+    bgOn: "1",
+    borderOn: "0",
+    radius: "18"
+  }
+},
+{
+  type: "image",
+  id: "default_suite_card_1_image_desktop",
+  parent: "default_suite_card_1_desktop",
+  x: 315,
+  y: 820,
+  w: 260,
+  h: 190,
+  z: 4,
+  data: {
+    type: "image",
+    name: "Suite Card Image 1",
+    fit: "cover",
+    radius: "18"
+  }
+},
+{
+  type: "button",
+  id: "default_suite_card_1_name_desktop",
+  parent: "default_suite_card_1_desktop",
+  x: 395,
+  y: 1030,
+  w: 100,
+  h: 36,
+  z: 4,
+  data: {
+    type: "button",
+    name: "Suite Card Name 1",
+    label: "red suite",
+    btnBg: "#111111",
+    btnTextColor: "#ffffff",
+    borderWidth: "0",
+    borderColor: "#111111",
+    borderStyle: "solid",
+    radius: "999"
+  }
+},
+{
+  type: "text",
+  id: "default_suite_card_1_available_label_desktop",
+  parent: "default_suite_card_1_desktop",
+  x: 390,
+  y: 1085,
+  w: 110,
+  h: 28,
+  z: 4,
+  data: {
+    type: "text",
+    name: "Suite Card Available Label 1",
+    text: "Available On",
+    fontSize: "18",
+    color: "#ff7a00",
+    bold: "0",
+    align: "center"
+  }
+},
+{
+  type: "text",
+  id: "default_suite_card_1_date_desktop",
+  parent: "default_suite_card_1_desktop",
+  x: 405,
+  y: 1130,
+  w: 85,
+  h: 30,
+  z: 4,
+  data: {
+    type: "text",
+    name: "Suite Card Date 1",
+    text: "Dec 29, 2025",
+    fontSize: "14",
+    color: "#555555",
+    bold: "0",
+    align: "center"
+  }
+},
+// Card 2
+{
+  type: "section",
+  id: "default_suite_card_2_desktop",
+  parent: "default_available_suites_group_desktop",
+  x: 595,
+  y: 820,
+  w: 260,
+  h: 360,
+  z: 3,
+  data: {
+    type: "section",
+    name: "Suite Card 2",
+    bg: "#ffffff",
+    bgOn: "1",
+    borderOn: "0",
+    radius: "18"
+  }
+},
+{
+  type: "image",
+  id: "default_suite_card_2_image_desktop",
+  parent: "default_suite_card_2_desktop",
+  x: 595,
+  y: 820,
+  w: 260,
+  h: 190,
+  z: 4,
+  data: {
+    type: "image",
+    name: "Suite Card Image 2",
+    fit: "cover",
+    radius: "18"
+  }
+},
+{
+  type: "button",
+  id: "default_suite_card_2_name_desktop",
+  parent: "default_suite_card_2_desktop",
+  x: 675,
+  y: 1030,
+  w: 100,
+  h: 36,
+  z: 4,
+  data: {
+    type: "button",
+    name: "Suite Card Name 2",
+    label: "pink suite",
+    btnBg: "#111111",
+    btnTextColor: "#ffffff",
+    borderWidth: "0",
+    borderColor: "#111111",
+    borderStyle: "solid",
+    radius: "999"
+  }
+},
+{
+  type: "text",
+  id: "default_suite_card_2_available_label_desktop",
+  parent: "default_suite_card_2_desktop",
+  x: 670,
+  y: 1085,
+  w: 110,
+  h: 28,
+  z: 4,
+  data: {
+    type: "text",
+    name: "Suite Card Available Label 2",
+    text: "Available On",
+    fontSize: "18",
+    color: "#ff7a00",
+    bold: "0",
+    align: "center"
+  }
+},
+{
+  type: "text",
+  id: "default_suite_card_2_date_desktop",
+  parent: "default_suite_card_2_desktop",
+  x: 685,
+  y: 1130,
+  w: 85,
+  h: 30,
+  z: 4,
+  data: {
+    type: "text",
+    name: "Suite Card Date 2",
+    text: "Dec 30, 2025",
+    fontSize: "14",
+    color: "#555555",
+    bold: "0",
+    align: "center"
+  }
+},
+
+// Card 3
+{
+  type: "section",
+  id: "default_suite_card_3_desktop",
+  parent: "default_available_suites_group_desktop",
+  x: 875,
+  y: 820,
+  w: 260,
+  h: 360,
+  z: 3,
+  data: {
+    type: "section",
+    name: "Suite Card 3",
+    bg: "#ffffff",
+    bgOn: "1",
+    borderOn: "0",
+    radius: "18"
+  }
+},
+{
+  type: "image",
+  id: "default_suite_card_3_image_desktop",
+  parent: "default_suite_card_3_desktop",
+  x: 875,
+  y: 820,
+  w: 260,
+  h: 190,
+  z: 4,
+  data: {
+    type: "image",
+    name: "Suite Card Image 3",
+    fit: "cover",
+    radius: "18"
+  }
+},
+{
+  type: "button",
+  id: "default_suite_card_3_name_desktop",
+  parent: "default_suite_card_3_desktop",
+  x: 955,
+  y: 1030,
+  w: 100,
+  h: 36,
+  z: 4,
+  data: {
+    type: "button",
+    name: "Suite Card Name 3",
+    label: "gold suite",
+    btnBg: "#111111",
+    btnTextColor: "#ffffff",
+    borderWidth: "0",
+    borderColor: "#111111",
+    borderStyle: "solid",
+    radius: "999"
+  }
+},
+{
+  type: "text",
+  id: "default_suite_card_3_available_label_desktop",
+  parent: "default_suite_card_3_desktop",
+  x: 950,
+  y: 1085,
+  w: 110,
+  h: 28,
+  z: 4,
+  data: {
+    type: "text",
+    name: "Suite Card Available Label 3",
+    text: "Available On",
+    fontSize: "18",
+    color: "#ff7a00",
+    bold: "0",
+    align: "center"
+  }
+},
+{
+  type: "text",
+  id: "default_suite_card_3_date_desktop",
+  parent: "default_suite_card_3_desktop",
+  x: 965,
+  y: 1130,
+  w: 85,
+  h: 30,
+  z: 4,
+  data: {
+    type: "text",
+    name: "Suite Card Date 3",
+    text: "Feb 6, 2026",
+    fontSize: "14",
+    color: "#555555",
+    bold: "0",
+    align: "center"
+  }
+},
+
+//About This Location
+{
+  type: "section",
+  id: "default_about_wrap_desktop",
+  parent: "",
+  x: 200,
+  y: 1430,
+  w: 1000,
+  h: 220,
+  z: 1,
+  data: {
+    type: "section",
+    name: "About Wrap",
+    bg: "transparent",
+    bgOn: "0",
+    borderOn: "0",
+    radius: "0"
+  }
+},
+{
+  type: "text",
+  id: "default_about_heading_desktop",
+  parent: "default_about_wrap_desktop",
+  x: 210,
+  y: 1450,
+  w: 280,
+  h: 40,
+  z: 2,
+  data: {
+    type: "text",
+    name: "About Heading",
+    text: "About this location",
+    fontSize: "18",
+    color: "#ff7a00",
+    bold: "1",
+    align: "left"
+  }
+},
+{
+  type: "section",
+  id: "default_about_card_desktop",
+  parent: "default_about_wrap_desktop",
+  x: 210,
+  y: 1510,
+  w: 980,
+  h: 140,
+  z: 2,
+  data: {
+    type: "section",
+    name: "About Card",
+    bg: "#ffffff",
+    bgOn: "1",
+    borderOn: "0",
+    radius: "18"
+  }
+},
+{
+  type: "text",
+  id: "default_about_text_desktop",
+  parent: "default_about_card_desktop",
+  x: 240,
+  y: 1540,
+  w: 920,
+  h: 50,
+  z: 3,
+  data: {
+    type: "text",
+    name: "About Text",
+    text: "This is the details 2section63",
+    fontSize: "16",
+    color: "#222222",
+    bold: "0",
+    align: "left"
+  }
+},
+        ]
+      },
+
+      /////////////////////
+      //Default Mobile
+      ////////////////////
+mobile: {
+  items: [
+    {
+      type: "header",
+      id: "default_header_mobile",
+      parent: "",
+      x: 0,
+      y: 0,
+      w: 390,
+      h: 90,
+      z: 9999,
+      data: {
+        type: "header",
+        name: "Default Header Mobile",
+        bg: "#ffffff",
+        bgOn: "1",
+        locked: "1"
+      }
+    },
+    {
+      type: "section",
+      id: "default_hero_wrap_mobile",
+      parent: "",
+      x: 0,
+      y: 100,
+      w: 390,
+      h: 280,
+      z: 1,
+      data: {
+        type: "section",
+        name: "Hero Image Wrap Mobile",
+        bg: "#e9e9e9",
+        bgOn: "1",
+        borderOn: "0",
+        radius: "0"
+      }
+    },
+    {
+      type: "image",
+      id: "default_hero_image_mobile",
+      parent: "default_hero_wrap_mobile",
+      x: 0,
+      y: 100,
+      w: 390,
+      h: 280,
+      z: 2,
+      data: {
+        type: "image",
+        name: "Hero Image Mobile",
+        dynamicMode: "dynamic",
+        dynamicSource: "page",
+        dynamicField: "Location Photo",
+        fit: "cover",
+        radius: "0"
+      }
+    },
+
+    {
+      type: "section",
+      id: "default_available_suites_bg_mobile",
+      parent: "",
+      x: 0,
+      y: 400,
+      w: 390,
+      h: 1220,
+      z: 0,
+      data: {
+        type: "section",
+        name: "Available Suites Background Mobile",
+        bg: "transparent",
+        bgOn: "0",
+        borderOn: "0",
+        radius: "0"
+      }
+    },
+    {
+      type: "text",
+      id: "default_available_suites_heading_mobile",
+      parent: "default_available_suites_bg_mobile",
+      x: 95,
+      y: 430,
+      w: 200,
+      h: 36,
+      z: 2,
+      data: {
+        type: "text",
+        name: "Available Suites Heading Mobile",
+        text: "Available Suites",
+        fontSize: "18",
+        color: "#ff7a00",
+        bold: "0",
+        align: "center"
+      }
+    },
+
+    {
+      type: "section",
+      id: "default_suite_card_1_mobile",
+      parent: "default_available_suites_bg_mobile",
+      x: 20,
+      y: 490,
+      w: 350,
+      h: 320,
+      z: 3,
+      data: {
+        type: "section",
+        name: "Suite Card 1 Mobile",
+        bg: "#ffffff",
+        bgOn: "1",
+        borderOn: "0",
+        radius: "18"
+      }
+    },
+    {
+      type: "image",
+      id: "default_suite_card_1_image_mobile",
+      parent: "default_suite_card_1_mobile",
+      x: 20,
+      y: 490,
+      w: 350,
+      h: 180,
+      z: 4,
+      data: {
+        type: "image",
+        name: "Suite Card Image 1 Mobile",
+        fit: "cover",
+        radius: "18"
+      }
+    },
+    {
+      type: "button",
+      id: "default_suite_card_1_name_mobile",
+      parent: "default_suite_card_1_mobile",
+      x: 145,
+      y: 690,
+      w: 100,
+      h: 36,
+      z: 4,
+      data: {
+        type: "button",
+        name: "Suite Card Name 1 Mobile",
+        label: "red suite",
+        btnBg: "#111111",
+        btnTextColor: "#ffffff",
+        borderWidth: "0",
+        borderColor: "#111111",
+        borderStyle: "solid",
+        radius: "999"
+      }
+    },
+    {
+      type: "text",
+      id: "default_suite_card_1_available_label_mobile",
+      parent: "default_suite_card_1_mobile",
+      x: 130,
+      y: 745,
+      w: 130,
+      h: 28,
+      z: 4,
+      data: {
+        type: "text",
+        name: "Suite Card Available Label 1 Mobile",
+        text: "Available On",
+        fontSize: "18",
+        color: "#ff7a00",
+        bold: "0",
+        align: "center"
+      }
+    },
+    {
+      type: "text",
+      id: "default_suite_card_1_date_mobile",
+      parent: "default_suite_card_1_mobile",
+      x: 145,
+      y: 785,
+      w: 100,
+      h: 24,
+      z: 4,
+      data: {
+        type: "text",
+        name: "Suite Card Date 1 Mobile",
+        text: "Dec 29, 2025",
+        fontSize: "14",
+        color: "#555555",
+        bold: "0",
+        align: "center"
+      }
+    },
+
+    {
+      type: "section",
+      id: "default_suite_card_2_mobile",
+      parent: "default_available_suites_bg_mobile",
+      x: 20,
+      y: 840,
+      w: 350,
+      h: 320,
+      z: 3,
+      data: {
+        type: "section",
+        name: "Suite Card 2 Mobile",
+        bg: "#ffffff",
+        bgOn: "1",
+        borderOn: "0",
+        radius: "18"
+      }
+    },
+    {
+      type: "image",
+      id: "default_suite_card_2_image_mobile",
+      parent: "default_suite_card_2_mobile",
+      x: 20,
+      y: 840,
+      w: 350,
+      h: 180,
+      z: 4,
+      data: {
+        type: "image",
+        name: "Suite Card Image 2 Mobile",
+        fit: "cover",
+        radius: "18"
+      }
+    },
+    {
+      type: "button",
+      id: "default_suite_card_2_name_mobile",
+      parent: "default_suite_card_2_mobile",
+      x: 145,
+      y: 1040,
+      w: 100,
+      h: 36,
+      z: 4,
+      data: {
+        type: "button",
+        name: "Suite Card Name 2 Mobile",
+        label: "pink suite",
+        btnBg: "#111111",
+        btnTextColor: "#ffffff",
+        borderWidth: "0",
+        borderColor: "#111111",
+        borderStyle: "solid",
+        radius: "999"
+      }
+    },
+    {
+      type: "text",
+      id: "default_suite_card_2_available_label_mobile",
+      parent: "default_suite_card_2_mobile",
+      x: 130,
+      y: 1095,
+      w: 130,
+      h: 28,
+      z: 4,
+      data: {
+        type: "text",
+        name: "Suite Card Available Label 2 Mobile",
+        text: "Available On",
+        fontSize: "18",
+        color: "#ff7a00",
+        bold: "0",
+        align: "center"
+      }
+    },
+    {
+      type: "text",
+      id: "default_suite_card_2_date_mobile",
+      parent: "default_suite_card_2_mobile",
+      x: 145,
+      y: 1135,
+      w: 100,
+      h: 24,
+      z: 4,
+      data: {
+        type: "text",
+        name: "Suite Card Date 2 Mobile",
+        text: "Dec 30, 2025",
+        fontSize: "14",
+        color: "#555555",
+        bold: "0",
+        align: "center"
+      }
+    },
+
+    {
+      type: "section",
+      id: "default_suite_card_3_mobile",
+      parent: "default_available_suites_bg_mobile",
+      x: 20,
+      y: 1190,
+      w: 350,
+      h: 320,
+      z: 3,
+      data: {
+        type: "section",
+        name: "Suite Card 3 Mobile",
+        bg: "#ffffff",
+        bgOn: "1",
+        borderOn: "0",
+        radius: "18"
+      }
+    },
+    {
+      type: "image",
+      id: "default_suite_card_3_image_mobile",
+      parent: "default_suite_card_3_mobile",
+      x: 20,
+      y: 1190,
+      w: 350,
+      h: 180,
+      z: 4,
+      data: {
+        type: "image",
+        name: "Suite Card Image 3 Mobile",
+        fit: "cover",
+        radius: "18"
+      }
+    },
+    {
+      type: "button",
+      id: "default_suite_card_3_name_mobile",
+      parent: "default_suite_card_3_mobile",
+      x: 145,
+      y: 1390,
+      w: 100,
+      h: 36,
+      z: 4,
+      data: {
+        type: "button",
+        name: "Suite Card Name 3 Mobile",
+        label: "gold suite",
+        btnBg: "#111111",
+        btnTextColor: "#ffffff",
+        borderWidth: "0",
+        borderColor: "#111111",
+        borderStyle: "solid",
+        radius: "999"
+      }
+    },
+    {
+      type: "text",
+      id: "default_suite_card_3_available_label_mobile",
+      parent: "default_suite_card_3_mobile",
+      x: 130,
+      y: 1445,
+      w: 130,
+      h: 28,
+      z: 4,
+      data: {
+        type: "text",
+        name: "Suite Card Available Label 3 Mobile",
+        text: "Available On",
+        fontSize: "18",
+        color: "#ff7a00",
+        bold: "0",
+        align: "center"
+      }
+    },
+    {
+      type: "text",
+      id: "default_suite_card_3_date_mobile",
+      parent: "default_suite_card_3_mobile",
+      x: 145,
+      y: 1485,
+      w: 100,
+      h: 24,
+      z: 4,
+      data: {
+        type: "text",
+        name: "Suite Card Date 3 Mobile",
+        text: "Feb 6, 2026",
+        fontSize: "14",
+        color: "#555555",
+        bold: "0",
+        align: "center"
+      }
+    },
+
+    {
+      type: "section",
+      id: "default_about_wrap_mobile",
+      parent: "",
+      x: 20,
+      y: 1550,
+      w: 350,
+      h: 260,
+      z: 1,
+      data: {
+        type: "section",
+        name: "About Wrap Mobile",
+        bg: "transparent",
+        bgOn: "0",
+        borderOn: "0",
+        radius: "0"
+      }
+    },
+    {
+      type: "text",
+      id: "default_about_heading_mobile",
+      parent: "default_about_wrap_mobile",
+      x: 20,
+      y: 1570,
+      w: 220,
+      h: 40,
+      z: 2,
+      data: {
+        type: "text",
+        name: "About Heading Mobile",
+        text: "About this location",
+        fontSize: "18",
+        color: "#ff7a00",
+        bold: "1",
+        align: "left"
+      }
+    },
+    {
+      type: "section",
+      id: "default_about_card_mobile",
+      parent: "default_about_wrap_mobile",
+      x: 20,
+      y: 1625,
+      w: 350,
+      h: 160,
+      z: 2,
+      data: {
+        type: "section",
+        name: "About Card Mobile",
+        bg: "#ffffff",
+        bgOn: "1",
+        borderOn: "0",
+        radius: "18"
+      }
+    },
+    {
+      type: "text",
+      id: "default_about_text_mobile",
+      parent: "default_about_card_mobile",
+      x: 40,
+      y: 1655,
+      w: 310,
+      h: 90,
+      z: 3,
+      data: {
+        type: "text",
+        name: "About Text Mobile",
+        text: "This is the details section",
+        fontSize: "15",
+        color: "#222222",
+        bold: "0",
+        align: "left"
+      }
+    }
+  ]
+}
+    }
+  }
+},
+
+
+
 
 
 

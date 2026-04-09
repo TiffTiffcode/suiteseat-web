@@ -232,23 +232,22 @@ export default function SuiteClient({ biz }: { biz: any }) {
               applicationMode = "file";
             }
 
+            const suite: Suite = {
+              id: row._id || row.id || "",
+              name,
+              availableDate,
+              imageUrl: imageUrl || null,
+              rentAmount,
+              rentFrequency,
+              rateText,
+              gallery,
+              applicationTemplate,
+              applicationMode,
+              applicationFileUrl,
+              rawRecord: row,
+              values: row.values || row,
+            };
 
-const suite: Suite = {
-  id: row._id || row.id || "",
-  name,
-  availableDate,
-  imageUrl: imageUrl || null,
-  rentAmount,
-  rentFrequency,
-  rateText,
-  gallery,
-  applicationTemplate,
-  applicationMode,
-  applicationFileUrl,
-
-  rawRecord: row,
-  values: row.values || row,
-};
             return suite;
           })
           .filter((s: Suite | null): s is Suite => !!s);
@@ -275,52 +274,51 @@ const suite: Suite = {
     };
   }, [biz?._id, biz?.id, pageType]);
 
-  function renderTemplate() {
-    switch (pageType) {
-      case "template1":
-        return (
-          <Template1
-            business={biz}
-            suites={suites}
-            loading={loading}
-            error={error}
-          />
-        );
+function renderTemplate() {
+  switch (pageType) {
+    case "template1":
+      return (
+        <Template1
+          business={biz}
+          suites={suites}
+          loading={loading}
+          error={error}
+        />
+      );
 
-      case "template2":
-        return (
-          <Template2
-            business={biz}
-            suites={suites}
-            loading={loading}
-            error={error}
-            pageJson={savedPageJson}
-          />
-        );
+    case "template2":
+      return (
+        <Template2
+          business={biz}
+          suites={suites}
+          loading={loading}
+          error={error}
+        />
+      );
 
-      case "custom":
-        return (
-          <CustomTemplate
-            business={biz}
-            suites={suites}
-            loading={loading}
-            error={error}
-            pageJson={savedPageJson}
-          />
-        );
+    case "custom":
+      return (
+        <CustomTemplate
+          business={biz}
+          suites={suites}
+          loading={loading}
+          error={error}
+          pageJson={savedPageJson}
+        />
+      );
 
-      case "default":
-      default:
-        return (
-          <BasicSuiteTemplate
-            business={biz}
-            suites={suites}
-            loading={loading}
-            error={error}
-          />
-        );
-    }
+    case "default":
+    default:
+      return (
+        <BasicSuiteTemplate
+          business={biz}
+          suites={suites}
+          loading={loading}
+          error={error}
+        />
+      );
   }
+}
 
   return renderTemplate();
 }
