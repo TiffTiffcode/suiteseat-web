@@ -2086,38 +2086,52 @@ async function fetchSuiteById(id) {
 
  //Helper to hide location details section 
 function enterSuiteMode() {
-    
   const detailsCard = document.getElementById("location-details-card");
   const suiteFormCard = document.getElementById("location-suite-form-card");
   if (!detailsCard || !suiteFormCard) return;
 
-  // hide every direct child of the details card except the suite form
-  Array.from(detailsCard.children).forEach((child) => {
-    if (child === suiteFormCard) return;
+  const detailsHeader =
+    document.querySelector("#location-details-card .location-details-header") ||
+    document.getElementById("location-details-header");
 
-    // remember previous inline display so we can restore it
-    child.dataset.prevDisplay = child.style.display || "";
-    child.style.display = "none";
-  });
+  const detailsGrid = document.querySelector("#location-details-card .location-details-grid");
+  const detailsActions = document.querySelector("#location-details-card .location-details-actions");
+  const suitesSection = document.getElementById("location-suites-section");
+  const suiteDetailsCard = document.getElementById("location-suite-details-card");
+
+  // hide everything else
+  if (detailsHeader) detailsHeader.style.display = "none";
+  if (detailsGrid) detailsGrid.style.display = "none";
+  if (detailsActions) detailsActions.style.display = "none";
+  if (suitesSection) suitesSection.style.display = "none";
+  if (suiteDetailsCard) suiteDetailsCard.style.display = "none";
 
   // show suite form
   suiteFormCard.style.display = "block";
 }
-
 function exitSuiteMode() {
   const detailsCard = document.getElementById("location-details-card");
   const suiteFormCard = document.getElementById("location-suite-form-card");
   if (!detailsCard || !suiteFormCard) return;
 
+  const detailsHeader =
+    document.querySelector("#location-details-card .location-details-header") ||
+    document.getElementById("location-details-header");
+
+  const detailsGrid = document.querySelector("#location-details-card .location-details-grid");
+  const detailsActions = document.querySelector("#location-details-card .location-details-actions");
+  const suitesSection = document.getElementById("location-suites-section");
+  const suiteDetailsCard = document.getElementById("location-suite-details-card");
+
   // hide suite form
   suiteFormCard.style.display = "none";
 
   // restore everything else
-  Array.from(detailsCard.children).forEach((child) => {
-    if (child === suiteFormCard) return;
-    child.style.display = child.dataset.prevDisplay ?? "";
-    delete child.dataset.prevDisplay;
-  });
+  if (detailsHeader) detailsHeader.style.display = "";
+  if (detailsGrid) detailsGrid.style.display = "";
+  if (detailsActions) detailsActions.style.display = "";
+  if (suitesSection) suitesSection.style.display = "";
+  if (suiteDetailsCard) suiteDetailsCard.style.display = "none";
 }
 
 //go back to location
@@ -2203,7 +2217,7 @@ function setSuiteDetailsHTML(html) {
 
 
 //show add suite section 
-         function initLocationAddSuiteButton() {
+function initLocationAddSuiteButton() {
   const btn = document.getElementById("location-add-suite-btn");
   const suiteCard = document.getElementById("location-suite-form-card");
   const suiteForm = document.getElementById("location-suite-form");
@@ -2222,31 +2236,65 @@ function setSuiteDetailsHTML(html) {
   const suitesList = document.getElementById("location-suites-list"); // if you have it
   const suiteDetailsCard = document.getElementById("location-suite-details-card");
 
-  if (!btn || !suiteCard || !suiteForm) return;
+  if (!btn || !suiteCard || !suiteForm) {
+    console.log("[suite] missing add-suite elements", {
+      btn: !!btn,
+      suiteCard: !!suiteCard,
+      suiteForm: !!suiteForm
+    });
+    return;
+  }
 
 function openSuiteCreateForm() {
-  if (!selectedLocation) return alert("Open a location first, then add a suite.");
+  console.log("[suite] add suite button was clicked");
+
+  if (!selectedLocation) {
+    console.log("[suite] no selectedLocation");
+    return alert("Open a location first, then add a suite.");
+  }
+
+  console.log("[suite] selectedLocation:", selectedLocation);
 
   enterSuiteMode();
+  console.log("[suite] enterSuiteMode finished");
+
   suiteCard.style.display = "block";
-suiteForm.reset();
+  console.log("[suite] suiteCard display after open:", suiteCard.style.display);
+  console.log("[suite] suiteCard element:", suiteCard);
+
+  suiteForm.reset();
+  const v = selectedLocation.values || selectedLocation || {};
+if (locNameLabel) {
+  locNameLabel.textContent =
+    v["Location Name"] || v.name || selectedLocation.name || "";
+}
+console.log("[suite] location label text:", locNameLabel?.textContent);
+
+  console.log("[suite] suiteForm reset");
 
   // ✅ reset suite photo preview (create mode = no existing photo)
   window._resetSuiteMainPhotoPreview?.("");
+  console.log("[suite] reset suite main photo preview");
 
   // ✅ reset gallery preview too if you have a reset helper (optional)
   // window._resetSuiteGalleryPreview?.([], new Set());
 
   // ✅ Initialize Quill AFTER the form is visible
   initSuiteDetailsEditor();
-  setSuiteDetailsHTML("");
+  console.log("[suite] initSuiteDetailsEditor finished");
 
+  setSuiteDetailsHTML("");
+  console.log("[suite] setSuiteDetailsHTML finished");
 
   suiteForm.reset();
+  console.log("[suite] suiteForm reset again");
+
+  console.log("[suite] locNameLabel:", locNameLabel);
+  console.log("[suite] loc-suite-location-name element:", document.getElementById("loc-suite-location-name"));
+
   document.getElementById("loc-suite-name")?.focus();
-
+  console.log("[suite] focused loc-suite-name input");
 }
-
 
   function closeSuiteFormBackToDetails() {
     // hide suite form
