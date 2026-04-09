@@ -1221,13 +1221,10 @@ function openLocationStyleModal() {
 const pageTypeEl = document.getElementById("location-page-type");
   if (!selectedLocation) return alert("Open a location first.");
 
-  const v = selectedLocation.values || selectedLocation || {};
-const canSeePageType =
-  currentUser?.proMode === "builder" ||
-  currentUser?.email === "3air3@gmail.com";
+const v = selectedLocation.values || selectedLocation || {};
 
 if (pageTypeRow) {
-  pageTypeRow.style.display = canSeePageType ? "block" : "none";
+  pageTypeRow.style.display = "block";
 }
 
 const pageType = v["Suite Template"] || "default";
