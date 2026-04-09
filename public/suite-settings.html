@@ -246,6 +246,35 @@
     Enable payments (Connect Stripe)
   </button>
 </div>
+<br> <br>
+
+  <div class="card">
+    <h3>Workspace Mode</h3>
+    <p class="muted" id="suite-pro-mode-text">Loading mode...</p>
+
+    <div class="form-actions" style="margin-top: 12px;">
+      <button
+        type="button"
+        class="btn ghost"
+        id="suite-mode-self-btn"
+      >
+        Switch to Creator Mode
+      </button>
+
+      <button
+        type="button"
+        class="btn peach"
+        id="suite-mode-builder-btn"
+      >
+        Switch to Builder Mode
+      </button>
+    </div>
+
+    <p class="muted" style="margin-top:10px;">
+      Creator Mode is for managing your own workspace. Builder Mode is for creating locations and workspaces for other people.
+    </p>
+  </div>
+
 
 
   </div>
@@ -814,152 +843,131 @@ Years of experience'
     </button>
   </div>
 
-  <!-- Hidden add/edit location form      Add Location form-->
+  <!-- Hidden add/edit location form -->
   <div id="location-form-card" class="location-card" hidden>
     <input type="hidden" id="loc-id" />
 
     <h3>Location</h3>
-<form id="location-form">
-  <label class="field">
-    <span>Location name</span>
-    <input id="loc-name" type="text" placeholder="Downtown Suites" required />
-  </label>
+    <form id="location-form">
+      <label class="field">
+        <span>Location name</span>
+        <input id="loc-name" type="text" placeholder="Downtown Suites" required />
+      </label>
 
-  <label class="field">
-    <span>Address</span>
-    <input id="loc-address" type="text" placeholder="123 Main St, City, State" required />
-  </label>
+      <label class="field">
+        <span>Address</span>
+        <input id="loc-address" type="text" placeholder="123 Main St, City, State" required />
+      </label>
 
-  <label class="field">
-    <span>Phone (optional)</span>
-    <input id="loc-phone" type="tel" placeholder="(555) 555-5555" />
-  </label>
+      <label class="field">
+        <span>Phone (optional)</span>
+        <input id="loc-phone" type="tel" placeholder="(555) 555-5555" />
+      </label>
 
-  <!-- Internal details -->
-  <label class="field">
-    <span>Details (optional)</span>
-    <textarea
-      id="loc-details"
-      rows="3"
-      placeholder="Building notes, parking, entry code, etc."
-    ></textarea>
-  </label>
+      <label class="field">
+        <span>Details (optional)</span>
+        <textarea
+          id="loc-details"
+          rows="3"
+          placeholder="Building notes, parking, entry code, etc."
+        ></textarea>
+      </label>
 
-  <!-- About (public) -->
-  <label class="field">
-    <span>About this location (optional)</span>
-    <textarea
-      id="loc-about"
-      rows="3"
-      placeholder="Tell renters what makes this location special…"
-    ></textarea>
-  </label>
+      <label class="field">
+        <span>About this location (optional)</span>
+        <textarea
+          id="loc-about"
+          rows="3"
+          placeholder="Tell renters what makes this location special…"
+        ></textarea>
+      </label>
 
-  <!-- 🔹 Current main photo preview -->
-<!-- Current photo -->
-<div class="form-group">
-  <label>Default Photo</label>
-  <div id="loc-current-photo" class="location-current-photo muted">
-    No photo uploaded yet.
-  </div>
-</div>
-<!-- Change main photo -->
-<div class="form-group">
-  <input id="loc-photo-file" type="file" accept="image/*" />
-</div>
+      <div class="form-group">
+        <label>Default Photo</label>
+        <div id="loc-current-photo" class="location-current-photo muted">
+          No photo uploaded yet.
+        </div>
+      </div>
 
-<!-- Current gallery -->
-<div class="form-group">
-  <label>Gallery Images</label>
-  <div id="loc-current-gallery" class="location-current-gallery muted">
-  </div>
-</div>
+      <div class="form-group">
+        <input id="loc-photo-file" type="file" accept="image/*" />
+      </div>
 
-<!-- Add gallery images -->
-<div class="form-group">
-  <input
-    id="loc-gallery-files"
-    type="file"
-    accept="image/*"
-    multiple
-  />
-  <div id="loc-new-gallery-preview" class="location-new-gallery-preview muted"> 
-  </div>
-</div>
+      <div class="form-group">
+        <label>Gallery Images</label>
+        <div id="loc-current-gallery" class="location-current-gallery muted"></div>
+      </div>
 
+      <div class="form-group">
+        <input
+          id="loc-gallery-files"
+          type="file"
+          accept="image/*"
+          multiple
+        />
+        <div id="loc-new-gallery-preview" class="location-new-gallery-preview muted"></div>
+      </div>
 
-  <div class="form-actions">
-    <button id="location-cancel-btn" type="button" class="btn ghost">
-      Cancel
-    </button>
-    <button type="submit" class="btn peach">
-      Save location
-    </button>
-  </div>
-</form>
-
+      <div class="form-actions">
+        <button id="location-cancel-btn" type="button" class="btn ghost">
+          Cancel
+        </button>
+        <button type="submit" class="btn peach">
+          Save location
+        </button>
+      </div>
+    </form>
   </div>
 
-
-
-                              <!-- List of locations -->
+  <!-- List of locations -->
   <div id="locations-list"></div>
 
- <!-- Location Details -->
-<div id="location-details-card" class="location-details card" style="display:none;">
-  <header class="location-details-header">
-  
-  
-  
-                              <!-- Location Details Section -->
-    <div>
-      <button id="location-back-btn" class="btn btn-back" type="button">← Back to locations</button>
-          <div>
-  <!-- 🆕 Public suite page button -->
-  <button
-    id="location-view-public-btn"
-    class="btn btn-linkout"
-    type="button"
-    title="Open this location’s suite page"
-  >
-    Go to <span id="location-view-public-name">Location</span> ↗
-  </button>
-</div>
+  <!-- Location Details -->
+  <div id="location-details-card" class="location-details card" style="display:none;">
 
-      <h3 id="location-details-name">Location details</h3>
-      <p id="location-details-address" class="muted"></p>
-    </div>
+    <header class="location-details-header">
+      <div>
+        <button id="location-back-btn" class="btn btn-back" type="button">← Back to locations</button>
 
+        <div>
+          <button
+            id="location-view-public-btn"
+            class="btn btn-linkout"
+            type="button"
+            title="Open this location’s suite page"
+          >
+            Go to <span id="location-view-public-name">Location</span> ↗
+          </button>
+        </div>
 
-   <div class="location-details-actions">
+        <h3 id="location-details-name">Location details</h3>
+        <p id="location-details-address" class="muted"></p>
+      </div>
 
-      <!-- 🎨 style button -->
-  <button
-    id="location-style-btn"
-    class="btn-ghost"
-    type="button"
-    title="Style this page"
-  >
-    🎨
-  </button>
-  <button
-    id="location-scroll-suites-btn"
-    class="btn-underline"
-    type="button"
-  >
-    Suites
-  </button>
+      <div class="location-details-actions">
+        <button
+          id="location-style-btn"
+          class="btn-ghost"
+          type="button"
+          title="Style this page"
+        >
+          🎨
+        </button>
 
+        <button
+          id="location-scroll-suites-btn"
+          class="btn-underline"
+          type="button"
+        >
+          Suites
+        </button>
 
-
-  <button id="location-edit-btn" class="btn-grey" type="button">Edit</button>
-  <button id="location-delete-btn" class="btn btn-danger" type="button">
-    Delete
-  </button>
-</div>
-
-
-  </header>
+        <button id="location-edit-btn" class="btn-grey" type="button">Edit</button>
+        <button id="location-delete-btn" class="btn btn-danger" type="button">
+          Delete
+        </button>
+      </div>
+    </header>
 
     <div class="location-details-grid">
       <div>
@@ -972,47 +980,41 @@ Years of experience'
         <p id="location-details-phone" class="muted">—</p>
       </div>
 
-
-
       <div>
         <h4>Total suite rent (per month)</h4>
         <p id="location-total-rent" class="location-rent-amount">—</p>
-      </div>      <!-- Somewhere inside the suite details card -->
-
+      </div>
 
       <div>
         <h4>Total rent collected this year</h4>
         <p id="location-year-total-rent" class="location-rent-amount">—</p>
       </div>
 
-   <div>
-  <h4>Details</h4>
-  <p id="location-details-desc" class="muted">—</p>
-  <!-- NEW: toggle button for Details -->
-  <button
-    id="location-details-desc-toggle"
-    type="button"
-    class="location-text-toggle"
-    style="display:none;"
-  >
-    Show more
-  </button>
-</div>
+      <div>
+        <h4>Details</h4>
+        <p id="location-details-desc" class="muted">—</p>
+        <button
+          id="location-details-desc-toggle"
+          type="button"
+          class="location-text-toggle"
+          style="display:none;"
+        >
+          Show more
+        </button>
+      </div>
 
-   <div>
-  <h4>About</h4>
-  <p id="location-details-about" class="muted">—</p>
-
-  <!-- Show more/less button -->
-  <button
-    id="location-about-toggle"
-    type="button"
-    class="link-button"
-    style="display:none;"
-  >
-    Show more
-  </button>
-</div>
+      <div>
+        <h4>About</h4>
+        <p id="location-details-about" class="muted">—</p>
+        <button
+          id="location-about-toggle"
+          type="button"
+          class="link-button"
+          style="display:none;"
+        >
+          Show more
+        </button>
+      </div>
 
       <div>
         <h4>Location photo</h4>
@@ -1024,556 +1026,476 @@ Years of experience'
         />
       </div>
 
-           <!-- 🆕 Gallery section -->
       <div>
         <h4>Gallery</h4>
-        <div id="location-details-gallery" class="location-gallery">
-          <!-- thumbs will be injected here by JS -->
-        </div>
+        <div id="location-details-gallery" class="location-gallery"></div>
       </div>
     </div>
 
     <hr class="location-divider" />
 
-            <!-- 🆕 List of Suites section -->
-     <div id="location-suites-section">     
-    <div class="location-suites-header">
-      <h4>Suites in this location</h4>
-      <button id="location-add-suite-btn" class="btn-orange" type="button">+ Add suite</button>
-    </div>
-
-<div id="location-suites-list" class="location-suites-list">
-  <p class="muted">No suites added yet for this location.</p>
-</div>
-</div>  
-
-
-                                <!-- 🆕 Hidden Suite form card -->
-<div id="location-suite-form-card" class="card" style="display:none;">
-  <div class="location-suite-form-header">
-<button id="location-suite-back-btn" type="button" class="btn-orange">
-  ← Back to location details
-</button>
-
-    <h4>Add / Edit Suite</h4>
-  </div>
-
-  <!-- 👇 NEW: location name inside the suite section -->
-  <p class="muted" style="margin: 0 0 0.75rem;">
-    Location: <strong id="loc-suite-location-name"></strong>
-  </p>
-
-  <form id="location-suite-form">
-
-    <input type="hidden" id="loc-suite-id" />
-
-    <label class="field">
-      <span>Suite Name / Number</span>
-      <input id="loc-suite-name" type="text" placeholder="Suite 1A" required />
-    </label>
-
-<label class="field">
-  <span>Details (optional)</span>
-
-  <div class="rte-box">
-    <div id="suite-details-toolbar" class="rte-toolbar">
-      <button type="button" class="ql-bold" aria-label="Bold"></button>
-      <button type="button" class="ql-italic" aria-label="Italic"></button>
-      <button type="button" class="ql-underline" aria-label="Underline"></button>
-      <button type="button" class="ql-list" value="ordered" aria-label="Numbered list"></button>
-      <button type="button" class="ql-list" value="bullet" aria-label="Bullets"></button>
-      <button type="button" class="ql-link" aria-label="Link"></button>
-      <button type="button" class="ql-clean" aria-label="Remove formatting"></button>
-    </div>
-
-    <div id="loc-suite-details-editor" class="rte-editor"></div>
-  </div>
-
-  <input type="hidden" id="loc-suite-details" name="loc-suite-details" />
-</label>
-
-
-    <label class="field">
-      <span>Date Available (optional)</span>
-      <input id="loc-suite-available" type="date" />
-    </label>
-
-    <!-- 💰 Suite Rate -->
-<div class="field-row">
-  <label for="suite-rent-amount">Rate</label>
-  <div class="field-row-inline">
-    <input
-      id="suite-rent-amount"
-      name="suite-rent-amount"
-      type="number"
-      step="0.01"
-      min="0"
-      placeholder="0.00"
-    />
-
-    <select
-      id="suite-rent-frequency"
-      name="suite-rent-frequency"
-    >
-      <option value="">Select Frequency</option>
-      <option value="daily">Daily</option>
-      <option value="weekly">Weekly</option>
-      <option value="bi-weekly">Bi-weekly</option>
-      <option value="monthly">Monthly</option>
-    </select>
-  </div>
-</div>
-
-
-   <!-- Current default image (for edit mode) -->
-<div class="field">
-
-</div>
-  <!-- Change default photo -->
-    <label class="field">
-      <span> Default Photo</span>
-       <div id="loc-suite-current-photo" class="location-current-photo muted">
-  
-  </div>
-      <input
-        id="loc-suite-photo-file"
-        type="file"
-        accept="image/*"
-      />
-    </label>
- 
-    <!-- Current gallery (for edit mode) -->
-    <div class="field">
-  
-    </div>
-
-    <!-- Add gallery images -->
-
-    <div class="field">
-      <span>Gallery Images</span>
-             <div
-        id="loc-suite-new-gallery-preview"
-        class="location-new-gallery-preview muted"
-      >
+    <!-- Suites list -->
+    <div id="location-suites-section">
+      <div class="location-suites-header">
+        <h4>Suites in this location</h4>
+        <button id="location-add-suite-btn" class="btn-orange" type="button">+ Add suite</button>
       </div>
-          <div id="loc-suite-current-gallery" class="location-current-gallery muted">
+
+      <div id="location-suites-list" class="location-suites-list">
+        <p class="muted">No suites added yet for this location.</p>
       </div>
-      <input
-        id="loc-suite-gallery-files"
-        type="file"
-        accept="image/*"
-        multiple
-      />
-    
     </div>
 
+    <!-- Hidden Suite form card -->
+    <div id="location-suite-form-card" class="card" style="display:none;">
+      <div class="location-suite-form-header">
+        <button id="location-suite-back-btn" type="button" class="btn-orange">
+          ← Back to location details
+        </button>
 
-<!-- Current default image (for edit mode) -->
-<!-- Application section in Add / Edit Suite form -->
+        <h4>Add / Edit Suite</h4>
+      </div>
 
-<div class="field">
-  <span>Online Application</span>
-  <label class="checkbox-row" style="display:none">
-    <input
-      id="loc-suite-application-enabled"
-      type="checkbox"
-    />
-    <span style="display:none">Allow applicants to apply online for this suite</span>
-  </label>
-</div>
-<!-- Which application should be used on the public site? -->
-<div class="field" style="display:none">
-  <span>Use this application on my site</span>
+      <p class="muted" style="margin: 0 0 0.75rem;">
+        Location: <strong id="loc-suite-location-name"></strong>
+      </p>
 
-  <label class="checkbox-row">
-    <input
-      type="radio"
-      name="loc-suite-app-mode"
-      value="template"
-      checked
-    />
-    <span>Online application form (template)</span>
-  </label>
+      <form id="location-suite-form">
+        <input type="hidden" id="loc-suite-id" />
 
-  <label class="checkbox-row">
-    <input
-      type="radio"
-      name="loc-suite-app-mode"
-      value="file"
-    />
-    <span>Downloadable file (PDF / image)</span>
-  </label>
-</div>
+        <label class="field">
+          <span>Suite Name / Number</span>
+          <input id="loc-suite-name" type="text" placeholder="Suite 1A" required />
+        </label>
 
+        <label class="field">
+          <span>Details (optional)</span>
 
-<!-- Button to open the application builder -->
-<div class="field">
-  <span>Application Template</span>
-  <button
-    id="open-suite-app-builder"
-    type="button"
-    class="btn ghost"
-  >
-    Create / Edit Application
-  </button>
-  <!-- 🔹 New status text -->
-<span id="suite-app-status" class="muted" style="margin-left: 8px;"></span>
+          <div class="rte-box">
+            <div id="suite-details-toolbar" class="rte-toolbar">
+              <button type="button" class="ql-bold" aria-label="Bold"></button>
+              <button type="button" class="ql-italic" aria-label="Italic"></button>
+              <button type="button" class="ql-underline" aria-label="Underline"></button>
+              <button type="button" class="ql-list" value="ordered" aria-label="Numbered list"></button>
+              <button type="button" class="ql-list" value="bullet" aria-label="Bullets"></button>
+              <button type="button" class="ql-link" aria-label="Link"></button>
+              <button type="button" class="ql-clean" aria-label="Remove formatting"></button>
+            </div>
 
-  <p class="muted">
-  Template where you can customize the questions. 
-    
-  </p>
-</div>
+            <div id="loc-suite-details-editor" class="rte-editor"></div>
+          </div>
 
-<!-- Application Template Hidden JSON that stores the template designed in the builder -->
-<input
-  type="hidden"
-  id="loc-suite-application-template"
-  name="loc-suite-application-template"
-/>
+          <input type="hidden" id="loc-suite-details" name="loc-suite-details" />
+        </label>
 
-<!-- Optional: keep PDF attach if you still want that fallback -->
-<label class="field" style="display:none">
-  <span>Attach PDF (optional)</span>
+        <label class="field">
+          <span>Date Available (optional)</span>
+          <input id="loc-suite-available" type="date" />
+        </label>
 
-  <!-- 👇 this is what the JS will update -->
-  <div id="loc-suite-current-app" class="muted">
-    No application uploaded yet.
-  </div>
+        <div class="field-row">
+          <label for="suite-rent-amount">Rate</label>
+          <div class="field-row-inline">
+            <input
+              id="suite-rent-amount"
+              name="suite-rent-amount"
+              type="number"
+              step="0.01"
+              min="0"
+              placeholder="0.00"
+            />
 
-<input
-  type="file"
-  id="loc-suite-app-input"
-  name="suiteAppFile"
-  accept=".pdf,image/*"
-/>
-
-</label>
-
-
-
-
-  <div class="form-actions">
-      <button
-        id="loc-suite-cancel-btn"
-        type="button"
-        class="btn ghost"
-      >
-        Cancel
-      </button>
-
-      <!-- 👇 this is the Save button -->
-      <button
-        id="loc-suite-save-btn"
-        type="submit"
-        class="btn-orange"
-      >
-        Save suite
-      </button>
-    </div>
-  </form>
-</div>
-
-
-<!-- Location style panel-->
-<!-- 🎨 Location Style Modal -->
-<div id="location-style-modal" class="auth-modal" hidden>
-  <div class="auth-card location-style-card">
-    <div class="location-style-header">
-      <h3>Location Style</h3>
-      <button
-        type="button"
-        id="location-style-close-btn"
-        class="btn ghost small"
-        style="float:right;"
-      >
-        ✕
-      </button>
-    </div>
-
-<!-- Location Template Select -->
-<div class="location-style-row" id="location-page-type-row" >
-  <label for="location-page-type">Page type</label>
-  <select id="location-page-type">
-    <option value="default">Default</option>
-    <option value="template1">Pepla</option>
-    <option value="template2">Icon</option>
-    <option value="custom">Custom</option>
-  </select>
-  <p class="muted small">
-    Pick which type of public page this location should use.
-  </p>
-
-
-<!--Template Selection-->
-<div class="location-template-picker" id="location-template-picker">
-
-  <div class="location-template-card-wrap">
-    <button
-      type="button"
-      class="location-template-card is-selected"
-      data-template="default"
-    >
-      <div class="location-template-thumb default-thumb">
-        <div class="thumb-header"></div>
-        <div class="thumb-hero"></div>
-        <div class="thumb-row">
-          <span></span><span></span><span></span>
+            <select
+              id="suite-rent-frequency"
+              name="suite-rent-frequency"
+            >
+              <option value="">Select Frequency</option>
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+              <option value="bi-weekly">Bi-weekly</option>
+              <option value="monthly">Monthly</option>
+            </select>
+          </div>
         </div>
-      </div>
-      <div class="location-template-meta">
-        <strong>Default</strong>
-        <p>Classic suite layout</p>
-      </div>
-    </button>
 
-    <button
-      type="button"
-      class="location-template-edit-btn"
-      data-template-edit="default"
-    >
-      Edit Default Template
-    </button>
-  </div>
+        <label class="field">
+          <span>Default Photo</span>
+          <div id="loc-suite-current-photo" class="location-current-photo muted"></div>
+          <input
+            id="loc-suite-photo-file"
+            type="file"
+            accept="image/*"
+          />
+        </label>
 
-  <div class="location-template-card-wrap">
-    <button
-      type="button"
-      class="location-template-card"
-      data-template="template1"
-    >
-      <div class="location-template-thumb template1-thumb">
-        <div class="thumb-split">
-          <div class="thumb-image"></div>
-          <div class="thumb-panel"></div>
+        <div class="field">
+          <span>Gallery Images</span>
+          <div
+            id="loc-suite-new-gallery-preview"
+            class="location-new-gallery-preview muted"
+          ></div>
+          <div id="loc-suite-current-gallery" class="location-current-gallery muted"></div>
+          <input
+            id="loc-suite-gallery-files"
+            type="file"
+            accept="image/*"
+            multiple
+          />
         </div>
-        <div class="thumb-grid">
-          <span></span><span></span><span></span>
+
+        <div class="field">
+          <span>Online Application</span>
+          <label class="checkbox-row" style="display:none">
+            <input
+              id="loc-suite-application-enabled"
+              type="checkbox"
+            />
+            <span style="display:none">Allow applicants to apply online for this suite</span>
+          </label>
         </div>
-      </div>
-      <div class="location-template-meta">
-        <strong>Pepla</strong>
-        <p>Clean card layout</p>
-      </div>
-    </button>
 
-    <button
-      type="button"
-      class="location-template-edit-btn"
-      data-template-edit="template1"
-    >
-      Edit Pepla Template
-    </button>
-  </div>
+        <div class="field" style="display:none">
+          <span>Use this application on my site</span>
 
-  <div class="location-template-card-wrap">
-    <button
-      type="button"
-      class="location-template-card"
-      data-template="template2"
-    >
-      <div class="location-template-thumb template2-thumb">
-        <div class="thumb-full-hero"></div>
-        <div class="thumb-featured"></div>
-        <div class="thumb-mini-row">
-          <span></span><span></span>
+          <label class="checkbox-row">
+            <input
+              type="radio"
+              name="loc-suite-app-mode"
+              value="template"
+              checked
+            />
+            <span>Online application form (template)</span>
+          </label>
+
+          <label class="checkbox-row">
+            <input
+              type="radio"
+              name="loc-suite-app-mode"
+              value="file"
+            />
+            <span>Downloadable file (PDF / image)</span>
+          </label>
         </div>
-      </div>
-      <div class="location-template-meta">
-        <strong>Icon</strong>
-        <p>Luxury editorial layout</p>
-      </div>
-    </button>
 
-    <button
-      type="button"
-      class="location-template-edit-btn"
-      data-template-edit="template2"
-    >
-      Edit Icon Template
-    </button>
-  </div>
+        <div class="field">
+          <span>Application Template</span>
+          <button
+            id="open-suite-app-builder"
+            type="button"
+            class="btn ghost"
+          >
+            Create / Edit Application
+          </button>
 
-  <div class="location-template-card-wrap">
-    <button
-      type="button"
-      class="location-template-card"
-      data-template="custom"
-    >
-      <div class="location-template-thumb custom-thumb">
-        <div class="thumb-builder-box"></div>
-        <div class="thumb-builder-line"></div>
-        <div class="thumb-builder-line short"></div>
-      </div>
-      <div class="location-template-meta">
-        <strong>Custom</strong>
-        <p>Builder-designed page</p>
-      </div>
-    </button>
+          <span id="suite-app-status" class="muted" style="margin-left: 8px;"></span>
 
-    <button
-      type="button"
-      class="location-template-edit-btn"
-      data-template-edit="custom"
-    >
-      Edit Custom Template
-    </button>
-  </div>
+          <p class="muted">
+            Template where you can customize the questions.
+          </p>
+        </div>
 
-</div>
+        <input
+          type="hidden"
+          id="loc-suite-application-template"
+          name="loc-suite-application-template"
+        />
 
+        <label class="field" style="display:none">
+          <span>Attach PDF (optional)</span>
 
+          <div id="loc-suite-current-app" class="muted">
+            No application uploaded yet.
+          </div>
 
+          <input
+            type="file"
+            id="loc-suite-app-input"
+            name="suiteAppFile"
+            accept=".pdf,image/*"
+          />
+        </label>
 
+        <div class="form-actions">
+          <button
+            id="loc-suite-cancel-btn"
+            type="button"
+            class="btn ghost"
+          >
+            Cancel
+          </button>
 
-           <!--Branding Section-->
-             <h3> Branding</h3>
-  <div class="location-style-row">
-  <label for="location-style-bg-color">Background color</label>
-  <input type="color" id="location-style-bg-color" />
-  <p class="muted small">
-    Used when no background image is set.
-  </p>
-</div>
-
-<div class="location-style-row">
-  <label for="location-style-bg-image">Background image</label>
-  <input type="file" id="location-style-bg-image" accept="image/*" />
-  <div id="location-style-bg-preview" class="location-style-bg-preview">
-    <p class="muted">No background image yet.</p>
-  </div>
-  <p class="muted small">
-    If you upload an image, it will be shown instead of the background color.
-  </p>
-</div>
-
-
-       <div class="location-style-row">
-      <label for="location-style-text-color">Text color</label>
-      <input type="color" id="location-style-text-color" />
+          <button
+            id="loc-suite-save-btn"
+            type="submit"
+            class="btn-orange"
+          >
+            Save suite
+          </button>
+        </div>
+      </form>
     </div>
 
-    <div class="location-style-actions">
-      <button type="button" class="btn" id="location-style-save-btn">
-        Save style
-      </button>
-      <button
-        type="button"
-        class="btn ghost"
-        id="location-style-cancel-btn"
-      >
-        Cancel
-      </button>
-    </div>
-  </div>
-
-  
-
-
-
-
-
-  
-</div>
-
-
-
-
-
-
-
-
-
-
-                     <!-- Suite details for a clicked suite -->
-<div
-  id="location-suite-details-card"
-  class="location-suite-details card"
-  style="display:none; margin-top: 1rem;"
->
-   <button id="location-suite-details-back-btn" type="button" class="btn ghost">
-      ← Back to <span id="location-suite-details-location-name"></span>
-    </button>
-
-  <header class="location-suite-details-header">
-    <div>
-      <h4 id="location-suite-details-name">Suite details</h4>
-      <p id="location-suite-details-availability" class="muted">—</p>
-    </div>
-    
- 
-<div class="location-suite-details-actions">
-  <button
-    id="location-suite-edit-btn"
-    type="button"
-    class="btn"
-  >
-    Edit suite
-  </button>
-
-  <!-- 🆕 Delete button -->
-  <button
-    id="location-suite-delete-btn"
-    type="button"
-    class="btn danger"
-  >
-    Delete
-  </button>
-
-  <button
-    id="location-suite-details-close"
-    type="button"
-    class="btn ghost"
-  >
-    Close
-  </button>
-</div>
-  </header>
-
-  <!-- 🔹 Suite rate display -->
-  <div class="location-suite-rate-row">
-    <h5>Rate</h5>
-    <p
-      id="location-suite-details-rate"
-      class="muted"
-    >
-   
-    </p>
-  </div>
- 
-  <div id="suite-details-details" class="suite-details-text muted">
-     <h5>Details</h5>
- </div>
-
-
-  <div>
-    <h5>Default image</h5>
+    <!-- Suite details for a clicked suite -->
     <div
-      id="location-suite-default-img"
-      class="suite-current-photo muted"
+      id="location-suite-details-card"
+      class="location-suite-details card"
+      style="display:none; margin-top: 1rem;"
     >
+      <button id="location-suite-details-back-btn" type="button" class="btn ghost">
+        ← Back to <span id="location-suite-details-location-name"></span>
+      </button>
 
+      <header class="location-suite-details-header">
+        <div>
+          <h4 id="location-suite-details-name">Suite details</h4>
+          <p id="location-suite-details-availability" class="muted">—</p>
+        </div>
+
+        <div class="location-suite-details-actions">
+          <button
+            id="location-suite-edit-btn"
+            type="button"
+            class="btn"
+          >
+            Edit suite
+          </button>
+
+          <button
+            id="location-suite-delete-btn"
+            type="button"
+            class="btn danger"
+          >
+            Delete
+          </button>
+
+          <button
+            id="location-suite-details-close"
+            type="button"
+            class="btn ghost"
+          >
+            Close
+          </button>
+        </div>
+      </header>
+
+      <div class="location-suite-rate-row">
+        <h5>Rate</h5>
+        <p id="location-suite-details-rate" class="muted"></p>
+      </div>
+
+      <div id="suite-details-details" class="suite-details-text muted">
+        <h5>Details</h5>
+      </div>
+
+      <div>
+        <h5>Default image</h5>
+        <div
+          id="location-suite-default-img"
+          class="suite-current-photo muted"
+        ></div>
+      </div>
+
+      <div>
+        <h5>Gallery</h5>
+        <div id="location-suite-details-gallery" class="suite-gallery"></div>
+      </div>
+
+      <div>
+        <h5>Application</h5>
+        <p id="location-suite-details-application" class="muted">No application added yet.</p>
+      </div>
     </div>
-  </div>
+
+    <!-- Location Style Modal -->
+    <div id="location-style-modal" class="auth-modal" hidden>
+      <div class="auth-card location-style-card">
+        <div class="location-style-header">
+          <h3>Location Style</h3>
+          <button
+            type="button"
+            id="location-style-close-btn"
+            class="btn ghost small"
+            style="float:right;"
+          >
+            ✕
+          </button>
+        </div>
 
 
-    <div>
-      <h5>Gallery</h5>
-      <div id="location-suite-details-gallery" class="suite-gallery"></div>
+ <h3>Branding</h3>
+
+          <div class="location-style-row">
+            <label for="location-style-bg-color">Background color</label>
+            <input type="color" id="location-style-bg-color" />
+            <p class="muted small">
+              Used when no background image is set.
+            </p>
+          </div>
+
+          <div class="location-style-row">
+            <label for="location-style-bg-image">Background image</label>
+            <input type="file" id="location-style-bg-image" accept="image/*" />
+            <div id="location-style-bg-preview" class="location-style-bg-preview">
+              <p class="muted">No background image yet.</p>
+            </div>
+            <p class="muted small">
+              If you upload an image, it will be shown instead of the background color.
+            </p>
+          </div>
+
+          <div class="location-style-row">
+            <label for="location-style-text-color">Text color</label>
+            <input type="color" id="location-style-text-color" />
+          </div>
+         
+         
+                                  <!-- Templates-->
+
+        <div class="location-style-row" id="location-page-type-row">
+          <label for="location-page-type">Page type</label>
+          <select id="location-page-type">
+            <option value="default">Default</option>
+            <option value="template1">Pepla</option>
+            <option value="template2">Icon</option>
+            <option value="custom">Custom</option>
+          </select>
+          <p class="muted small">
+            Pick which type of public page this location should use.
+          </p>
+
+          <div class="location-template-picker" id="location-template-picker">
+            <div class="location-template-card-wrap">
+              <button
+                type="button"
+                class="location-template-card is-selected"
+                data-template="default"
+              >
+                <div class="location-template-thumb default-thumb">
+                  <div class="thumb-header"></div>
+                  <div class="thumb-hero"></div>
+                  <div class="thumb-row">
+                    <span></span><span></span><span></span>
+                  </div>
+                </div>
+                <div class="location-template-meta">
+                  <strong>Default</strong>
+                  <p>Classic suite layout</p>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                class="location-template-edit-btn"
+                data-template-edit="default"
+              >
+                Edit Default Template
+              </button>
+            </div>
+
+            <div class="location-template-card-wrap">
+              <button
+                type="button"
+                class="location-template-card"
+                data-template="template1"
+              >
+                <div class="location-template-thumb template1-thumb">
+                  <div class="thumb-split">
+                    <div class="thumb-image"></div>
+                    <div class="thumb-panel"></div>
+                  </div>
+                  <div class="thumb-grid">
+                    <span></span><span></span><span></span>
+                  </div>
+                </div>
+                <div class="location-template-meta">
+                  <strong>Pepla</strong>
+                  <p>Clean card layout</p>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                class="location-template-edit-btn"
+                data-template-edit="template1"
+              >
+                Edit Pepla Template
+              </button>
+            </div>
+
+            <div class="location-template-card-wrap">
+              <button
+                type="button"
+                class="location-template-card"
+                data-template="template2"
+              >
+                <div class="location-template-thumb template2-thumb">
+                  <div class="thumb-full-hero"></div>
+                  <div class="thumb-featured"></div>
+                  <div class="thumb-mini-row">
+                    <span></span><span></span>
+                  </div>
+                </div>
+                <div class="location-template-meta">
+                  <strong>Icon</strong>
+                  <p>Luxury editorial layout</p>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                class="location-template-edit-btn"
+                data-template-edit="template2"
+              >
+                Edit Icon Template
+              </button>
+            </div>
+
+            <div class="location-template-card-wrap">
+              <button
+                type="button"
+                class="location-template-card"
+                data-template="custom"
+              >
+                <div class="location-template-thumb custom-thumb">
+                  <div class="thumb-builder-box"></div>
+                  <div class="thumb-builder-line"></div>
+                  <div class="thumb-builder-line short"></div>
+                </div>
+                <div class="location-template-meta">
+                  <strong>Custom</strong>
+                  <p>Builder-designed page</p>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                class="location-template-edit-btn"
+                data-template-edit="custom"
+              >
+                Edit Custom Template
+              </button>
+            </div>
+          </div>
+
+         
+
+          <div class="location-style-actions">
+            <button type="button" class="btn" id="location-style-save-btn">
+              Save style
+            </button>
+            <button
+              type="button"
+              class="btn ghost"
+              id="location-style-cancel-btn"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
 
-    <div>
-      <h5>Application</h5>
-      <p id="location-suite-details-application" class="muted">No application added yet.</p>
-    </div>
   </div>
-
-</div>
-
-
-  </div>
-
-  
 </section>
 
 

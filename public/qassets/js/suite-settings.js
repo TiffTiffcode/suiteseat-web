@@ -1875,15 +1875,22 @@ function enterSuiteDetailsMode() {
   const suiteDetailsCard = document.getElementById("location-suite-details-card");
   if (!detailsCard || !suiteDetailsCard) return;
 
+  const detailsHeader =
+    document.querySelector("#location-details-card .location-details-header") ||
+    document.getElementById("location-details-header");
+
+  const detailsGrid = document.querySelector("#location-details-card .location-details-grid");
+  const suitesSection = document.getElementById("location-suites-section");
+  const suiteFormCard = document.getElementById("location-suite-form-card");
+
+  // hide location details pieces
+  if (detailsHeader) detailsHeader.style.display = "none";
+  if (detailsGrid) detailsGrid.style.display = "none";
+  if (suitesSection) suitesSection.style.display = "none";
+  if (suiteFormCard) suiteFormCard.style.display = "none";
+
   // show suite details
   suiteDetailsCard.style.display = "block";
-
-  // hide everything else inside location details card
-  Array.from(detailsCard.children).forEach((child) => {
-    if (child === suiteDetailsCard) return;
-    child.dataset.prevDisplay = child.style.display || "";
-    child.style.display = "none";
-  });
 }
 
 function exitSuiteDetailsMode() {
@@ -1891,15 +1898,22 @@ function exitSuiteDetailsMode() {
   const suiteDetailsCard = document.getElementById("location-suite-details-card");
   if (!detailsCard || !suiteDetailsCard) return;
 
+  const detailsHeader =
+    document.querySelector("#location-details-card .location-details-header") ||
+    document.getElementById("location-details-header");
+
+  const detailsGrid = document.querySelector("#location-details-card .location-details-grid");
+  const suitesSection = document.getElementById("location-suites-section");
+
   // hide suite details
   suiteDetailsCard.style.display = "none";
 
-  // restore everything else
-  Array.from(detailsCard.children).forEach((child) => {
-    if (child === suiteDetailsCard) return;
-    child.style.display = child.dataset.prevDisplay ?? "";
-    delete child.dataset.prevDisplay;
-  });
+  // restore location details pieces
+  if (detailsHeader) detailsHeader.style.display = "";
+  if (detailsGrid) detailsGrid.style.display = "";
+  if (suitesSection) suitesSection.style.display = "";
+
+   console.log("[suite details] exitSuiteDetailsMode ran");
 }
 
 
@@ -1927,53 +1941,47 @@ async function showSuiteDetails(suite) {
   selectedSuite = fresh;
 
   const v = fresh?.values || fresh || {};
-console.log("[suite details] v keys:", Object.keys(v));
-console.log("[suite details] Suite Rent:", v["Suite Rent"]);
-console.log("[suite details] Rate:", v["Rate"]);
-console.log("[suite details] Rate Frequency:", v["Rate Frequency"]);
-console.log("[suite details] Frequency:", v["Frequency"]);
-console.log("[suite details] raw v:", v);
+  console.log("[suite details] v keys:", Object.keys(v));
+  console.log("[suite details] Suite Rent:", v["Suite Rent"]);
+  console.log("[suite details] Rate:", v["Rate"]);
+  console.log("[suite details] Rate Frequency:", v["Rate Frequency"]);
+  console.log("[suite details] Frequency:", v["Frequency"]);
+  console.log("[suite details] raw v:", v);
 
-  // Sections
-  const suitesHeader = document.querySelector(".location-suites-header");
-  const suitesList   = document.getElementById("location-suites-list");
-  const suiteCard    = document.getElementById("location-suite-details-card");
-
- 
   // Fill text fields
   const name =
     v["Suite Name"] || v.name || v.Name || "Suite";
 
-const availableRaw =
-  v["Date Available"] || v["Available Date"] || v.availableDate || "";
+  const titleEl = document.getElementById("location-suite-details-name");
+  if (titleEl) {
+    titleEl.textContent = name;
+  }
 
-const available = fmtDateNice(availableRaw); // ✅ add this
+  const availableRaw =
+    v["Date Available"] || v["Available Date"] || v.availableDate || "";
 
-document.getElementById("location-suite-details-availability").textContent =
-  available ? `Available: ${available}` : "—";
+  const available = fmtDateNice(availableRaw);
 
+  document.getElementById("location-suite-details-availability").textContent =
+    available ? `Available: ${available}` : "—";
 
-const rentRaw =
-  v["Rent Amount"] ?? v["Suite Rent"] ?? v["Rate"] ?? v.rate ?? "";
+  const rentRaw =
+    v["Rent Amount"] ?? v["Suite Rent"] ?? v["Rate"] ?? v.rate ?? "";
 
-const freqRaw =
-  v["Rent Frequency"] ?? v["Rate Frequency"] ?? v["Frequency"] ?? v.frequency ?? "";
+  const freqRaw =
+    v["Rent Frequency"] ?? v["Rate Frequency"] ?? v["Frequency"] ?? v.frequency ?? "";
 
-const rent = String(rentRaw ?? "").trim();
-const freq = String(freqRaw ?? "").trim();
+  const rent = String(rentRaw ?? "").trim();
+  const freq = String(freqRaw ?? "").trim();
 
-document.getElementById("location-suite-details-rate").textContent =
-  rent ? `$${rent}${freq ? ` / ${freq}` : ""}` : "Contact for rate";
-
-
-
+  document.getElementById("location-suite-details-rate").textContent =
+    rent ? `$${rent}${freq ? ` / ${freq}` : ""}` : "Contact for rate";
 
   // Default image
-const defaultImgRaw =
-  v["Default Photo"] || v["Default Image"] || v.photoUrl || "";
+  const defaultImgRaw =
+    v["Default Photo"] || v["Default Image"] || v.photoUrl || "";
 
-const defaultImg = resolveImg(defaultImgRaw);
-
+  const defaultImg = resolveImg(defaultImgRaw);
 
   const defaultImgHolder = document.getElementById("location-suite-default-img");
   if (defaultImgHolder) {
@@ -1984,8 +1992,7 @@ const defaultImg = resolveImg(defaultImgRaw);
 
   // Gallery
   const galleryRaw = v["Gallery Images"] || v["Suite Gallery"] || v.gallery || [];
-const gallery = Array.isArray(galleryRaw) ? galleryRaw : [];
-
+  const gallery = Array.isArray(galleryRaw) ? galleryRaw : [];
 
   const galEl = document.getElementById("location-suite-details-gallery");
   if (galEl) {
@@ -1999,28 +2006,27 @@ const gallery = Array.isArray(galleryRaw) ? galleryRaw : [];
       : `<p class="muted">No gallery images.</p>`;
   }
 
-    // ✅ Details under the rate
+  // Details under the rate
   const detailsEl = document.getElementById("suite-details-details");
   if (detailsEl) {
     const html = v["Details"] || v.details || "";
     detailsEl.innerHTML = html || `<span class="muted">No details added yet.</span>`;
   }
 
-    // ✅ Application status
-renderSuiteApplicationStatus(selectedSuite);
-renderSuiteApplicationLink(selectedSuite);
-
-
-
-
+  // Application status
+  renderSuiteApplicationStatus(selectedSuite);
+  renderSuiteApplicationLink(selectedSuite);
 
   // Show location name inside "Back to ___"
-  const locName = (selectedLocation?.values || selectedLocation || {})["Location Name"]
-    || selectedLocation?.name
-    || "";
+  const locName =
+    (selectedLocation?.values || selectedLocation || {})["Location Name"] ||
+    selectedLocation?.name ||
+    "";
 
   const locNameSpan = document.getElementById("location-suite-details-location-name");
   if (locNameSpan) locNameSpan.textContent = locName || "location";
+
+  console.log("[suite details] details card should now be visible");
 }
 
 
@@ -2936,63 +2942,69 @@ function rebuildCustomSections(customConfigs) {
   });
 }
 
-  function openAppBuilder() {
-    // require an open suite first
-    const suite =
-      window.selectedSuite || window.activeSuite || null;
+function openAppBuilder() {
+  const suite =
+    window.selectedSuite || window.activeSuite || null;
 
-    if (!suite) {
-      alert("Open a suite first.");
-      return;
-    }
-
-    // Set suite + location name in header if you want (optional)
-    const locName =
-      (window.selectedLocation?.values || window.selectedLocation || {})["Location Name"] ||
-      window.selectedLocation?.name ||
-      "Location Name";
-
-    const left = appModal.querySelector('[data-app-field="locationName"]');
-    const right = appModal.querySelector('[data-app-field="locationNameRight"]');
-    if (left) left.textContent = locName;
-    if (right) right.textContent = locName;
-
-    // suite subtitle (auto)
-    const v = suite.values || suite || {};
-    const suiteName = v["Suite Name"] || v.name || "Suite Name";
-    const subtitle = appModal.querySelector(".suite-app-subtitle");
-    if (subtitle) subtitle.textContent = suiteName;
-
-    // load saved json into builder (hidden input first, else from suite values)
-    const fromHidden = (templateInput?.value || "").trim();
-    const fromSuite =
-      (v["Application Template"] ||
-        v["Application Template JSON"] ||
-        v["Application Json"] ||
-        v["Application"] ||
-        "").trim?.() || "";
-
-    const jsonToUse = fromHidden || fromSuite;
-    if (templateInput && jsonToUse) templateInput.value = jsonToUse;
-
-    if (jsonToUse) applyTemplateToBuilder(jsonToUse);
-
-    appModal.hidden = false;
-    appModal.setAttribute("aria-hidden", "false");
-    document.body.classList.add("modal-open");
-
-    console.log("[suite-app] opened");
+  if (!suite) {
+    alert("Open a suite first.");
+    return;
   }
 
-  function closeAppBuilder() {
-    if (document.activeElement && appModal.contains(document.activeElement)) {
-      document.activeElement.blur();
-    }
-    appModal.hidden = true;
-    appModal.setAttribute("aria-hidden", "true");
-    document.body.classList.remove("modal-open");
-    console.log("[suite-app] closed");
+  const locName =
+    (window.selectedLocation?.values || window.selectedLocation || {})["Location Name"] ||
+    window.selectedLocation?.name ||
+    "Location Name";
+
+  const left = appModal.querySelector('[data-app-field="locationName"]');
+  const right = appModal.querySelector('[data-app-field="locationNameRight"]');
+  if (left) left.textContent = locName;
+  if (right) right.textContent = locName;
+
+  const v = suite.values || suite || {};
+  const suiteName = v["Suite Name"] || v.name || "Suite Name";
+  const subtitle = appModal.querySelector(".suite-app-subtitle");
+  if (subtitle) subtitle.textContent = suiteName;
+
+  const fromHidden = (templateInput?.value || "").trim();
+  const fromSuite =
+    (v["Application Template"] ||
+      v["Application Template JSON"] ||
+      v["Application Json"] ||
+      v["Application"] ||
+      "").trim?.() || "";
+
+  const jsonToUse = fromHidden || fromSuite;
+  if (templateInput && jsonToUse) templateInput.value = jsonToUse;
+
+  if (jsonToUse) applyTemplateToBuilder(jsonToUse);
+
+  appModal.hidden = false;
+  appModal.classList.add("is-open");
+  appModal.style.display = "flex";
+  appModal.setAttribute("aria-hidden", "false");
+  document.body.classList.add("modal-open");
+
+  console.log("[suite-app] opened", {
+    hidden: appModal.hidden,
+    display: getComputedStyle(appModal).display,
+    hasOpenClass: appModal.classList.contains("is-open")
+  });
+}
+
+function closeAppBuilder() {
+  if (document.activeElement && appModal.contains(document.activeElement)) {
+    document.activeElement.blur();
   }
+
+  appModal.hidden = true;
+  appModal.classList.remove("is-open");
+  appModal.style.display = "none";
+  appModal.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("modal-open");
+
+  console.log("[suite-app] closed");
+}
 
   // ---------- wire buttons ----------
   openAppBtn.addEventListener("click", openAppBuilder);
@@ -3849,15 +3861,71 @@ async function loadSuiteApplications() {
   const countEl = document.getElementById("suite-applications-count");
   if (!tbody) return;
 
-  // selected location from dropdown
   const selectedLocationId =
     document.getElementById("suites-location-filter")?.value || "";
 
   tbody.innerHTML = `<tr><td colspan="6" class="muted">Loading…</td></tr>`;
 
-  // 1) fetch applications for this owner
-//const appsUrl = apiUrl(`/public/records?dataType=Application&limit=500`);
-const appsUrl = apiUrl(`/public/records?dataType=Suite Application Submission&limit=500`);
+  // 1) fetch the current user's suites FIRST
+  const suitesUrl = apiUrl(
+    `/api/records/${encodeURIComponent("Suite")}?limit=500`
+  );
+
+  const suitesRes = await fetch(suitesUrl, {
+    credentials: "include",
+    headers: { Accept: "application/json" },
+    cache: "no-store",
+  });
+
+  if (!suitesRes.ok) {
+    console.log("[apps] failed to load suites for current user");
+    tbody.innerHTML = `<tr><td colspan="6" class="muted">No applications found.</td></tr>`;
+    if (countEl) countEl.textContent = `0 applications`;
+    return;
+  }
+
+  const suitesData = await suitesRes.json().catch(() => ({}));
+  const suites = Array.isArray(suitesData)
+    ? suitesData
+    : suitesData.records || suitesData.items || suitesData.data || [];
+
+  console.log("[apps] suites fetched for current user:", suites.length);
+  console.log("[apps] first suite:", suites[0]);
+
+  // keep state updated for the rest of the page
+  window.STATE = window.STATE || {};
+  window.STATE.suites = suites;
+
+  const mySuiteIds = new Set(
+    suites.map((s) => String(s._id || s.id || "")).filter(Boolean)
+  );
+
+  const suiteIdToLocationId = new Map();
+
+  suites.forEach((s) => {
+    const v = s.values || s || {};
+    const suiteId = String(s._id || s.id || "");
+
+    let locRef = v.Location || v["Location"] || null;
+    if (Array.isArray(locRef)) locRef = locRef[0] || "";
+
+    let locId = "";
+    if (typeof locRef === "string") {
+      locId = locRef;
+    } else if (locRef && typeof locRef === "object") {
+      locId = String(locRef._id || locRef.id || "");
+    }
+
+    if (suiteId && locId) {
+      suiteIdToLocationId.set(suiteId, locId);
+    }
+  });
+
+  // 2) fetch all suite application submissions
+  const appsUrl = apiUrl(
+    `/public/records?dataType=Suite Application Submission&limit=500`
+  );
+
   const res = await fetch(appsUrl, {
     credentials: "include",
     headers: { Accept: "application/json" },
@@ -3873,47 +3941,55 @@ const appsUrl = apiUrl(`/public/records?dataType=Suite Application Submission&li
   const data = await res.json().catch(() => ({}));
   const apps = Array.isArray(data) ? data : data.records || data.items || [];
 
-  // 2) build a lookup: suiteId -> locationId
-  const suites = window.STATE.suites || [];
-  const suiteIdToLocationId = new Map();
+  console.log("[apps] total apps fetched:", apps.length);
+  console.log("[apps] mySuiteIds:", [...mySuiteIds]);
 
-  suites.forEach((s) => {
-    const v = s.values || s;
-    const suiteId = String(s._id || s.id || "");
-    const locRef = v.Location || v["Location"] || null;
+  // 3) first filter to only apps tied to this user's suites
+  const mine = apps.filter((app) => {
+    const av = app.values || app || {};
+    let suiteRef = av.Suite || av["Suite"] || null;
 
-    let locId = "";
-    if (typeof locRef === "string") locId = locRef;
-    else if (locRef && typeof locRef === "object") locId = String(locRef._id || locRef.id || "");
+    if (Array.isArray(suiteRef)) suiteRef = suiteRef[0] || "";
 
-    if (suiteId && locId) suiteIdToLocationId.set(suiteId, locId);
-  });
-
-  // 3) filter apps by location (based on app.Suite -> suite.Location)
-  const filtered = apps.filter((app) => {
-    if (!selectedLocationId) return true; // "All Locations"
-
-    const av = app.values || app;
-
-    const suiteRef = av.Suite || av["Suite"] || null;
     const suiteId =
       typeof suiteRef === "string"
-        ? suiteRef
+        ? String(suiteRef)
+        : suiteRef && typeof suiteRef === "object"
+        ? String(suiteRef._id || suiteRef.id || "")
+        : "";
+
+    return mySuiteIds.has(suiteId);
+  });
+
+  console.log("[apps] after owner filter:", mine.length);
+
+  // 4) then filter by selected location
+  const filtered = mine.filter((app) => {
+    if (!selectedLocationId) return true;
+
+    const av = app.values || app || {};
+    let suiteRef = av.Suite || av["Suite"] || null;
+
+    if (Array.isArray(suiteRef)) suiteRef = suiteRef[0] || "";
+
+    const suiteId =
+      typeof suiteRef === "string"
+        ? String(suiteRef)
         : suiteRef && typeof suiteRef === "object"
         ? String(suiteRef._id || suiteRef.id || "")
         : "";
 
     const locId = suiteIdToLocationId.get(suiteId) || "";
-    return locId === selectedLocationId;
+    return String(locId) === String(selectedLocationId);
   });
 
-  // 4) render rows
+  console.log("[apps] after location filter:", filtered.length);
+
   if (countEl) countEl.textContent = `${filtered.length} applications`;
 
-  // ✅ store counts for dashboard
-window.STATE.applications = apps;      // all apps for owner (dashboard card)
-window.STATE.filteredApplications = filtered; // optional, if you want to debug/filter later
-updateDashboardCounts();
+  window.STATE.applications = mine;
+  window.STATE.filteredApplications = filtered;
+  updateDashboardCounts();
 
   if (!filtered.length) {
     tbody.innerHTML = `<tr><td colspan="6" class="muted">No applications for this location.</td></tr>`;
@@ -3922,7 +3998,7 @@ updateDashboardCounts();
 
   tbody.innerHTML = filtered
     .map((app) => {
-      const v = app.values || app;
+      const v = app.values || app || {};
 
       const applicant = v["Applicant Name"] || v.ApplicantName || "—";
       const email = v["Applicant Email"] || v.ApplicantEmail || "—";
@@ -3931,27 +4007,29 @@ updateDashboardCounts();
         ? new Date(v["Submitted At"]).toLocaleString()
         : "—";
 
-      // suite column (show suite name if you can find it)
-      const suiteRef = v.Suite || null;
+      let suiteRef = v.Suite || v["Suite"] || null;
+      if (Array.isArray(suiteRef)) suiteRef = suiteRef[0] || "";
+
       const suiteId =
         typeof suiteRef === "string"
-          ? suiteRef
+          ? String(suiteRef)
           : suiteRef && typeof suiteRef === "object"
           ? String(suiteRef._id || suiteRef.id || "")
           : "";
 
-      const suite = (window.STATE.suites || []).find(
+      const suite = suites.find(
         (s) => String(s._id || s.id) === suiteId
       );
+
       const suiteName =
-        (suite?.values?.["Suite Name"] ||
-          suite?.values?.Name ||
-          suite?.values?.["Suite Number/Name"] ||
-          suite?.values?.name ||
-          suite?.Name ||
-          suite?.name ||
-          suiteId ||
-          "—");
+        suite?.values?.["Suite Name"] ||
+        suite?.values?.Name ||
+        suite?.values?.["Suite Number/Name"] ||
+        suite?.values?.name ||
+        suite?.Name ||
+        suite?.name ||
+        suiteId ||
+        "—";
 
       const id = app._id || app.id;
 
@@ -3967,15 +4045,14 @@ updateDashboardCounts();
       `;
     })
     .join("");
-    // ✅ Hook up View buttons after render
-tbody.querySelectorAll("[data-app-view]").forEach((btn) => {
-  btn.addEventListener("click", () => {
-    const id = btn.getAttribute("data-app-view");
-    const row = filtered.find((a) => String(a._id || a.id) === String(id));
-    if (row) openSuiteApplicationModal(row);
-  });
-});
 
+  tbody.querySelectorAll("[data-app-view]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const id = btn.getAttribute("data-app-view");
+      const row = filtered.find((a) => String(a._id || a.id) === String(id));
+      if (row) openSuiteApplicationModal(row);
+    });
+  });
 }
 
 
@@ -6819,8 +6896,91 @@ async function acceptTransferFromUrl() {
 
 
 
+////////////////////////////
+//Switch to builder mode 
+async function saveProMode(mode) {
+  const res = await fetch(apiUrl("/api/me/pro-mode"), {
+    method: "PATCH",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json"
+    },
+    body: JSON.stringify({ proMode: mode })
+  });
 
+  const data = await res.json().catch(() => ({}));
 
+  if (!res.ok || data.ok === false) {
+    throw new Error(data.error || data.message || "Failed to save mode.");
+  }
+
+  return data;
+}
+
+function initSuiteSettingsProModeToggle() {
+  const textEl = document.getElementById("suite-pro-mode-text");
+  const selfBtn = document.getElementById("suite-mode-self-btn");
+  const builderBtn = document.getElementById("suite-mode-builder-btn");
+
+  if (!textEl || !selfBtn || !builderBtn) return;
+
+  function paintMode() {
+    const mode = currentUser?.proMode || "self";
+
+    if (mode === "builder") {
+      textEl.textContent = "Current mode: Builder";
+      selfBtn.disabled = false;
+      builderBtn.disabled = true;
+    } else {
+      textEl.textContent = "Current mode: Creator";
+      selfBtn.disabled = true;
+      builderBtn.disabled = false;
+    }
+  }
+
+ async function switchMode(mode) {
+  try {
+    selfBtn.disabled = true;
+    builderBtn.disabled = true;
+
+    await saveProMode(mode);
+
+    currentUser = {
+      ...currentUser,
+      proMode: mode
+    };
+
+    console.log("[suite-settings] switched proMode to:", currentUser.proMode);
+
+    updateSuiteModeDisplay();
+    paintMode();
+
+    alert(`Switched to ${mode === "builder" ? "Builder" : "Creator"} Mode.`);
+  } catch (err) {
+    console.error("[suite-settings] saveProMode error", err);
+    alert(err.message || "Could not switch mode.");
+    paintMode();
+  } finally {
+    updateSuiteModeDisplay();
+  }
+}
+
+  selfBtn.addEventListener("click", () => switchMode("self"));
+  builderBtn.addEventListener("click", () => switchMode("builder"));
+
+  paintMode();
+}
+
+function updateSuiteModeDisplay() {
+  const modeEl = document.getElementById("suite-pro-mode-display");
+  if (!modeEl) return;
+
+  const mode = currentUser?.proMode === "builder" ? "Builder" : "Creator";
+  modeEl.textContent = `Current mode: ${mode}`;
+
+  console.log("[suite-settings] mode shown to user:", mode);
+}
 
 
 
@@ -6861,6 +7021,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   // ✅ Get user FIRST (before anything that depends on currentUser)
   await hydrateUser(); // sets currentUser + setLoggedInUI
   console.log("[suite-settings2] currentUser:", currentUser);
+console.log("[suite-settings] current proMode:", currentUser?.proMode || "self");
+updateSuiteModeDisplay();
 
   const transferGroupIdFromUrl = getAcceptTransferIdFromUrl();
 if (transferGroupIdFromUrl && !currentUser?.id) {
@@ -6949,6 +7111,7 @@ updateHandoffTabVisibility();
   // ================================
   initStripeConnectButton();
   await refreshStripeStatusUI();
+initSuiteSettingsProModeToggle();
 
   // refresh when user clicks Settings tab
   const settingsBtn = document.querySelector('button[data-target="settings"]');
